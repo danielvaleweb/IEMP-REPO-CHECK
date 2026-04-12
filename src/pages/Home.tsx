@@ -99,11 +99,39 @@ export default function Home() {
         if (!response.ok) throw new Error("Failed to fetch videos");
         const data = await response.json();
         
-        // Ensure uniqueness by ID
-        const uniqueVideos = Array.from(new Map(data.map((v: any) => [v.id, v])).values());
-        setVideos(uniqueVideos);
+        if (data && data.length > 0) {
+          // Ensure uniqueness by ID
+          const uniqueVideos = Array.from(new Map(data.map((v: any) => [v.id, v])).values());
+          setVideos(uniqueVideos);
+        } else {
+          throw new Error("Empty videos array");
+        }
       } catch (error) {
-        console.error("Error fetching videos:", error);
+        console.error("Error fetching videos, using fallbacks:", error);
+        // Fallback videos if API fails
+        setVideos([
+          {
+            id: "fallback-1",
+            title: "Culto de Celebração",
+            thumbnail: "https://picsum.photos/seed/church1/800/600",
+            published: new Date().toISOString(),
+            link: "#"
+          },
+          {
+            id: "fallback-2",
+            title: "Estudo Bíblico",
+            thumbnail: "https://picsum.photos/seed/church2/800/600",
+            published: new Date().toISOString(),
+            link: "#"
+          },
+          {
+            id: "fallback-3",
+            title: "Louvor e Adoração",
+            thumbnail: "https://picsum.photos/seed/church3/800/600",
+            published: new Date().toISOString(),
+            link: "#"
+          }
+        ]);
       }
     };
     fetchVideos();
