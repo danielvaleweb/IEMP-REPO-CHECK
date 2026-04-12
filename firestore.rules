@@ -20,32 +20,27 @@ service cloud.firestore {
 
     // Members collection
     match /members/{memberId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // Posts collection
     match /posts/{postId} {
-      allow read: if true;
-      allow write: if isEditor();
+      allow read, write: if true;
     }
 
     // Music collection
     match /musics/{musicId} {
-      allow read: if true;
-      allow write: if isEditor();
+      allow read, write: if true;
     }
 
     // Agenda collection
     match /agenda/{eventId} {
-      allow read: if true;
-      allow write: if isEditor();
+      allow read, write: if true;
     }
 
     // Notifications collection
     match /notifications/{notifId} {
-      allow read: if isEditor();
-      allow write: if true; // Allow public to trigger notifications (e.g. on comment)
+      allow read, write: if true;
     }
   }
 }
