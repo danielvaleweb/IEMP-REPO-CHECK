@@ -182,66 +182,46 @@ export default function Home() {
               }
             }}
           >
-            <h1 className="text-4xl md:text-6xl font-light mb-6 tracking-tight leading-tight flex flex-wrap justify-center gap-x-[0.3em] gap-y-2">
-              {["Seja", "bem-vindo", "em", "nome", "de"].map((word, i) => (
-                <motion.span
-                  key={i}
-                  variants={{
-                    hidden: { opacity: 0, y: 20, filter: "blur(10px)" },
-                    visible: { opacity: 1, y: 0, filter: "blur(0px)" }
-                  }}
-                  transition={{ duration: 0.8, ease: [0.2, 0.65, 0.3, 0.9] }}
-                  className="inline-block"
-                >
-                  {word}
-                </motion.span>
-              ))}
+            <h1 className="text-4xl md:text-7xl lg:text-8xl mb-8 tracking-tighter leading-none flex flex-wrap items-center justify-center gap-x-[0.3em] gap-y-4">
               <motion.span
                 variants={{
-                  hidden: { opacity: 0, scale: 0.8, filter: "blur(10px)" },
+                  hidden: { opacity: 0, y: 30, filter: "blur(15px)" },
+                  visible: { opacity: 1, y: 0, filter: "blur(0px)" }
+                }}
+                transition={{ duration: 1, ease: [0.2, 0.65, 0.3, 0.9] }}
+                className="font-light text-white/80 whitespace-nowrap"
+              >
+                Tudo posso
+              </motion.span>
+              <motion.span
+                variants={{
+                  hidden: { opacity: 0, scale: 0.9, filter: "blur(20px)" },
                   visible: { opacity: 1, scale: 1, filter: "blur(0px)" }
                 }}
-                transition={{ duration: 1, delay: 0.8 }}
-                className="font-bold inline-block text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
+                transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
+                className="font-bold text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.3)] whitespace-nowrap"
               >
-                Jesus
-              </motion.span>
-              
-              <div className="w-full h-0" /> {/* Line break */}
-              
-              {["Volte", "sempre"].map((word, i) => (
-                <motion.span
-                  key={i}
-                  variants={{
-                    hidden: { opacity: 0, y: 20, filter: "blur(10px)" },
-                    visible: { opacity: 1, y: 0, filter: "blur(0px)" }
-                  }}
-                  transition={{ duration: 0.8, ease: [0.2, 0.65, 0.3, 0.9] }}
-                  className="inline-block"
-                >
-                  {word}
-                </motion.span>
-              ))}
-              <motion.span
-                variants={{
-                  hidden: { opacity: 0, x: 20, filter: "blur(10px)" },
-                  visible: { opacity: 1, x: 0, filter: "blur(0px)" }
-                }}
-                transition={{ duration: 1, delay: 1.2 }}
-                className="font-bold text-[#BF76FF] inline-block drop-shadow-[0_0_20px_rgba(191,118,255,0.4)]"
-              >
-                nós amamos você!
+                naquele que me fortalece
               </motion.span>
             </h1>
             
             <motion.p 
-              initial={{ opacity: 0, filter: "blur(5px)" }}
-              animate={{ opacity: 1, filter: "blur(0px)" }}
-              transition={{ duration: 1, delay: 1.8 }}
-              className="text-lg md:text-xl text-gray-400 mb-10 max-w-2xl mx-auto font-light leading-relaxed"
+              initial={{ opacity: 0 }}
+              animate={{ 
+                opacity: 1,
+                textShadow: [
+                  "0 0 10px rgba(191,118,255,0.4)",
+                  "0 0 30px rgba(191,118,255,0.8)",
+                  "0 0 10px rgba(191,118,255,0.4)"
+                ]
+              }}
+              transition={{ 
+                opacity: { duration: 1, delay: 1.5 },
+                textShadow: { duration: 2.5, repeat: Infinity, ease: "easeInOut" }
+              }}
+              className="text-2xl md:text-3xl text-[#BF76FF] mb-12 font-bold tracking-[0.3em] uppercase"
             >
-              Este é um lugar para fortalecer seu espírito, encontrar paz e <br className="hidden md:block" />
-              estar mais perto de Deus, onde você estiver.
+              Filipenses 4:13
             </motion.p>
             
             <div className="flex justify-center mb-12">

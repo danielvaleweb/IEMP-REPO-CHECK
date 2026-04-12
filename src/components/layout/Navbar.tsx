@@ -17,6 +17,13 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -74,59 +81,6 @@ export default function Navbar() {
 
   return (
     <>
-      {/* Floating Favorites Button */}
-      <div className="fixed bottom-8 right-8 z-[100]">
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <button className="relative w-14 h-14 rounded-full bg-[#BF76FF] text-white shadow-2xl shadow-[#BF76FF]/40 flex items-center justify-center hover:scale-110 active:scale-95 transition-all group">
-                <Heart className={cn("w-6 h-6 transition-all", favorites.length > 0 && "fill-current")} />
-                {favorites.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-6 h-6 bg-white text-[#BF76FF] text-xs font-bold rounded-full flex items-center justify-center shadow-lg border-2 border-[#BF76FF]">
-                    {favorites.length}
-                  </span>
-                )}
-              </button>
-            }
-          />
-          <DropdownMenuContent align="end" className="w-80 bg-[#0f0d11] backdrop-blur-xl border-white/10 text-white rounded-2xl mb-4">
-            <div className="p-4 text-[10px] font-bold text-white/40 uppercase tracking-widest">Meus Favoritos</div>
-            <DropdownMenuSeparator className="bg-white/10" />
-            {favorites.length === 0 ? (
-              <div className="p-8 text-center text-sm text-white/40 italic">
-                Nenhum vídeo favoritado
-              </div>
-            ) : (
-              <div className="max-h-[400px] overflow-y-auto p-2">
-                {favorites.map((video) => (
-                  <DropdownMenuItem key={video.id} className="p-2 rounded-xl focus:bg-white/5 cursor-pointer group mb-1">
-                    <div className="flex gap-3 items-center w-full">
-                      <img src={video.thumbnail} className="w-16 h-9 object-cover rounded-lg" alt="" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{video.title}</p>
-                        <p className="text-[10px] text-white/40">
-                          {new Date(video.published).toLocaleDateString('pt-BR')}
-                        </p>
-                      </div>
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleFavorite(video);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-2 hover:text-red-500 transition-all"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </DropdownMenuItem>
-                ))}
-              </div>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
       <nav className={cn(
         "fixed top-6 left-0 right-0 z-50 transition-all duration-500 px-6",
         isScrolled ? "translate-y-0" : "translate-y-0"
@@ -192,6 +146,30 @@ export default function Navbar() {
 
           {/* Right Side - Auth & Mobile Menu */}
           <div className="flex items-center gap-3">
+            {/* Favorites Icon in Navbar */}
+            <Link to="/favoritos" className="relative p-2 text-white hover:scale-110 active:scale-95 transition-all group cursor-pointer outline-none">
+              <Heart className="w-6 h-6 fill-white stroke-white" />
+              {favorites.length > 0 && (
+                <div className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px]">
+                  {/* External Pulse Effect */}
+                  <motion.span
+                    animate={{ scale: [1, 2.5], opacity: [0.8, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
+                    className="absolute inset-0 bg-[#BF76FF] rounded-full"
+                  />
+                  {/* Main Counter */}
+                  <motion.span 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="relative w-full h-full bg-[#BF76FF] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg border border-white/20"
+                  >
+                    {favorites.length}
+                  </motion.span>
+                </div>
+              )}
+            </Link>
+
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger

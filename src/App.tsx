@@ -18,6 +18,7 @@ import Bible from "@/pages/Bible";
 import Departments from "@/pages/Departments";
 import Discipleship from "@/pages/Discipleship";
 import EBD from "@/pages/EBD";
+import Favorites from "@/pages/Favorites";
 import StaticPages from "@/pages/StaticPages";
 
 export default function App() {
@@ -32,6 +33,7 @@ export default function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/ao-vivo" element={<Live />} />
                 <Route path="/galeria" element={<Gallery />} />
+                <Route path="/favoritos" element={<Favorites />} />
                 <Route path="/admin" element={<Admin />} />
                 <Route path="/quem-somos" element={<About />} />
                 <Route path="/biblia" element={<Bible />} />
