@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == "iempministerioprofecia@gmail.com");
+    }
+
+    function isEditor() {
+      return isAuthenticated() && 
+        (get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role in ['admin', 'editor']);
+    }
+
+    // Members collection
+    match /members/{memberId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Posts collection
+    match /posts/{postId} {
+      allow read: if true;
+      allow write: if isEditor();
+    }
+
+    // Music collection
+    match /musics/{musicId} {
+      allow read: if true;
+      allow write: if isEditor();
+    }
+
+    // Agenda collection
+    match /agenda/{eventId} {
+      allow read: if true;
+      allow write: if isEditor();
+    }
+
+    // Notifications collection
+    match /notifications/{notifId} {
+      allow read: if isEditor();
+      allow write: if true; // Allow public to trigger notifications (e.g. on comment)
+    }
+  }
+}

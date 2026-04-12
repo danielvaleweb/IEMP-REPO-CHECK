@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "Post": {
+      "title": "Post",
+      "description": "Artigos e notícias da igreja",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "excerpt": { "type": "string" },
+        "image": { "type": "string" },
+        "category": { "type": "string" },
+        "authorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content", "authorId"]
+    },
+    "Music": {
+      "title": "Music",
+      "description": "Músicas para tocar de fundo",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "youtubeUrl": { "type": "string" },
+        "videoId": { "type": "string" },
+        "addedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "youtubeUrl", "videoId"]
+    },
+    "Member": {
+      "title": "Member",
+      "description": "Membros da equipe e usuários do painel",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "editor", "member"] },
+        "photoURL": { "type": "string" },
+        "hasDashboardAccess": { "type": "boolean" }
+      },
+      "required": ["name", "email", "role"]
+    },
+    "Agenda": {
+      "title": "Agenda",
+      "description": "Eventos e compromissos da igreja",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "location": { "type": "string" },
+        "type": { "type": "string" }
+      },
+      "required": ["title", "date"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Alertas do sistema (comentários, etc)",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "read"]
+    }
+  },
+  "firestore": {
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Coleção de artigos"
+    },
+    "/musics/{musicId}": {
+      "schema": "Music",
+      "description": "Playlist de fundo"
+    },
+    "/members/{memberId}": {
+      "schema": "Member",
+      "description": "Equipe e permissões"
+    },
+    "/agenda/{eventId}": {
+      "schema": "Agenda",
+      "description": "Eventos da igreja"
+    },
+    "/notifications/{notifId}": {
+      "schema": "Notification",
+      "description": "Alertas administrativos"
+    }
+  }
+}
