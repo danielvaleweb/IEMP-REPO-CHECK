@@ -569,7 +569,14 @@ export default function Admin() {
                     setIsSubmitting(true);
                     await login();
                   } catch (error: any) {
-                    setAuthError("Erro ao entrar com Google: " + (error.message || "Tente novamente."));
+                    console.error("Erro no login Google:", error);
+                    if (error.code === 'auth/unauthorized-domain') {
+                      setAuthError(`Este domínio (${window.location.hostname}) não está autorizado no Firebase. Adicione-o na seção 'Authentication > Settings > Authorized domains' do Console do Firebase.`);
+                    } else if (error.code === 'auth/popup-closed-by-user') {
+                      setAuthError("A janela de login foi fechada antes de completar. Tente novamente.");
+                    } else {
+                      setAuthError("Erro ao entrar com Google: " + (error.message || "Tente novamente."));
+                    }
                   } finally {
                     setIsSubmitting(false);
                   }
@@ -595,6 +602,17 @@ export default function Admin() {
                 </svg>
                 Google
               </Button>
+
+              <div className="mt-4 text-center">
+                <button 
+                  onClick={() => {
+                    setAuthError("Dica: Se a janela não abrir, verifique se o seu navegador não está bloqueando pop-ups ou tente usar uma aba anônima.");
+                  }}
+                  className="text-xs text-gray-500 hover:text-[#BF76FF] transition-colors cursor-pointer"
+                >
+                  Problemas com o login do Google?
+                </button>
+              </div>
 
               <div className="mt-8 text-center space-y-4">
                 <p className="text-sm font-medium text-white">

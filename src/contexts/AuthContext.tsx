@@ -1,5 +1,15 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, User, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
+import { 
+  onAuthStateChanged, 
+  User, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInWithRedirect, 
+  getRedirectResult, 
+  signOut,
+  setPersistence,
+  browserLocalPersistence
+} from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 
@@ -28,6 +38,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    // Ensure persistence is set to local
+    setPersistence(auth, browserLocalPersistence).catch(err => {
+      console.error("Erro ao definir persistência:", err);
+    });
+
+    // Check for redirect result on mount
+    getRedirectResult(auth).then((result) => {
+      if (result) {
+        console.log("DEBUG: Login via redirecionamento concluído");
+      }
+    }).catch((error) => {
+      console.error("DEBUG: Erro no retorno do redirecionamento:", error);
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       
@@ -77,9 +101,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+      
+      console.log("DEBUG: Iniciando signInWithPopup...");
+      try {
+        await signInWithPopup(auth, provider);
+        console.log("DEBUG: signInWithPopup concluído");
+      } catch (popupError: any) {
+        console.warn("DEBUG: Erro no popup (code):", popupError.code);
+        
+        // If popup is blocked, cancelled by system, or other issues, try redirect
+        const shouldRedirect = [
+          'auth/popup-blocked',
+          'auth/cancelled-popup-request',
+          'auth/popup-closed-by-user', // Sometimes triggered by blockers
+          'auth/internal-error',
+          'auth/network-request-failed'
+        ].includes(popupError.code);
+
+        if (shouldRedirect) {
+          console.log("DEBUG: Tentando signInWithRedirect como fallback...");
+          await signInWithRedirect(auth, provider);
+        } else {
+          throw popupError;
+        }
+      }
     } catch (error) {
-      console.error("Erro ao fazer login com Google:", error);
+      console.error("DEBUG: Erro fatal no login:", error);
       throw error;
     }
   };
