@@ -77,7 +77,7 @@ export default function Live() {
                   href="https://www.youtube.com/channel/UCILgaItnqDH3plhRXD54QUg" 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-full border border-black/10 px-4 py-2 text-sm font-medium hover:bg-black/5 transition-colors"
+                  className="inline-flex items-center justify-center rounded-full border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5 transition-colors text-white"
                 >
                   <Youtube className="w-4 h-4 mr-2 text-red-600" /> Ver no YouTube
                 </a>
@@ -130,7 +130,7 @@ export default function Live() {
                 <ScrollArea className="h-[250px]">
                   <div className="p-4 space-y-4">
                     {MOCK_RANKING.map((user, idx) => (
-                      <div key={user.id} className="flex items-center justify-between p-3 rounded-2xl bg-muted/50 hover:bg-muted transition-colors">
+                      <div key={user.id} className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors">
                         <div className="flex items-center gap-3">
                           <div className="relative">
                             <Avatar className="w-10 h-10 border border-black/5">

@@ -60,13 +60,16 @@ async function startServer() {
       const jsonObj = parser.parse(xmlData);
       
       const entries = jsonObj.feed.entry || [];
-      const videos = (Array.isArray(entries) ? entries : [entries]).slice(0, 6).map((entry: any) => ({
-        id: entry["yt:videoId"],
-        title: entry.title,
-        thumbnail: entry["media:group"]["media:thumbnail"]["@_url"],
-        published: entry.published,
-        link: entry.link["@_href"]
-      }));
+      const videos = (Array.isArray(entries) ? entries : [entries]).slice(0, 6).map((entry: any) => {
+        const videoId = entry["yt:videoId"];
+        return {
+          id: videoId,
+          title: entry.title,
+          thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+          published: entry.published,
+          link: entry.link["@_href"]
+        };
+      });
 
       res.json(videos);
     } catch (error) {

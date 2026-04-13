@@ -135,12 +135,10 @@ export default function Home() {
       }
     };
     fetchVideos();
-  }, []);
 
-  useEffect(() => {
+    // Check live status
     const checkLiveStatus = async () => {
       try {
-        // Now calling our own internal API which handles the scraping on the server
         const response = await fetch("/api/live-status");
         if (!response.ok) throw new Error("Network response was not ok");
         const data = await response.json();
@@ -149,222 +147,247 @@ export default function Home() {
         setIsLive(false);
       }
     };
-
     checkLiveStatus();
-    const interval = setInterval(checkLiveStatus, 60000); // Check every minute
+    const interval = setInterval(checkLiveStatus, 60000);
     return () => clearInterval(interval);
   }, []);
 
+  // Auto-play carousel every 5 seconds
+  useEffect(() => {
+    if (videos.length === 0) return;
+    const timer = setInterval(() => {
+      nextVideo();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [nextVideo, videos.length]);
+
+  // Listen for global "open live" event
+  useEffect(() => {
+    const handleOpenLive = () => {
+      const heroElement = document.getElementById('hero');
+      if (heroElement) {
+        heroElement.scrollIntoView({ behavior: 'smooth' });
+      }
+      // If we have videos, try to find the first one (usually the latest/live)
+      if (videos.length > 0) {
+        setSelectedVideo(videos[0]);
+      }
+    };
+
+    // Check if we landed with #hero hash
+    if (window.location.hash === '#hero' && videos.length > 0) {
+      handleOpenLive();
+    }
+
+    window.addEventListener('open-live-video', handleOpenLive);
+    return () => window.removeEventListener('open-live-video', handleOpenLive);
+  }, [videos]);
+
   return (
     <div className="flex flex-col bg-black">
-      {/* Hero Section - New Design from Image */}
-      <section className="relative min-h-screen flex flex-col items-center justify-start pt-32 pb-20 overflow-hidden bg-black text-white">
-        {/* Background Pattern (Subtle grid/circles like in image) */}
-        <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <div className="absolute inset-0" style={{ 
-            backgroundImage: `radial-gradient(circle at 2px 2px, #666 1px, transparent 0)`,
-            backgroundSize: '40px 40px' 
-          }} />
+      {/* Hero Section - Prime Video Style */}
+      <section id="hero" className="relative min-h-screen flex flex-col bg-black text-white overflow-hidden">
+        {/* Main Carousel Container */}
+        <div className="relative flex-grow flex flex-col pt-28 md:pt-36">
+          <div className="relative w-full overflow-hidden flex-grow flex items-center">
+            <div className="relative w-full max-w-[1600px] mx-auto px-4 md:px-12">
+              <div className="relative h-[400px] md:h-[600px] flex items-center justify-center">
+                
+                {/* Navigation Arrows */}
+                {videos.length > 1 && (
+                  <>
+                    <div className="absolute left-0 md:left-4 top-1/2 -translate-y-1/2 z-[70] hidden md:block">
+                      <button 
+                        onClick={prevVideo}
+                        className="w-10 h-10 md:w-14 md:h-14 rounded-full bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-white/20 transition-all text-white group"
+                      >
+                        <ChevronLeft className="w-6 h-6 md:w-8 md:h-8 group-active:scale-90 transition-transform" />
+                      </button>
+                    </div>
+                    <div className="absolute right-0 md:right-4 top-1/2 -translate-y-1/2 z-[70] hidden md:block">
+                      <button 
+                        onClick={nextVideo}
+                        className="w-10 h-10 md:w-14 md:h-14 rounded-full bg-black/20 backdrop-blur-md border border-white/10 flex items-center justify-center hover:bg-white/20 transition-all text-white group"
+                      >
+                        <ChevronRight className="w-6 h-6 md:w-8 md:h-8 group-active:scale-90 transition-transform" />
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                <div className="relative w-full h-full flex items-center justify-center overflow-visible">
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {videos.slice(0, 6).map((video, index) => {
+                      if (index !== currentIndex) return null;
+
+                      return (
+                        <motion.div
+                          key={video.id}
+                          initial={{ opacity: 0, x: 300 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: -300 }}
+                          transition={{ duration: 1.5, ease: "easeInOut" }}
+                          className="absolute inset-0 flex items-center justify-center"
+                        >
+                          {/* Side Previews (Visual only) - Adjusted for "side-by-side" feel */}
+                          <div className="absolute left-[-60%] md:left-[-55%] w-[80%] h-[85%] opacity-10 scale-95 rounded-xl md:rounded-2xl overflow-hidden hidden lg:block border border-white/5">
+                            <img 
+                              src={videos[(currentIndex - 1 + videos.length) % videos.length]?.thumbnail} 
+                              alt="" 
+                              className="w-full h-full object-cover blur-[2px]"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (target.src.includes('maxresdefault.jpg')) {
+                                  target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                                }
+                              }}
+                            />
+                          </div>
+                          <div className="absolute right-[-60%] md:right-[-55%] w-[80%] h-[85%] opacity-10 scale-95 rounded-xl md:rounded-2xl overflow-hidden hidden lg:block border border-white/5">
+                            <img 
+                              src={videos[(currentIndex + 1) % videos.length]?.thumbnail} 
+                              alt="" 
+                              className="w-full h-full object-cover blur-[2px]"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (target.src.includes('maxresdefault.jpg')) {
+                                  target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                                }
+                              }}
+                            />
+                          </div>
+
+                          {/* Main Card - Reduced rounding */}
+                          <div 
+                            className="relative w-full lg:w-[90%] h-full rounded-xl md:rounded-2xl overflow-hidden shadow-2xl group cursor-pointer border border-white/10"
+                            onClick={() => setSelectedVideo(video)}
+                          >
+                            <img 
+                              src={video.thumbnail} 
+                              alt="" 
+                              className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                if (target.src.includes('maxresdefault.jpg')) {
+                                  target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                                }
+                              }}
+                            />
+                            
+                            {/* Gradient Overlay */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" />
+                            
+                            {/* Content Overlay */}
+                            <div className="absolute inset-0 p-6 md:p-12 flex flex-col justify-end items-start text-left">
+                              <motion.div
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.2 }}
+                                className="max-w-2xl"
+                              >
+                                <div className="flex items-center gap-3 mb-3">
+                                  <span className={cn(
+                                    "text-white px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-widest",
+                                    isLive && index === 0 ? "bg-red-600 animate-pulse" : "bg-[#BF76FF]"
+                                  )}>
+                                    {isLive && index === 0 ? "AO VIVO AGORA" : "Destaque"}
+                                  </span>
+                                  <span className="text-white/60 text-[10px] font-medium uppercase tracking-widest">
+                                    {new Date(video.published).toLocaleDateString('pt-BR')}
+                                  </span>
+                                </div>
+                                
+                                <h2 className="text-2xl md:text-4xl lg:text-5xl font-bold mb-6 leading-tight tracking-tight">
+                                  {video.title}
+                                </h2>
+
+                                <div className="flex flex-wrap items-center gap-3">
+                                  <Button 
+                                    className="bg-white text-black hover:bg-white/90 rounded-full px-6 h-10 text-xs font-bold transition-all active:scale-95 flex items-center gap-2"
+                                  >
+                                    <Play className="w-3.5 h-3.5 fill-current" />
+                                    Assistir
+                                  </Button>
+                                  <Button 
+                                    variant="outline"
+                                    className="bg-white/10 border-white/20 hover:bg-white/20 text-white rounded-full px-6 h-10 text-xs font-bold backdrop-blur-md"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFavorite(video);
+                                    }}
+                                  >
+                                    <Heart className={cn("w-3.5 h-3.5 mr-2", isFavorite(video.id) && "fill-current text-red-500")} />
+                                    {isFavorite(video.id) ? "Salvo" : "Salvar"}
+                                  </Button>
+                                </div>
+                              </motion.div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto mb-16">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: { opacity: 0 },
-              visible: {
-                opacity: 1,
-                transition: {
-                  staggerChildren: 0.1,
-                  delayChildren: 0.3
-                }
-              }
-            }}
-          >
-            <h1 className="text-4xl md:text-7xl lg:text-8xl mb-8 tracking-tighter leading-none flex flex-wrap items-center justify-center gap-x-[0.3em] gap-y-4">
-              <motion.span
-                variants={{
-                  hidden: { opacity: 0, y: 30, filter: "blur(15px)" },
-                  visible: { opacity: 1, y: 0, filter: "blur(0px)" }
-                }}
-                transition={{ duration: 1, ease: [0.2, 0.65, 0.3, 0.9] }}
-                className="font-light text-white/80 whitespace-nowrap"
-              >
-                Tudo posso
-              </motion.span>
-              <motion.span
-                variants={{
-                  hidden: { opacity: 0, scale: 0.9, filter: "blur(20px)" },
-                  visible: { opacity: 1, scale: 1, filter: "blur(0px)" }
-                }}
-                transition={{ duration: 1.2, delay: 0.5, ease: "easeOut" }}
-                className="font-bold text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.3)] whitespace-nowrap"
-              >
-                naquele que me fortalece
-              </motion.span>
-            </h1>
-            
-            <motion.p 
-              initial={{ opacity: 0 }}
-              animate={{ 
-                opacity: 1,
-                textShadow: [
-                  "0 0 10px rgba(191,118,255,0.4)",
-                  "0 0 30px rgba(191,118,255,0.8)",
-                  "0 0 10px rgba(191,118,255,0.4)"
-                ]
-              }}
-              transition={{ 
-                opacity: { duration: 1, delay: 1.5 },
-                textShadow: { duration: 2.5, repeat: Infinity, ease: "easeInOut" }
-              }}
-              className="text-2xl md:text-3xl text-[#BF76FF] mb-12 font-bold tracking-[0.3em] uppercase"
-            >
-              Filipenses 4:13
-            </motion.p>
-            
-            <div className="flex justify-center mb-12">
-              <Link 
-                to="/ao-vivo" 
-                className={cn(
-                  "px-10 h-12 rounded-full text-sm font-bold tracking-widest transition-all active:scale-95 flex items-center justify-center",
-                  isLive 
-                    ? "bg-red-600 hover:bg-red-700 text-white shadow-xl shadow-red-600/20" 
-                    : "bg-white hover:bg-gray-100 text-black shadow-xl shadow-white/10"
-                )}
-              >
-                {isLive ? (
-                  <>
-                    <div className="w-2 h-2 bg-white rounded-full mr-2 animate-pulse" />
-                    AO VIVO
-                  </>
-                ) : (
-                  "OFFLINE"
-                )}
+        {/* Lives Recentes Section */}
+        <div className="relative z-20 pb-20 px-4 md:px-12">
+          <div className="max-w-[1600px] mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-1 h-8 bg-[#BF76FF] rounded-full" />
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight">Lives Recentes</h2>
+              </div>
+              <Link to="/galeria" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
+                Ver Tudo <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
 
-            <p className="text-sm font-medium text-gray-400 uppercase tracking-[0.2em] mb-12">
-              Conteúdos recentes e Lives AO VIVO
-            </p>
-          </motion.div>
-        </div>
-
-        {/* Curved Cards Section (Cover Flow Effect) */}
-        <div className="relative w-full max-w-[1400px] mx-auto px-4 -mt-16 overflow-visible">
-          <div className="relative h-[300px] md:h-[500px] flex items-center justify-center perspective-[2000px]">
-            
-            {/* Navigation Arrows */}
-            {videos.length > 1 && (
-              <>
-                <button 
-                  onClick={prevVideo}
-                  className="absolute left-4 md:left-10 top-1/2 -translate-y-1/2 z-[60] w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hidden md:flex items-center justify-center hover:bg-white/20 transition-all text-white"
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+              {videos.slice(0, 5).map((video, idx) => (
+                <motion.div
+                  key={video.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  viewport={{ once: true }}
+                  className="group cursor-pointer"
+                  onClick={() => setSelectedVideo(video)}
                 >
-                  <ChevronLeft className="w-6 h-6" />
-                </button>
-                <button 
-                  onClick={nextVideo}
-                  className="absolute right-4 md:right-10 top-1/2 -translate-y-1/2 z-[60] w-12 h-12 rounded-full bg-white/10 backdrop-blur-md border border-white/20 hidden md:flex items-center justify-center hover:bg-white/20 transition-all text-white"
-                >
-                  <ChevronRight className="w-6 h-6" />
-                </button>
-              </>
-            )}
-
-            <div className="relative w-full h-full flex items-center justify-center">
-              {videos.slice(0, 6).map((video, index) => {
-                const total = Math.min(videos.length, 6);
-                const diff = (index - currentIndex + total) % total;
-                
-                let position = "hidden";
-                if (diff === 0) position = "center";
-                else if (diff === 1) position = "right";
-                else if (diff === total - 1) position = "left";
-
-                const variants = {
-                  center: { 
-                    x: 0, 
-                    scale: 1, 
-                    zIndex: 40, 
-                    opacity: 1, 
-                    rotateY: 0,
-                    filter: "blur(0px)",
-                    display: "block"
-                  },
-                  right: { 
-                    x: "35%", 
-                    scale: 0.8, 
-                    zIndex: 30, 
-                    opacity: 0.4, 
-                    rotateY: -35,
-                    filter: "blur(2px)",
-                    display: "block"
-                  },
-                  left: { 
-                    x: "-35%", 
-                    scale: 0.8, 
-                    zIndex: 30, 
-                    opacity: 0.4, 
-                    rotateY: 35,
-                    filter: "blur(2px)",
-                    display: "block"
-                  },
-                  hidden: { 
-                    x: 0, 
-                    scale: 0.5, 
-                    zIndex: 10, 
-                    opacity: 0, 
-                    rotateY: 0,
-                    filter: "blur(10px)",
-                    display: "none"
-                  }
-                };
-
-                return (
-                  <motion.div
-                    key={video.id}
-                    drag="x"
-                    dragConstraints={{ left: 0, right: 0 }}
-                    onDragEnd={handleDragEnd}
-                    initial={false}
-                    animate={position}
-                    variants={variants}
-                    transition={{ 
-                      type: "spring", 
-                      stiffness: 300, 
-                      damping: 30,
-                      opacity: { duration: 0.4 }
-                    }}
-                    className="absolute w-[90%] md:w-[700px] aspect-video rounded-[2.5rem] overflow-hidden border border-white/20 shadow-2xl cursor-pointer group"
-                    style={{ transformStyle: "preserve-3d" }}
-                    onClick={() => position === "center" && setSelectedVideo(video)}
-                  >
-                    <img src={video.thumbnail} alt="" className="w-full h-full object-cover pointer-events-none" />
-                    
-                    {/* Hover Info */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent p-8 md:p-10 flex flex-col justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="flex items-center gap-3 mb-3">
-                        <span className="bg-[#BF76FF]/40 backdrop-blur-md px-3 py-1 rounded text-xs uppercase tracking-wider font-bold border border-[#BF76FF]/30">
-                          {video.title.toLowerCase().includes('live') ? 'Live' : 'Vídeo'}
-                        </span>
-                        <span className="text-xs text-gray-300">
-                          {new Date(video.published).toLocaleDateString('pt-BR')}
-                        </span>
-                      </div>
-                      <h3 className="text-2xl md:text-3xl font-bold line-clamp-2 leading-tight">{video.title}</h3>
-                    </div>
-
-                    {/* Play Button Overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="w-20 h-20 rounded-full bg-[#BF76FF]/80 backdrop-blur-sm flex items-center justify-center text-white shadow-lg shadow-[#BF76FF]/30 group-hover:scale-110 group-hover:bg-[#BF76FF] transition-all">
-                        <Play className="w-10 h-10 fill-white ml-1" />
+                  <div className="aspect-video rounded-lg md:rounded-xl overflow-hidden border border-white/5 relative mb-3">
+                    <img 
+                      src={video.thumbnail} 
+                      alt="" 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src.includes('maxresdefault.jpg')) {
+                          target.src = target.src.replace('maxresdefault.jpg', 'hqdefault.jpg');
+                        }
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
+                        <Play className="w-5 h-5 fill-current ml-1" />
                       </div>
                     </div>
-                  </motion.div>
-                );
-              })}
+                    <div className="absolute bottom-3 left-3">
+                      <span className="bg-red-600 text-white text-[8px] font-bold px-2 py-0.5 rounded uppercase tracking-widest">
+                        Gravado
+                      </span>
+                    </div>
+                  </div>
+                  <h3 className="text-sm font-bold line-clamp-2 group-hover:text-[#BF76FF] transition-colors leading-snug">
+                    {video.title}
+                  </h3>
+                  <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">
+                    {new Date(video.published).toLocaleDateString('pt-BR')}
+                  </p>
+                </motion.div>
+              ))}
             </div>
           </div>
         </div>
@@ -502,7 +525,7 @@ export default function Home() {
       </section>
 
       {/* Google Reviews */}
-      <section className="py-24 px-4 bg-muted/20">
+      <section className="py-24 px-4 bg-white/5">
         <div className="max-w-7xl mx-auto text-center">
           <h2 className="text-4xl font-bold mb-4">O que dizem sobre nós</h2>
           <div className="flex items-center justify-center gap-2 mb-12">

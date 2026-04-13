@@ -45,7 +45,7 @@ export default function Bible() {
           <div className="md:col-span-3 glass-panel rounded-3xl p-8 md:p-12 border-black/5">
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-3xl font-bold">Gênesis 1</h2>
-              <Button variant="ghost" size="icon" className="rounded-full hover:bg-black/5">
+              <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10 text-white">
                 <Bookmark className="w-5 h-5" />
               </Button>
             </div>

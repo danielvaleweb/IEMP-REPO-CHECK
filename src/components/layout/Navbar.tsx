@@ -93,7 +93,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Nav - Centered Pill */}
-          <div className="hidden md:flex items-center bg-[#0f0d11] border border-white/10 rounded-full p-1.5 shadow-2xl">
+          <div className="hidden lg:flex items-center bg-[#0f0d11] border border-white/10 rounded-full p-1.5 shadow-2xl">
             <Link
               to="/"
               className={cn(
@@ -111,22 +111,21 @@ export default function Navbar() {
               >
                 <DropdownMenu open={openMenu === group.name} onOpenChange={(open) => !open && setOpenMenu(null)}>
                   <DropdownMenuTrigger
-                    render={
-                      <button className={cn(
-                        "px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-1 outline-none",
-                        group.items.some(item => location.pathname === item.path)
-                          ? "text-white opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
-                          : "text-white/60 hover:text-white hover:opacity-100 hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
-                      )}>
-                        {group.name} <ChevronDown className="w-4 h-4 opacity-40" />
-                      </button>
-                    }
-                  />
+                    className={cn(
+                      "px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 flex items-center gap-1 outline-none",
+                      group.items.some(item => location.pathname === item.path)
+                        ? "text-white opacity-100 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+                        : "text-white/60 hover:text-white hover:opacity-100 hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]"
+                    )}
+                  >
+                    {group.name} <ChevronDown className="w-4 h-4 opacity-40" />
+                  </DropdownMenuTrigger>
                   <DropdownMenuContent align="center" sideOffset={0} className="bg-[#0f0d11] border-white/10 text-white min-w-[200px] rounded-2xl p-2 shadow-2xl">
                     {group.items.map((item) => (
                       <DropdownMenuItem 
                         key={item.path} 
                         render={<Link to={item.path} />} 
+                        nativeButton={false}
                         className={cn(
                           "rounded-xl cursor-pointer py-3 px-4 transition-all duration-300 outline-none",
                           "focus:bg-transparent focus:!text-white hover:bg-transparent hover:!text-white",
@@ -147,7 +146,7 @@ export default function Navbar() {
           {/* Right Side - Auth & Mobile Menu */}
           <div className="flex items-center gap-3">
             {/* Favorites Icon in Navbar */}
-            <Link to="/favoritos" className="relative p-2 text-white hover:scale-110 active:scale-95 transition-all group cursor-pointer outline-none">
+            <Link to="/favoritos" className="relative p-2 text-white hover:bg-white/5 rounded-xl transition-all group cursor-pointer outline-none">
               <Heart className="w-6 h-6 fill-white stroke-white" />
               {favorites.length > 0 && (
                 <div className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px]">
@@ -173,32 +172,30 @@ export default function Navbar() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  render={
-                    <button className="flex items-center gap-2 bg-[#0f0d11] border border-white/10 rounded-full p-1 pr-4 hover:bg-white/5 transition-all">
-                      <Avatar className="h-8 w-8 border border-white/20">
-                        <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
-                        <AvatarFallback className="bg-primary/20 text-primary text-xs">{user.displayName?.[0] || "U"}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm font-medium text-white/80 hidden sm:block">{user.displayName?.split(' ')[0]}</span>
-                    </button>
-                  }
-                />
+                  className="flex items-center gap-2 bg-[#0f0d11] border border-white/10 rounded-full p-1 pr-4 hover:bg-white/5 transition-all"
+                >
+                  <Avatar className="h-8 w-8 border border-white/20">
+                    <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-xs">{user.displayName?.[0] || "U"}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-sm font-medium text-white/80 hidden sm:block">{user.displayName?.split(' ')[0]}</span>
+                </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-[#0f0d11] border-white/10 text-white rounded-2xl mt-4 p-2 shadow-2xl" align="end">
                   <div className="flex flex-col space-y-1 p-3">
                     <p className="text-sm font-medium leading-none">{user.displayName}</p>
                     <p className="text-xs leading-none text-white/40">{user.email}</p>
                   </div>
                   <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem render={<Link to="/perfil" />} className="rounded-xl focus:bg-white/5 focus:!text-white py-3 px-4">
+                  <DropdownMenuItem render={<Link to="/perfil" />} nativeButton={false} className="rounded-xl focus:bg-white/10 hover:bg-white/10 focus:!text-white hover:!text-white py-3 px-4 transition-colors">
                     Meu Perfil
                   </DropdownMenuItem>
                   {isAdmin && (
-                    <DropdownMenuItem render={<Link to="/admin" />} className="rounded-xl focus:bg-white/5 focus:!text-white py-3 px-4 text-primary">
+                    <DropdownMenuItem render={<Link to="/admin" />} nativeButton={false} className="rounded-xl focus:bg-white/10 hover:bg-white/10 focus:!text-white hover:!text-white py-3 px-4 text-primary transition-colors">
                       Painel Administrativo
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem onClick={logout} className="rounded-xl focus:bg-red-500/10 focus:!text-red-500 cursor-pointer py-3 px-4 text-red-500">
+                  <DropdownMenuItem onClick={logout} className="rounded-xl focus:bg-red-500/10 hover:bg-red-500/10 focus:!text-red-500 hover:!text-red-500 cursor-pointer py-3 px-4 text-red-500 transition-colors">
                     <LogOut className="mr-2 h-4 w-4" />
                     <span>Sair</span>
                   </DropdownMenuItem>
@@ -213,16 +210,13 @@ export default function Navbar() {
               </Button>
             )}
 
-            {/* Mobile Nav */}
-            <div className="md:hidden">
+            <div className="lg:hidden">
               <Sheet>
                 <SheetTrigger
-                  render={
-                    <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 rounded-full">
-                      <Menu className="w-6 h-6" />
-                    </Button>
-                  }
-                />
+                  className="text-white hover:bg-white/10 rounded-full h-10 w-10 flex items-center justify-center transition-colors"
+                >
+                  <Menu className="w-6 h-6" />
+                </SheetTrigger>
                 <SheetContent side="right" className="bg-[#0f0d11] border-white/10 text-white w-[85%] sm:w-[400px] p-0">
                   <div className="flex flex-col h-full">
                     <div className="p-6 border-b border-white/10">
