@@ -3,6 +3,8 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { XMLParser } from "fast-xml-parser";
+import fs from "fs";
+import multer from "multer";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +17,36 @@ async function startServer() {
     ignoreAttributes: false,
     attributeNamePrefix: "@_"
   });
+
+  // Ensure public/uploads exists
+  const uploadDir = path.join(process.cwd(), "public", "uploads");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  });
+
+  const upload = multer({ storage });
+
+  // API Route for file uploads
+  app.post("/api/upload", upload.single("image"), (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    const filePath = `/uploads/${req.file.filename}`;
+    res.json({ url: filePath });
+  });
+
+  // Serve public folder as static
+  app.use(express.static(path.join(process.cwd(), "public")));
 
   // API Route to check YouTube Live Status
   app.get("/api/live-status", async (req, res) => {
@@ -51,27 +83,93 @@ async function startServer() {
   app.get("/api/recent-videos", async (req, res) => {
     try {
       const channelId = "UCILgaItnqDH3plhRXD54QUg";
-      const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+      // Using the handle URL for better scraping compatibility
+      const videosUrl = `https://www.youtube.com/@ministerio_profecia/videos`;
       
-      const response = await fetch(rssUrl);
-      if (!response.ok) throw new Error("Failed to fetch RSS feed");
-      
-      const xmlData = await response.text();
-      const jsonObj = parser.parse(xmlData);
-      
-      const entries = jsonObj.feed.entry || [];
-      const videos = (Array.isArray(entries) ? entries : [entries]).slice(0, 6).map((entry: any) => {
-        const videoId = entry["yt:videoId"];
-        return {
-          id: videoId,
-          title: entry.title,
-          thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-          published: entry.published,
-          link: entry.link["@_href"]
-        };
+      const response = await fetch(videosUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+        }
       });
+      
+      if (!response.ok) throw new Error(`Failed to fetch videos page: ${response.status}`);
+      
+      const html = await response.text();
+      // More robust regex to handle newlines and large JSON
+      const match = html.match(/var ytInitialData\s*=\s*({[\s\S]*?});\s*<\/script>/) || 
+                    html.match(/var ytInitialData\s*=\s*({[\s\S]*?});/);
+      
+      if (match) {
+        try {
+          const data = JSON.parse(match[1]);
+          const tabs = data.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
+          
+          // Find the videos tab - try multiple ways to identify it
+          const videosTab = tabs.find((t: any) => {
+            const renderer = t.tabRenderer;
+            if (!renderer) return false;
+            const title = renderer.title?.toLowerCase() || "";
+            const url = renderer.endpoint?.browseEndpoint?.canonicalBaseUrl || "";
+            return title.includes('video') || title.includes('vídeo') || url.includes('/videos') || renderer.selected === true;
+          });
+          
+          // Fallback to the first tab if videos tab not found
+          const targetTab = videosTab || tabs[0];
+          
+          // Try to find contents in different possible locations
+          let contents = targetTab?.tabRenderer?.content?.richGridRenderer?.contents || 
+                         targetTab?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.gridRenderer?.items ||
+                         [];
+          
+          const videos = contents
+            .map((c: any) => {
+              // Handle both richItemRenderer and gridVideoRenderer
+              const v = c.richItemRenderer?.content?.videoRenderer || c.gridVideoRenderer || c.videoRenderer;
+              if (!v) return null;
+              
+              const videoId = v.videoId;
+              return {
+                id: videoId,
+                title: v.title?.runs?.[0]?.text || v.title?.simpleText || "Sem título",
+                thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+                published: v.publishedTimeText?.simpleText || v.publishedTimeText?.runs?.[0]?.text || "Recentemente",
+                link: `https://www.youtube.com/watch?v=${videoId}`
+              };
+            })
+            .filter(Boolean)
+            .slice(0, 6);
+            
+          if (videos.length > 0) {
+            return res.json(videos);
+          }
+        } catch (parseError) {
+          console.error("Error parsing ytInitialData:", parseError);
+        }
+      }
+      
+      // Fallback to RSS if scraping fails
+      const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+      const rssResponse = await fetch(rssUrl);
+      if (rssResponse.ok) {
+        const xmlData = await rssResponse.text();
+        const jsonObj = parser.parse(xmlData);
+        const entries = jsonObj.feed?.entry || [];
+        const rssVideos = (Array.isArray(entries) ? entries : [entries]).slice(0, 6).map((entry: any) => {
+          const videoId = entry["yt:videoId"];
+          return {
+            id: videoId,
+            title: entry.title,
+            thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+            published: entry.published,
+            link: entry.link?.["@_href"] || `https://www.youtube.com/watch?v=${videoId}`
+          };
+        });
+        if (rssVideos.length > 0) return res.json(rssVideos);
+      }
 
-      res.json(videos);
+      throw new Error("Could not find videos via scraping or RSS");
     } catch (error) {
       console.error("Server error fetching recent videos:", error);
       res.status(500).json({ error: "Internal server error" });

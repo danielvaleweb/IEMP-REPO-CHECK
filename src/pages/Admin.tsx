@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, ChangeEvent } from "react";
 import { 
   LayoutDashboard, 
   Image as ImageIcon, 
@@ -30,17 +30,23 @@ import {
   Send,
   Calendar,
   MessageSquare,
-  X
+  X,
+  ShieldCheck,
+  TrendingUp,
+  Heart,
+  ArrowLeft,
+  Upload,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { EventosView } from "@/components/admin/EventosView";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { 
   collection, 
@@ -77,6 +83,40 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
   </svg>
 );
+
+const safeFormatDate = (dateStr: any) => {
+  if (!dateStr) return "";
+  try {
+    // If it's the new format: DD/MM/YYYY - HH:mm - HH:mm
+    if (typeof dateStr === 'string' && dateStr.includes(' - ')) {
+      return dateStr.split(' - ')[0];
+    }
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return format(d, "dd/MM/yyyy");
+  } catch (e) {
+    return dateStr;
+  }
+};
+
+const safeFormatTime = (dateStr: any) => {
+  if (!dateStr) return "";
+  try {
+    // If it's already a time-like string but not ISO, try to extract time
+    if (typeof dateStr === 'string' && dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length >= 2) {
+        const timePart = parts[1].trim();
+        if (/^\d{2}:\d{2}$/.test(timePart)) return timePart;
+      }
+    }
+    const d = parseISO(dateStr);
+    if (isNaN(d.getTime())) return "";
+    return format(d, "HH:mm");
+  } catch (e) {
+    return "";
+  }
+};
 
 function CalendarView({ 
   agenda, 
@@ -157,7 +197,7 @@ function CalendarView({
                       {event.title}
                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 bg-black border border-white/10 text-white p-3 rounded-xl shadow-xl z-50">
                         <p className="font-bold text-sm mb-1 whitespace-normal">{event.title}</p>
-                        <p className="text-xs text-gray-400">{format(parseISO(event.date), "HH:mm")}</p>
+                        <p className="text-xs text-gray-400">{safeFormatTime(event.date)}</p>
                         <p className="text-xs text-gray-400 mt-1">Local: {event.location || "N/A"}</p>
                         <p className="text-[10px] text-[#BF76FF] mt-2 border-t border-white/10 pt-2">Por: {event.authorName || "Admin"}</p>
                       </div>
@@ -190,7 +230,7 @@ function CalendarView({
                   <div key={idx} className="bg-[#1a1a1a] p-4 rounded-xl border border-white/5 space-y-3">
                     <div>
                       <h4 className="font-bold text-lg">{event.title}</h4>
-                      <p className="text-sm text-gray-400">{format(parseISO(event.date), "HH:mm")} • {event.location || "Sem local"}</p>
+                      <p className="text-sm text-gray-400">{safeFormatTime(event.date)} • {event.location || "Sem local"}</p>
                       <p className="text-xs text-[#BF76FF] mt-1">Adicionado por: {event.authorName || "Admin"}</p>
                     </div>
                     <div className="flex gap-2 pt-2 border-t border-white/5">
@@ -310,6 +350,43 @@ export default function Admin() {
   // Form States
   const [formData, setFormData] = useState<any>({});
   const [showWhatsAppModal, setShowWhatsAppModal] = useState<any>(null);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [tempDate, setTempDate] = useState("");
+  const [tempStartTime, setTempStartTime] = useState("");
+  const [tempEndTime, setTempEndTime] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    const formDataUpload = new FormData();
+    formDataUpload.append("image", file);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formDataUpload,
+      });
+      const data = await response.json();
+      if (data.url) {
+        // Update the appropriate field based on the active tab
+        if (activeTab === "equipe") {
+          setFormData({ ...formData, photoURL: data.url });
+        } else if (activeTab === "musica") {
+          setFormData({ ...formData, thumbnail: data.url });
+        } else {
+          setFormData({ ...formData, image: data.url });
+        }
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      alert("Erro ao fazer upload da imagem.");
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   // Real-time listeners
   useEffect(() => {
@@ -347,7 +424,7 @@ export default function Admin() {
   // Search Logic
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    if (activeTab === "blog") return posts.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
+    if (activeTab === "eventos") return posts.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
     if (activeTab === "musica") return musics.filter(m => m.title?.toLowerCase().includes(query));
     if (activeTab === "equipe") return members.filter(m => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
@@ -356,7 +433,7 @@ export default function Admin() {
 
   const handleSave = async () => {
     try {
-      const collectionName = activeTab === "blog" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "equipe" ? "members" : "agenda";
+      const collectionName = activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "equipe" ? "members" : "agenda";
       
       if (selectedItem?.id) {
         await updateDoc(doc(db, collectionName, selectedItem.id), {
@@ -382,7 +459,7 @@ export default function Admin() {
   const handleDelete = async (id: string) => {
     if (!confirm("Tem certeza que deseja excluir?")) return;
     try {
-      const collectionName = activeTab === "blog" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "equipe" ? "members" : "agenda";
+      const collectionName = activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "equipe" ? "members" : "agenda";
       await deleteDoc(doc(db, collectionName, id));
       setSelectedItem(null);
     } catch (err) {
@@ -825,30 +902,56 @@ export default function Admin() {
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-[#0a0a0a] text-white overflow-hidden font-sans">
-      {/* Sidebar 1: Narrow Navigation (Bottom on mobile, Left on desktop) */}
-      <aside className="md:w-20 w-full md:h-full h-16 flex md:flex-col flex-row items-center justify-between md:py-8 px-4 md:px-0 border-t md:border-t-0 md:border-r border-white/5 bg-[#0a0a0a] z-50 order-last md:order-first">
-        <div className="hidden md:flex w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] items-center justify-center text-white font-bold text-2xl mb-12 shadow-lg shadow-[#BF76FF]/20">
-          P
+      {/* Sidebar 1: Wide Navigation */}
+      <aside className="md:w-64 w-full md:h-full h-16 flex md:flex-col flex-row items-start justify-between md:py-6 px-4 md:px-4 border-t md:border-t-0 md:border-r border-white/5 bg-[#0a0a0a] z-50 order-last md:order-first overflow-y-auto">
+        <div className="hidden md:flex flex-col w-full mb-8">
+          <Link to="/" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm font-medium mb-8 uppercase tracking-wider">
+            <ArrowLeft className="w-4 h-4" /> Voltar ao site
+          </Link>
+          
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-[#BF76FF]/20 flex items-center justify-center text-[#BF76FF]">
+              <LayoutDashboard className="w-6 h-6" />
+            </div>
+            <div className="flex items-center text-xl font-bold">
+              <span className="text-white">MP</span>
+              <span className="text-[#BF76FF]">DASH</span>
+            </div>
+          </div>
         </div>
         
-        <nav className="flex-1 flex md:flex-col flex-row gap-2 md:gap-6 items-center justify-center w-full">
-          <SidebarIcon icon={Calendar} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" />
-          <SidebarIcon icon={FileText} active={activeTab === "blog"} onClick={() => setActiveTab("blog")} label="Blog" />
-          <SidebarIcon icon={Users} active={activeTab === "equipe"} onClick={() => setActiveTab("equipe")} label="Equipe" />
-          <SidebarIcon icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" />
-          <SidebarIcon icon={Settings} active={activeTab === "config"} onClick={() => setActiveTab("config")} label="Config" />
-          <SidebarIcon icon={Video} active={activeTab === "live"} onClick={() => setActiveTab("live")} label="Live" />
+        <nav className="flex-1 flex md:flex-col flex-row gap-2 w-full overflow-x-auto md:overflow-visible">
+          <SidebarItem icon={LayoutDashboard} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Visão Geral" />
+          <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" />
+          <SidebarItem icon={FileText} active={activeTab === "oracao"} onClick={() => setActiveTab("oracao")} label="Pedidos de Oração" />
+          <SidebarItem icon={ShieldCheck} active={activeTab === "ministerios"} onClick={() => setActiveTab("ministerios")} label="Ministérios" />
+          <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" />
+          <SidebarItem icon={Heart} active={activeTab === "doacoes"} onClick={() => setActiveTab("doacoes")} label="Doações" />
+          <SidebarItem icon={Calendar} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" />
+          <SidebarItem icon={TrendingUp} active={activeTab === "relatorios"} onClick={() => setActiveTab("relatorios")} label="Relatórios" />
+          
+          <div className="md:mt-auto pt-4 border-t border-white/5 w-full hidden md:block">
+            <SidebarItem icon={Settings} active={activeTab === "config"} onClick={() => setActiveTab("config")} label="Configurações" />
+            <SidebarItem icon={Video} active={activeTab === "live"} onClick={() => setActiveTab("live")} label="Live" />
+            <button 
+              className="w-full h-12 px-4 rounded-xl flex items-center gap-3 transition-all relative group bg-transparent text-red-500 hover:bg-red-500/10 font-medium mt-2"
+              onClick={logout}
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="text-sm whitespace-nowrap">Sair</span>
+            </button>
+          </div>
         </nav>
 
-        <div className="flex flex-col gap-2 md:gap-6 items-center">
+        <div className="flex md:hidden items-center gap-2">
           <div className="relative">
             <button 
-              className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-[#1a1a1a] hover:bg-white/10 transition-all flex items-center justify-center relative cursor-pointer"
+              className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center relative"
               onClick={() => setShowNotifications(!showNotifications)}
             >
-              <Bell className="w-5 h-5 md:w-6 md:h-6 text-gray-400" />
+              <Bell className="w-5 h-5 text-gray-400" />
               {notifications.some(n => !n.read) && (
-                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a]"></span>
+                <span className="absolute top-2 right-2 w-2 h-2 bg-[#BF76FF] rounded-full"></span>
               )}
             </button>
             
@@ -904,22 +1007,22 @@ export default function Admin() {
               </div>
             )}
           </div>
-
+          
           <button 
-            className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-[#1a1a1a] hover:bg-red-500 transition-all flex items-center justify-center group cursor-pointer"
-            onClick={() => {
-              logout();
-            }}
+            className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all flex items-center justify-center cursor-pointer"
+            onClick={logout}
+            title="Sair"
           >
-            <LogOut className="w-5 h-5 md:w-6 md:h-6 text-gray-400 group-hover:text-white rotate-180" />
+            <LogOut className="w-5 h-5" />
           </button>
         </div>
       </aside>
 
       {/* Sidebar 2: Item List (Hidden on mobile if editing) */}
       <aside className={cn(
-        "md:w-80 w-full border-r border-white/5 bg-[#0f0f0f] flex flex-col",
-        isEditing ? "hidden md:flex" : "flex flex-1 md:flex-none"
+        "md:w-80 w-full border-r border-white/5 bg-[#0f0f0f] flex flex-col overflow-y-auto",
+        isEditing ? "hidden md:flex" : "flex flex-1 md:flex-none",
+        (activeTab === "agenda" || activeTab === "eventos") ? "hidden md:hidden" : ""
       )}>
         <div className="p-6">
           <h2 className="text-xl font-bold mb-6 capitalize text-white">{activeTab}</h2>
@@ -935,15 +1038,24 @@ export default function Admin() {
           </div>
         </div>
 
-        <ScrollArea className="flex-1 px-4">
+        <div className="flex-1 px-4 overflow-y-auto">
           <div className="space-y-2 pb-6">
             {filteredItems.map((item) => (
               <ListItem 
                 key={item.id}
                 title={item.title || item.name || ""}
-                subtitle={item.date ? format(new Date(item.date), "dd/MM/yyyy") : item.email || item.category || ""}
+                subtitle={item.date ? (activeTab === "eventos" ? item.date : safeFormatDate(item.date)) : item.email || item.category || ""}
                 image={item.image || item.photoURL}
-                icon={activeTab === "musica" ? Youtube : activeTab === "agenda" ? Calendar : undefined}
+                icon={
+                  activeTab === "eventos" ? Calendar : 
+                  activeTab === "oracao" ? FileText : 
+                  activeTab === "ministerios" ? ShieldCheck : 
+                  activeTab === "membros" ? Users : 
+                  activeTab === "doacoes" ? Heart : 
+                  activeTab === "agenda" ? Calendar : 
+                  activeTab === "relatorios" ? TrendingUp : 
+                  File
+                }
                 active={selectedItem?.id === item.id}
                 status={item.status}
                 onClick={() => {
@@ -960,7 +1072,7 @@ export default function Admin() {
               </div>
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="p-4">
           <Button 
@@ -977,10 +1089,10 @@ export default function Admin() {
         </div>
       </aside>
 
-      {/* Main Content Area (Hidden on mobile if not editing and not agenda) */}
+      {/* Main Content Area (Hidden on mobile if not editing and not agenda/eventos) */}
       <main className={cn(
         "flex-1 flex flex-col bg-[#0a0a0a]",
-        !isEditing && activeTab !== "agenda" ? "hidden md:flex" : "flex"
+        !isEditing && activeTab !== "agenda" && activeTab !== "eventos" ? "hidden md:flex" : "flex"
       )}>
         {/* Main Header */}
         <header className="h-20 border-b border-white/5 flex items-center justify-between px-4 md:px-8">
@@ -1025,7 +1137,7 @@ export default function Admin() {
         </header>
 
         {/* Content View */}
-        <ScrollArea className="flex-1 p-4 md:p-8">
+        <div className="flex-1 p-4 md:p-8 overflow-y-auto">
           <div className="max-w-4xl mx-auto space-y-8">
             {isEditing ? (
               <Card className="bg-[#111] border-white/5 rounded-3xl p-4 md:p-8">
@@ -1119,10 +1231,42 @@ export default function Admin() {
                     </>
                   )}
 
-                  {activeTab === "blog" && (
+                  {activeTab === "eventos" && (
                     <>
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título do Post</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem</label>
+                        <div className="flex gap-2">
+                          <Input 
+                            className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white flex-1" 
+                            placeholder="https://exemplo.com/imagem.jpg"
+                            value={formData.image || ""}
+                            onChange={(e) => setFormData({...formData, image: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                          {!isReadOnly && (
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                id="image-upload-event"
+                                onChange={handleFileUpload}
+                              />
+                              <Button
+                                type="button"
+                                className="h-14 px-6 rounded-2xl bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20 border border-[#BF76FF]/30 font-bold flex items-center gap-2"
+                                onClick={() => document.getElementById('image-upload-event')?.click()}
+                                disabled={isUploading}
+                              >
+                                {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                                {isUploading ? "..." : "Upload"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título do Evento</label>
                         <Input 
                           className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
                           value={formData.title || ""}
@@ -1131,11 +1275,130 @@ export default function Admin() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Conteúdo</label>
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio do Evento</label>
                         <Textarea 
-                          className="bg-[#1a1a1a] border-none min-h-[300px] rounded-2xl p-6 text-white" 
+                          className="bg-[#1a1a1a] border-none min-h-[100px] rounded-2xl p-6 text-white" 
                           value={formData.content || ""}
                           onChange={(e) => setFormData({...formData, content: e.target.value})}
+                          readOnly={isReadOnly}
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data e Horários</label>
+                          <Button 
+                            type="button"
+                            variant="outline"
+                            disabled={isReadOnly}
+                            className="w-full bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white flex justify-start font-normal hover:bg-[#222]"
+                            onClick={() => {
+                              // Pre-fill if exists
+                              if (formData.date) {
+                                const parts = formData.date.split(' - ');
+                                if (parts.length >= 3) {
+                                  // Format: DD/MM/YYYY - HH:mm - HH:mm
+                                  const dateParts = parts[0].split('/');
+                                  if (dateParts.length === 3) {
+                                    setTempDate(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
+                                  }
+                                  setTempStartTime(parts[1]);
+                                  setTempEndTime(parts[2]);
+                                }
+                              } else {
+                                setTempDate("");
+                                setTempStartTime("");
+                                setTempEndTime("");
+                              }
+                              setIsDatePickerOpen(true);
+                            }}
+                          >
+                            <Calendar className="w-4 h-4 mr-2 text-[#BF76FF]" />
+                            {formData.date || "Selecionar data e horários"}
+                          </Button>
+
+                          <Dialog open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
+                            <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Configurar Data e Horários</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data do Evento</label>
+                                  <Input 
+                                    type="date"
+                                    className="bg-[#1a1a1a] border-none h-12 rounded-xl px-4 text-white"
+                                    value={tempDate}
+                                    onChange={(e) => setTempDate(e.target.value)}
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Início</label>
+                                    <Input 
+                                      type="time"
+                                      className="bg-[#1a1a1a] border-none h-12 rounded-xl px-4 text-white"
+                                      value={tempStartTime}
+                                      onChange={(e) => setTempStartTime(e.target.value)}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Término</label>
+                                    <Input 
+                                      type="time"
+                                      className="bg-[#1a1a1a] border-none h-12 rounded-xl px-4 text-white"
+                                      value={tempEndTime}
+                                      onChange={(e) => setTempEndTime(e.target.value)}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="flex justify-end gap-3">
+                                <Button variant="ghost" onClick={() => setIsDatePickerOpen(false)}>Cancelar</Button>
+                                <Button 
+                                  className="bg-[#BF76FF] hover:bg-[#BF76FF]/90 text-white font-bold"
+                                  onClick={() => {
+                                    if (tempDate && tempStartTime && tempEndTime) {
+                                      const [year, month, day] = tempDate.split('-');
+                                      const formattedDate = `${day}/${month}/${year} - ${tempStartTime} - ${tempEndTime}`;
+                                      setFormData({ ...formData, date: formattedDate });
+                                      setIsDatePickerOpen(false);
+                                    } else {
+                                      alert("Por favor, preencha todos os campos.");
+                                    }
+                                  }}
+                                >
+                                  Confirmar
+                                </Button>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Organização</label>
+                          <Input 
+                            className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
+                            value={formData.organization || ""}
+                            onChange={(e) => setFormData({...formData, organization: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local (Rua/bairro/cidade/ponto de referência)</label>
+                        <Input 
+                          className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
+                          value={formData.location || ""}
+                          onChange={(e) => setFormData({...formData, location: e.target.value})}
+                          readOnly={isReadOnly}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Observações do Evento</label>
+                        <Textarea 
+                          className="bg-[#1a1a1a] border-none min-h-[100px] rounded-2xl p-6 text-white" 
+                          placeholder="Ex: equipamentos que precisa, ponto de energia pegar na casa da Maria..."
+                          value={formData.observations || ""}
+                          onChange={(e) => setFormData({...formData, observations: e.target.value})}
                           readOnly={isReadOnly}
                         />
                       </div>
@@ -1189,6 +1452,38 @@ export default function Admin() {
                           </select>
                         </div>
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto (URL)</label>
+                        <div className="flex gap-2">
+                          <Input 
+                            className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white flex-1" 
+                            placeholder="https://exemplo.com/foto.jpg"
+                            value={formData.photoURL || ""}
+                            onChange={(e) => setFormData({...formData, photoURL: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                          {!isReadOnly && (
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                id="image-upload-member"
+                                onChange={handleFileUpload}
+                              />
+                              <Button
+                                type="button"
+                                className="h-14 px-6 rounded-2xl bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20 border border-[#BF76FF]/30 font-bold flex items-center gap-2"
+                                onClick={() => document.getElementById('image-upload-member')?.click()}
+                                disabled={isUploading}
+                              >
+                                {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                                {isUploading ? "..." : "Upload"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </>
                   )}
 
@@ -1217,6 +1512,38 @@ export default function Admin() {
                           readOnly={isReadOnly}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Thumbnail (URL)</label>
+                        <div className="flex gap-2">
+                          <Input 
+                            className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white flex-1" 
+                            placeholder="https://exemplo.com/thumb.jpg"
+                            value={formData.thumbnail || ""}
+                            onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                          {!isReadOnly && (
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                id="image-upload-music"
+                                onChange={handleFileUpload}
+                              />
+                              <Button
+                                type="button"
+                                className="h-14 px-6 rounded-2xl bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20 border border-[#BF76FF]/30 font-bold flex items-center gap-2"
+                                onClick={() => document.getElementById('image-upload-music')?.click()}
+                                disabled={isUploading}
+                              >
+                                {isUploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                                {isUploading ? "..." : "Upload"}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
                     </>
                   )}
 
@@ -1243,6 +1570,31 @@ export default function Admin() {
                   </div>
                 </div>
               </Card>
+            ) : activeTab === "eventos" && !isEditing ? (
+              <EventosView 
+                events={posts} 
+                onNewEvent={() => {
+                  setSelectedItem(null);
+                  setFormData({});
+                  setIsReadOnly(false);
+                  setIsEditing(true);
+                }}
+                onViewEvent={(item) => {
+                  setSelectedItem(item);
+                  setFormData(item);
+                  setIsReadOnly(true);
+                  setIsEditing(true);
+                }}
+                onEditEvent={(item) => {
+                  setSelectedItem(item);
+                  setFormData(item);
+                  setIsReadOnly(false);
+                  setIsEditing(true);
+                }}
+                onDeleteEvent={(item) => {
+                  handleDelete(item.id);
+                }}
+              />
             ) : activeTab === "agenda" ? (
               <CalendarView 
                 agenda={agenda} 
@@ -1299,7 +1651,7 @@ export default function Admin() {
               </div>
             </div>
           </div>
-        </ScrollArea>
+        </div>
 
         {/* Bottom Quick Action Bar (Like chat input) */}
         <div className="p-4 md:p-6 border-t border-white/5 bg-[#0a0a0a]">
@@ -1321,7 +1673,7 @@ export default function Admin() {
       </main>
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile) */}
-      <aside className="hidden lg:flex w-80 border-l border-white/5 bg-[#0f0f0f] flex-col p-6">
+      <aside className="hidden lg:flex w-80 border-l border-white/5 bg-[#0f0f0f] flex-col p-6 overflow-y-auto">
 
         <div className="flex justify-between items-center mb-8">
           <div className="flex gap-2">
@@ -1417,20 +1769,20 @@ export default function Admin() {
   );
 }
 
-function SidebarIcon({ icon: Icon, active, onClick, label }: { icon: any, active?: boolean, onClick: () => void, label: string }) {
+function SidebarItem({ icon: Icon, active, onClick, label }: { icon: any, active?: boolean, onClick: () => void, label: string }) {
   return (
     <button 
       onClick={onClick}
       className={cn(
-        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all relative group",
-        active ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" : "bg-transparent text-gray-500 hover:bg-white/5"
+        "w-full h-12 px-4 rounded-xl flex items-center gap-3 transition-all relative group",
+        active ? "bg-white/10 text-white font-bold" : "bg-transparent text-gray-400 hover:bg-white/5 hover:text-gray-200 font-medium"
       )}
     >
-      <Icon className="w-6 h-6" />
-      <span className="absolute left-full ml-4 px-2 py-1 bg-black text-white text-[10px] rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-[100]">
+      <Icon className={cn("w-5 h-5", active ? "text-[#BF76FF]" : "text-gray-400 group-hover:text-gray-300")} />
+      <span className="text-sm whitespace-nowrap">
         {label}
       </span>
-      {active && <motion.div layoutId="active-pill" className="absolute -left-4 w-1 h-6 bg-[#BF76FF] rounded-r-full" />}
+      {active && <motion.div layoutId="active-pill" className="absolute left-0 w-1 h-6 bg-[#BF76FF] rounded-r-full" />}
     </button>
   );
 }
@@ -1456,7 +1808,13 @@ function ListItem({ title, subtitle, image, icon: Icon, active, status, onClick 
       )}
     >
       <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#222] flex items-center justify-center shrink-0">
-        {image ? <img src={image} alt="" className="w-full h-full object-cover" /> : <Icon className="w-6 h-6 text-gray-500" />}
+        {image ? (
+          <img src={image} alt="" className="w-full h-full object-cover" />
+        ) : Icon ? (
+          <Icon className="w-6 h-6 text-gray-500" />
+        ) : (
+          <File className="w-6 h-6 text-gray-500" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <h4 className={cn("text-sm font-bold truncate flex items-center gap-2", active ? "text-white" : "text-gray-300")}>

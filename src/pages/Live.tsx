@@ -54,7 +54,7 @@ export default function Live() {
             <iframe
               width="100%"
               height="100%"
-              src="https://www.youtube.com/embed/live_stream?channel=UCILgaItnqDH3plhRXD54QUg"
+              src={`https://www.youtube-nocookie.com/embed/live_stream?channel=UCILgaItnqDH3plhRXD54QUg&origin=${window.location.origin}`}
               title="YouTube Live Stream"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

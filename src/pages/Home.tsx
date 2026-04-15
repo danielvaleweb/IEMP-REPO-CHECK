@@ -11,17 +11,21 @@ import {
   Clock,
   MapPin,
   ExternalLink,
-  X
+  X,
+  Tag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import { db } from "@/lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
 
 export default function Home() {
   const [isLive, setIsLive] = useState(false);
   const [nextService, setNextService] = useState("Domingo às 19:00");
   const [videos, setVideos] = useState<any[]>([]);
+  const [recentEvents, setRecentEvents] = useState<any[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
@@ -43,6 +47,37 @@ export default function Home() {
   const cleanTitle = (title: string) => {
     return title.replace(/[0-9\/]/g, '').trim();
   };
+
+  useEffect(() => {
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(3));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const eventsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        let displayDate = data.date || "";
+        let displayTime = "";
+        
+        // Handle the new format: DD/MM/YYYY - HH:mm - HH:mm
+        if (displayDate.includes(' - ')) {
+          const parts = displayDate.split(' - ');
+          displayDate = parts[0];
+          displayTime = parts[1]; // Start time
+        }
+
+        return {
+          id: doc.id,
+          title: data.title,
+          description: data.content,
+          date: displayDate,
+          time: displayTime,
+          category: data.organization || "Evento",
+          image: data.image || `https://picsum.photos/seed/${doc.id}/600/400`
+        };
+      });
+      setRecentEvents(eventsData);
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -151,7 +186,7 @@ export default function Home() {
                 {showVideo && !isWatching ? (
                   <div className="absolute inset-0 w-full h-full pointer-events-none">
                     <iframe
-                      src={`https://www.youtube.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0`}
+                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0&origin=${window.location.origin}`}
                       className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 border-none scale-105"
                       allow="autoplay; encrypted-media"
                     />
@@ -165,7 +200,6 @@ export default function Home() {
                   />
                 )}
                 {/* Gradient Overlays */}
-                <div className="absolute inset-0 bg-gradient-to-r from-black via-black/40 to-transparent" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
               </div>
 
@@ -182,7 +216,14 @@ export default function Home() {
                       {isLive && currentIndex === 0 ? "Ao Vivo" : "Gravado"}
                     </span>
                     <span className="text-white/90 text-sm font-medium drop-shadow-md">
-                      {new Date(videos[currentIndex].published).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      {(() => {
+                        const dateStr = videos[currentIndex].published;
+                        const date = new Date(dateStr);
+                        if (!isNaN(date.getTime())) {
+                          return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        }
+                        return dateStr;
+                      })()}
                     </span>
                   </div>
 
@@ -228,7 +269,7 @@ export default function Home() {
               className="fixed inset-0 z-[100] bg-black"
             >
               <iframe
-                src={`https://www.youtube.com/embed/${selectedVideo.id}?autoplay=1&controls=1&modestbranding=1&rel=0`}
+                src={`https://www.youtube-nocookie.com/embed/${selectedVideo.id}?autoplay=1&controls=1&modestbranding=1&rel=0&origin=${window.location.origin}`}
                 className="w-full h-full border-none"
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
@@ -297,6 +338,71 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Eventos Recentes Section */}
+      <section className="py-24 px-4 md:px-12 bg-white rounded-t-[3rem] text-black relative z-30 -mt-10">
+        <div className="max-w-[1600px] mx-auto">
+          <div className="flex items-center justify-between mb-12">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-8 bg-primary rounded-full" />
+              <h2 className="text-3xl md:text-4xl font-black tracking-tighter uppercase">Eventos Recentes</h2>
+            </div>
+            <Link to="/blog" className="text-sm font-bold text-black/60 hover:text-black transition-colors flex items-center gap-2 group">
+              Ver Todos <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {recentEvents.length > 0 ? (
+              recentEvents.map((event, idx) => (
+                <motion.div
+                  key={event.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="group cursor-pointer bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:border-primary/20 transition-all duration-300"
+                >
+                  <div className="relative aspect-[16/9] overflow-hidden">
+                    <img 
+                      src={event.image} 
+                      alt={event.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-sm">
+                      <Tag className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-bold text-black">{event.category}</span>
+                    </div>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors line-clamp-1">
+                      {event.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-6 line-clamp-2 leading-relaxed">
+                      {event.description}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-4 h-4 text-primary/70" />
+                        {event.date}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-primary/70" />
+                        {event.time}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))
+            ) : (
+              <div className="col-span-full py-12 text-center text-gray-400">
+                Nenhum evento recente encontrado.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Próximos Cultos Section */}
       <section className="py-24 px-4 md:px-12 bg-[#0A0A0A]">

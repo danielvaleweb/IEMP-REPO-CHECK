@@ -3,12 +3,64 @@ import { XMLParser } from "fast-xml-parser";
 export default async function handler(req: any, res: any) {
   try {
     const channelId = "UCILgaItnqDH3plhRXD54QUg";
+    const videosUrl = `https://www.youtube.com/@ministerio_profecia/videos`;
+    
+    const response = await fetch(videosUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    });
+    
+    if (response.ok) {
+      const html = await response.text();
+      const match = html.match(/var ytInitialData\s*=\s*({[\s\S]*?});\s*<\/script>/) || 
+                    html.match(/var ytInitialData\s*=\s*({[\s\S]*?});/);
+      if (match) {
+        try {
+          const data = JSON.parse(match[1]);
+          const tabs = data.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
+          const videosTab = tabs.find((t: any) => {
+            const renderer = t.tabRenderer;
+            if (!renderer) return false;
+            const title = renderer.title?.toLowerCase() || "";
+            const url = renderer.endpoint?.browseEndpoint?.canonicalBaseUrl || "";
+            return title.includes('video') || title.includes('vídeo') || url.includes('/videos') || renderer.selected === true;
+          });
+          
+          const targetTab = videosTab || tabs[0];
+          const contents = targetTab?.tabRenderer?.content?.richGridRenderer?.contents || 
+                           targetTab?.tabRenderer?.content?.sectionListRenderer?.contents?.[0]?.itemSectionRenderer?.contents?.[0]?.gridRenderer?.items ||
+                           [];
+          
+          const videos = contents
+            .map((c: any) => {
+              const v = c.richItemRenderer?.content?.videoRenderer || c.gridVideoRenderer || c.videoRenderer;
+              if (!v) return null;
+              const videoId = v.videoId;
+              return {
+                id: videoId,
+                title: v.title?.runs?.[0]?.text || v.title?.simpleText || "Sem título",
+                thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+                published: v.publishedTimeText?.simpleText || v.publishedTimeText?.runs?.[0]?.text || "Recentemente",
+                link: `https://www.youtube.com/watch?v=${videoId}`
+              };
+            })
+            .filter(Boolean)
+            .slice(0, 6);
+            
+          if (videos.length > 0) return res.status(200).json(videos);
+        } catch (parseError) {
+          console.error("Error parsing ytInitialData in API:", parseError);
+        }
+      }
+    }
+
+    // Fallback to RSS
     const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+    const rssResponse = await fetch(rssUrl);
+    if (!rssResponse.ok) throw new Error("Failed to fetch RSS feed");
     
-    const response = await fetch(rssUrl);
-    if (!response.ok) throw new Error("Failed to fetch RSS feed");
-    
-    const xmlData = await response.text();
+    const xmlData = await rssResponse.text();
     const parser = new XMLParser({
       ignoreAttributes: false,
       attributeNamePrefix: "@_"

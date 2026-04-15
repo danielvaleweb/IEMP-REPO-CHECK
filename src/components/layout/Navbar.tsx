@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { 
   Menu, 
   X, 
@@ -29,7 +30,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { motion, AnimatePresence } from "framer-motion";
 
 const menuGroups = [
   {
@@ -66,6 +66,18 @@ export default function Navbar() {
   const location = useLocation();
   const { user, login, logout, isAdmin } = useAuth();
   const { favorites, toggleFavorite } = useFavorites();
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleMouseEnter = (name: string) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setOpenMenu(name);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setOpenMenu(null);
+    }, 150);
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -83,7 +95,7 @@ export default function Navbar() {
     <>
       <nav className={cn(
         "fixed top-0 left-0 right-0 z-50 transition-colors duration-700 w-full py-4",
-        isScrolled ? "bg-black/90 backdrop-blur-md border-b border-white/10" : "bg-transparent"
+        isScrolled ? "bg-black/90 backdrop-blur-md" : "bg-transparent"
       )}>
         <div className="w-full px-6 md:px-12 flex items-center justify-between">
           {/* Logo */}
@@ -107,40 +119,52 @@ export default function Navbar() {
             {menuGroups.map((group) => (
               <div 
                 key={group.name}
-                onMouseEnter={() => setOpenMenu(group.name)}
-                onMouseLeave={() => setOpenMenu(null)}
+                className="relative"
+                onMouseEnter={() => handleMouseEnter(group.name)}
+                onMouseLeave={handleMouseLeave}
               >
-                <DropdownMenu open={openMenu === group.name} onOpenChange={(open) => !open && setOpenMenu(null)}>
-                  <DropdownMenuTrigger
-                    render={
-                      <button className={cn(
-                        "px-4 py-2 text-sm font-medium transition-all duration-300 flex items-center gap-1 outline-none",
-                        group.items.some(item => location.pathname === item.path)
-                          ? "text-white opacity-100"
-                          : "text-white opacity-70 hover:opacity-100 hover:text-white"
+                <button className={cn(
+                  "px-4 py-2 text-sm font-medium transition-all duration-300 flex items-center gap-1 outline-none",
+                  group.items.some(item => location.pathname === item.path)
+                    ? "text-white opacity-100"
+                    : "text-white opacity-70 hover:opacity-100 hover:text-white"
+                )}>
+                  {group.name} <ChevronDown className={cn("w-4 h-4 opacity-40 transition-transform duration-200", openMenu === group.name && "rotate-180")} />
+                </button>
+                
+                <AnimatePresence>
+                  {openMenu === group.name && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full left-1/2 -translate-x-1/2 pt-2 min-w-[200px] z-50"
+                    >
+                      <div className={cn(
+                        "text-white rounded-xl p-2 shadow-2xl backdrop-blur-xl transition-colors duration-700",
+                        isScrolled ? "bg-black/90" : "bg-transparent"
                       )}>
-                        {group.name} <ChevronDown className="w-4 h-4 opacity-40" />
-                      </button>
-                    }
-                  />
-                  <DropdownMenuContent align="center" sideOffset={10} className="bg-black/95 border-white/10 text-white min-w-[200px] rounded-xl p-2 shadow-2xl backdrop-blur-xl">
-                    {group.items.map((item) => (
-                      <DropdownMenuItem 
-                        key={item.path} 
-                        render={<Link to={item.path} />} 
-                        className={cn(
-                          "rounded-lg cursor-pointer py-3 px-4 transition-all duration-300 outline-none",
-                          "focus:bg-white/10 focus:!text-white hover:bg-white/10 hover:!text-white",
-                          location.pathname === item.path
-                            ? "!text-white opacity-100"
-                            : "text-white/60"
-                        )}
-                      >
-                        {item.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                        {group.items.map((item) => (
+                          <Link 
+                            key={item.path} 
+                            to={item.path}
+                            onClick={() => setOpenMenu(null)}
+                            className={cn(
+                              "block rounded-lg cursor-pointer py-3 px-4 transition-all duration-300 outline-none",
+                              "focus:bg-white/10 focus:text-white hover:bg-white/10 hover:text-white",
+                              location.pathname === item.path
+                                ? "text-white opacity-100 bg-white/5"
+                                : "text-white/60"
+                            )}
+                          >
+                            {item.name}
+                          </Link>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ))}
           </div>
@@ -213,15 +237,16 @@ export default function Navbar() {
             )}
 
             {/* Menu Toggle */}
-            <Sheet>
-              <SheetTrigger
-                render={
-                  <Button variant="ghost" size="icon" className="text-white/90 hover:text-white hover:bg-white/10 rounded-full">
-                    <Menu className="w-6 h-6" />
-                  </Button>
-                }
-              />
-              <SheetContent side="right" className="bg-black border-white/10 text-white w-[85%] sm:w-[400px] p-0">
+            <div className="md:hidden">
+              <Sheet>
+                <SheetTrigger
+                  render={
+                    <Button variant="ghost" size="icon" className="text-white/90 hover:text-white hover:bg-white/10 rounded-full">
+                      <Menu className="w-6 h-6" />
+                    </Button>
+                  }
+                />
+                <SheetContent side="right" className="bg-black border-white/10 text-white w-[85%] sm:w-[400px] p-0">
                 <div className="flex flex-col h-full">
                   <div className="p-6 border-b border-white/10">
                     <SheetTitle className="flex items-center">
@@ -322,6 +347,7 @@ export default function Navbar() {
                 </div>
               </SheetContent>
             </Sheet>
+            </div>
           </div>
         </div>
       </nav>
