@@ -10,6 +10,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import BackgroundPlayer from "@/components/music/BackgroundPlayer";
 import Home from "@/pages/Home";
+import EventDetail from "@/pages/EventDetail";
 import Live from "@/pages/Live";
 import Gallery from "@/pages/Gallery";
 import Admin from "@/pages/Admin";
@@ -31,6 +32,7 @@ export default function App() {
             <main className="flex-grow">
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/evento/:id" element={<EventDetail />} />
                 <Route path="/ao-vivo" element={<Live />} />
                 <Route path="/galeria" element={<Gallery />} />
                 <Route path="/favoritos" element={<Favorites />} />

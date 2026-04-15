@@ -15,7 +15,7 @@ import {
   Tag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { db } from "@/lib/firebase";
@@ -31,6 +31,7 @@ export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
   const [isWatching, setIsWatching] = useState(false);
   const { toggleFavorite, isFavorite } = useFavorites();
+  const navigate = useNavigate();
 
   const nextVideo = useCallback(() => {
     if (videos.length === 0) return;
@@ -362,6 +363,7 @@ export default function Home() {
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
                   className="group cursor-pointer bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:border-primary/20 transition-all duration-300"
+                  onClick={() => navigate(`/evento/${event.id}`)}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img 

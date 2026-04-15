@@ -440,13 +440,72 @@ export default function Admin() {
           ...formData,
           updatedAt: serverTimestamp()
         });
+
+        // Sincroniza com a agenda se for um evento
+        if (activeTab === "eventos") {
+          const q = query(collection(db, "agenda"), where("eventId", "==", selectedItem.id));
+          const querySnapshot = await getDocs(q);
+          
+          let agendaDate = "";
+          if (formData.date && formData.date.includes(' - ')) {
+            const parts = formData.date.split(' - ');
+            const dateParts = parts[0].split('/');
+            if (dateParts.length === 3) {
+              agendaDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}T${parts[1]}`;
+            }
+          }
+
+          if (!querySnapshot.empty) {
+            const agendaDoc = querySnapshot.docs[0];
+            await updateDoc(doc(db, "agenda", agendaDoc.id), {
+              title: formData.title,
+              date: agendaDate,
+              location: formData.location,
+              updatedAt: serverTimestamp()
+            });
+          } else {
+            // Caso não exista (ex: eventos antigos), cria um novo
+            await addDoc(collection(db, "agenda"), {
+              title: formData.title,
+              date: agendaDate,
+              location: formData.location,
+              eventId: selectedItem.id,
+              createdAt: serverTimestamp(),
+              authorId: user?.uid,
+              authorName: user?.displayName || "Admin"
+            });
+          }
+        }
       } else {
-        await addDoc(collection(db, collectionName), {
+        const newDoc = await addDoc(collection(db, collectionName), {
           ...formData,
           createdAt: serverTimestamp(),
           authorId: user?.uid,
           authorName: user?.displayName || "Admin"
         });
+
+        // Se for um evento, adiciona automaticamente na agenda
+        if (activeTab === "eventos") {
+          let agendaDate = "";
+          if (formData.date && formData.date.includes(' - ')) {
+            const parts = formData.date.split(' - ');
+            const dateParts = parts[0].split('/');
+            if (dateParts.length === 3) {
+              // Converte DD/MM/YYYY - HH:mm para YYYY-MM-DDTHH:mm
+              agendaDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}T${parts[1]}`;
+            }
+          }
+
+          await addDoc(collection(db, "agenda"), {
+            title: formData.title,
+            date: agendaDate,
+            location: formData.location,
+            eventId: newDoc.id,
+            createdAt: serverTimestamp(),
+            authorId: user?.uid,
+            authorName: user?.displayName || "Admin"
+          });
+        }
       }
       setIsEditing(false);
       setSelectedItem(null);
@@ -461,6 +520,16 @@ export default function Admin() {
     try {
       const collectionName = activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "equipe" ? "members" : "agenda";
       await deleteDoc(doc(db, collectionName, id));
+
+      // Se for um evento, remove também da agenda
+      if (activeTab === "eventos") {
+        const q = query(collection(db, "agenda"), where("eventId", "==", id));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach(async (agendaDoc) => {
+          await deleteDoc(doc(db, "agenda", agendaDoc.id));
+        });
+      }
+
       setSelectedItem(null);
     } catch (err) {
       handleFirestoreError(err, OperationType.DELETE, activeTab);
@@ -1401,6 +1470,135 @@ export default function Admin() {
                           onChange={(e) => setFormData({...formData, observations: e.target.value})}
                           readOnly={isReadOnly}
                         />
+                      </div>
+
+                      {/* Galeria de Fotos */}
+                      <div className="space-y-4 pt-4 border-t border-white/5">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Galeria de Fotos</label>
+                          {!isReadOnly && (
+                            <div className="relative">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                id="gallery-upload"
+                                multiple
+                                onChange={async (e) => {
+                                  const files = e.target.files;
+                                  if (!files || files.length === 0) return;
+                                  
+                                  setIsUploading(true);
+                                  const newGallery = [...(formData.gallery || [])];
+                                  
+                                  for (let i = 0; i < files.length; i++) {
+                                    const formDataUpload = new FormData();
+                                    formDataUpload.append("image", files[i]);
+                                    try {
+                                      const response = await fetch("/api/upload", {
+                                        method: "POST",
+                                        body: formDataUpload,
+                                      });
+                                      const data = await response.json();
+                                      if (data.url) newGallery.push(data.url);
+                                    } catch (err) {
+                                      console.error("Error uploading gallery image:", err);
+                                    }
+                                  }
+                                  
+                                  setFormData({ ...formData, gallery: newGallery });
+                                  setIsUploading(false);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                className="bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20 border border-[#BF76FF]/30 font-bold flex items-center gap-2"
+                                onClick={() => document.getElementById('gallery-upload')?.click()}
+                                disabled={isUploading}
+                              >
+                                {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                Adicionar Fotos
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {(formData.gallery || []).map((img: string, idx: number) => (
+                            <div key={idx} className="relative aspect-square rounded-xl overflow-hidden border border-white/5 group">
+                              <img src={img} alt="" className="w-full h-full object-cover" />
+                              {!isReadOnly && (
+                                <button 
+                                  className="absolute top-2 right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => {
+                                    const newGallery = [...formData.gallery];
+                                    newGallery.splice(idx, 1);
+                                    setFormData({ ...formData, gallery: newGallery });
+                                  }}
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {(!formData.gallery || formData.gallery.length === 0) && (
+                            <div className="col-span-full py-8 text-center border-2 border-dashed border-white/5 rounded-2xl text-gray-500 text-sm">
+                              Nenhuma foto na galeria
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Vídeos do YouTube */}
+                      <div className="space-y-4 pt-4 border-t border-white/5">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Vídeos (YouTube)</label>
+                          {!isReadOnly && (
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20 border border-[#BF76FF]/30 font-bold flex items-center gap-2"
+                              onClick={() => {
+                                const url = window.prompt("Insira o link do vídeo do YouTube:");
+                                if (url) {
+                                  const newVideos = [...(formData.videos || [])];
+                                  newVideos.push(url);
+                                  setFormData({ ...formData, videos: newVideos });
+                                }
+                              }}
+                            >
+                              <Plus className="w-4 h-4" />
+                              Adicionar Vídeo
+                            </Button>
+                          )}
+                        </div>
+                        
+                        <div className="space-y-2">
+                          {(formData.videos || []).map((video: string, idx: number) => (
+                            <div key={idx} className="flex items-center gap-3 bg-[#1a1a1a] p-3 rounded-xl border border-white/5">
+                              <Youtube className="w-5 h-5 text-red-500" />
+                              <span className="text-sm text-gray-300 truncate flex-1">{video}</span>
+                              {!isReadOnly && (
+                                <button 
+                                  className="text-red-500 hover:text-red-400 p-1"
+                                  onClick={() => {
+                                    const newVideos = [...formData.videos];
+                                    newVideos.splice(idx, 1);
+                                    setFormData({ ...formData, videos: newVideos });
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                          {(!formData.videos || formData.videos.length === 0) && (
+                            <div className="py-8 text-center border-2 border-dashed border-white/5 rounded-2xl text-gray-500 text-sm">
+                              Nenhum vídeo adicionado
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}
