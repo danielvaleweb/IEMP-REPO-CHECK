@@ -45,7 +45,8 @@ import {
   Star,
   Bookmark,
   Cake,
-  Flame
+  Flame,
+  CalendarDays,
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -394,7 +395,7 @@ const formatRoles = (member: any) => {
   return mappedRoles[0];
 };
 
-function MemberProfile({ member, onBack, onEdit, isDark, notifications }: { member: any, onBack: () => void, onEdit: () => void, isDark: boolean, notifications: any[] }) {
+function MemberProfile({ member, onBack, onEdit, isDark, notifications }: { member: any, onBack: () => void, onEdit?: () => void, isDark: boolean, notifications: any[] }) {
   const isBirthdayToday = useMemo(() => {
     if (!member.birthDate) return false;
     try {
@@ -468,12 +469,14 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications }: { memb
             </div>
 
             <div className="flex gap-3 w-full md:w-auto justify-center md:justify-end">
-              <Button 
-                onClick={onEdit}
-                className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs"
-              >
-                <Edit className="w-4 h-4 mr-2" /> Editar Perfil
-              </Button>
+              {onEdit && (
+                <Button 
+                  onClick={onEdit}
+                  className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs"
+                >
+                  <Edit className="w-4 h-4 mr-2" /> Editar Perfil
+                </Button>
+              )}
               <Button 
                 variant="outline"
                 className={cn("rounded-2xl h-14 px-6 border-white/10 transition-colors", isDark ? "bg-white/5 text-white hover:bg-white/10" : "bg-black/5 text-black hover:bg-black/10")}
@@ -920,17 +923,27 @@ export default function Admin() {
     if (tab === "config" && !canViewSettings) return false;
     if (isEffectivelyAdmin) return true;
     const rolePerms = settings.permissions?.[currentRole];
+    
+    const defaultVals: any = {
+      "visao-geral": true,
+      "eventos": !["Membro", "Visitante"].includes(currentRole),
+      "musica": !["Membro", "Visitante"].includes(currentRole),
+      "membros": !["Membro", "Visitante"].includes(currentRole),
+      "agenda": !["Membro", "Visitante"].includes(currentRole),
+      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor"
+    };
+
     if (!rolePerms) {
-      // Default fallback if no permissions set
-      if (currentRole === "Membro" || currentRole === "Visitante") return ["visao-geral"].includes(tab);
-      return true;
+      return defaultVals[tab] ?? false;
     }
-    return rolePerms.tabs?.[tab] ?? true;
+    return rolePerms.tabs?.[tab] ?? (defaultVals[tab] ?? true);
   };
 
   const defaultEditPerm = !["Membro", "Visitante"].includes(currentRole);
+  const defaultEditProfilesPerm = currentRole === "Administradores" || currentRole === "Desenvolvedor";
   const canEdit = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.edit ?? defaultEditPerm);
   const canDelete = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.delete ?? defaultEditPerm);
+  const canEditProfiles = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.editProfiles ?? defaultEditProfilesPerm);
 
   // Real-time listeners
   useEffect(() => {
@@ -1657,6 +1670,7 @@ export default function Admin() {
             {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
             {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
             {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+            {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
             
             <div className="md:hidden">
               {canViewSettings && <SidebarItem icon={Settings} active={activeTab === "config"} onClick={() => setActiveTab("config")} label="Settings" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
@@ -2478,19 +2492,19 @@ export default function Admin() {
                     isDark={isDarkMode}
                     notifications={notifications}
                     onBack={() => setViewingMember(null)}
-                    onEdit={() => {
+                    onEdit={(canEditProfiles || viewingMember.email === user?.email) ? () => {
                       setSelectedItem(viewingMember);
                       setFormData(viewingMember);
                       setIsReadOnly(false);
                       setIsEditing(true);
                       setViewingMember(null);
-                    }}
+                    } : undefined}
                   />
                 ) : (
                   <>
                     <div className="flex justify-between items-center mb-8">
                       <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Todos os Membros</h2>
-                      {canEdit && (
+                      {canEditProfiles && (
                         <Button 
                           className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold cursor-pointer"
                           onClick={() => {
@@ -2515,14 +2529,14 @@ export default function Admin() {
                             onViewProfile={() => {
                               setViewingMember(member);
                             }}
-                            onEditProfile={canEdit ? () => {
+                            onEditProfile={(canEditProfiles || member.email === user?.email) ? () => {
                               setSelectedItem(member);
                               setFormData(member);
                               setIsReadOnly(false);
                               setIsEditing(true);
                               setViewingMember(null);
                             } : undefined}
-                            onDelete={canDelete ? () => handleDelete(member.id, "members") : undefined}
+                            onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member.id, "members") : undefined}
                             isDark={isDarkMode}
                           />
                         </div>
@@ -2667,6 +2681,15 @@ export default function Admin() {
                   </div>
                 </div>
               </div>
+            ) : activeTab === "agenda-direcao" ? (
+              <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda da Direção</h2>
+                </div>
+                <div className={cn("border rounded-[32px] p-8 md:p-12 transition-colors", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                  <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
+                </div>
+              </div>
             ) : activeTab === "config" ? (
               <div className="p-4 md:p-8">
                 <Card className={cn("border rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
@@ -2712,9 +2735,16 @@ export default function Admin() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {[
                                   { label: "Criar/Editar", key: "edit" },
-                                  { label: "Excluir", key: "delete" }
+                                  { label: "Excluir", key: "delete" },
+                                  { label: "Gerenciar Perfis", key: "editProfiles" }
                                 ].map(perm => {
-                                  const isChecked = settings.permissions?.[role]?.[perm.key] ?? true;
+                                  let defaultPerm = true;
+                                  if (perm.key === "editProfiles") {
+                                    defaultPerm = role === "Administradores" || role === "Desenvolvedor";
+                                  } else {
+                                    defaultPerm = !["Membro", "Visitante"].includes(role);
+                                  }
+                                  const isChecked = settings.permissions?.[role]?.[perm.key] ?? defaultPerm;
                                   return (
                                     <div key={perm.key} className={cn("flex items-center justify-between p-3 rounded-xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                                       <span className="text-xs text-gray-400">{perm.label}</span>
@@ -2728,7 +2758,12 @@ export default function Admin() {
                                             const newPermissions = {
                                               ...settings.permissions,
                                               [role]: {
-                                                ...(settings.permissions?.[role] || { edit: true, delete: true, tabs: {} }),
+                                                ...(settings.permissions?.[role] || { 
+                                                  edit: !["Membro", "Visitante"].includes(role), 
+                                                  delete: !["Membro", "Visitante"].includes(role), 
+                                                  editProfiles: role === "Administradores" || role === "Desenvolvedor", 
+                                                  tabs: {} 
+                                                }),
                                                 [perm.key]: newValue
                                               }
                                             };
@@ -2755,9 +2790,20 @@ export default function Admin() {
                                     { label: "Eventos", key: "eventos" },
                                     { label: "Música", key: "musica" },
                                     { label: "Membros", key: "membros" },
-                                    { label: "Agenda", key: "agenda" }
+                                    { label: "Agenda", key: "agenda" },
+                                    { label: "Agen. Direção", key: "agenda-direcao" }
                                   ].map(tab => {
-                                    const isChecked = settings.permissions?.[role]?.tabs?.[tab.key] ?? true;
+                                    
+                                    const defaultVals: any = {
+                                      "visao-geral": true,
+                                      "eventos": !["Membro", "Visitante"].includes(role),
+                                      "musica": !["Membro", "Visitante"].includes(role),
+                                      "membros": !["Membro", "Visitante"].includes(role),
+                                      "agenda": !["Membro", "Visitante"].includes(role),
+                                      "agenda-direcao": role === "Administradores" || role === "Desenvolvedor"
+                                    };
+                                    
+                                    const isChecked = settings.permissions?.[role]?.tabs?.[tab.key] ?? defaultVals[tab.key];
                                     return (
                                       <button
                                         key={tab.key}
@@ -2821,24 +2867,6 @@ export default function Admin() {
                 )}
               </div>
             )}
-          </div>
-        </div>
-
-        {/* Bottom Quick Action Bar (Like chat input) */}
-        <div className={cn("p-4 md:p-6 border-t transition-colors duration-500", isDarkMode ? "border-white/5 bg-[#0a0a0a]" : "border-black/5 bg-white")}>
-          <div className="w-full relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 flex gap-2">
-              <button className={cn("p-2 rounded-xl transition-colors cursor-pointer", isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-500")}><ImageIcon className="w-5 h-5" /></button>
-              <button className={cn("p-2 rounded-xl transition-colors cursor-pointer", isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-500")}><LinkIcon className="w-5 h-5" /></button>
-            </div>
-            <input 
-              type="text" 
-              placeholder="Escreva uma nota rápida sobre esta edição..." 
-              className={cn("w-full border-none rounded-2xl py-4 pl-24 pr-16 text-sm outline-none focus:ring-1 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-[#BF76FF]/50")}
-            />
-            <button className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-gradient-to-tr from-[#7300FF] to-[#CC7EFF] flex items-center justify-center text-white shadow-lg shadow-[#7300FF]/20 cursor-pointer">
-              <Send className="w-5 h-5" />
-            </button>
           </div>
         </div>
       </main>
