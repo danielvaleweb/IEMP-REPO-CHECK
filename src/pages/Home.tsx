@@ -15,11 +15,11 @@ import {
   Tag
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { db } from "@/lib/firebase";
-import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestore";
+import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot, doc } from "firebase/firestore";
 
 export default function Home() {
   const [isLive, setIsLive] = useState(false);
@@ -30,8 +30,17 @@ export default function Home() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
   const [isWatching, setIsWatching] = useState(false);
+  const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
   const { toggleFavorite, isFavorite } = useFavorites();
-  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        setSettings(docSnap.data());
+      }
+    }, (err) => handleFirestoreError(err, OperationType.GET, "settings"));
+    return () => unsubSettings();
+  }, []);
 
   const nextVideo = useCallback(() => {
     if (videos.length === 0) return;
@@ -143,11 +152,15 @@ export default function Home() {
 
   // Show video after 3 seconds of slide change
   useEffect(() => {
+    if (settings.enableHeaderVideos === false) {
+      setShowVideo(false);
+      return;
+    }
     const timer = setTimeout(() => {
       setShowVideo(true);
     }, 3000);
     return () => clearTimeout(timer);
-  }, [currentIndex]);
+  }, [currentIndex, settings.enableHeaderVideos]);
 
   useEffect(() => {
     const handleOpenLive = () => {
@@ -363,7 +376,6 @@ export default function Home() {
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
                   className="group cursor-pointer bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 hover:shadow-xl hover:border-primary/20 transition-all duration-300"
-                  onClick={() => navigate(`/evento/${event.id}`)}
                 >
                   <div className="relative aspect-[16/9] overflow-hidden">
                     <img 

@@ -42,5 +42,10 @@ service cloud.firestore {
     match /notifications/{notifId} {
       allow read, write: if true;
     }
+
+    // Settings collection
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
   }
 }

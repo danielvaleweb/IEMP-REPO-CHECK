@@ -10,36 +10,44 @@ export function EventosView({
   onNewEvent, 
   onEditEvent, 
   onDeleteEvent, 
-  onViewEvent 
+  onViewEvent,
+  isDark,
+  canEdit = false,
+  canDelete = false
 }: { 
   events: any[], 
   onNewEvent: () => void, 
   onEditEvent: (event: any) => void, 
   onDeleteEvent: (event: any) => void, 
-  onViewEvent: (event: any) => void 
+  onViewEvent: (event: any) => void,
+  isDark?: boolean,
+  canEdit?: boolean,
+  canDelete?: boolean
 }) {
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-bold text-white">Eventos do Mês</h2>
-        <Button 
-          className="bg-[#BF76FF] hover:bg-[#BF76FF]/90 text-white rounded-xl h-12 px-6 font-bold cursor-pointer"
-          onClick={onNewEvent}
-        >
-          <Plus className="w-4 h-4 mr-2" /> Cadastrar novo evento
-        </Button>
+        <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>Eventos do Mês</h2>
+        {canEdit && (
+          <Button 
+            className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold cursor-pointer"
+            onClick={onNewEvent}
+          >
+            <Plus className="w-4 h-4 mr-2" /> Cadastrar novo evento
+          </Button>
+        )}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 pb-20">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 overflow-y-auto pb-20">
         {events.map((event) => (
-          <div key={event.id} className="bg-[#111] rounded-2xl overflow-hidden border border-white/5 group relative aspect-[9/16] flex flex-col">
+          <div key={event.id} className={cn("rounded-2xl overflow-hidden border group relative aspect-[9/16] flex flex-col transition-all", isDark ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-md hover:shadow-xl")}>
             <div className="absolute inset-0 z-0">
               <img 
                 src={event.image || "https://picsum.photos/seed/evento/400/700"} 
                 alt={event.title} 
-                className="w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-opacity"
+                className={cn("w-full h-full object-cover transition-opacity", isDark ? "opacity-50 group-hover:opacity-70" : "opacity-90 group-hover:opacity-100")}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
+              <div className={cn("absolute inset-0 bg-gradient-to-t", isDark ? "from-black via-black/50 to-transparent" : "from-black/60 via-transparent to-transparent")} />
             </div>
             
             <div className="relative z-10 p-4 flex flex-col h-full justify-end">
@@ -47,20 +55,24 @@ export function EventosView({
                 <button onClick={() => onViewEvent(event)} className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-colors">
                   <Eye className="w-4 h-4" />
                 </button>
-                <button onClick={() => onEditEvent(event)} className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-[#BF76FF] transition-colors">
-                  <Edit className="w-4 h-4" />
-                </button>
-                <button onClick={() => onDeleteEvent(event)} className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canEdit && (
+                  <button onClick={() => onEditEvent(event)} className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-[#BF76FF] transition-colors">
+                    <Edit className="w-4 h-4" />
+                  </button>
+                )}
+                {canDelete && (
+                  <button onClick={() => onDeleteEvent(event)} className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-red-500 transition-colors">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
-              <h3 className="text-lg font-bold text-white mb-1 line-clamp-2">{event.title}</h3>
-              <div className="flex items-center gap-2 text-xs text-gray-300 mb-1">
+              <h3 className="text-lg font-bold text-white mb-1 line-clamp-2 drop-shadow-md">{event.title}</h3>
+              <div className="flex items-center gap-2 text-xs text-white/80 mb-1 drop-shadow-md">
                 <Calendar className="w-3 h-3 text-[#BF76FF]" />
                 <span>{event.date}</span>
               </div>
-              <div className="flex items-center gap-2 text-xs text-gray-300">
+              <div className="flex items-center gap-2 text-xs text-white/80 drop-shadow-md">
                 <MapPin className="w-3 h-3 text-[#BF76FF]" />
                 <span className="line-clamp-1">{event.location}</span>
               </div>
@@ -75,4 +87,8 @@ export function EventosView({
       </div>
     </div>
   );
+}
+
+function cn(...classes: any[]) {
+  return classes.filter(Boolean).join(" ");
 }

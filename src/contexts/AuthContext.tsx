@@ -11,7 +11,7 @@ import {
   browserLocalPersistence
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection } from "firebase/firestore";
 
 interface AuthContextType {
   user: any | null;
@@ -21,6 +21,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   isAdmin: boolean;
   setCustomLogin: (status: boolean, userData?: any) => void;
+  error: string | null;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isCustomLoggedIn, setIsCustomLoggedIn] = useState(() => {
     return localStorage.getItem("adminLoggedIn") === "true";
   });
@@ -38,6 +41,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    // Check if cookies are enabled
+    if (!navigator.cookieEnabled) {
+      setError("Os cookies estão desativados no seu navegador. Ative-os para fazer login.");
+    }
+
     // Ensure persistence is set to local
     setPersistence(auth, browserLocalPersistence).catch(err => {
       console.error("Erro ao definir persistência:", err);
@@ -53,52 +61,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log("DEBUG: onAuthStateChanged disparado, user:", user?.email);
       setFirebaseUser(user);
       
       if (user) {
-        // Get or create profile in members collection
-        const userRef = doc(db, "members", user.uid);
-        const userSnap = await getDoc(userRef);
-        
-        if (userSnap.exists()) {
-          setProfile(userSnap.data());
-        } else {
-          const newProfile = {
-            name: user.displayName,
-            email: user.email,
-            photoURL: user.photoURL,
-            role: user.email === "iempministerioprofecia@gmail.com" ? "admin" : "member",
-            status: user.email === "iempministerioprofecia@gmail.com" ? "approved" : "pending",
-            hasDashboardAccess: user.email === "iempministerioprofecia@gmail.com",
-            createdAt: new Date().toISOString()
-          };
-          await setDoc(userRef, newProfile);
+        try {
+          console.log("DEBUG: Buscando perfil no Firestore para:", user.uid);
+          // Get or create profile in members collection
+          const userRef = doc(db, "members", user.uid);
+          const userSnap = await getDoc(userRef);
           
-          // Create notification for new Google sign up
-          if (user.email !== "iempministerioprofecia@gmail.com") {
-            await setDoc(doc(db, "notifications", crypto.randomUUID()), {
-              title: "Novo Cadastro (Google)",
-              message: `${newProfile.name} solicitou acesso via Google.`,
-              type: "registration",
-              memberId: user.uid,
-              read: false,
+          if (userSnap.exists()) {
+            const data = userSnap.data();
+            console.log("DEBUG: Perfil encontrado no Firestore:", data);
+            setProfile(data);
+          } else {
+            console.log("DEBUG: Perfil não encontrado, criando novo...");
+            const newProfile = {
+              name: user.displayName,
+              email: user.email,
+              photoURL: user.photoURL,
+              role: user.email === "iempministerioprofecia@gmail.com" ? "admin" : "member",
+              status: user.email === "iempministerioprofecia@gmail.com" ? "approved" : "pending",
+              hasDashboardAccess: user.email === "iempministerioprofecia@gmail.com",
               createdAt: new Date().toISOString()
-            });
+            };
+            await setDoc(userRef, newProfile);
+            console.log("DEBUG: Novo perfil criado");
+            
+            // Create notification for new Google sign up
+            if (user.email !== "iempministerioprofecia@gmail.com") {
+              const notifRef = doc(collection(db, "notifications"));
+              await setDoc(notifRef, {
+                title: "Novo Cadastro (Google)",
+                message: `${newProfile.name} solicitou acesso via Google.`,
+                type: "registration",
+                memberId: user.uid,
+                read: false,
+                createdAt: new Date().toISOString()
+              });
+            }
+            
+            setProfile(newProfile);
           }
-          
-          setProfile(newProfile);
+        } catch (error) {
+          console.error("DEBUG: Erro ao processar perfil no onAuthStateChanged:", error);
         }
       } else {
         setProfile(null);
       }
       
+      console.log("DEBUG: Finalizando processamento de auth, user:", user?.email, "loading = false");
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const login = async () => {
+    setError(null);
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({
@@ -107,8 +130,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       console.log("DEBUG: Iniciando signInWithPopup...");
       try {
-        await signInWithPopup(auth, provider);
-        console.log("DEBUG: signInWithPopup concluído");
+        const result = await signInWithPopup(auth, provider);
+        console.log("DEBUG: signInWithPopup concluído com sucesso para:", result.user.email);
       } catch (popupError: any) {
         console.warn("DEBUG: Erro no popup (code):", popupError.code);
         
@@ -122,17 +145,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ].includes(popupError.code);
 
         if (shouldRedirect) {
-          console.log("DEBUG: Tentando signInWithRedirect como fallback...");
-          await signInWithRedirect(auth, provider);
+          console.log(`DEBUG: Erro ${popupError.code} detectado. Tentando signInWithRedirect como fallback...`);
+          try {
+            await signInWithRedirect(auth, provider);
+          } catch (redirectError: any) {
+            console.error("DEBUG: Erro no signInWithRedirect:", redirectError);
+            let msg = redirectError.message;
+            if (redirectError.code === 'auth/network-request-failed') {
+              msg = "Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.";
+            }
+            setError(msg);
+            throw redirectError;
+          }
         } else {
+          setError(popupError.message);
           throw popupError;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("DEBUG: Erro fatal no login:", error);
+      let msg = error.message || "Erro desconhecido no login";
+      if (error.code === 'auth/network-request-failed') {
+        msg = "Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.";
+      }
+      setError(msg);
       throw error;
     }
   };
+
+  const clearError = () => setError(null);
 
   const logout = async () => {
     if (firebaseUser) {
@@ -160,7 +201,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isAdmin = profile?.role === "admin" || customUserData?.role === "admin" || (isCustomLoggedIn && !customUserData);
+  const isAdmin = (firebaseUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") || 
+                  (auth.currentUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") ||
+                  profile?.role === "admin" || 
+                  customUserData?.role === "admin" || 
+                  (isCustomLoggedIn && !customUserData);
+
+  useEffect(() => {
+    console.log("DEBUG AuthContext State Update:", {
+      firebaseUserEmail: firebaseUser?.email,
+      firebaseUserEmailType: typeof firebaseUser?.email,
+      authCurrentUserEmail: auth.currentUser?.email,
+      profileRole: profile?.role,
+      isAdmin,
+      isEmailMatch: firebaseUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com"
+    });
+  }, [firebaseUser, profile, isAdmin]);
 
   const user = firebaseUser || (isCustomLoggedIn ? {
     displayName: customUserData?.name || "Administrador",
@@ -170,7 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   } : null);
 
   return (
-    <AuthContext.Provider value={{ user, profile: profile || customUserData, loading, login, logout, isAdmin, setCustomLogin }}>
+    <AuthContext.Provider value={{ user, profile: profile || customUserData, loading, login, logout, isAdmin, setCustomLogin, error, clearError }}>
       {children}
     </AuthContext.Provider>
   );

@@ -67,6 +67,14 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "message", "read"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Configurações gerais do site",
+      "type": "object",
+      "properties": {
+        "enableHeaderVideos": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
@@ -89,6 +97,10 @@
     "/notifications/{notifId}": {
       "schema": "Notification",
       "description": "Alertas administrativos"
+    },
+    "/settings/{settingId}": {
+      "schema": "Settings",
+      "description": "Configurações globais"
     }
   }
 }
