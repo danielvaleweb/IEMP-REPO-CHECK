@@ -1127,7 +1127,7 @@ export default function Admin() {
     setShowWhatsAppModal(null);
   };
 
-  if (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("musica") && !canViewTab("membros") && !canViewTab("agenda")) {
+  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("musica") && !canViewTab("membros") && !canViewTab("agenda"))) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col p-6">
         {/* Header / Back Button */}
