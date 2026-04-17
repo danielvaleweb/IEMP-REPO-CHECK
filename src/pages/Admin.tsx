@@ -1599,7 +1599,7 @@ export default function Admin() {
             </button>
           </div>
 
-          {!isSidebarCollapsed && (
+          {!isSidebarCollapsed && (isMasterAdmin || profile?.role === "Desenvolvedor") && (
             <div className="relative">
               <div 
                 onClick={() => isMasterAdmin ? setIsWorkspaceOpen(!isWorkspaceOpen) : setActiveTab("config")}
