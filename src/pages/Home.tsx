@@ -182,7 +182,7 @@ export default function Home() {
   }, [videos]);
 
   return (
-    <div className="flex flex-col bg-black">
+    <div className="flex flex-col bg-black overflow-y-auto scrollbar-hide overscroll-contain touch-pan-y">
       {/* Hero Section - Netflix Style */}
       <section id="hero" className="relative h-screen w-full bg-black text-white overflow-hidden">
         <AnimatePresence mode="wait">

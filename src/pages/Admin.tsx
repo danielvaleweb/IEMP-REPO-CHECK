@@ -277,7 +277,7 @@ function CalendarView({
 
       <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
         <DialogContent className={cn("border sm:max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col transition-colors", isDark ? "bg-[#111] border-white/10 text-white" : "bg-white border-black/10 text-black")}>
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto scrollbar-hide p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">
                 {selectedDay ? format(selectedDay, "dd 'de' MMMM, yyyy", { locale: ptBR }) : ""}
@@ -1561,7 +1561,7 @@ export default function Admin() {
 
   return (
     <div className={cn(
-      "flex flex-col md:flex-row h-screen overflow-hidden font-sans transition-colors duration-500",
+      "flex flex-col md:flex-row h-screen h-[100dvh] overflow-hidden font-sans transition-colors duration-500",
       isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black"
     )}>
       {/* Sidebar 1: Navigation */}
@@ -1672,7 +1672,7 @@ export default function Admin() {
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
             </div>
 
@@ -1684,15 +1684,17 @@ export default function Admin() {
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={true} isDark={isDarkMode} mobile />}
               
               <Sheet>
-                <SheetTrigger asChild>
-                  <button className={cn(
-                    "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all",
-                    isDarkMode ? "text-gray-400" : "text-gray-500"
-                  )}>
-                    <Menu className="w-6 h-6" />
-                    <span className="text-[10px] font-bold uppercase">Menu</span>
-                  </button>
-                </SheetTrigger>
+                <SheetTrigger
+                  render={
+                    <button className={cn(
+                      "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all",
+                      isDarkMode ? "text-gray-400" : "text-gray-500"
+                    )}>
+                      <Menu className="w-6 h-6" />
+                      <span className="text-[10px] font-bold uppercase">Menu</span>
+                    </button>
+                  }
+                />
                 <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
                   <div className="space-y-6">
                     {(isMasterAdmin || profile?.role === "Desenvolvedor") && (
@@ -1751,101 +1753,9 @@ export default function Admin() {
                 </SheetContent>
               </Sheet>
             </div>
-            
-            <div className={cn("md:mt-6 pt-4 border-t w-full hidden md:block space-y-1.5", isDarkMode ? "border-white/5" : "border-black/5")}>
-              {canViewSettings && !isSidebarCollapsed && (
-                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-[0.2em] mb-2 block pl-1">System</span>
-              )}
-              {canViewSettings && <SidebarItem icon={Settings} active={activeTab === "config"} onClick={() => setActiveTab("config")} label="Settings" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              <button 
-                className={cn(
-                  "w-full h-11 px-3 rounded-xl flex items-center gap-3 transition-all relative group bg-transparent font-medium mt-2 cursor-pointer",
-                  isDarkMode ? "text-red-500/70 hover:bg-red-500/10 hover:text-red-500" : "text-red-600/70 hover:bg-red-600/10 hover:text-red-600",
-                  isSidebarCollapsed && "justify-center"
-                )}
-                onClick={logout}
-                title={isSidebarCollapsed ? "Sair" : ""}
-              >
-                <LogOut className="w-5 h-5" />
-                {!isSidebarCollapsed && <span className="text-sm whitespace-nowrap transition-opacity duration-300">Sair</span>}
-              </button>
-            </div>
           </nav>
         </div>
 
-        <div className="hidden md:flex items-center gap-2">
-          <div className="relative">
-            <button 
-              className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center relative"
-              onClick={() => setShowNotifications(!showNotifications)}
-            >
-              <Bell className="w-5 h-5 text-gray-400" />
-              {notifications.some(n => !n.read) && (
-                <span className="absolute top-2 right-2 w-2 h-2 bg-[#BF76FF] rounded-full"></span>
-              )}
-            </button>
-            
-            {showNotifications && (
-              <div className="absolute bottom-full left-0 md:bottom-auto md:top-0 md:left-full md:ml-4 mb-4 md:mb-0 w-80 bg-[#111] border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50">
-                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-[#1a1a1a]">
-                  <h3 className="font-bold text-white">Notificações</h3>
-                  <button 
-                    className="text-xs text-[#BF76FF] hover:underline cursor-pointer"
-                    onClick={async () => {
-                      notifications.filter(n => !n.read).forEach(n => {
-                        updateDoc(doc(db, "notifications", n.id), { read: true });
-                      });
-                    }}
-                  >
-                    Marcar lidas
-                  </button>
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {notifications.length === 0 ? (
-                    <div className="p-4 text-center text-gray-500 text-sm">Nenhuma notificação</div>
-                  ) : (
-                    notifications.map(notif => (
-                      <div 
-                        key={notif.id} 
-                        className={cn(
-                          "p-4 border-b border-white/5 hover:bg-white/5 cursor-pointer transition-colors",
-                          !notif.read ? "bg-[#BF76FF]/5" : ""
-                        )}
-                        onClick={async () => {
-                          if (!notif.read) {
-                            await updateDoc(doc(db, "notifications", notif.id), { read: true });
-                          }
-                          if (notif.type === "registration" && notif.memberId) {
-                            setActiveTab("membros");
-                            const member = members.find(m => m.id === notif.memberId);
-                            if (member) {
-                              setSelectedItem(member);
-                              setFormData(member);
-                              setIsEditing(true);
-                              setIsReadOnly(false);
-                            }
-                          }
-                          setShowNotifications(false);
-                        }}
-                      >
-                        <h4 className="text-sm font-bold text-white mb-1">{notif.title}</h4>
-                        <p className="text-xs text-gray-400">{notif.message}</p>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-          
-          <button 
-            className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all flex items-center justify-center cursor-pointer"
-            onClick={logout}
-            title="Sair"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
       </aside>
 
       {/* Main Content Area */}
@@ -1855,7 +1765,7 @@ export default function Admin() {
           <div className="flex items-center gap-3">
             {isEditing ? (
               <button 
-                className={cn("p-2 rounded-xl transition-colors cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-black/5 text-black")}
+                className={cn("md:hidden p-2 rounded-xl transition-colors cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-black/5 text-black")}
                 onClick={() => setIsEditing(false)}
               >
                 <ChevronLeft className="w-6 h-6" />
@@ -2087,7 +1997,7 @@ export default function Admin() {
         </header>
 
         {/* Content View */}
-        <div className="flex-1 p-4 md:p-8 pb-32 md:pb-8 overflow-y-auto scrollbar-hide">
+        <div className="flex-1 p-4 md:p-8 pb-36 md:pb-8 overflow-y-auto scrollbar-hide overscroll-contain touch-pan-y">
           <div className="max-w-5xl mx-auto w-full space-y-6 md:space-y-8">
             {isEditing ? (
               <Card className={cn("border-white/5 rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-xl border-black/5")}>
@@ -3006,7 +2916,7 @@ export default function Admin() {
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile) */}
       <aside className={cn(
-        "hidden lg:flex w-80 border-l flex-col p-6 overflow-y-auto transition-colors duration-500",
+        "hidden lg:flex w-80 border-l flex-col p-6 overflow-y-auto scrollbar-hide transition-colors duration-500",
         isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-gray-50 border-black/5"
       )}>
 
