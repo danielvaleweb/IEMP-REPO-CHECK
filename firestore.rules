@@ -43,6 +43,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Chats collection
+    match /chats/{document=**} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Settings collection
     match /settings/{settingId} {
       allow read, write: if true;

@@ -709,6 +709,57 @@ export default function Admin() {
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active">("team");
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatInput, setChatInput] = useState("");
+
+  // Real-time Chat Fetching
+  useEffect(() => {
+    if (!profile?.id || !activeChatUser?.id) return;
+    
+    // Create unique chat ID sorting by ID alphabetical order
+    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+    
+    const q = query(
+      collection(db, "chats", chatId, "messages"),
+      orderBy("timestamp", "asc")
+    );
+    
+    const unsub = onSnapshot(q, (snapshot) => {
+      setChatMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (err) => console.error(err));
+    
+    return () => unsub();
+  }, [profile?.id, activeChatUser?.id]);
+
+  const sendChatMessage = async () => {
+    if (!chatInput.trim() || !profile?.id || !activeChatUser?.id) return;
+    
+    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+    const msgText = chatInput.trim();
+    setChatInput(""); // clear immediately
+    
+    try {
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        text: msgText,
+        senderId: profile.id,
+        timestamp: serverTimestamp()
+      });
+      
+      // Notify the other user using the central notifications
+      await addDoc(collection(db, "notifications"), {
+        userId: activeChatUser.id,
+        title: "Nova mensagem",
+        message: `${profile.name || user?.displayName || 'Alguém'} enviou uma mensagem para você`,
+        read: false,
+        type: "chat",
+        senderId: profile.id,
+        createdAt: serverTimestamp()
+      });
+      
+    } catch (err) {
+      console.error("Erro ao enviar mensagem", err);
+    }
+  };
 
   // Data States
   const [posts, setPosts] = useState<any[]>([]);
@@ -1709,7 +1760,7 @@ export default function Admin() {
             </div>
 
             {/* Mobile Bottom Bar Items */}
-            <div className="md:hidden flex flex-row justify-around w-full items-center">
+            <div className="md:hidden flex flex-row justify-center gap-2 sm:gap-6 w-full items-center px-2">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
@@ -1958,7 +2009,7 @@ export default function Admin() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       className={cn(
-                        "absolute top-full right-0 mt-4 w-72 max-h-[80vh] overflow-y-auto scrollbar-hide rounded-[28px] border shadow-2xl p-3 z-50",
+                        "fixed top-20 right-4 w-80 max-w-[calc(100vw-32px)] md:absolute md:top-full md:right-0 md:mt-4 md:w-72 max-h-[80vh] overflow-y-auto scrollbar-hide rounded-[28px] border shadow-2xl p-3 z-50",
                         isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5"
                       )}
                     >
@@ -2039,12 +2090,7 @@ export default function Admin() {
                 {/* Status indicator */}
                 <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 animate-pulse", isDarkMode ? "border-[#0a0a0a]" : "border-white", getStatusColor(userStatus))} />
                 
-                {/* Notification Bell indicator on top of profile image */}
-                {displayNotifications.some(n => !n.read) && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a] flex items-center justify-center text-[10px] text-white font-bold animate-bounce shadow-lg">
-                    <Bell className="w-2.5 h-2.5 fill-white" />
-                  </div>
-                )}
+                {/* Notification Bell indicator on top of profile image (removed per request) */}
               </button>
 
               <AnimatePresence>
@@ -2056,7 +2102,7 @@ export default function Admin() {
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       className={cn(
-                        "absolute top-full right-0 mt-4 w-72 rounded-[28px] border shadow-2xl p-3 z-50",
+                        "fixed top-20 right-4 w-72 max-w-[calc(100vw-32px)] md:absolute md:top-full md:right-0 md:mt-4 md:w-72 rounded-[28px] border shadow-2xl p-3 z-50",
                         isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5"
                       )}
                     >
@@ -3361,41 +3407,31 @@ export default function Admin() {
 
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 flex flex-col scrollbar-hide">
-               {/* Mock messages */}
-               <div className="bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white p-3 px-4 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max shadow-sm ml-auto">
-                 <p className="text-sm">Ei 👋</p>
-               </div>
-               <div className="bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white p-3 px-4 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max shadow-sm ml-auto mt-1">
-                 <p className="text-sm">Você está disponível para ajudar de tarde?</p>
-               </div>
-               
-               <div className={cn("p-3 px-4 rounded-2xl border rounded-tl-sm self-start max-w-[85%] w-max shadow-sm mr-auto mt-4", isDarkMode ? "bg-[#1a1a1a] border-white/5 text-gray-200" : "bg-white border-black/5 text-gray-800")}>
-                 <p className="text-sm">Olá!</p>
-               </div>
-               <div className={cn("p-3 px-4 rounded-2xl border rounded-tl-sm self-start max-w-[85%] w-max shadow-sm mr-auto mt-1", isDarkMode ? "bg-[#1a1a1a] border-white/5 text-gray-200" : "bg-white border-black/5 text-gray-800")}>
-                 <p className="text-sm">Sim, tenho um tempo livre hoje. Qual a tarefa?</p>
-               </div>
-
-               <div className="bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white p-3 px-4 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max shadow-sm ml-auto mt-4">
-                 <p className="text-sm">Legal, posso enviar os detalhes agora?</p>
-               </div>
-
-               <div className={cn("p-3 px-4 rounded-2xl border rounded-tl-sm self-start max-w-[85%] w-max shadow-sm mr-auto mt-4", isDarkMode ? "bg-[#1a1a1a] border-white/5 text-gray-200" : "bg-white border-black/5 text-gray-800")}>
-                 <p className="text-sm">Claro, manda aí 👍</p>
-               </div>
-
-               <div className="p-3 flex flex-col gap-1 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max mt-4 shadow-sm ml-auto bg-[#BF76FF]/10 border border-[#BF76FF]/20">
-                 <div className="flex items-center gap-3 w-full pr-6 pb-2 border-b border-[#BF76FF]/20">
-                   <div className="w-10 h-10 rounded-xl bg-[#BF76FF] flex items-center justify-center shrink-0 shadow-md">
-                     <FileText className="w-5 h-5 text-white" />
-                   </div>
-                   <div className="min-w-[120px]">
-                     <p className={cn("font-bold text-sm line-clamp-1", isDarkMode ? "text-white" : "text-black")}>Briefing_Projeto.pdf</p>
-                     <p className="text-[10px] text-gray-500 font-medium">543 KB</p>
-                   </div>
+               {chatMessages.length === 0 ? (
+                 <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50">
+                    <MessageSquare className="w-12 h-12 mb-4" />
+                    <p className="text-sm">Envie uma mensagem para iniciar a conversa.</p>
                  </div>
-                 <p className={cn("text-xs font-medium pt-1", isDarkMode ? "text-[#e0b0ff]" : "text-[#8E44AD]")}>Arquivo enviado</p>
-               </div>
+               ) : (
+                 chatMessages.map(msg => {
+                   const isMe = msg.senderId === profile?.id;
+                   return (
+                     <div 
+                       key={msg.id}
+                       className={cn(
+                         "p-3 px-4 rounded-2xl w-max max-w-[85%] shadow-sm",
+                         isMe 
+                           ? "bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white rounded-tr-sm self-end ml-auto" 
+                           : isDarkMode 
+                              ? "bg-[#1a1a1a] border border-white/5 text-gray-200 rounded-tl-sm self-start mr-auto" 
+                              : "bg-white border border-black/5 text-gray-800 rounded-tl-sm self-start mr-auto"
+                       )}
+                     >
+                       <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                     </div>
+                   );
+                 })
+               )}
             </div>
 
             {/* Input Area */}
@@ -3407,6 +3443,14 @@ export default function Admin() {
                 <textarea 
                   rows={1}
                   placeholder="Mensagem..." 
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendChatMessage();
+                    }
+                  }}
                   className={cn("flex-1 bg-transparent border-none outline-none text-sm py-3 px-1 resize-none max-h-32 scrollbar-hide", isDarkMode ? "text-white" : "text-black")} 
                   onInput={(e) => {
                     e.currentTarget.style.height = 'auto';
@@ -3416,7 +3460,11 @@ export default function Admin() {
                 <button className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors mb-0.5">
                   <Paperclip className="w-5 h-5" />
                 </button>
-                <button className="w-10 h-10 shrink-0 bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] text-white rounded-full hover:opacity-90 transition-opacity shadow-md flex items-center justify-center mb-0.5">
+                <button 
+                  onClick={sendChatMessage}
+                  disabled={!chatInput.trim()}
+                  className="w-10 h-10 shrink-0 bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] text-white rounded-full hover:opacity-90 disabled:opacity-50 transition-opacity shadow-md flex items-center justify-center mb-0.5 cursor-pointer"
+                >
                   <Send className="w-4 h-4 ml-0.5" />
                 </button>
               </div>
@@ -3466,7 +3514,7 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
       <button 
         onClick={onClick}
         className={cn(
-          "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all relative flex-1",
+          "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all relative shrink-0",
           active 
             ? isDark ? "text-white" : "text-[#BF76FF]" 
             : isDark ? "text-gray-500" : "text-gray-400"
