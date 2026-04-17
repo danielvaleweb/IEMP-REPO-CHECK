@@ -47,6 +47,7 @@ import {
   Cake,
   Flame,
   CalendarDays,
+  Menu,
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -1562,12 +1564,12 @@ export default function Admin() {
       "flex flex-col md:flex-row h-screen overflow-hidden font-sans transition-colors duration-500",
       isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black"
     )}>
-      {/* Sidebar 1: Wide Navigation */}
+      {/* Sidebar 1: Navigation */}
       <aside 
         className={cn(
-          "transition-all duration-300 ease-in-out flex md:flex-col flex-row items-start justify-between border-t md:border-t-0 md:border-r z-50 order-last md:order-first",
+          "transition-all duration-300 ease-in-out flex md:flex-col flex-row items-center md:items-start justify-between border-t md:border-t-0 md:border-r z-50 order-last md:order-first",
           isSidebarCollapsed ? "md:w-20 w-full" : "md:w-64 w-full",
-          "md:h-full h-16",
+          "md:h-full h-20 md:h-full",
           isDarkMode ? "bg-[#0a0a0a] border-white/5" : "bg-gray-50 border-black/5"
         )}
       >
@@ -1663,17 +1665,91 @@ export default function Admin() {
           )}
         </div>
         
-        <div className="flex-1 w-full px-3 overflow-y-auto scrollbar-hide">
-          <nav className="flex md:flex-col flex-row gap-1.5 w-full pb-6">
-            {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Home" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-            {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-            {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-            {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-            {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-            {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-            
-            <div className="md:hidden">
-              {canViewSettings && <SidebarItem icon={Settings} active={activeTab === "config"} onClick={() => setActiveTab("config")} label="Settings" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+        <div className="flex-1 w-full px-2 md:px-3 overflow-y-auto scrollbar-hide flex md:block items-center">
+          <nav className="flex md:flex-col flex-row justify-around md:justify-start gap-1 md:gap-1.5 w-full md:pb-6">
+            <div className="hidden md:flex flex-col gap-1.5 w-full">
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Home" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+            </div>
+
+            {/* Mobile Bottom Bar Items */}
+            <div className="md:hidden flex flex-row justify-around w-full items-center">
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Home" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={true} isDark={isDarkMode} mobile />}
+              
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button className={cn(
+                    "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all",
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  )}>
+                    <Menu className="w-6 h-6" />
+                    <span className="text-[10px] font-bold uppercase">Menu</span>
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
+                  <div className="space-y-6">
+                    {(isMasterAdmin || profile?.role === "Desenvolvedor") && (
+                      <div className="space-y-3">
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Workspace</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {allRoles.slice(0, 6).map(role => (
+                            <button
+                              key={role}
+                              onClick={() => {
+                                setActiveViewRole(role);
+                                setActiveTab("visao-geral");
+                              }}
+                              className={cn(
+                                "px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left",
+                                currentRole === role 
+                                  ? "bg-[#BF76FF] text-white" 
+                                  : isDarkMode ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-600"
+                              )}
+                            >
+                              {role === "Administradores" ? "Master" : role}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Outras Opções</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {canViewTab("musica") && (
+                          <button onClick={() => setActiveTab("musica")} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")}>
+                            <Music className="w-5 h-5 text-[#BF76FF]" />
+                            <span className="text-xs font-bold">Música</span>
+                          </button>
+                        )}
+                        {canViewTab("agenda-direcao") && (
+                          <button onClick={() => setActiveTab("agenda-direcao")} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")}>
+                            <CalendarDays className="w-5 h-5 text-blue-500" />
+                            <span className="text-xs font-bold">Direção</span>
+                          </button>
+                        )}
+                        {canViewSettings && (
+                          <button onClick={() => setActiveTab("config")} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")}>
+                            <Settings className="w-5 h-5 text-gray-400" />
+                            <span className="text-xs font-bold">Settings</span>
+                          </button>
+                        )}
+                        <button onClick={logout} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-red-500/10" : "bg-red-50")}>
+                          <LogOut className="w-5 h-5 text-red-500" />
+                          <span className="text-xs font-bold text-red-500">Sair</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </SheetContent>
+              </Sheet>
             </div>
             
             <div className={cn("md:mt-6 pt-4 border-t w-full hidden md:block space-y-1.5", isDarkMode ? "border-white/5" : "border-black/5")}>
@@ -1697,7 +1773,7 @@ export default function Admin() {
           </nav>
         </div>
 
-        <div className="flex md:hidden items-center gap-2">
+        <div className="hidden md:flex items-center gap-2">
           <div className="relative">
             <button 
               className="w-10 h-10 rounded-xl bg-[#1a1a1a] flex items-center justify-center relative"
@@ -1776,27 +1852,37 @@ export default function Admin() {
       <main className={cn("flex-1 flex flex-col transition-colors duration-500", isDarkMode ? "bg-[#0a0a0a]" : "bg-gray-50")}>
         {/* Main Header */}
         <header className={cn("h-20 border-b flex items-center justify-between px-4 md:px-8 transition-colors duration-500 z-50 relative", isDarkMode ? "border-white/5 bg-[#0a0a0a]" : "border-black/5 bg-white")}>
-          <div className="flex items-center gap-4">
-            {isEditing && (
+          <div className="flex items-center gap-3">
+            {isEditing ? (
               <button 
-                className={cn("md:hidden p-2 rounded-full hover:bg-white/5 cursor-pointer", isDarkMode ? "text-white" : "text-black")}
+                className={cn("p-2 rounded-xl transition-colors cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-black/5 text-black")}
                 onClick={() => setIsEditing(false)}
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
+            ) : (
+              <div className="md:hidden flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-[#BF76FF] flex items-center justify-center text-black shadow-lg shadow-[#BF76FF]/20">
+                  <Settings className="w-5 h-5 animate-spin-slow" />
+                </div>
+                <span className={cn("font-black text-lg tracking-tighter", isDarkMode ? "text-white" : "text-black")}>IEMP</span>
+              </div>
             )}
             {isEditing && <span className="px-2 py-0.5 rounded bg-[#BF76FF]/10 text-[#BF76FF] text-[10px] font-bold uppercase tracking-widest hidden md:inline-block">Editando</span>}
           </div>
           
-          <div className="flex items-center gap-4 md:gap-6">
-            <div className="relative hidden md:block group">
+          <div className="flex items-center gap-2 md:gap-6 flex-1 justify-end">
+            <div className="relative group max-w-[200px] md:max-w-none flex-1 md:flex-initial">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input 
                 type="text" 
                 placeholder="Pesquisar..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className={cn("border-none rounded-full py-2 pl-10 pr-4 text-sm w-64 outline-none transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50")}
+                className={cn(
+                  "border-none rounded-full py-2 pl-9 pr-4 text-xs md:text-sm w-full md:w-64 outline-none transition-colors", 
+                  isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50"
+                )}
               />
               
               {globalSearchResults.length > 0 && (
@@ -1834,7 +1920,19 @@ export default function Admin() {
                 </div>
               )}
             </div>
-            <div className={cn("flex items-center gap-3 pl-4 border-l relative", isDarkMode ? "border-white/10" : "border-black/10")}>
+            <div className="md:hidden">
+              <button 
+                className={cn("p-2 rounded-xl relative", isDarkMode ? "text-gray-400" : "text-gray-500")}
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                <Bell className="w-5 h-5" />
+                {notifications.some(n => !n.read) && (
+                  <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#BF76FF] rounded-full" />
+                )}
+              </button>
+            </div>
+
+            <div className={cn("flex items-center gap-3 pl-2 md:pl-4 border-l relative", isDarkMode ? "border-white/10" : "border-black/10")}>
               <div className="text-right hidden md:block">
                 <p className={cn("text-sm font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>{user?.displayName || "Admin"}</p>
                 <p className="text-[10px] text-gray-500 grayscale opacity-70">
@@ -1845,16 +1943,18 @@ export default function Admin() {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="relative group cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] p-0.5 shadow-lg shadow-[#BF76FF]/20 group-hover:scale-105 transition-transform">
+                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] p-0.5 shadow-lg shadow-[#BF76FF]/20 group-hover:scale-105 transition-transform">
                   <div className={cn("w-full h-full rounded-full flex items-center justify-center overflow-hidden transition-colors relative", isDarkMode ? "bg-[#0a0a0a]" : "bg-white")}>
                     {user?.photoURL ? (
                       <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
                     ) : (
-                      <Users className="w-5 h-5 text-[#BF76FF]" />
+                      <span className={cn("font-bold text-xs uppercase", isDarkMode ? "text-white" : "text-black")}>
+                        {(user?.displayName || "A")[0]}
+                      </span>
                     )}
                   </div>
                 </div>
-                <div className={cn("absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-[#0a0a0a] z-10", getStatusColor(userStatus))} />
+                <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 animate-pulse", isDarkMode ? "border-[#0a0a0a]" : "border-white", getStatusColor(userStatus))} />
               </button>
 
               <AnimatePresence>
@@ -1987,8 +2087,8 @@ export default function Admin() {
         </header>
 
         {/* Content View */}
-        <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-          <div className="w-full space-y-8">
+        <div className="flex-1 p-4 md:p-8 pb-32 md:pb-8 overflow-y-auto scrollbar-hide">
+          <div className="max-w-5xl mx-auto w-full space-y-6 md:space-y-8">
             {isEditing ? (
               <Card className={cn("border-white/5 rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-xl border-black/5")}>
                 <div className="space-y-6">
@@ -2535,11 +2635,11 @@ export default function Admin() {
                   />
                 ) : (
                   <>
-                    <div className="flex justify-between items-center mb-8">
-                      <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Todos os Membros</h2>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                      <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Membros da Equipe</h2>
                       {canEditProfiles && (
                         <Button 
-                          className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold cursor-pointer"
+                          className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-11 px-6 font-bold truncate"
                           onClick={() => {
                             setSelectedItem(null);
                             setFormData({});
@@ -2547,7 +2647,7 @@ export default function Admin() {
                             setIsEditing(true);
                           }}
                         >
-                          <Plus className="w-4 h-4 mr-2" /> Cadastrar novo membro
+                          <Plus className="w-4 h-4 mr-2 shrink-0" /> Novo Membro
                         </Button>
                       )}
                     </div>
@@ -2585,11 +2685,11 @@ export default function Admin() {
               </div>
             ) : activeTab === "musica" && !isEditing ? (
               <div className="space-y-6">
-                <div className="flex justify-between items-center mb-8">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                   <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Repertório Musical</h2>
                   {canEdit && (
                     <Button 
-                      className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold cursor-pointer"
+                      className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold truncate"
                       onClick={() => {
                         setSelectedItem(null);
                         setFormData({});
@@ -2597,7 +2697,7 @@ export default function Admin() {
                         setIsEditing(true);
                       }}
                     >
-                      <Plus className="w-4 h-4 mr-2" /> Adicionar música
+                      <Plus className="w-4 h-4 mr-2 shrink-0" /> Adicionar música
                     </Button>
                   )}
                 </div>
@@ -3120,7 +3220,42 @@ export default function Admin() {
   );
 }
 
-function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark }: { icon: any, active?: boolean, onClick: () => void, label: string, collapsed?: boolean, isDark?: boolean }) {
+function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mobile }: { icon: any, active?: boolean, onClick: () => void, label: string, collapsed?: boolean, isDark?: boolean, mobile?: boolean }) {
+  if (mobile) {
+    return (
+      <button 
+        onClick={onClick}
+        className={cn(
+          "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all relative flex-1",
+          active 
+            ? isDark ? "text-white" : "text-[#BF76FF]" 
+            : isDark ? "text-gray-500" : "text-gray-400"
+        )}
+      >
+        <div className={cn(
+          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+          active 
+            ? isDark ? "bg-white/10 text-white" : "bg-[#BF76FF]/10 text-[#BF76FF]" 
+            : "bg-transparent"
+        )}>
+          <Icon className="w-6 h-6" />
+        </div>
+        <span className={cn(
+          "text-[9px] font-bold uppercase tracking-tighter transition-all",
+          active ? isDark ? "text-white" : "text-black" : "text-gray-500"
+        )}>
+          {label}
+        </span>
+        {active && (
+          <motion.div 
+            layoutId="mobile-active-dot"
+            className="absolute -top-1 w-1 h-1 rounded-full bg-[#BF76FF]"
+          />
+        )}
+      </button>
+    );
+  }
+
   return (
     <button 
       onClick={onClick}
