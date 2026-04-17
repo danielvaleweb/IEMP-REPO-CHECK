@@ -1746,7 +1746,7 @@ export default function Admin() {
                               setSelectedItem(member);
                               setFormData(member);
                               setIsEditing(true);
-                              setIsReadOnly(true);
+                              setIsReadOnly(false);
                             }
                           }
                           setShowNotifications(false);
@@ -1893,11 +1893,44 @@ export default function Admin() {
                         </div>
                         <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
                           {notifications.length > 0 ? (
-                            notifications.slice(0, 3).map(n => (
-                              <div key={n.id} className={cn("p-2 rounded-xl text-[10px]", isDarkMode ? "bg-white/5 text-gray-400" : "bg-gray-50 text-gray-600")}>
-                                <span className="font-bold text-white block mb-0.5">{n.title}</span>
-                                {n.message}
-                              </div>
+                            notifications.slice(0, 5).map(n => (
+                              <button 
+                                key={n.id} 
+                                onClick={async () => {
+                                  if (!n.read) {
+                                    await updateDoc(doc(db, "notifications", n.id), { read: true });
+                                  }
+                                  if (n.type === "registration" && n.memberId) {
+                                    setActiveTab("membros");
+                                    const member = members.find(m => m.id === n.memberId);
+                                    if (member) {
+                                      setSelectedItem(member);
+                                      setFormData(member);
+                                      setIsEditing(true);
+                                      // We don't set isReadOnly to true here so they can immediately approve/edit
+                                      setIsReadOnly(false);
+                                    }
+                                  }
+                                  setShowProfileMenu(false);
+                                }}
+                                className={cn(
+                                  "w-full text-left p-2 rounded-xl text-[10px] transition-all relative group/notif", 
+                                  isDarkMode 
+                                    ? n.read ? "bg-white/5 text-gray-500" : "bg-white/10 text-gray-300" 
+                                    : n.read ? "bg-gray-50 text-gray-500" : "bg-primary/5 text-gray-700"
+                                )}
+                              >
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-[#BF76FF]" />}
+                                  <span className={cn("font-bold block", isDarkMode ? "text-white" : "text-black")}>{n.title}</span>
+                                </div>
+                                <p className="line-clamp-2">{n.message}</p>
+                                {n.type === "registration" && !n.read && (
+                                  <div className="mt-1 text-[#BF76FF] font-bold flex items-center gap-1 opacity-0 group-hover/notif:opacity-100 transition-opacity">
+                                    Liberar Acesso <ChevronRight className="w-3 h-3" />
+                                  </div>
+                                )}
+                              </button>
                             ))
                           ) : (
                             <p className="text-[10px] text-gray-500 text-center py-2 italic">Nenhuma notificação</p>
