@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@layer base {
+  html, body, #root {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+}
+
 @theme {
   --color-background: #ffffff;
   --color-foreground: #000000;

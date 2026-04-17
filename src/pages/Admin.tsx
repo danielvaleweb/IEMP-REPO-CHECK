@@ -48,6 +48,9 @@ import {
   Flame,
   CalendarDays,
   Menu,
+  Mic,
+  Paperclip,
+  MoreVertical,
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -704,7 +707,8 @@ export default function Admin() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [viewingMember, setViewingMember] = useState<any>(null);
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active">("team");
+  const [activeChatUser, setActiveChatUser] = useState<any>(null);
 
   // Data States
   const [posts, setPosts] = useState<any[]>([]);
@@ -1145,8 +1149,8 @@ export default function Admin() {
   };
 
   const openWhatsApp = (member: any) => {
-    setViewingMember(null);
-    setActiveTab("conversas");
+    setRightSidebarView("chat-active");
+    setActiveChatUser(member);
   };
 
   const confirmWhatsApp = (member: any, message: string) => {
@@ -1695,21 +1699,21 @@ export default function Admin() {
         <div className="flex-1 w-full px-2 md:px-3 overflow-y-auto scrollbar-hide flex md:block items-center">
           <nav className="flex md:flex-col flex-row justify-around md:justify-start gap-1 md:gap-1.5 w-full md:pb-6">
             <div className="hidden md:flex flex-col gap-1.5 w-full">
-              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Home" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              <SidebarItem icon={MessageSquare} active={activeTab === "conversas"} onClick={() => setActiveTab("conversas")} label="Conversas" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
+              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Conversas" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
             </div>
 
             {/* Mobile Bottom Bar Items */}
             <div className="md:hidden flex flex-row justify-around w-full items-center">
-              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Home" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              <SidebarItem icon={MessageSquare} active={activeTab === "conversas"} onClick={() => setActiveTab("conversas")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
+              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
                 <SheetTrigger
@@ -1837,7 +1841,7 @@ export default function Admin() {
                         {canViewSettings && (
                           <button onClick={() => setActiveTab("config")} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")}>
                             <Settings className="w-5 h-5 text-gray-400" />
-                            <span className="text-xs font-bold">Settings</span>
+                            <span className="text-xs font-bold">Configurações</span>
                           </button>
                         )}
                         <button onClick={logout} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-red-500/10" : "bg-red-50")}>
@@ -2710,7 +2714,8 @@ export default function Admin() {
                     } : undefined}
                     onChat={() => {
                       setViewingMember(null);
-                      setActiveTab("conversas");
+                      setRightSidebarView("chat-active");
+                      setActiveChatUser(viewingMember);
                     }}
                   />
                 ) : (
@@ -3016,7 +3021,7 @@ export default function Admin() {
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 block">Páginas Visíveis</span>
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
                                   {[
-                                    { label: "Home", key: "visao-geral" },
+                                    { label: "Início", key: "visao-geral" },
                                     { label: "Eventos", key: "eventos" },
                                     { label: "Música", key: "musica" },
                                     { label: "Membros", key: "membros" },
@@ -3103,150 +3108,321 @@ export default function Admin() {
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile) */}
       <aside className={cn(
-        "hidden lg:flex w-80 border-l flex-col p-6 overflow-y-auto scrollbar-hide transition-colors duration-500",
-        isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-gray-50 border-black/5"
+        "fixed inset-y-0 right-0 z-[60] w-full lg:w-80 border-l flex-col pt-0 overflow-hidden transition-transform duration-300 lg:relative lg:flex lg:z-auto",
+        rightSidebarView !== "team" ? "translate-x-0 flex" : "translate-x-full lg:translate-x-0 hidden lg:flex",
+        isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
 
-        <div className="flex justify-end items-center mb-8">
-          <div className="flex gap-2">
-            <ActionIcon 
-              icon={isDarkMode ? Sun : Moon} 
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              active={!isDarkMode}
-              isDark={isDarkMode}
-            />
-            <ActionIcon 
-              icon={MessageSquare} 
-              onClick={() => setActiveTab("conversas")}
-              isDark={isDarkMode} 
-            />
-            <ActionIcon icon={Video} isDark={isDarkMode} />
-            <ActionIcon icon={Pin} isDark={isDarkMode} />
-            <ActionIcon icon={Users} isDark={isDarkMode} />
-          </div>
-        </div>
+        {rightSidebarView === "team" && (
+          <div className="flex-1 p-6 overflow-y-auto scrollbar-hide flex flex-col">
+            <div className="flex justify-end items-center mb-8 shrink-0">
+              <div className="flex gap-2">
+                <ActionIcon 
+                  icon={isDarkMode ? Sun : Moon} 
+                  onClick={() => setIsDarkMode(!isDarkMode)}
+                  active={!isDarkMode}
+                  isDark={isDarkMode}
+                />
+                <ActionIcon 
+                  icon={MessageSquare} 
+                  active={rightSidebarView !== "team"}
+                  onClick={() => setRightSidebarView("chat-list")}
+                  isDark={isDarkMode} 
+                />
+                <ActionIcon icon={Video} isDark={isDarkMode} />
+                <ActionIcon icon={Pin} isDark={isDarkMode} />
+                <ActionIcon 
+                  icon={Users} 
+                  active={rightSidebarView === "team"}
+                  onClick={() => setRightSidebarView("team")}
+                  isDark={isDarkMode} 
+                />
+              </div>
+            </div>
 
-        <div className="space-y-8">
-          {/* Members/Team Section */}
-          <div>
-            <div className="mb-6 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input 
-                type="text" 
-                placeholder="Pesquisar membro..." 
-                value={rightSidebarSearch}
-                onChange={(e) => setRightSidebarSearch(e.target.value)}
-                className={cn("w-full border-none rounded-2xl py-3 pl-10 pr-4 text-sm outline-none transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50")}
-              />
+            <div className="space-y-8 flex-1">
+              {/* Members/Team Section */}
+              <div>
+                <div className="mb-6 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                  <input 
+                    type="text" 
+                    placeholder="Pesquisar membro..." 
+                    value={rightSidebarSearch}
+                    onChange={(e) => setRightSidebarSearch(e.target.value)}
+                    className={cn("w-full border-none rounded-2xl py-3 pl-10 pr-4 text-sm outline-none transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50")}
+                  />
+                </div>
+                
+                <div className="space-y-8">
+                  {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
+                    const roleMembers = members.filter(m => {
+                      const ministry = (m.ministries || []).find((min: any) => (typeof min === 'string' ? min : min.name) === role);
+                      const isLeaderOfThisRole = typeof ministry === 'object' ? ministry.isLeader : (m.role === role && m.isLeader);
+                      return isLeaderOfThisRole && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
+                    });
+                    if (roleMembers.length === 0 && rightSidebarSearch) return null;
+                    return (
+                      <div key={role} className="space-y-3">
+                        <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
+                          <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
+                          {role === "Administradores" ? "Administrador Master" : role}
+                        </h5>
+                        <div className="space-y-4">
+                          {roleMembers.length > 0 ? (
+                            roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map(member => (
+                              <TeamMember 
+                                key={member.id} 
+                                member={member}
+                                active={member.email === user?.email}
+                                onWhatsApp={() => openWhatsApp(member)}
+                                onViewProfile={() => {
+                                  setActiveTab("membros");
+                                  setViewingMember(member);
+                                }}
+                                onDelete={() => handleDelete(member.id, "members")}
+                                isDark={isDarkMode}
+                              />
+                            ))
+                          ) : (
+                            <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum líder cadastrado</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Others in Sidebar 3 */}
+                  {(() => {
+                    const standardMembers = members.filter(m => {
+                      const isAnyLeader = (m.ministries || []).some((min: any) => typeof min === 'object' && min.isLeader) || m.isLeader;
+                      const isVisitor = (m.role === "Visitante" || (m.ministries || []).some((min: any) => (typeof min === 'string' ? min : min.name) === "Visitante"));
+                      return !isAnyLeader && !isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
+                    });
+                    if (standardMembers.length === 0) return null;
+                    return (
+                      <div className="space-y-3">
+                        <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
+                          <div className="w-1 h-2 bg-gray-600 rounded-full" />
+                          Membros
+                        </h5>
+                        <div className="space-y-4">
+                          {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map(member => (
+                            <TeamMember 
+                              key={member.id} 
+                              member={member}
+                              active={member.email === user?.email}
+                              onWhatsApp={() => openWhatsApp(member)}
+                              onViewProfile={() => {
+                                setActiveTab("membros");
+                                setViewingMember(member);
+                              }}
+                              onDelete={() => handleDelete(member.id, "members")}
+                              isDark={isDarkMode}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* Visitors in Sidebar 4 */}
+                  {(() => {
+                    const visitors = members.filter(m => {
+                      const isVisitor = (m.role === "Visitante" || (m.ministries || []).some((min: any) => (typeof min === 'string' ? min : min.name) === "Visitante"));
+                      return isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
+                    });
+                    if (visitors.length === 0) return null;
+                    return (
+                      <div className={cn("space-y-3 mt-6 pt-6 border-t", isDarkMode ? "border-white/5" : "border-black/5")}>
+                        <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 text-blue-400")}>
+                          <div className="w-1 h-2 bg-blue-400 rounded-full" />
+                          Visitantes
+                        </h5>
+                        <div className="space-y-4">
+                          {visitors.map(member => (
+                            <TeamMember 
+                              key={member.id} 
+                              member={member}
+                              active={member.email === user?.email}
+                              onWhatsApp={() => openWhatsApp(member)}
+                              onViewProfile={() => {
+                                setActiveTab("membros");
+                                setViewingMember(member);
+                              }}
+                              onDelete={() => handleDelete(member.id, "members")}
+                              isDark={isDarkMode}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {rightSidebarView === "chat-list" && (
+          <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#0f0f0f] animate-in slide-in-from-right-4 duration-300">
+            <div className="p-6 pb-2">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <p className="text-gray-500 text-sm">Olá,</p>
+                  <h2 className={cn("text-2xl font-black", isDarkMode ? "text-white" : "text-black")}>{user?.displayName?.split(' ')[0] || 'Admin'}</h2>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setRightSidebarView("team")} className="lg:hidden w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
+                    <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  </button>
+                  <button className="hidden lg:flex w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
+                    <Search className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  </button>
+                  <button className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
+                    <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-white/5 rounded-full">
+                <button className="flex-1 py-2 rounded-full bg-[#BF76FF] text-white text-xs font-bold shadow-md">Todas as Conversas</button>
+                <button className="flex-1 py-2 rounded-full text-gray-500 dark:text-gray-400 text-xs font-bold hover:bg-black/5 dark:hover:bg-white/5">Grupos</button>
+                <button className="flex-1 py-2 rounded-full text-gray-500 dark:text-gray-400 text-xs font-bold hover:bg-black/5 dark:hover:bg-white/5">Equipe</button>
+              </div>
             </div>
             
-            <div className="space-y-8">
-              {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
-                const roleMembers = members.filter(m => {
-                  const ministry = (m.ministries || []).find((min: any) => (typeof min === 'string' ? min : min.name) === role);
-                  const isLeaderOfThisRole = typeof ministry === 'object' ? ministry.isLeader : (m.role === role && m.isLeader);
-                  return isLeaderOfThisRole && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
-                });
-                if (roleMembers.length === 0 && rightSidebarSearch) return null;
-                return (
-                  <div key={role} className="space-y-3">
-                    <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
-                      <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
-                      {role === "Administradores" ? "Administrador Master" : role}
-                    </h5>
-                    <div className="space-y-4">
-                      {roleMembers.length > 0 ? (
-                        roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map(member => (
-                          <TeamMember 
-                            key={member.id} 
-                            member={member}
-                            active={member.email === user?.email}
-                            onWhatsApp={() => openWhatsApp(member)}
-                            onViewProfile={() => {
-                              setActiveTab("membros");
-                              setViewingMember(member);
-                            }}
-                            onDelete={() => handleDelete(member.id, "members")}
-                            isDark={isDarkMode}
-                          />
-                        ))
-                      ) : (
-                        <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum líder cadastrado</p>
-                      )}
-                    </div>
+            <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-1 scrollbar-hide">
+              {members.filter(m => m.email !== user?.email).map((m, i) => (
+                <div key={m.id} onClick={() => openWhatsApp(m)} className="flex items-center gap-4 p-3 mb-1 rounded-2xl hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
+                  <div className="relative shrink-0">
+                    {m.photoURL ? (
+                      <img src={m.photoURL} className="w-12 h-12 rounded-full object-cover" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-[#1a1a1a] text-xl font-bold flex items-center justify-center text-[#BF76FF]">
+                        {m.name?.[0] || 'M'}
+                      </div>
+                    )}
+                    {(i % 3 === 0 || i % 5 === 0) && <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-[3px] border-white dark:border-[#0f0f0f] rounded-full" />}
                   </div>
-                );
-              })}
-              
-              {/* Others in Sidebar 3 */}
-              {(() => {
-                const standardMembers = members.filter(m => {
-                  const isAnyLeader = (m.ministries || []).some((min: any) => typeof min === 'object' && min.isLeader) || m.isLeader;
-                  const isVisitor = (m.role === "Visitante" || (m.ministries || []).some((min: any) => (typeof min === 'string' ? min : min.name) === "Visitante"));
-                  return !isAnyLeader && !isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
-                });
-                if (standardMembers.length === 0) return null;
-                return (
-                  <div className="space-y-3">
-                    <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
-                      <div className="w-1 h-2 bg-gray-600 rounded-full" />
-                      Membros
-                    </h5>
-                    <div className="space-y-4">
-                      {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map(member => (
-                        <TeamMember 
-                          key={member.id} 
-                          member={member}
-                          active={member.email === user?.email}
-                          onWhatsApp={() => openWhatsApp(member)}
-                          onViewProfile={() => {
-                            setActiveTab("membros");
-                            setViewingMember(member);
-                          }}
-                          onDelete={() => handleDelete(member.id, "members")}
-                          isDark={isDarkMode}
-                        />
-                      ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-baseline mb-1">
+                      <h4 className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
+                      <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
+                        {i === 0 ? "09:38" : i === 1 ? "Ontem" : "12 Jun"}
+                      </span>
                     </div>
+                    <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
+                      {i === 2 && <Mic className="w-3 h-3" />} 
+                      {i === 0 ? "Ok, deixe-me verificar" : i === 1 ? "Legal, veja você amanhã..." : i === 2 ? "Mensagem de voz" : "Obrigado!"}
+                    </p>
                   </div>
-                );
-              })()}
-
-              {/* Visitors in Sidebar 4 */}
-              {(() => {
-                const visitors = members.filter(m => {
-                  const isVisitor = (m.role === "Visitante" || (m.ministries || []).some((min: any) => (typeof min === 'string' ? min : min.name) === "Visitante"));
-                  return isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
-                });
-                if (visitors.length === 0) return null;
-                return (
-                  <div className={cn("space-y-3 mt-6 pt-6 border-t", isDarkMode ? "border-white/5" : "border-black/5")}>
-                    <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 text-blue-400")}>
-                      <div className="w-1 h-2 bg-blue-400 rounded-full" />
-                      Visitantes
-                    </h5>
-                    <div className="space-y-4">
-                      {visitors.map(member => (
-                        <TeamMember 
-                          key={member.id} 
-                          member={member}
-                          active={member.email === user?.email}
-                          onWhatsApp={() => openWhatsApp(member)}
-                          onViewProfile={() => {
-                            setActiveTab("membros");
-                            setViewingMember(member);
-                          }}
-                          onDelete={() => handleDelete(member.id, "members")}
-                          isDark={isDarkMode}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
+                  {i === 1 && (
+                    <div className="w-5 h-5 rounded-full bg-[#BF76FF] text-white flex justify-center items-center text-[10px] font-bold shadow-md shadow-[#BF76FF]/20 shrink-0">2</div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        )}
+
+        {rightSidebarView === "chat-active" && activeChatUser && (
+          <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] dark:bg-[#0a0a0a] relative animate-in slide-in-from-right-4 duration-300">
+            {/* Header */}
+            <div className={cn("px-5 py-4 border-b flex items-center justify-between shadow-sm z-10 shrink-0", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setRightSidebarView("chat-list")} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors mr-1">
+                  <ArrowLeft className={cn("w-5 h-5", isDarkMode ? "text-gray-300" : "text-gray-600")} />
+                </button>
+                <div className="relative shrink-0">
+                  {activeChatUser.photoURL ? (
+                    <img src={activeChatUser.photoURL} className="w-10 h-10 rounded-full object-cover shadow-sm bg-gray-100" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/5 text-lg font-bold flex items-center justify-center text-[#BF76FF]">
+                      {activeChatUser.name?.[0] || 'M'}
+                    </div>
+                  )}
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#111] rounded-full" />
+                </div>
+                <div className="flex flex-col relative top-0.5">
+                  <h3 className={cn("font-extrabold text-[15px] leading-tight", isDarkMode ? "text-white" : "text-gray-900")}>{activeChatUser.name || 'Membro'}</h3>
+                  <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Online</p>
+                </div>
+              </div>
+              <div className="flex gap-1">
+                <button className={cn("w-9 h-9 rounded-full flex items-center justify-center transition-colors", isDarkMode ? "hover:bg-white/10" : "hover:bg-black/5")}>
+                  <Video className={cn("w-4 h-4", isDarkMode ? "text-white" : "text-gray-600")} />
+                </button>
+                <button className={cn("w-9 h-9 rounded-full flex items-center justify-center transition-colors", isDarkMode ? "hover:bg-white/10" : "hover:bg-black/5")}>
+                  <Phone className={cn("w-4 h-4", isDarkMode ? "text-white" : "text-gray-600")} />
+                </button>
+              </div>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 flex flex-col scrollbar-hide">
+               {/* Mock messages */}
+               <div className="bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white p-3 px-4 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max shadow-sm ml-auto">
+                 <p className="text-sm">Ei 👋</p>
+               </div>
+               <div className="bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white p-3 px-4 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max shadow-sm ml-auto mt-1">
+                 <p className="text-sm">Você está disponível para ajudar de tarde?</p>
+               </div>
+               
+               <div className={cn("p-3 px-4 rounded-2xl border rounded-tl-sm self-start max-w-[85%] w-max shadow-sm mr-auto mt-4", isDarkMode ? "bg-[#1a1a1a] border-white/5 text-gray-200" : "bg-white border-black/5 text-gray-800")}>
+                 <p className="text-sm">Olá!</p>
+               </div>
+               <div className={cn("p-3 px-4 rounded-2xl border rounded-tl-sm self-start max-w-[85%] w-max shadow-sm mr-auto mt-1", isDarkMode ? "bg-[#1a1a1a] border-white/5 text-gray-200" : "bg-white border-black/5 text-gray-800")}>
+                 <p className="text-sm">Sim, tenho um tempo livre hoje. Qual a tarefa?</p>
+               </div>
+
+               <div className="bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white p-3 px-4 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max shadow-sm ml-auto mt-4">
+                 <p className="text-sm">Legal, posso enviar os detalhes agora?</p>
+               </div>
+
+               <div className={cn("p-3 px-4 rounded-2xl border rounded-tl-sm self-start max-w-[85%] w-max shadow-sm mr-auto mt-4", isDarkMode ? "bg-[#1a1a1a] border-white/5 text-gray-200" : "bg-white border-black/5 text-gray-800")}>
+                 <p className="text-sm">Claro, manda aí 👍</p>
+               </div>
+
+               <div className="p-3 flex flex-col gap-1 rounded-2xl rounded-tr-sm self-end max-w-[85%] w-max mt-4 shadow-sm ml-auto bg-[#BF76FF]/10 border border-[#BF76FF]/20">
+                 <div className="flex items-center gap-3 w-full pr-6 pb-2 border-b border-[#BF76FF]/20">
+                   <div className="w-10 h-10 rounded-xl bg-[#BF76FF] flex items-center justify-center shrink-0 shadow-md">
+                     <FileText className="w-5 h-5 text-white" />
+                   </div>
+                   <div className="min-w-[120px]">
+                     <p className={cn("font-bold text-sm line-clamp-1", isDarkMode ? "text-white" : "text-black")}>Briefing_Projeto.pdf</p>
+                     <p className="text-[10px] text-gray-500 font-medium">543 KB</p>
+                   </div>
+                 </div>
+                 <p className={cn("text-xs font-medium pt-1", isDarkMode ? "text-[#e0b0ff]" : "text-[#8E44AD]")}>Arquivo enviado</p>
+               </div>
+            </div>
+
+            {/* Input Area */}
+            <div className={cn("p-4 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-t border-black/5")}>
+              <div className={cn("flex items-end gap-2 p-1.5 pl-3 rounded-3xl transition-transform focus-within:-translate-y-1", isDarkMode ? "bg-white/5 focus-within:bg-white/10" : "bg-gray-100 focus-within:bg-gray-200")}>
+                <button className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors mb-0.5">
+                  <Mic className="w-5 h-5" />
+                </button>
+                <textarea 
+                  rows={1}
+                  placeholder="Mensagem..." 
+                  className={cn("flex-1 bg-transparent border-none outline-none text-sm py-3 px-1 resize-none max-h-32 scrollbar-hide", isDarkMode ? "text-white" : "text-black")} 
+                  onInput={(e) => {
+                    e.currentTarget.style.height = 'auto';
+                    e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
+                  }}
+                />
+                <button className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors mb-0.5">
+                  <Paperclip className="w-5 h-5" />
+                </button>
+                <button className="w-10 h-10 shrink-0 bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] text-white rounded-full hover:opacity-90 transition-opacity shadow-md flex items-center justify-center mb-0.5">
+                  <Send className="w-4 h-4 ml-0.5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
       {/* Delete Confirmation Dialog */}
