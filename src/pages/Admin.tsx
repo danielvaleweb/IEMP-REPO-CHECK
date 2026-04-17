@@ -191,32 +191,32 @@ function CalendarView({
   return (
     <>
       <div className={cn(
-        "border rounded-3xl p-8 transition-colors duration-500",
+        "border rounded-3xl p-4 md:p-8 transition-colors duration-500",
         isDark ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl"
       )}>
-        <div className="flex justify-between items-center mb-6">
-          <h2 className={cn("text-2xl font-bold capitalize transition-colors", isDark ? "text-white" : "text-black")}>
+        <div className="flex justify-between items-center mb-4 md:mb-6">
+          <h2 className={cn("text-lg md:text-2xl font-bold capitalize transition-colors", isDark ? "text-white" : "text-black")}>
             {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
           </h2>
           <div className="flex gap-2">
-            <Button variant="ghost" size="icon" className={cn("rounded-full cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
-              <ChevronLeft className={cn("w-5 h-5", isDark ? "text-white" : "text-black")} />
+            <Button variant="ghost" size="icon" className={cn("w-8 h-8 md:w-10 md:h-10 rounded-full cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+              <ChevronLeft className={cn("w-4 h-4 md:w-5 h-5", isDark ? "text-white" : "text-black")} />
             </Button>
-            <Button variant="ghost" size="icon" className={cn("rounded-full cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
-              <ChevronRight className={cn("w-5 h-5", isDark ? "text-white" : "text-black")} />
+            <Button variant="ghost" size="icon" className={cn("w-8 h-8 md:w-10 md:h-10 rounded-full cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+              <ChevronRight className={cn("w-4 h-4 md:w-5 h-5", isDark ? "text-white" : "text-black")} />
             </Button>
           </div>
         </div>
         
-        <div className="grid grid-cols-7 gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-1 md:gap-2 mb-1 md:mb-2">
           {weekDays.map(day => (
-            <div key={day} className="text-center text-xs font-bold text-gray-500 uppercase tracking-widest py-2">
+            <div key={day} className="text-center text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest py-1 md:py-2">
               {day}
             </div>
           ))}
         </div>
         
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 md:gap-2">
           {days.map((day, i) => {
             const dayEvents = agenda.filter(event => event.date && isSameDay(parseISO(event.date), day));
             const isCurrentMonth = isSameMonth(day, monthStart);
@@ -226,23 +226,27 @@ function CalendarView({
                 key={i} 
                 onClick={() => setSelectedDay(day)}
                 className={cn(
-                  "min-h-[100px] p-2 rounded-xl border transition-all cursor-pointer",
+                  "min-h-[50px] md:min-h-[100px] p-1 md:p-2 rounded-lg md:rounded-xl border transition-all cursor-pointer relative group",
                   isCurrentMonth 
                     ? isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5" 
                     : isDark ? "bg-[#1a1a1a]/30 border-white/5 opacity-50" : "bg-gray-50/30 border-black/5 opacity-50",
-                  "hover:border-[#BF76FF]/50"
+                  "hover:border-[#BF76FF]/50",
+                  isSameDay(day, new Date()) && "ring-2 ring-[#BF76FF]"
                 )}
               >
-                <div className="text-right text-xs font-bold text-gray-400 mb-2">{format(day, dateFormat)}</div>
-            <div className="space-y-1">
-                  {dayEvents.map((event, j) => (
+                <div className="text-right text-[8px] md:text-xs font-bold text-gray-400 mb-1 md:mb-2">{format(day, dateFormat)}</div>
+                <div className="space-y-0.5 md:space-y-1">
+                  {dayEvents.slice(0, 3).map((event, j) => (
                     <div 
                       key={j}
-                      className="text-[10px] bg-[#BF76FF]/20 text-[#BF76FF] p-1.5 rounded truncate hover:bg-[#BF76FF]/40 transition-colors relative group"
+                      className="text-[7px] md:text-[10px] bg-[#BF76FF]/20 text-[#BF76FF] p-0.5 md:p-1.5 rounded truncate transition-colors relative group/event"
                     >
-                      {event.title}
+                      <span className="md:inline hidden">{event.title}</span>
+                      <span className="md:hidden">●</span>
+                      
+                      {/* Tooltip Desktop Only */}
                       <div className={cn(
-                        "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-56 border p-4 rounded-2xl shadow-2xl z-50 transition-all duration-300 backdrop-blur-md",
+                        "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden md:group-hover/event:block w-56 border p-4 rounded-2xl shadow-2xl z-50 transition-all duration-300 backdrop-blur-md",
                         isDark ? "bg-black/90 border-white/10 text-white" : "bg-white/95 border-black/10 text-black"
                       )}>
                         <div className="flex items-center gap-2 mb-2">
@@ -259,15 +263,14 @@ function CalendarView({
                             <span className="line-clamp-1">{event.location || "Sem local definido"}</span>
                           </div>
                         </div>
-                        <div className={cn("mt-3 pt-3 border-t flex items-center gap-2", isDark ? "border-white/10" : "border-black/10")}>
-                          <div className="w-5 h-5 rounded-full bg-[#BF76FF]/20 flex items-center justify-center text-[8px] font-bold text-[#BF76FF]">
-                            {event.authorName?.[0] || "A"}
-                          </div>
-                          <p className="text-[10px] text-gray-500">Por: <span className="font-bold text-[#BF76FF]">{event.authorName || "Admin"}</span></p>
-                        </div>
                       </div>
                     </div>
                   ))}
+                  {dayEvents.length > 3 && (
+                    <div className="text-[7px] text-gray-500 text-center font-bold">
+                      +{dayEvents.length - 3}
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -276,7 +279,7 @@ function CalendarView({
       </div>
 
       <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
-        <DialogContent className={cn("border sm:max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col transition-colors", isDark ? "bg-[#111] border-white/10 text-white" : "bg-white border-black/10 text-black")}>
+        <DialogContent className={cn("border sm:max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col transition-colors rounded-[32px]", isDark ? "bg-[#111] border-white/10 text-white" : "bg-white border-black/10 text-black")}>
           <div className="flex-1 overflow-y-auto scrollbar-hide p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">
@@ -284,14 +287,11 @@ function CalendarView({
               </DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 mt-4">
+            <div className="space-y-4 mt-6">
               {selectedDayEvents.length > 0 ? (
                 selectedDayEvents.map((event, idx) => {
-                  const itemCanEdit = canEdit;
-                  const itemCanDelete = canDelete;
-
                   return (
-                    <div key={idx} className={cn("p-4 rounded-xl border space-y-3 transition-colors", isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                    <div key={idx} className={cn("p-4 rounded-2xl border space-y-3 transition-colors", isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                       <div>
                         <h4 className="font-bold text-lg">{event.title}</h4>
                         <p className="text-sm text-gray-400">{safeFormatTime(event.date)} • {event.location || "Sem local"}</p>
@@ -310,7 +310,7 @@ function CalendarView({
                         >
                           <Eye className="w-4 h-4 mr-2" /> Ver
                         </Button>
-                        {itemCanEdit && (
+                        {canEdit && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
@@ -324,7 +324,7 @@ function CalendarView({
                             <Edit className="w-4 h-4 mr-2" /> Editar
                           </Button>
                         )}
-                        {itemCanDelete && (
+                        {canDelete && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
@@ -397,7 +397,7 @@ const formatRoles = (member: any) => {
   return mappedRoles[0];
 };
 
-function MemberProfile({ member, onBack, onEdit, isDark, notifications }: { member: any, onBack: () => void, onEdit?: () => void, isDark: boolean, notifications: any[] }) {
+function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }: { member: any, onBack: () => void, onEdit?: () => void, isDark: boolean, notifications: any[], onChat?: () => void }) {
   const isBirthdayToday = useMemo(() => {
     if (!member.birthDate) return false;
     try {
@@ -559,13 +559,13 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications }: { memb
               <div className="space-y-6">
                 <h3 className={cn("text-xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>Informações de Contato</h3>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center text-green-500">
-                      <Phone className="w-5 h-5" />
+            <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
+                      <MessageSquare className="w-5 h-5" />
                     </div>
-                    <div>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Telefone</p>
-                      <p className={cn("font-bold transition-colors", isDark ? "text-white" : "text-black")}>{member.phone || "Não informado"}</p>
+                    <div className="flex-1 group cursor-pointer" onClick={onChat}>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Conversas</p>
+                      <p className={cn("font-bold transition-colors group-hover:text-[#BF76FF]", isDark ? "text-white" : "text-black")}>Iniciar Bate-papo</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">
@@ -704,6 +704,7 @@ export default function Admin() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [viewingMember, setViewingMember] = useState<any>(null);
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Data States
   const [posts, setPosts] = useState<any[]>([]);
@@ -720,6 +721,7 @@ export default function Admin() {
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("visao-geral");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -828,6 +830,34 @@ export default function Admin() {
   ], []);
 
   const isMasterAdmin = user?.email === "iempministerioprofecia@gmail.com";
+  const isAdminOrDev = profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || isMasterAdmin;
+
+  // Notifications Filtering Logic
+  const displayNotifications = useMemo(() => {
+    return notifications.filter(n => {
+      // Administrative notifications (only for Master Admin and Dev)
+      if (n.type === "registration" || n.type === "activity") {
+        return isAdminOrDev;
+      }
+      
+      // Personal notifications (targeted to current user)
+      if (n.userId === user?.uid) {
+        return true;
+      }
+
+      return false;
+    });
+  }, [notifications, isAdminOrDev, user?.uid]);
+
+  const handleClearAll = async () => {
+    try {
+      // Delete displayed notifications from Firestore
+      const deletePromises = displayNotifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
+      await Promise.all(deletePromises);
+    } catch (err) {
+      console.error("Error clearing notifications:", err);
+    }
+  };
 
   useEffect(() => {
     // Database Migration: Cleanup 'Desenvolvimento' -> 'Desenvolvedor'
@@ -1115,18 +1145,13 @@ export default function Admin() {
   };
 
   const openWhatsApp = (member: any) => {
-    if (!member.phone) {
-      return;
-    }
-    setShowWhatsAppModal(member);
+    setViewingMember(null);
+    setActiveTab("conversas");
   };
 
   const confirmWhatsApp = (member: any, message: string) => {
-    if (!member.phone) return;
-    const phone = member.phone.replace(/\D/g, '');
-    const url = `https://wa.me/55${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
-    setShowWhatsAppModal(null);
+    // Deprecated for internal chat
+    openWhatsApp(member);
   };
 
   if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("musica") && !canViewTab("membros") && !canViewTab("agenda"))) {
@@ -1492,7 +1517,7 @@ export default function Admin() {
                     console.log("DEBUG: Chamando addDoc para 'notifications'...");
                     await addDoc(collection(db, "notifications"), {
                       title: "Novo Cadastro",
-                      message: `${newMember.name} solicitou acesso ao painel.`,
+                      message: `${newMember.name} solicitou acesso ao painel com cargo de ${newMember.churchRole || 'Membro'}.`,
                       type: "registration",
                       memberId: newMemberRef.id,
                       read: false,
@@ -1561,16 +1586,18 @@ export default function Admin() {
 
   return (
     <div className={cn(
-      "flex flex-col md:flex-row h-screen h-[100dvh] overflow-hidden font-sans transition-colors duration-500",
+      "flex flex-col md:flex-row h-screen h-[100dvh] overflow-hidden font-sans transition-colors duration-500 relative",
       isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black"
     )}>
-      {/* Sidebar 1: Navigation */}
+      {/* Sidebar 1: Navigation (Desktop: Sidebar, Mobile: Fixed Bottom Nav) */}
       <aside 
         className={cn(
-          "transition-all duration-300 ease-in-out flex md:flex-col flex-row items-center md:items-start justify-between border-t md:border-t-0 md:border-r z-50 order-last md:order-first",
-          isSidebarCollapsed ? "md:w-20 w-full" : "md:w-64 w-full",
-          "md:h-full h-20 md:h-full",
-          isDarkMode ? "bg-[#0a0a0a] border-white/5" : "bg-gray-50 border-black/5"
+          "transition-all duration-300 ease-in-out z-50",
+          "md:h-full md:border-r",
+          isSidebarCollapsed ? "md:w-20" : "md:w-64",
+          // Mobile specifics
+          "fixed bottom-0 left-0 right-0 h-20 border-t md:relative md:bottom-auto md:left-auto md:right-auto md:border-t-0",
+          isDarkMode ? "bg-[#0a0a0a]/80 md:bg-[#0a0a0a] border-white/5 backdrop-blur-lg" : "bg-white/80 md:bg-gray-50 border-black/5 backdrop-blur-lg"
         )}
       >
         <div className="hidden md:flex flex-col w-full px-4 pt-6 mb-4">
@@ -1674,6 +1701,7 @@ export default function Admin() {
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              <SidebarItem icon={MessageSquare} active={activeTab === "conversas"} onClick={() => setActiveTab("conversas")} label="Conversas" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
             </div>
 
             {/* Mobile Bottom Bar Items */}
@@ -1681,7 +1709,7 @@ export default function Admin() {
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Home" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={true} isDark={isDarkMode} mobile />}
+              <SidebarItem icon={MessageSquare} active={activeTab === "conversas"} onClick={() => setActiveTab("conversas")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
                 <SheetTrigger
@@ -1695,8 +1723,77 @@ export default function Admin() {
                     </button>
                   }
                 />
-                <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
+                <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
+                  <div className="flex items-center justify-between px-2 mb-2">
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Aparência do Tema</p>
+                    <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-full">
+                      <button 
+                        onClick={() => setIsDarkMode(false)}
+                        className={cn("p-2 rounded-full transition-all", !isDarkMode ? "bg-white text-[#BF76FF] shadow-sm" : "text-gray-500")}
+                      >
+                        <Sun className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setIsDarkMode(true)}
+                        className={cn("p-2 rounded-full transition-all", isDarkMode ? "bg-[#1a1a1a] text-[#BF76FF] shadow-inner" : "text-gray-500")}
+                      >
+                        <Moon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="space-y-6">
+                    {/* Search Field inside Menu (Always Visible) */}
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Busca Rápida</p>
+                      <div className="relative group">
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                        <input 
+                          type="text" 
+                          placeholder="Pesquisar no painel..." 
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className={cn(
+                            "w-full rounded-2xl py-4 pl-12 pr-4 text-sm outline-none border transition-all", 
+                            isDarkMode ? "bg-white/5 border-white/10 text-white focus:border-[#BF76FF]/50" : "bg-gray-100 border-black/5 text-black focus:border-[#BF76FF]/50"
+                          )}
+                        />
+                      </div>
+                      
+                      {/* Search Results / Recommendations inside Menu */}
+                      {globalSearchResults.length > 0 && searchQuery && (
+                        <div className="space-y-2 mt-2">
+                          {globalSearchResults.slice(0, 4).map((res, i) => (
+                            <button
+                              key={i}
+                              onClick={() => {
+                                if (res.type === 'membros') setViewingMember(res.item);
+                                setSelectedItem(res.item);
+                                setFormData(res.item);
+                                setActiveTab(res.type);
+                                setIsEditing(true);
+                                setIsReadOnly(true);
+                                setSearchQuery("");
+                              }}
+                              className={cn(
+                                "w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-left border",
+                                isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-white border-black/5 hover:bg-gray-50 shadow-sm"
+                              )}
+                            >
+                              <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                <res.icon className="w-5 h-5 text-[#BF76FF]" />
+                              </div>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className={cn("text-xs font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{res.title}</span>
+                                <span className="text-[10px] text-gray-500 truncate">{res.sub}</span>
+                              </div>
+                              <ChevronRight className="w-4 h-4 text-gray-500" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     {(isMasterAdmin || profile?.role === "Desenvolvedor") && (
                       <div className="space-y-3">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Workspace</p>
@@ -1759,48 +1856,50 @@ export default function Admin() {
       </aside>
 
       {/* Main Content Area */}
-      <main className={cn("flex-1 flex flex-col transition-colors duration-500", isDarkMode ? "bg-[#0a0a0a]" : "bg-gray-50")}>
+      <main className={cn("flex-1 flex flex-col min-h-0 transition-colors duration-500", isDarkMode ? "bg-[#0a0a0a]" : "bg-gray-50")}>
         {/* Main Header */}
-        <header className={cn("h-20 border-b flex items-center justify-between px-4 md:px-8 transition-colors duration-500 z-50 relative", isDarkMode ? "border-white/5 bg-[#0a0a0a]" : "border-black/5 bg-white")}>
-          <div className="flex items-center gap-3">
+        <header className={cn("h-14 md:h-20 border-b flex items-center transition-colors duration-500 z-50 sticky top-0 md:relative", isDarkMode ? "border-white/5 bg-[#0a0a0a]/90 backdrop-blur-md" : "border-black/5 bg-white/90 backdrop-blur-md")}>
+          <div className="flex items-center gap-2 px-4 md:px-8 md:flex-1">
             {isEditing ? (
               <button 
-                className={cn("md:hidden p-2 rounded-xl transition-colors cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-black/5 text-black")}
+                className={cn("p-1.5 rounded-lg transition-colors cursor-pointer md:hidden", isDarkMode ? "bg-white/5 text-white" : "bg-black/5 text-black")}
                 onClick={() => setIsEditing(false)}
               >
-                <ChevronLeft className="w-6 h-6" />
+                <ChevronLeft className="w-5 h-5" />
               </button>
             ) : (
-              <div className="md:hidden flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-[#BF76FF] flex items-center justify-center text-black shadow-lg shadow-[#BF76FF]/20">
-                  <Settings className="w-5 h-5 animate-spin-slow" />
+              <div className="md:hidden flex items-center gap-1.5">
+                <div className="w-7 h-7 rounded-lg bg-[#BF76FF] flex items-center justify-center text-black">
+                  <Settings className="w-4 h-4" />
                 </div>
-                <span className={cn("font-black text-lg tracking-tighter", isDarkMode ? "text-white" : "text-black")}>IEMP</span>
+                <span className={cn("font-black text-sm tracking-tighter", isDarkMode ? "text-white" : "text-black")}>IEMP</span>
               </div>
             )}
-            {isEditing && <span className="px-2 py-0.5 rounded bg-[#BF76FF]/10 text-[#BF76FF] text-[10px] font-bold uppercase tracking-widest hidden md:inline-block">Editando</span>}
           </div>
           
-          <div className="flex items-center gap-2 md:gap-6 flex-1 justify-end">
-            <div className="relative group max-w-[200px] md:max-w-none flex-1 md:flex-initial">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+          <div className="hidden md:flex flex-[2] justify-center relative">
+            <div className={cn(
+              "relative group transition-all duration-300 w-full max-w-[400px]",
+              isEditing ? "hidden md:flex" : "hidden md:flex"
+            )}>
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input 
                 type="text" 
                 placeholder="Pesquisar..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={cn(
-                  "border-none rounded-full py-2 pl-9 pr-4 text-xs md:text-sm w-full md:w-64 outline-none transition-colors", 
-                  isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50"
+                  "border-none rounded-full h-10 pl-11 pr-4 text-sm w-full outline-none transition-colors", 
+                  isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50 shadow-inner"
                 )}
               />
               
-              {globalSearchResults.length > 0 && (
+              {globalSearchResults.length > 0 && searchQuery && (
                 <div className={cn(
                   "absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-2xl overflow-hidden p-2 animate-in fade-in slide-in-from-top-2 duration-200 z-[70]",
                   isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10"
                 )}>
-                      {globalSearchResults.map((res, i) => (
+                  {globalSearchResults.map((res, i) => (
                     <button
                       key={i}
                       onClick={() => {
@@ -1830,16 +1929,85 @@ export default function Admin() {
                 </div>
               )}
             </div>
-            <div className="md:hidden">
+          </div>
+          
+          <div className="flex items-center gap-2 md:gap-4 px-4 md:px-8 md:flex-1 justify-end relative">
+            <div className="md:hidden relative">
               <button 
                 className={cn("p-2 rounded-xl relative", isDarkMode ? "text-gray-400" : "text-gray-500")}
                 onClick={() => setShowNotifications(!showNotifications)}
               >
                 <Bell className="w-5 h-5" />
-                {notifications.some(n => !n.read) && (
-                  <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-[#BF76FF] rounded-full" />
+                {displayNotifications.some(n => !n.read) && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a] flex items-center justify-center text-[8px] text-white font-bold animate-bounce shadow-lg">
+                    <Bell className="w-2 h-2 fill-white" />
+                  </div>
                 )}
               </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className={cn(
+                        "absolute top-full right-0 mt-4 w-72 max-h-[80vh] overflow-y-auto scrollbar-hide rounded-[28px] border shadow-2xl p-3 z-50",
+                        isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5"
+                      )}
+                    >
+                      <div className="flex items-center justify-between px-2 mb-3">
+                        <h6 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Notificações</h6>
+                        <button 
+                          onClick={handleClearAll}
+                          className="text-[10px] text-[#BF76FF] hover:underline"
+                        >
+                          Limpar Tudo
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {displayNotifications.length > 0 ? (
+                          displayNotifications.map(n => (
+                            <button 
+                              key={n.id} 
+                              onClick={async () => {
+                                if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true });
+                                if (n.type === "registration" && n.memberId) {
+                                  setActiveTab("membros");
+                                  const member = members.find(m => m.id === n.memberId);
+                                  if (member) {
+                                    setSelectedItem(member);
+                                    setFormData(member);
+                                    setIsEditing(true);
+                                    setIsReadOnly(false);
+                                  }
+                                }
+                                setShowNotifications(false);
+                              }}
+                              className={cn(
+                                "w-full text-left p-3 rounded-2xl text-[10px] transition-all", 
+                                isDarkMode 
+                                  ? n.read ? "bg-white/5 text-gray-500" : "bg-white/10 text-gray-300" 
+                                  : n.read ? "bg-gray-50 text-gray-500" : "bg-primary/5 text-gray-700"
+                              )}
+                            >
+                              <div className="flex items-center gap-2 mb-0.5">
+                                {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-[#BF76FF]" />}
+                                <span className={cn("font-bold block", isDarkMode ? "text-white" : "text-black")}>{n.title}</span>
+                              </div>
+                              <p className="line-clamp-2">{n.message}</p>
+                            </button>
+                          ))
+                        ) : (
+                          <p className="text-[10px] text-gray-500 text-center py-4">Nenhuma notificação</p>
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className={cn("flex items-center gap-3 pl-2 md:pl-4 border-l relative", isDarkMode ? "border-white/10" : "border-black/10")}>
@@ -1864,7 +2032,15 @@ export default function Admin() {
                     )}
                   </div>
                 </div>
+                {/* Status indicator */}
                 <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 animate-pulse", isDarkMode ? "border-[#0a0a0a]" : "border-white", getStatusColor(userStatus))} />
+                
+                {/* Notification Bell indicator on top of profile image */}
+                {displayNotifications.some(n => !n.read) && (
+                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a] flex items-center justify-center text-[10px] text-white font-bold animate-bounce shadow-lg">
+                    <Bell className="w-2.5 h-2.5 fill-white" />
+                  </div>
+                )}
               </button>
 
               <AnimatePresence>
@@ -1885,25 +2061,15 @@ export default function Admin() {
                         <div className="flex items-center justify-between px-2 mb-3">
                           <h6 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Notificações</h6>
                           <button 
-                            onClick={async () => {
-                              try {
-                                const q = query(collection(db, "notifications"), where("userId", "==", user?.uid));
-                                const snap = await getDocs(q);
-                                snap.forEach(async (d) => {
-                                  await deleteDoc(doc(db, "notifications", d.id));
-                                });
-                              } catch (err) {
-                                console.error(err);
-                              }
-                            }}
+                            onClick={handleClearAll}
                             className="text-[10px] text-[#BF76FF] hover:underline"
                           >
                             Limpar Tudo
                           </button>
                         </div>
                         <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
-                          {notifications.length > 0 ? (
-                            notifications.slice(0, 5).map(n => (
+                          {displayNotifications.length > 0 ? (
+                            displayNotifications.slice(0, 5).map(n => (
                               <button 
                                 key={n.id} 
                                 onClick={async () => {
@@ -1997,8 +2163,8 @@ export default function Admin() {
         </header>
 
         {/* Content View */}
-        <div className="flex-1 p-4 md:p-8 pb-36 md:pb-8 overflow-y-auto scrollbar-hide overscroll-contain touch-pan-y">
-          <div className="max-w-5xl mx-auto w-full space-y-6 md:space-y-8">
+        <div className="flex-1 p-3 md:p-8 pb-32 md:pb-8 overflow-y-auto scroll-smooth scrollbar-hide overscroll-contain touch-pan-y">
+          <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
             {isEditing ? (
               <Card className={cn("border-white/5 rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-xl border-black/5")}>
                 <div className="space-y-6">
@@ -2542,6 +2708,10 @@ export default function Admin() {
                       setIsEditing(true);
                       setViewingMember(null);
                     } : undefined}
+                    onChat={() => {
+                      setViewingMember(null);
+                      setActiveTab("conversas");
+                    }}
                   />
                 ) : (
                   <>
@@ -2707,7 +2877,7 @@ export default function Admin() {
                   </Card>
                   <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Novas Mensagens</p>
-                    <h4 className={cn("text-3xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>{notifications.filter(n => !n.read).length}</h4>
+                    <h4 className={cn("text-3xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
                   </Card>
                 </div>
 
@@ -2732,6 +2902,23 @@ export default function Admin() {
                 <div className={cn("border rounded-[32px] p-8 md:p-12 transition-colors", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                   <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
                 </div>
+              </div>
+            ) : activeTab === "conversas" ? (
+              <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Conversas</h2>
+                </div>
+                <Card className={cn("border rounded-[32px] p-8 md:p-12 transition-colors min-h-[500px] flex flex-col items-center justify-center text-center", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                   <div className="w-20 h-20 rounded-[28px] bg-[#BF76FF]/10 flex items-center justify-center mb-6 transition-transform hover:rotate-12">
+                     <MessageSquare className="w-10 h-10 text-[#BF76FF]" />
+                   </div>
+                   <h3 className={cn("text-2xl font-black mb-3", isDarkMode ? "text-white" : "text-black")}>O Chat está chegando!</h3>
+                   <p className="text-gray-500 text-sm max-w-sm leading-relaxed">Estamos preparando um sistema de mensagens robusto para que toda a liderança e membros possam se comunicar diretamente aqui no dashboard.</p>
+                   <div className="mt-8 flex gap-3">
+                     <div className="px-4 py-2 rounded-full bg-[#BF76FF]/10 text-[#BF76FF] text-[10px] font-bold uppercase tracking-widest">Tempo Real</div>
+                     <div className="px-4 py-2 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-bold uppercase tracking-widest">Privacidade</div>
+                   </div>
+                </Card>
               </div>
             ) : activeTab === "config" ? (
               <div className="p-4 md:p-8">
@@ -2928,7 +3115,11 @@ export default function Admin() {
               active={!isDarkMode}
               isDark={isDarkMode}
             />
-            <ActionIcon icon={Phone} isDark={isDarkMode} />
+            <ActionIcon 
+              icon={MessageSquare} 
+              onClick={() => setActiveTab("conversas")}
+              isDark={isDarkMode} 
+            />
             <ActionIcon icon={Video} isDark={isDarkMode} />
             <ActionIcon icon={Pin} isDark={isDarkMode} />
             <ActionIcon icon={Users} isDark={isDarkMode} />
@@ -3057,43 +3248,6 @@ export default function Admin() {
           </div>
         </div>
       </aside>
-      {/* WhatsApp Modal */}
-      <AnimatePresence>
-        {showWhatsAppModal && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              className="bg-[#111] border border-white/10 rounded-3xl p-8 max-w-md w-full"
-            >
-              <h4 className="text-2xl font-bold mb-4">Contato com {showWhatsAppModal.name}</h4>
-              <p className="text-gray-400 mb-6">O que você gostaria de tratar com este membro da equipe?</p>
-              <Textarea 
-                id="wa-message"
-                className="bg-[#1a1a1a] border-none min-h-[120px] rounded-2xl p-4 mb-6"
-                placeholder="Escreva sua mensagem aqui..."
-              />
-              <div className="flex gap-4">
-                <Button variant="ghost" className="flex-1 rounded-2xl" onClick={() => setShowWhatsAppModal(null)}>Cancelar</Button>
-                <Button 
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold"
-                  onClick={() => {
-                    const msg = (document.getElementById('wa-message') as HTMLTextAreaElement).value;
-                    confirmWhatsApp(showWhatsAppModal, msg);
-                  }}
-                >
-                  Enviar WhatsApp
-                </Button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirm !== null} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
@@ -3392,9 +3546,10 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
       <div className="flex items-center gap-2">
         <button 
           onClick={onWhatsApp}
-          className="p-2 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white transition-all cursor-pointer"
+          title="Chat Interno"
+          className="p-2 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all cursor-pointer"
         >
-          <WhatsAppIcon className="w-4 h-4" />
+          <MessageSquare className="w-4 h-4" />
         </button>
         {onEditProfile && (
           <button 
@@ -3420,7 +3575,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
                 animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
                 exit={{ opacity: 0, y: 10, scale: 0.9, x: 20 }}
                 className={cn(
-                  "absolute right-0 top-full mt-2 w-72 rounded-[32px] shadow-2xl border overflow-hidden z-50 p-1",
+                  "absolute right-0 top-full mt-2 w-64 md:w-72 rounded-[32px] shadow-2xl border overflow-hidden z-[100] p-1",
                   isDark ? "bg-[#0a0a0a] border-white/10" : "bg-white border-black/10"
                 )}
               >
