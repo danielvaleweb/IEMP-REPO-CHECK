@@ -709,6 +709,7 @@ export default function Admin() {
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active">("team");
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
+  const [activeChats, setActiveChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
 
@@ -739,6 +740,14 @@ export default function Admin() {
     setChatInput(""); // clear immediately
     
     try {
+      // Update Chat Index
+      await setDoc(doc(db, "chats", chatId), {
+        participants: [profile.id, activeChatUser.id],
+        lastMessage: msgText,
+        lastMessageTime: serverTimestamp()
+      }, { merge: true });
+
+      // Add to messages subcollection
       await addDoc(collection(db, "chats", chatId, "messages"), {
         text: msgText,
         senderId: profile.id,
@@ -1085,6 +1094,27 @@ export default function Admin() {
       unsubSkills();
     };
   }, [user, isAdmin]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    
+    const unsubChats = onSnapshot(
+      query(collection(db, "chats"), where("participants", "array-contains", profile.id)),
+      (snap) => {
+        let chats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // In-memory sort to avoid requiring composite indexes
+        chats.sort((a: any, b: any) => {
+           const timeA = a.lastMessageTime?.toMillis?.() || 0;
+           const timeB = b.lastMessageTime?.toMillis?.() || 0;
+           return timeB - timeA;
+        });
+        setActiveChats(chats);
+      },
+      (err) => console.error("Error loading chats", err)
+    );
+    
+    return () => unsubChats();
+  }, [profile?.id]);
 
   // Search Logic
   const filteredItems = useMemo(() => {
@@ -3351,28 +3381,42 @@ export default function Admin() {
             </div>
             
             <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-1 scrollbar-hide">
-              {members.filter(m => m.email !== user?.email).map((m, i) => (
-                <div key={m.id} onClick={() => openWhatsApp(m)} className="flex items-center gap-4 p-3 mb-1 rounded-2xl hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
-                  <div className="relative shrink-0">
-                    {m.photoURL ? (
-                      <img src={m.photoURL} className="w-12 h-12 rounded-full object-cover" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-[#1a1a1a] text-xl font-bold flex items-center justify-center text-[#BF76FF]">
-                        {m.name?.[0] || 'M'}
+              {activeChats.length === 0 ? (
+                 <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 mt-10">
+                    <MessageSquare className="w-12 h-12 mb-4 mx-auto" />
+                    <p className="text-sm font-medium">Você não tem mensagens</p>
+                 </div>
+              ) : (
+                activeChats.map((chat, i) => {
+                  const otherUserId = chat.participants?.find((p: string) => p !== profile?.id) || "";
+                  const m = members.find(member => member.id === otherUserId);
+                  if (!m) return null;
+                  return (
+                    <div key={chat.id} onClick={() => openWhatsApp(m)} className="flex items-center gap-4 p-3 mb-1 rounded-2xl hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
+                      <div className="relative shrink-0">
+                        {m.photoURL ? (
+                          <img src={m.photoURL} className="w-12 h-12 rounded-full object-cover" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-[#1a1a1a] text-xl font-bold flex items-center justify-center text-[#BF76FF]">
+                            {m.name?.[0] || 'M'}
+                          </div>
+                        )}
+                        {(m.status_presence === "online" || m.status_presence === "ocupado") && (
+                          <div className={cn("absolute bottom-0 right-0 w-3.5 h-3.5 border-[3px] border-white dark:border-[#0f0f0f] rounded-full", getStatusColor(m.status_presence))} />
+                        )}
                       </div>
-                    )}
-                    {(i % 3 === 0 || i % 5 === 0) && <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-[3px] border-white dark:border-[#0f0f0f] rounded-full" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-baseline mb-1">
-                      <h4 className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-baseline mb-1">
+                          <h4 className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
+                        </div>
+                        <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
+                          {chat.lastMessage || "Toque para abrir a conversa"}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
-                      Toque para abrir a conversa
-                    </p>
-                  </div>
-                </div>
-              ))}
+                  );
+                })
+              )}
             </div>
           </div>
         )}
