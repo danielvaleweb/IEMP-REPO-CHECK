@@ -1040,17 +1040,6 @@ export default function Admin() {
     }
   }, [user, profile]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#BF76FF]/20 border-t-[#BF76FF] rounded-full animate-spin" />
-          <p className="text-white/40 text-sm font-medium animate-pulse">Carregando painel...</p>
-        </div>
-      </div>
-    );
-  }
-  
   // Sign Up States
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [showSignUpSuccessModal, setShowSignUpSuccessModal] = useState(false);
@@ -1327,6 +1316,17 @@ export default function Admin() {
     // Deprecated for internal chat
     openWhatsApp(member);
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-[#BF76FF]/20 border-t-[#BF76FF] rounded-full animate-spin" />
+          <p className="text-white/40 text-sm font-medium animate-pulse">Carregando painel...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("musica") && !canViewTab("membros") && !canViewTab("agenda") && !canViewTab("agenda-direcao"))) {
     return (
