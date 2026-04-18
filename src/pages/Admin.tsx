@@ -1010,6 +1010,18 @@ export default function Admin() {
 
   const currentRole = activeViewRole || profile?.role || "Membro";
   
+  // Auto-redirect for Direção role
+  useEffect(() => {
+    if (currentRole === "Direção") {
+      if (activeTab !== "agenda-direcao") {
+        setActiveTab("agenda-direcao");
+      }
+      if (rightSidebarView === "team") {
+        setRightSidebarView("chat-list");
+      }
+    }
+  }, [currentRole, activeTab, rightSidebarView, setActiveTab, setRightSidebarView]);
+  
   const [availableSkills, setAvailableSkills] = useState<string[]>(["Música", "Instrumentos", "Canto", "Som/Áudio", "Vídeo/Edição", "Design Gráfico", "Mídias Sociais", "Liderança", "Pregação", "Ensino Infantil", "Organização", "Cozinha", "Limpeza", "Recepção"]);
   const [newSkillName, setNewSkillName] = useState("");
   
@@ -3382,12 +3394,14 @@ export default function Admin() {
               onClick={() => setRightSidebarView("chat-list")}
               isDark={isDarkMode} 
             />
-            <ActionIcon 
-              icon={Users} 
-              active={rightSidebarView === "team"}
-              onClick={() => setRightSidebarView("team")}
-              isDark={isDarkMode} 
-            />
+            {currentRole !== "Direção" && (
+              <ActionIcon 
+                icon={Users} 
+                active={rightSidebarView === "team"}
+                onClick={() => setRightSidebarView("team")}
+                isDark={isDarkMode} 
+              />
+            )}
           </div>
         </div>
 
