@@ -2388,7 +2388,13 @@ export default function Admin() {
                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Data</p>
                              </div>
                              <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
-                               {formData.date ? format(parseISO(formData.date.split('T')[0]), 'dd/MM/yyyy') : '...'}
+                               {(() => {
+                                 try {
+                                   return typeof formData.date === 'string' && formData.date ? format(parseISO(formData.date.split('T')[0]), 'dd/MM/yyyy') : '...';
+                                 } catch(e) {
+                                   return '...';
+                                 }
+                               })()}
                              </p>
                           </div>
                           <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
@@ -2397,7 +2403,9 @@ export default function Admin() {
                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Horário</p>
                              </div>
                              <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
-                               {formData.date?.split('T')[1] ? `${formData.date.split('T')[1].substring(0, 5)} às ${formData.endTime || '...'}` : 'Horário não definido'}
+                               {typeof formData.date === 'string' && formData.date.includes('T') && formData.date.split('T')[1] 
+                                 ? `${formData.date.split('T')[1].substring(0, 5)} às ${formData.endTime || '...'}` 
+                                 : 'Horário não definido'}
                              </p>
                           </div>
                           <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
@@ -2524,9 +2532,9 @@ export default function Admin() {
                                   <Input 
                                     type="date"
                                     className={cn("border-none h-14 rounded-2xl px-6 transition-colors w-full", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")}
-                                    value={formData.date?.split('T')[0] || ""}
+                                    value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
                                     onChange={(e) => {
-                                      const time = formData.date?.split('T')[1] || "";
+                                      const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "";
                                       setFormData({...formData, date: time ? `${e.target.value}T${time}` : e.target.value});
                                     }}
                                     readOnly={isReadOnly}
@@ -2539,9 +2547,9 @@ export default function Admin() {
                                     <Input 
                                       type="time"
                                       className={cn("border-none h-14 rounded-2xl pl-10 pr-4 transition-colors w-full", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")}
-                                      value={formData.date?.split('T')[1]?.substring(0, 5) || ""}
+                                      value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
                                       onChange={(e) => {
-                                        const date = formData.date?.split('T')[0] || format(new Date(), "yyyy-MM-dd");
+                                        const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
                                         setFormData({...formData, date: `${date}T${e.target.value}`});
                                       }}
                                       readOnly={isReadOnly}
