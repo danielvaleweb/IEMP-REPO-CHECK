@@ -1040,6 +1040,12 @@ export default function Admin() {
     }
   }, [user, profile]);
 
+  useEffect(() => {
+    if (user && profile?.role === "Visitante") {
+      navigate("/");
+    }
+  }, [user, profile, navigate]);
+
   // Sign Up States
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [showSignUpSuccessModal, setShowSignUpSuccessModal] = useState(false);
@@ -1470,8 +1476,10 @@ export default function Admin() {
                     
                     setCustomLogin(true, { id: memberDoc.id, ...memberData });
                     
-                    if (memberData.role !== "admin") {
-                      window.location.href = "/";
+                    window.alert("Login efetuado com sucesso!");
+                    
+                    if (memberData.role === "Visitante") {
+                      navigate("/");
                     }
                   } catch (error) {
                     console.error("Erro ao fazer login:", error);
@@ -1501,6 +1509,7 @@ export default function Admin() {
                     setAuthError("");
                     setIsSubmitting(true);
                     await login();
+                    window.alert("Login efetuado com sucesso!");
                   } catch (error: any) {
                     console.error("Erro no login Google:", error);
                     if (error.code === 'auth/unauthorized-domain') {
