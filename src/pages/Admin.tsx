@@ -1012,15 +1012,10 @@ export default function Admin() {
   
   // Auto-redirect for Direção role
   useEffect(() => {
-    if (currentRole === "Direção") {
-      if (activeTab !== "agenda-direcao") {
-        setActiveTab("agenda-direcao");
-      }
-      if (rightSidebarView === "team") {
-        setRightSidebarView("chat-list");
-      }
+    if (currentRole === "Direção" && activeTab !== "agenda-direcao") {
+      setActiveTab("agenda-direcao");
     }
-  }, [currentRole, activeTab, rightSidebarView, setActiveTab, setRightSidebarView]);
+  }, [currentRole, activeTab, setActiveTab]);
   
   const [availableSkills, setAvailableSkills] = useState<string[]>(["Música", "Instrumentos", "Canto", "Som/Áudio", "Vídeo/Edição", "Design Gráfico", "Mídias Sociais", "Liderança", "Pregação", "Ensino Infantil", "Organização", "Cozinha", "Limpeza", "Recepção"]);
   const [newSkillName, setNewSkillName] = useState("");
@@ -1325,7 +1320,7 @@ export default function Admin() {
     openWhatsApp(member);
   };
 
-  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("musica") && !canViewTab("membros") && !canViewTab("agenda"))) {
+  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("musica") && !canViewTab("membros") && !canViewTab("agenda") && !canViewTab("agenda-direcao"))) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col p-6">
         {/* Header / Back Button */}

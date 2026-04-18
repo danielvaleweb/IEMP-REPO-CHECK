@@ -204,6 +204,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAdmin = (firebaseUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") || 
                   (auth.currentUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") ||
                   profile?.role === "admin" || 
+                  profile?.role === "Direção" ||
                   customUserData?.role === "admin" || 
                   (isCustomLoggedIn && !customUserData);
 
