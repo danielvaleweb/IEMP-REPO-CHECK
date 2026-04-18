@@ -166,7 +166,10 @@ function CalendarView({
   onDeleteEvent,
   isDark,
   canEdit = false,
-  canDelete = false
+  canDelete = false,
+  modalTitle = "Compromissos do Dia",
+  emptyMessage = "Nenhum evento cadastrado para este dia.",
+  newEventButtonLabel = "Cadastrar novo evento"
 }: { 
   agenda: any[], 
   onNewEvent: (date: Date) => void, 
@@ -175,7 +178,10 @@ function CalendarView({
   onDeleteEvent: (item: any) => void,
   isDark?: boolean,
   canEdit?: boolean,
-  canDelete?: boolean
+  canDelete?: boolean,
+  modalTitle?: string,
+  emptyMessage?: string,
+  newEventButtonLabel?: string
 }) {
   const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -297,7 +303,7 @@ function CalendarView({
           <div className="flex-1 overflow-y-auto scrollbar-hide p-6">
             <DialogHeader>
               <DialogTitle className="text-xl">
-                {selectedDay ? format(selectedDay, "dd 'de' MMMM, yyyy", { locale: ptBR }) : ""}
+                {modalTitle} ({selectedDay ? format(selectedDay, "dd/MM/yyyy") : ""})
               </DialogTitle>
             </DialogHeader>
             
@@ -359,7 +365,7 @@ function CalendarView({
               ) : (
                 <div className="text-center py-8 text-gray-400">
                   <Calendar className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  <p>Nenhum evento cadastrado para este dia.</p>
+                  <p>{emptyMessage}</p>
                 </div>
               )}
               
@@ -373,7 +379,7 @@ function CalendarView({
                     }
                   }}
                 >
-                  <Plus className="w-4 h-4 mr-2" /> Cadastrar novo evento
+                  <Plus className="w-4 h-4 mr-2" /> {newEventButtonLabel}
                 </Button>
               )}
             </div>
@@ -797,6 +803,8 @@ export default function Admin() {
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("visao-geral");
   const [showPending, setShowPending] = useState(false);
+  const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false);
+  const [memberSearch, setMemberSearch] = useState("");
   
   // Computed
   const pendingMembers = members.filter(m => m.status === "pending" || m.status === "pending_approval");
@@ -1874,6 +1882,28 @@ export default function Admin() {
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
             </div>
 
+            {/* Bottom items (Desktop) */}
+            <div className="hidden md:flex flex-col gap-1.5 w-full mt-auto pt-4 border-t border-white/5">
+              {canViewSettings && (
+                <SidebarItem 
+                  icon={Settings} 
+                  active={activeTab === "config"} 
+                  onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }} 
+                  label="Configurações" 
+                  collapsed={isSidebarCollapsed} 
+                  isDark={isDarkMode} 
+                />
+              )}
+              <SidebarItem 
+                icon={LogOut} 
+                active={false} 
+                onClick={() => auth.signOut()} 
+                label="Sair" 
+                collapsed={isSidebarCollapsed} 
+                isDark={isDarkMode} 
+              />
+            </div>
+
             {/* Mobile Bottom Bar Items */}
             <div className="md:hidden flex flex-row justify-around w-full items-center px-2 py-1">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("team"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
@@ -2319,6 +2349,253 @@ export default function Admin() {
                     </div>
                   )}
                   
+                  {activeTab === "agenda-direcao" && (
+                    <>
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Qual é o compromisso?</label>
+                          <Input 
+                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            placeholder="Ex: Visitar igreja no Grama"
+                            value={formData.title || ""}
+                            onChange={(e) => setFormData({...formData, title: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Horário</label>
+                            <Button 
+                              type="button"
+                              variant="outline"
+                              disabled={isReadOnly}
+                              className={cn("w-full border-none h-14 rounded-2xl px-6 flex justify-start font-normal transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white hover:bg-[#222]" : "bg-gray-100 text-black hover:bg-gray-200")}
+                              onClick={() => {
+                                if (formData.date) {
+                                  const parts = formData.date.split('T');
+                                  setTempDate(parts[0]);
+                                  setTempStartTime(parts[1]?.substring(0, 5) || "");
+                                  setTempEndTime(formData.endTime || "");
+                                } else {
+                                  setTempDate(format(new Date(), "yyyy-MM-dd"));
+                                  setTempStartTime("");
+                                  setTempEndTime("");
+                                }
+                                setIsDatePickerOpen(true);
+                              }}
+                            >
+                              <Clock className="w-4 h-4 mr-2 text-[#BF76FF]" />
+                              {formData.date ? (
+                                (() => {
+                                  try {
+                                    const dateStr = format(parseISO(formData.date), 'dd/MM/yyyy');
+                                    const timePart = formData.date.split('T')[1];
+                                    if (!timePart) return `${dateStr} • Horário não definido`;
+                                    return `${dateStr} • ${timePart.substring(0, 5)} às ${formData.endTime || '...'}`
+                                  } catch (e) { return "Selecionar Horário"; }
+                                })()
+                              ) : "Selecionar Horário"}
+                            </Button>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Quem está organizando?</label>
+                            <Input 
+                              className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                              placeholder="Ex: Igreja que convidou, nossa igreja"
+                              value={formData.organizer || ""}
+                              onChange={(e) => setFormData({...formData, organizer: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-4 p-6 rounded-2xl border border-[#BF76FF]/20 bg-[#BF76FF]/5">
+                          <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Deve convidar a igreja?</label>
+                              <p className="text-[10px] text-gray-400">Marque se os membros devem ser informados/convidados</p>
+                            </div>
+                            <div className="flex bg-black/10 dark:bg-white/5 p-1 rounded-xl">
+                              <button 
+                                type="button"
+                                disabled={isReadOnly}
+                                onClick={() => setFormData({...formData, inviteChurch: false, invitedMembers: []})}
+                                className={cn("px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all", !formData.inviteChurch ? "bg-red-500 text-white shadow-lg" : "text-gray-500")}
+                              >
+                                Não, será restrito
+                              </button>
+                              <button 
+                                type="button"
+                                disabled={isReadOnly}
+                                onClick={() => setFormData({...formData, inviteChurch: true})}
+                                className={cn("px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all", formData.inviteChurch ? "bg-green-500 text-white shadow-lg" : "text-gray-500")}
+                              >
+                                Sim, será aberto
+                              </button>
+                            </div>
+                          </div>
+
+                          {(formData.inviteChurch || (formData.invitedMembers?.length > 0)) && (
+                            <div className="pt-4 border-t border-[#BF76FF]/10">
+                              {isReadOnly ? (
+                                <div className="space-y-3">
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Membros Convidados:</label>
+                                  <div className="flex flex-wrap gap-2">
+                                    {(formData.invitedMembers || []).map((m: any) => (
+                                      <div key={m.id} className="flex items-center gap-2 bg-[#BF76FF]/10 px-3 py-1.5 rounded-full border border-[#BF76FF]/20">
+                                        <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden">
+                                           {m.photo ? <img src={m.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Users className="w-3 h-3 m-1 text-gray-500" />}
+                                        </div>
+                                        <span className="text-[10px] font-bold text-[#BF76FF]">{m.name}</span>
+                                      </div>
+                                    ))}
+                                    {(!formData.invitedMembers || formData.invitedMembers.length === 0) && (
+                                      <p className="text-xs text-gray-500 italic">Nenhum membro marcado.</p>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => setIsMemberSelectorOpen(true)}
+                                    className={cn("w-full border-dashed border-2 py-8 rounded-2xl flex flex-col gap-2 transition-all", isDarkMode ? "border-white/10 hover:border-[#BF76FF] bg-white/5" : "border-black/10 hover:border-[#BF76FF] bg-black/5")}
+                                  >
+                                    <Plus className="w-6 h-6 text-[#BF76FF]" />
+                                    <span className={cn("text-xs font-bold", isDarkMode ? "text-white" : "text-black")}>
+                                      {formData.invitedMembers?.length > 0 
+                                        ? `${formData.invitedMembers.length} membros convidados` 
+                                        : "Clique para marcar os membros que deseja que esteja presente"}
+                                    </span>
+                                  </Button>
+                                  
+                                  <Dialog open={isMemberSelectorOpen} onOpenChange={setIsMemberSelectorOpen}>
+                                    <DialogContent className={cn("sm:max-w-2xl p-0 overflow-hidden flex flex-col rounded-[32px] border", isDarkMode ? "bg-[#0a0a0a] border-white/10" : "bg-white border-black/10")}>
+                                      <div className="p-8 border-b border-white/5">
+                                        <h3 className={cn("text-xl font-black uppercase tracking-tighter mb-4", isDarkMode ? "text-white" : "text-black")}>Convidar Membros</h3>
+                                        <div className="relative">
+                                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                                          <Input 
+                                            className={cn("pl-10 h-12 rounded-xl border-none", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                                            placeholder="Buscar membros..."
+                                            value={memberSearch}
+                                            onChange={(e) => setMemberSearch(e.target.value)}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="flex-1 overflow-y-auto max-h-[400px] p-4 space-y-2 scrollbar-hide">
+                                        {(members || [])
+                                          .filter(m => m.name?.toLowerCase().includes(memberSearch.toLowerCase()))
+                                          .map(member => {
+                                            const isChecked = (formData.invitedMembers || []).some((m: any) => m.id === member.id);
+                                            return (
+                                              <div 
+                                                key={member.id}
+                                                onClick={() => {
+                                                  const current = formData.invitedMembers || [];
+                                                  if (isChecked) {
+                                                    setFormData({ ...formData, invitedMembers: current.filter((m: any) => m.id !== member.id) });
+                                                  } else {
+                                                    setFormData({ ...formData, invitedMembers: [...current, { id: member.id, name: member.name, photo: member.photoURL }] });
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border",
+                                                  isChecked 
+                                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/30" 
+                                                    : isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-gray-50 border-black/5 hover:bg-gray-100"
+                                                )}
+                                              >
+                                                <div className="flex items-center gap-3">
+                                                  {member.photoURL ? (
+                                                    <img src={member.photoURL} alt="" className="w-10 h-10 rounded-full object-cover" referrerPolicy="no-referrer" />
+                                                  ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
+                                                      <Users className="w-5 h-5" />
+                                                    </div>
+                                                  )}
+                                                  <div>
+                                                    <p className={cn("text-xs font-bold", isDarkMode ? "text-white" : "text-black")}>{member.name}</p>
+                                                    <p className="text-[10px] text-gray-500">{member.role || "Membro"}</p>
+                                                  </div>
+                                                </div>
+                                                {isChecked && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                                              </div>
+                                            );
+                                          })}
+                                      </div>
+                                      <div className="p-6 bg-black/5 dark:bg-white/5 flex justify-end">
+                                        <Button 
+                                          className="bg-[#BF76FF] hover:bg-[#8E44AD] text-white font-bold rounded-xl"
+                                          onClick={() => setIsMemberSelectorOpen(false)}
+                                        >
+                                          Confirmar ({formData.invitedMembers?.length || 0})
+                                        </Button>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local</label>
+                          <div className="relative group">
+                            <Input 
+                              className={cn("border-none h-14 rounded-2xl px-6 pr-14 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                              placeholder="R. Cleonice Rainho, 19 - Aeroporto, Juiz de Fora - MG"
+                              value={formData.location || ""}
+                              onChange={(e) => setFormData({...formData, location: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                            {formData.location && (
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.location)}`;
+                                  window.open(url, '_blank');
+                                }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] hover:bg-[#BF76FF]/20 transition-all cursor-pointer"
+                                title="Abrir no Google Maps"
+                              >
+                                <ChevronRight className="w-4 h-4 rotate-[-45deg]" />
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-gray-500 px-2 italic">O endereço se tornará um link clicável para o Google Maps automaticamente.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Informações adicionais (Contatos)</label>
+                            <Textarea 
+                              className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                              placeholder="Ex: Contato de quem está organizando, contato da mídia da outra igreja..."
+                              value={formData.additionalInfo || ""}
+                              onChange={(e) => setFormData({...formData, additionalInfo: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Observações</label>
+                            <Textarea 
+                              className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                              placeholder="Ex: Observações de horário, estacionamento e outros detalhes..."
+                              value={formData.observations || ""}
+                              onChange={(e) => setFormData({...formData, observations: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
                   {activeTab === "agenda" && (
                     <>
                       <div className="space-y-2">
@@ -3091,9 +3368,12 @@ export default function Admin() {
                   isDark={isDarkMode}
                   canEdit={canEdit}
                   canDelete={canDelete}
+                  modalTitle="Novo Compromisso"
+                  emptyMessage="Não tem compromisso agendados para hoje."
+                  newEventButtonLabel="Novo Compromisso"
                   onNewEvent={(date) => {
                     setSelectedItem(null);
-                    setFormData({ date: format(date, "yyyy-MM-dd'T'19:00") });
+                    setFormData({ date: format(date, "yyyy-MM-dd"), inviteChurch: false, invitedMembers: [] });
                     setIsReadOnly(false);
                     setIsEditing(true);
                   }}
