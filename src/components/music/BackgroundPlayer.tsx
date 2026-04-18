@@ -71,7 +71,7 @@ export default function BackgroundPlayer() {
 
   // YouTube Autoplay Logic via Iframe
   // Note: Autoplay might be blocked by browser until user interaction
-  const youtubeUrl = currentTrack ? `https://www.youtube-nocookie.com/embed/${currentTrack.videoId}?autoplay=${isPlaying ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${currentTrack.videoId}&origin=${window.location.origin}` : "";
+  const youtubeUrl = currentTrack ? `https://www.youtube-nocookie.com/embed/${currentTrack.videoId}?autoplay=${isPlaying ? 1 : 0}&mute=${isMuted ? 1 : 0}&controls=0&loop=1&playlist=${currentTrack.videoId}&origin=${window.location.origin}` : undefined;
 
   const handleLiveClick = () => {
     if (location.pathname === "/") {

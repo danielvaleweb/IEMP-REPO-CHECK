@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userSnap.exists()) {
             const data = userSnap.data();
             console.log("DEBUG: Perfil encontrado no Firestore:", data);
-            setProfile(data);
+            setProfile({ id: userSnap.id, ...data });
           } else {
             console.log("DEBUG: Perfil não encontrado, criando novo...");
             const newProfile = {
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               });
             }
             
-            setProfile(newProfile);
+            setProfile({ id: user.uid, ...newProfile });
           }
         } catch (error) {
           console.error("DEBUG: Erro ao processar perfil no onAuthStateChanged:", error);

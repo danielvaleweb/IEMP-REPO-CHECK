@@ -26,11 +26,11 @@ export function EventosView({
 }) {
   return (
     <div className="p-6 h-full flex flex-col">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>Eventos do Mês</h2>
         {canEdit && (
           <Button 
-            className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold cursor-pointer"
+            className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer"
             onClick={onNewEvent}
           >
             <Plus className="w-4 h-4 mr-2" /> Cadastrar novo evento

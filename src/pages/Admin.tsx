@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { 
   LayoutDashboard, 
   Image as ImageIcon, 
@@ -51,6 +51,8 @@ import {
   Mic,
   Paperclip,
   MoreVertical,
+  Play,
+  Pause,
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -96,7 +98,7 @@ import {
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -234,15 +236,24 @@ function CalendarView({
                     ? isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5" 
                     : isDark ? "bg-[#1a1a1a]/30 border-white/5 opacity-50" : "bg-gray-50/30 border-black/5 opacity-50",
                   "hover:border-[#BF76FF]/50",
-                  isSameDay(day, new Date()) && "ring-2 ring-[#BF76FF]"
+                  isSameDay(day, new Date()) && "ring-2 ring-[#BF76FF]",
+                  day.getDay() === 6 && "md:border-black/5 border-green-500/50 dark:border-green-500/30 md:dark:border-white/5"
                 )}
               >
-                <div className="text-right text-[8px] md:text-xs font-bold text-gray-400 mb-1 md:mb-2">{format(day, dateFormat)}</div>
+                <div className={cn(
+                  "text-right text-[8px] md:text-xs font-bold mb-1 md:mb-2 transition-colors",
+                  day.getDay() === 6 ? "text-green-500 md:text-gray-400" : "text-gray-400"
+                )}>{format(day, dateFormat)}</div>
                 <div className="space-y-0.5 md:space-y-1">
                   {dayEvents.slice(0, 3).map((event, j) => (
                     <div 
                       key={j}
-                      className="text-[7px] md:text-[10px] bg-[#BF76FF]/20 text-[#BF76FF] p-0.5 md:p-1.5 rounded truncate transition-colors relative group/event"
+                      className={cn(
+                        "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded truncate transition-colors relative group/event",
+                        day.getDay() === 6 
+                          ? "bg-green-500/20 text-green-500 md:bg-[#BF76FF]/20 md:text-[#BF76FF]" 
+                          : "bg-[#BF76FF]/20 text-[#BF76FF]"
+                      )}
                     >
                       <span className="md:inline hidden">{event.title}</span>
                       <span className="md:hidden">●</span>
@@ -795,6 +806,36 @@ export default function Admin() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [currentPlayingMusic, setCurrentPlayingMusic] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(e => console.log("Playback error:", e));
+      setIsPlaying(true);
+    }
+  };
+
+  const handlePlayMusic = (music: any) => {
+    if (currentPlayingMusic?.id === music.id) {
+      togglePlay();
+    } else {
+      setCurrentPlayingMusic(music);
+      setIsPlaying(true);
+    }
+  };
+
+  useEffect(() => {
+    if (currentPlayingMusic && isPlaying && audioRef.current) {
+      audioRef.current.play().catch(e => console.log("Playback error:", e));
+    }
+  }, [currentPlayingMusic, isPlaying]);
+
   const [authError, setAuthError] = useState("");
 
   const userStatus = profile?.status_presence || "online";
@@ -920,13 +961,14 @@ export default function Admin() {
     });
   }, [notifications, isAdminOrDev, user?.uid]);
 
-  const handleClearAll = async () => {
+  const handleMarkAllAsRead = async () => {
     try {
-      // Delete displayed notifications from Firestore
-      const deletePromises = displayNotifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
-      await Promise.all(deletePromises);
+      // Mark displayed notifications as read in Firestore
+      const unreadNotifications = displayNotifications.filter(n => !n.read);
+      const updatePromises = unreadNotifications.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }));
+      await Promise.all(updatePromises);
     } catch (err) {
-      console.error("Error clearing notifications:", err);
+      console.error("Error marking notifications as read:", err);
     }
   };
 
@@ -1085,9 +1127,18 @@ export default function Admin() {
       setAgendaDirecao(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.log("Agenda direction fetch error: ", err));
 
-    const unsubNotifs = onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (snap) => {
+    const unsubNotifs = onSnapshot(query(
+      collection(db, "notifications"), 
+      where("userId", "in", [user?.uid, "all", "admin"]),
+      orderBy("createdAt", "desc")
+    ), (snap) => {
       setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "notifications"));
+    }, (err) => {
+      // If the above query fails due to missing composite index, fallback to all notifications filtered in memory
+      onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (snapFallback) => {
+        setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+    });
 
     const unsubSkills = onSnapshot(doc(db, "settings", "skills"), (snap) => {
       if (snap.exists()) {
@@ -1140,6 +1191,8 @@ export default function Admin() {
   }, [activeTab, searchQuery, posts, musics, members, agenda, agendaDirecao]);
 
   const handleSave = async () => {
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const collectionName = activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
       
@@ -1194,6 +1247,8 @@ export default function Admin() {
       setFormData({});
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, activeTab);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1707,17 +1762,18 @@ export default function Admin() {
         <div className="hidden md:flex flex-col w-full px-4 pt-6 mb-4">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-[#BF76FF] flex items-center justify-center text-black shadow-lg shadow-[#BF76FF]/20">
-                  <Settings className="w-5 h-5 animate-spin-slow" />
+              <div className="flex flex-col items-start leading-none gap-0 pl-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("font-black text-base tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Ministerio</span>
+                  <span className={cn("font-light text-base tracking-tight uppercase", isDarkMode ? "text-white/80" : "text-gray-600")}>Profecia</span>
                 </div>
-                <span className={cn("font-black text-xl tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>IEMPDESH</span>
+                <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
               </div>
             )}
             {isSidebarCollapsed && (
               <div className="w-full flex justify-center mb-4">
-                <div className="w-10 h-10 rounded-xl bg-[#BF76FF] flex items-center justify-center text-black shadow-lg shadow-[#BF76FF]/20">
-                  <Settings className="w-6 h-6 animate-spin-slow" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#BF76FF] to-[#8E44AD] flex items-center justify-center text-white shadow-lg shadow-[#BF76FF]/20">
+                  <span className="font-black text-xs">MP</span>
                 </div>
               </div>
             )}
@@ -1808,12 +1864,12 @@ export default function Admin() {
             </div>
 
             {/* Mobile Bottom Bar Items */}
-            <div className="md:hidden flex flex-row justify-center gap-1 sm:gap-4 w-full items-center px-1">
-              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "team"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("team"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica" && rightSidebarView === "team"} onClick={() => { setActiveTab("musica"); setRightSidebarView("team"); }} label="Música" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "team"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("team"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "team"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("team"); }} label="Direção" collapsed={true} isDark={isDarkMode} mobile />}
-              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Mensagens" collapsed={true} isDark={isDarkMode} mobile />
+            <div className="md:hidden flex flex-row justify-around w-full items-center px-2 py-1">
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("team"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos" && rightSidebarView === "team"} onClick={() => { setActiveTab("eventos"); setRightSidebarView("team"); }} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => { setActiveTab("musica"); setRightSidebarView("team"); }} label="Música" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("team"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
                 <SheetTrigger
@@ -1898,56 +1954,29 @@ export default function Admin() {
                       )}
                     </div>
 
-                    {(isMasterAdmin || profile?.role === "Desenvolvedor") && (
-                      <div className="space-y-3">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Workspace</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {allRoles.slice(0, 6).map(role => (
-                            <button
-                              key={role}
-                              onClick={() => {
-                                setActiveViewRole(role);
-                                setActiveTab("visao-geral");
-                              }}
-                              className={cn(
-                                "px-4 py-3 rounded-2xl text-xs font-bold transition-all text-left",
-                                currentRole === role 
-                                  ? "bg-[#BF76FF] text-white" 
-                                  : isDarkMode ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-600"
-                              )}
-                            >
-                              {role === "Administradores" ? "Master" : role}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     <div className="space-y-3">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Outras Opções</p>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Opções do Sistema</p>
                       <div className="grid grid-cols-2 gap-2">
-                        {canViewTab("musica") && (
-                          <button onClick={() => setActiveTab("musica")} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")}>
-                            <Music className="w-5 h-5 text-[#BF76FF]" />
-                            <span className="text-xs font-bold">Música</span>
-                          </button>
-                        )}
-                        {canViewTab("agenda-direcao") && (
-                          <button onClick={() => setActiveTab("agenda-direcao")} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")}>
-                            <CalendarDays className="w-5 h-5 text-blue-500" />
-                            <span className="text-xs font-bold">Direção</span>
-                          </button>
-                        )}
                         {canViewSettings && (
-                          <button onClick={() => setActiveTab("config")} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")}>
+                          <SheetClose 
+                            render={
+                              <button className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")} />
+                            }
+                            onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }}
+                          >
                             <Settings className="w-5 h-5 text-gray-400" />
                             <span className="text-xs font-bold">Configurações</span>
-                          </button>
+                          </SheetClose>
                         )}
-                        <button onClick={logout} className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-red-500/10" : "bg-red-50")}>
+                        <SheetClose 
+                          render={
+                            <button className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-red-500/10" : "bg-red-50")} />
+                          }
+                          onClick={logout}
+                        >
                           <LogOut className="w-5 h-5 text-red-500" />
                           <span className="text-xs font-bold text-red-500">Sair</span>
-                        </button>
+                        </SheetClose>
                       </div>
                     </div>
                   </div>
@@ -1960,10 +1989,13 @@ export default function Admin() {
       </aside>
 
       {/* Main Content Area */}
-      <main className={cn("flex-1 flex flex-col min-h-0 transition-colors duration-500", isDarkMode ? "bg-[#0a0a0a]" : "bg-gray-50")}>
+      <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-[#0a0a0a]" : "bg-gray-50")}>
         {/* Main Header */}
-        <header className={cn("h-14 md:h-20 border-b flex items-center transition-colors duration-500 z-50 sticky top-0 md:relative", isDarkMode ? "border-white/5 bg-[#0a0a0a]/90 backdrop-blur-md" : "border-black/5 bg-white/90 backdrop-blur-md")}>
-          <div className="flex items-center gap-2 px-4 md:px-8 md:flex-1">
+        <header className={cn(
+          "h-14 md:h-20 border-b flex items-center transition-all duration-500 z-50 sticky top-0 shadow-sm",
+          isDarkMode ? "border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl" : "border-black/5 bg-white/80 backdrop-blur-xl"
+        )}>
+          <div className="flex items-center gap-2 px-4 md:px-8 shrink-0">
             {isEditing ? (
               <button 
                 className={cn("p-1.5 rounded-lg transition-colors cursor-pointer md:hidden", isDarkMode ? "bg-white/5 text-white" : "bg-black/5 text-black")}
@@ -1972,11 +2004,12 @@ export default function Admin() {
                 <ChevronLeft className="w-5 h-5" />
               </button>
             ) : (
-              <div className="md:hidden flex items-center gap-1.5">
-                <div className="w-7 h-7 rounded-lg bg-[#BF76FF] flex items-center justify-center text-black">
-                  <Settings className="w-4 h-4" />
+              <div className="md:hidden flex flex-col items-start leading-none gap-0 ml-1">
+                <div className="flex items-center gap-1.5">
+                  <span className={cn("font-black text-[13px] tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Ministerio</span>
+                  <span className={cn("font-light text-[13px] tracking-tight uppercase", isDarkMode ? "text-white/80" : "text-gray-600")}>Profecia</span>
                 </div>
-                <span className={cn("font-black text-sm tracking-tighter", isDarkMode ? "text-white" : "text-black")}>IEMP</span>
+                <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
               </div>
             )}
           </div>
@@ -2035,16 +2068,16 @@ export default function Admin() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-4 px-4 md:px-8 md:flex-1 justify-end relative">
-            <div className="md:hidden relative">
+          <div className="flex items-center gap-2 md:gap-4 pl-0 pr-2 mr-[5px] ml-[75px] md:ml-0 md:mr-0 md:px-8 md:flex-1 justify-end relative">
+            <div className="relative">
               <button 
-                className={cn("p-2 rounded-xl relative", isDarkMode ? "text-gray-400" : "text-gray-500")}
+                className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
                 onClick={() => setShowNotifications(!showNotifications)}
               >
-                <Bell className="w-5 h-5" />
+                <Bell className={cn("w-5 h-5", displayNotifications.some(n => !n.read) && "text-[#BF76FF]")} />
                 {displayNotifications.some(n => !n.read) && (
-                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a] flex items-center justify-center text-[8px] text-white font-bold animate-bounce shadow-lg">
-                    <Bell className="w-2 h-2 fill-white" />
+                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a] flex items-center justify-center text-[9px] text-white font-black shadow-lg px-1 animate-bounce">
+                    {displayNotifications.filter(n => !n.read).length}
                   </div>
                 )}
               </button>
@@ -2065,10 +2098,10 @@ export default function Admin() {
                       <div className="flex items-center justify-between px-2 mb-3">
                         <h6 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Notificações</h6>
                         <button 
-                          onClick={handleClearAll}
-                          className="text-[10px] text-[#BF76FF] hover:underline"
+                          onClick={handleMarkAllAsRead}
+                          className="text-[10px] text-[#BF76FF] hover:underline font-bold"
                         >
-                          Limpar Tudo
+                          Marcar como lida
                         </button>
                       </div>
                       <div className="space-y-1">
@@ -2086,6 +2119,12 @@ export default function Admin() {
                                     setFormData(member);
                                     setIsEditing(true);
                                     setIsReadOnly(false);
+                                  }
+                                } else if (n.type === "chat" && n.senderId) {
+                                  const sender = members.find(m => m.id === n.senderId);
+                                  if (sender) {
+                                    setRightSidebarView("chat-active");
+                                    setActiveChatUser(sender);
                                   }
                                 }
                                 setShowNotifications(false);
@@ -2114,7 +2153,7 @@ export default function Admin() {
               </AnimatePresence>
             </div>
 
-            <div className={cn("flex items-center gap-3 pl-2 md:pl-4 border-l relative", isDarkMode ? "border-white/10" : "border-black/10")}>
+            <div className={cn("flex items-center gap-3 pl-2 md:pl-4 md:border-l relative", isDarkMode ? "border-white/10" : "border-black/10")}>
               <div className="text-right hidden md:block">
                 <p className={cn("text-sm font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>{user?.displayName || "Admin"}</p>
                 <p className="text-[10px] text-gray-500 grayscale opacity-70">
@@ -2122,7 +2161,10 @@ export default function Admin() {
                 </p>
               </div>
               <button 
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                onClick={() => {
+                  setShowProfileMenu(!showProfileMenu);
+                  setShowNotifications(false);
+                }}
                 className="relative group cursor-pointer"
               >
                 <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] p-0.5 shadow-lg shadow-[#BF76FF]/20 group-hover:scale-105 transition-transform">
@@ -2138,8 +2180,6 @@ export default function Admin() {
                 </div>
                 {/* Status indicator */}
                 <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 animate-pulse", isDarkMode ? "border-[#0a0a0a]" : "border-white", getStatusColor(userStatus))} />
-                
-                {/* Notification Bell indicator on top of profile image (removed per request) */}
               </button>
 
               <AnimatePresence>
@@ -2206,11 +2246,16 @@ export default function Admin() {
         <div className="flex-1 p-3 md:p-8 pb-32 md:pb-8 overflow-y-auto scroll-smooth scrollbar-hide overscroll-contain touch-pan-y">
           <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
             {isEditing ? (
-              <Card className={cn("border-white/5 rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-xl border-black/5")}>
-                <div className="space-y-6">
-                  <h4 className={cn("text-2xl font-bold mb-4 transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                    {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Novo"} {activeTab}
-                  </h4>
+              <Card className={cn("border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all", isDarkMode ? "bg-[#111]" : "bg-white border-black/5")}>
+                <div className="space-y-8">
+                  <div className="flex items-center gap-4 mb-2">
+                    <div className="w-12 h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center">
+                      <Edit className="w-6 h-6 text-[#BF76FF]" />
+                    </div>
+                    <h4 className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>
+                      {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Novo"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'musica' ? 'Música' : activeTab === 'membros' ? 'Membro' : 'Agenda'}
+                    </h4>
+                  </div>
 
                   {/* Pending Member Approval UI */}
                   {activeTab === "membros" && selectedItem?.status === "pending" && (
@@ -2677,37 +2722,78 @@ export default function Admin() {
 
                   {activeTab === "musica" && (
                     <>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Música</label>
-                        <Input 
-                          className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                          value={formData.title || ""}
-                          onChange={(e) => setFormData({...formData, title: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do YouTube</label>
-                        <Input 
-                          className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                          placeholder="https://youtube.com/watch?v=..."
-                          value={formData.youtubeUrl || ""}
-                          onChange={(e) => {
-                            const url = e.target.value;
-                            const videoId = url.split('v=')[1]?.split('&')[0];
-                            setFormData({...formData, youtubeUrl: url, videoId});
-                          }}
-                          readOnly={isReadOnly}
-                        />
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Música</label>
+                          <Input 
+                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            value={formData.title || ""}
+                            onChange={(e) => setFormData({...formData, title: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Artista/Ministério</label>
+                          <Input 
+                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            placeholder="Ex: Diante do Trono, Fernandinho..."
+                            value={formData.artist || ""}
+                            onChange={(e) => setFormData({...formData, artist: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link Direto do Áudio (.mp3)</label>
+                          <Input 
+                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            placeholder="https://exemplo.com/audio.mp3"
+                            value={formData.audioUrl || ""}
+                            onChange={(e) => setFormData({...formData, audioUrl: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do YouTube (Opcional)</label>
+                          <Input 
+                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            placeholder="https://youtube.com/watch?v=..."
+                            value={formData.youtubeUrl || ""}
+                            onChange={(e) => {
+                              const url = e.target.value;
+                              const videoId = url.split('v=')[1]?.split('&')[0];
+                              setFormData({...formData, youtubeUrl: url, videoId});
+                            }}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
                       </div>
                     </>
                   )}
 
-                  <div className="flex justify-between items-center pt-6">
+                  <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-white/5 items-stretch sm:items-center">
+                    {!isReadOnly && (
+                      <Button 
+                        className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 order-1 sm:order-2 sm:ml-auto" 
+                        onClick={handleSave}
+                        disabled={isSubmitting}
+                      >
+                        <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : "Salvar"}
+                      </Button>
+                    )}
+                    <Button 
+                      variant="ghost" 
+                      className={cn(
+                        "w-full sm:w-auto rounded-2xl h-12 px-8 text-gray-400 cursor-pointer order-2 sm:order-3",
+                        isReadOnly && "sm:ml-auto"
+                      )} 
+                      onClick={() => setIsEditing(false)}
+                    >
+                      {isReadOnly ? "Voltar" : "Cancelar"}
+                    </Button>
                     {selectedItem && !isReadOnly && (canDelete || selectedItem.authorId === user?.uid) && (
                       <Button 
                         variant="ghost" 
-                        className="text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-6 cursor-pointer"
+                        className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-6 cursor-pointer order-3 sm:order-1"
                         onClick={() => {
                           const col = selectedItem.type === 'post' ? 'posts' : 
                                       selectedItem.type === 'agenda' ? 'agenda' :
@@ -2720,16 +2806,6 @@ export default function Admin() {
                         <Trash2 className="w-4 h-4 mr-2" /> Excluir
                       </Button>
                     )}
-                    <div className="flex gap-4 ml-auto">
-                      <Button variant="ghost" className="rounded-2xl h-12 px-8 text-gray-400 cursor-pointer" onClick={() => setIsEditing(false)}>
-                        {isReadOnly ? "Voltar" : "Cancelar"}
-                      </Button>
-                      {!isReadOnly && (
-                        <Button className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer" onClick={handleSave}>
-                          <Save className="w-4 h-4 mr-2" /> Salvar
-                        </Button>
-                      )}
-                    </div>
                   </div>
                 </div>
               </Card>
@@ -2828,7 +2904,7 @@ export default function Admin() {
                 )}
               </div>
             ) : activeTab === "musica" && !isEditing ? (
-              <div className="space-y-6">
+              <div className="space-y-6 pb-32">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                   <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Repertório Musical</h2>
                   {canEdit && (
@@ -2847,20 +2923,27 @@ export default function Admin() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredItems.map(music => (
-                    <div key={music.id} className={cn("p-4 rounded-2xl border transition-colors cursor-pointer relative group", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222]" : "bg-white border-black/5 hover:bg-gray-50")} onClick={() => {
-                      setSelectedItem(music);
-                      setFormData(music);
-                      setIsReadOnly(!canEdit);
-                      setIsEditing(true);
-                    }}>
+                    <div key={music.id} className={cn("p-4 rounded-2xl border transition-colors cursor-pointer relative group", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222]" : "bg-white border-black/5 hover:bg-gray-50")} onClick={() => handlePlayMusic(music)}>
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-500 shrink-0">
-                          <Music className="w-6 h-6" />
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors", currentPlayingMusic?.id === music.id ? "bg-[#BF76FF] text-white" : "bg-purple-500/10 text-purple-500")}>
+                          {currentPlayingMusic?.id === music.id && isPlaying ? <Pause className="w-6 h-6 animate-pulse" /> : <Play className="w-6 h-6" />}
                         </div>
-                        <div>
-                          <h4 className={cn("font-bold", isDarkMode ? "text-white" : "text-black")}>{music.title}</h4>
+                        <div className="flex-1 min-w-0">
+                          <h4 className={cn("font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{music.title}</h4>
                           <p className="text-xs text-gray-500">{music.artist || "Artista desconhecido"}</p>
                         </div>
+                        <button 
+                          className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedItem(music);
+                            setFormData(music);
+                            setIsReadOnly(!canEdit);
+                            setIsEditing(true);
+                          }}
+                        >
+                          <Edit className="w-4 h-4 text-gray-500" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -2929,33 +3012,61 @@ export default function Admin() {
                 }}
               />
             ) : activeTab === "visao-geral" ? (
-              <div className="space-y-12">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Total de Membros</p>
-                    <h4 className={cn("text-3xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>{members.length}</h4>
-                  </Card>
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Eventos Agendados</p>
-                    <h4 className={cn("text-3xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>{agenda.length}</h4>
-                  </Card>
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Novas Mensagens</p>
-                    <h4 className={cn("text-3xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
-                  </Card>
-                </div>
-
-                <div className="space-y-8">
+              <div className="space-y-8 md:space-y-12 flex flex-col">
+                {/* Section: Próximos Eventos (Moved Up on Mobile) */}
+                <div className="order-1 md:order-2 space-y-6 md:space-y-8">
                   <div className="flex items-center justify-between">
-                    <h4 className={cn("text-xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Próximos Acontecimentos</h4>
+                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Próximos Eventos</h4>
+                  </div>
+                  
+                  <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#111]/50 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
+                    <div className="mt-8 flex justify-center md:hidden">
+                      <Button 
+                        variant="ghost" 
+                        className="w-full h-12 rounded-2xl bg-[#BF76FF]/10 text-[#BF76FF] font-bold text-xs uppercase tracking-widest hover:bg-[#BF76FF]/20 cursor-pointer" 
+                        onClick={() => setActiveTab("agenda")}
+                      >
+                        Ver agenda completa
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="hidden md:flex justify-end">
                     <Button variant="ghost" className="text-xs text-[#BF76FF] hover:underline" onClick={() => setActiveTab("agenda")}>
                       Ver agenda completa
                     </Button>
                   </div>
-                  
-                  <div className={cn("border rounded-[32px] p-8 md:p-12 transition-colors", isDarkMode ? "bg-[#111]/50 border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
-                  </div>
+                </div>
+
+                {/* Section: Summary Cards (Moved Down on Mobile) */}
+                <div className="order-2 md:order-1 grid grid-cols-3 gap-2 md:gap-6 mt-4">
+                  <Card className={cn("border-white/5 p-3 md:p-6 rounded-3xl transition-colors flex flex-col md:flex-row items-center gap-2 md:gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Users className="w-4 h-4 md:w-6 md:h-6 text-blue-500" />
+                    </div>
+                    <div className="text-center md:text-left">
+                      <p className="text-[8px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Membros</p>
+                      <h4 className={cn("text-sm md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{members.length}</h4>
+                    </div>
+                  </Card>
+                  <Card className={cn("border-white/5 p-3 md:p-6 rounded-3xl transition-colors flex flex-col md:flex-row items-center gap-2 md:gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                      <Calendar className="w-4 h-4 md:w-6 md:h-6 text-orange-500" />
+                    </div>
+                    <div className="text-center md:text-left">
+                      <p className="text-[8px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Agendados</p>
+                      <h4 className={cn("text-sm md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{agenda.length}</h4>
+                    </div>
+                  </Card>
+                  <Card className={cn("border-white/5 p-3 md:p-6 rounded-3xl transition-colors flex flex-col md:flex-row items-center gap-2 md:gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-4 h-4 md:w-6 md:h-6 text-[#BF76FF]" />
+                    </div>
+                    <div className="text-center md:text-left">
+                      <p className="text-[8px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Mensagens</p>
+                      <h4 className={cn("text-sm md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
+                    </div>
+                  </Card>
                 </div>
               </div>
             ) : activeTab === "agenda-direcao" ? (
@@ -3187,16 +3298,67 @@ export default function Admin() {
             )}
           </div>
         </div>
+
+        {/* Linear Design Music Player (Global) */}
+        <AnimatePresence>
+          {currentPlayingMusic && (
+            <motion.div 
+              initial={{ y: 100 }}
+              animate={{ y: 0 }}
+              exit={{ y: 100 }}
+              className={cn(
+                "fixed bottom-20 left-4 right-4 lg:left-[calc(260px+2rem)] lg:right-[calc(320px+2rem)] z-50 p-4 rounded-[28px] border shadow-2xl flex items-center gap-4 transition-all duration-500",
+                isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10 shadow-[0_20px_50px_rgba(0,0,0,0.1)]"
+              )}
+            >
+              <div className="w-12 h-12 rounded-xl bg-[#BF76FF] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#BF76FF]/20">
+                <Music className={cn("w-6 h-6", isPlaying && "animate-spin-slow")} />
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <p className={cn("text-xs font-black truncate uppercase tracking-widest mb-0.5", isDarkMode ? "text-white" : "text-black")}>{currentPlayingMusic.title}</p>
+                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{currentPlayingMusic.artist || 'Artista Desconhecido'}</p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="rounded-full hover:bg-[#BF76FF]/10 hover:text-[#BF76FF]"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePlay();
+                  }}
+                >
+                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="rounded-full text-red-500 hover:bg-red-500/10"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (audioRef.current) audioRef.current.pause();
+                    setIsPlaying(false);
+                    setCurrentPlayingMusic(null);
+                  }}
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile) */}
       <aside className={cn(
-        "fixed top-0 bottom-20 right-0 z-[40] w-full lg:bottom-0 lg:z-auto lg:w-80 border-l flex-col overflow-hidden transition-transform duration-300 lg:relative lg:flex",
+        "fixed top-14 bottom-20 right-0 z-[40] w-full lg:top-0 lg:bottom-0 lg:z-auto lg:w-80 border-l flex-col overflow-hidden transition-transform duration-300 lg:relative lg:flex",
         rightSidebarView !== "team" ? "translate-x-0 flex" : "translate-x-full lg:translate-x-0 hidden lg:flex",
         isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
 
-        <div className="flex justify-between lg:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
+        <div className="hidden lg:flex justify-between lg:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
            <div className="lg:hidden">
             <button onClick={() => setRightSidebarView("team")} className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-gray-500">
               <X className="w-5 h-5" />
@@ -3424,14 +3586,6 @@ export default function Admin() {
                   <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Online</p>
                 </div>
               </div>
-              <div className="flex gap-1">
-                <button className={cn("w-9 h-9 rounded-full flex items-center justify-center transition-colors", isDarkMode ? "hover:bg-white/10" : "hover:bg-black/5")}>
-                  <Video className={cn("w-4 h-4", isDarkMode ? "text-white" : "text-gray-600")} />
-                </button>
-                <button className={cn("w-9 h-9 rounded-full flex items-center justify-center transition-colors", isDarkMode ? "hover:bg-white/10" : "hover:bg-black/5")}>
-                  <Phone className={cn("w-4 h-4", isDarkMode ? "text-white" : "text-gray-600")} />
-                </button>
-              </div>
             </div>
 
             {/* Messages Area */}
@@ -3533,6 +3687,15 @@ export default function Admin() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <audio 
+        ref={audioRef}
+        key={currentPlayingMusic?.id}
+        src={currentPlayingMusic?.audioUrl || undefined}
+        onEnded={() => setIsPlaying(false)}
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
     </div>
   );
 }
@@ -3686,62 +3849,63 @@ function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) 
 
   if (upcoming.length === 0) {
     return (
-      <div className="text-center py-10 text-gray-500">
-        Nenhum evento próximo agendado.
+      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
+        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", isDark ? "bg-white/5" : "bg-gray-100")}>
+          <CalendarDays className="w-8 h-8 text-gray-500" />
+        </div>
+        <p className="text-gray-500 font-bold">Nenhum evento próximo agendado.</p>
+        <p className="text-xs text-gray-600 mt-1">Fique atento às novidades da nossa congregação.</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 md:space-y-10">
       {upcoming.map((event, index) => {
         const date = new Date(event.date);
         const day = format(date, "dd");
         const weekDay = format(date, "EEE", { locale: ptBR });
-        const monthYear = format(date, "MMMM, yyyy", { locale: ptBR });
-        const time = format(date, "hh:mm a");
+        const monthYear = format(date, "MMMM", { locale: ptBR });
+        const time = format(date, "HH:mm");
         
-        // Cycle through some colors for the vertical bar
-        const colors = ["bg-green-500", "bg-indigo-500", "bg-orange-500", "bg-pink-500", "bg-blue-500"];
+        const colors = ["bg-green-500", "bg-[#BF76FF]", "bg-orange-500", "bg-pink-500", "bg-blue-500"];
         const colorClass = colors[index % colors.length];
 
         return (
-          <div key={event.id} className="flex items-start gap-6 group">
+          <div key={event.id} className="flex gap-4 md:gap-8 group">
             {/* Date Section */}
-            <div className="flex flex-col items-center min-w-[100px]">
-              <div className="flex items-center gap-2 mb-1">
-                <span className={cn("text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded text-white transition-colors", colorClass)}>
-                  {weekDay}
-                </span>
-                <span className={cn("text-4xl font-black tracking-tighter transition-colors", isDark ? "text-white" : "text-black")}>
-                  {day}
-                </span>
-              </div>
-              <span className="text-[10px] text-gray-500 font-medium capitalize">
-                {monthYear}
+            <div className="flex flex-col items-center shrink-0 w-12 md:w-20">
+              <span className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-1", isDark ? "text-gray-500" : "text-gray-400")}>
+                {weekDay}
+              </span>
+              <span className={cn("text-2xl md:text-5xl font-black tracking-tighter leading-none transition-colors", isDark ? "text-white" : "text-black")}>
+                {day}
               </span>
             </div>
 
-            {/* Divider */}
-            <div className={cn("w-[2px] self-stretch rounded-full opacity-50", colorClass)} />
-
-            {/* Details Section */}
-            <div className="flex-1 pt-1">
-              <h4 className={cn("text-lg font-bold mb-3 group-hover:text-[#BF76FF] transition-colors", isDark ? "text-white" : "text-black")}>
-                {event.title}
-              </h4>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <div className={cn("w-5 h-5 rounded-full flex items-center justify-center transition-colors", isDark ? "bg-white/5" : "bg-gray-100", colorClass.replace('bg-', 'text-'))}>
-                    <Pin className="w-3 h-3" />
-                  </div>
-                  <span>{event.location || "TBD"}</span>
+            {/* Content Section */}
+            <div className={cn(
+              "flex-1 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border transition-all relative overflow-hidden group-hover:-translate-y-1 group-hover:shadow-2xl",
+              isDark ? "bg-white/[0.03] border-white/5 hover:bg-white/5" : "bg-white border-black/5 shadow-sm hover:shadow-lg"
+            )}>
+              <div className={cn("absolute top-0 left-0 bottom-0 w-1.5 md:w-2", colorClass)} />
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h5 className={cn("text-sm md:text-xl font-bold transition-colors line-clamp-1", isDark ? "text-white" : "text-black")}>
+                    {event.title}
+                  </h5>
+                  <p className="text-[10px] md:text-sm text-gray-500 flex items-center gap-2">
+                    <MapPin className="w-3 h-3 md:w-4 h-4" />
+                    <span className="truncate">{event.location || "Local em breve"}</span>
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <div className={cn("w-5 h-5 rounded-full flex items-center justify-center transition-colors", isDark ? "bg-white/5" : "bg-gray-100", colorClass.replace('bg-', 'text-'))}>
-                    <Calendar className="w-3 h-3" />
+                
+                <div className="flex items-center gap-2 md:gap-4">
+                  <div className={cn("flex items-center gap-1.5 px-2.5 py-1 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-600")}>
+                    <Clock className="w-3 h-3 md:w-4 h-4 text-[#BF76FF]" />
+                    {time}
                   </div>
-                  <span>{time}</span>
                 </div>
               </div>
             </div>

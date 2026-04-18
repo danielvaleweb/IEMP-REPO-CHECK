@@ -181,6 +181,16 @@ export default function Home() {
     return () => window.removeEventListener('open-live-video', handleOpenLive);
   }, [videos]);
 
+  const formatVideoDate = (published: string) => {
+    if (!published) return "";
+    const date = new Date(published);
+    if (!isNaN(date.getTime())) {
+      return date.toLocaleDateString('pt-BR');
+    }
+    // If it's a relative string like "Há 2 dias" or "Recentemente"
+    return published;
+  };
+
   return (
     <div className="flex flex-col bg-black">
       {/* Hero Section - Netflix Style */}
@@ -345,7 +355,7 @@ export default function Home() {
                   {cleanTitle(video.title)}
                 </h3>
                 <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">
-                  {new Date(video.published).toLocaleDateString('pt-BR')}
+                  {formatVideoDate(video.published)}
                 </p>
               </motion.div>
             ))}

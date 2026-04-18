@@ -82,22 +82,44 @@ async function startServer() {
           const contents = videosTab?.tabRenderer?.content?.richGridRenderer?.contents || [];
           
           const videos = contents
-            .filter((c: any) => c.richItemRenderer?.content?.videoRenderer)
-            .slice(0, 6)
+            .filter((c: any) => {
+              const v = c.richItemRenderer?.content?.videoRenderer;
+              // Filter out upcoming events and ensure it's a video
+              return v && !v.upcomingEventData;
+            })
+            .slice(0, 10) // Get more to handle duplicates
             .map((c: any) => {
               const v = c.richItemRenderer.content.videoRenderer;
               const videoId = v.videoId;
+              
+              // Try to get a more reliable date
+              let publishedText = v.publishedTimeText?.simpleText || "Recentemente";
+              
               return {
                 id: videoId,
                 title: v.title?.runs?.[0]?.text || "Sem título",
                 thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-                published: v.publishedTimeText?.simpleText || "Recentemente",
+                published: publishedText,
                 link: `https://www.youtube.com/watch?v=${videoId}`
               };
             });
             
-          if (videos.length > 0) {
-            return res.json(videos);
+          // Ensure uniqueness by ID and Title (sometimes they have different IDs for same stream)
+          const uniqueItems: any[] = [];
+          const seenTitles = new Set();
+          const seenIds = new Set();
+          
+          for (const vid of videos) {
+            const normalizedTitle = vid.title.toLowerCase().trim();
+            if (!seenTitles.has(normalizedTitle) && !seenIds.has(vid.id)) {
+              seenTitles.add(normalizedTitle);
+              seenIds.add(vid.id);
+              uniqueItems.push(vid);
+            }
+          }
+
+          if (uniqueItems.length > 0) {
+            return res.json(uniqueItems.slice(0, 6));
           }
         } catch (parseError) {
           console.error("Error parsing ytInitialData:", parseError);
