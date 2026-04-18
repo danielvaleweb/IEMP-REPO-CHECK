@@ -775,6 +775,12 @@ export default function Admin() {
   const [email, setEmail] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("visao-geral");
+  const [showPending, setShowPending] = useState(false);
+  
+  // Computed
+  const pendingMembers = members.filter(m => m.status === "pending" || m.status === "pending_approval");
+  const activeMembersForDisplay = showPending ? pendingMembers : members.filter(m => m.status !== "pending" && m.status !== "pending_approval");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -1753,10 +1759,9 @@ export default function Admin() {
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => setActiveTab("membros")} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Conversas" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
             </div>
 
             {/* Mobile Bottom Bar Items */}
@@ -1764,7 +1769,6 @@ export default function Admin() {
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
                 <SheetTrigger
@@ -2767,8 +2771,30 @@ export default function Admin() {
                 ) : (
                   <>
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                      <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Membros da Equipe</h2>
-                      {canEditProfiles && (
+                      <div className="flex items-center gap-4">
+                        <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>
+                          {showPending ? "Solicitações de Cadastro" : "Membros da Equipe"}
+                        </h2>
+                        {(isMasterAdmin || profile?.role === "Desenvolvedor") && pendingMembers.length > 0 && (
+                          <button 
+                            onClick={() => setShowPending(!showPending)}
+                            className={cn(
+                              "text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer",
+                              showPending 
+                                ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" 
+                                : isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10"
+                            )}>
+                            {showPending ? "Ver Membros Ativos" : "Solicitações"}
+                            {!showPending && (
+                              <span className="bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black">
+                                {pendingMembers.length}
+                              </span>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {!showPending && canEditProfiles && (
                         <Button 
                           className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-11 px-6 font-bold truncate"
                           onClick={() => {
@@ -2783,7 +2809,7 @@ export default function Admin() {
                       )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {members.map(member => (
+                      {activeMembersForDisplay.map(member => (
                         <div key={member.id} className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-sm")}>
                           <TeamMember 
                             key={member.id}
@@ -2802,12 +2828,13 @@ export default function Admin() {
                             } : undefined}
                             onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member.id, "members") : undefined}
                             isDark={isDarkMode}
+                            isAdmin={isMasterAdmin || profile?.role === "Desenvolvedor"}
                           />
                         </div>
                       ))}
-                      {members.length === 0 && (
+                      {activeMembersForDisplay.length === 0 && (
                         <div className="col-span-full text-center py-12 text-gray-500">
-                          Nenhum membro cadastrado.
+                          {showPending ? "Nenhuma solicitação de cadastro pendente." : "Nenhum membro ativo encontrado."}
                         </div>
                       )}
                     </div>
@@ -2834,10 +2861,10 @@ export default function Admin() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredItems.map(music => (
-                    <div key={music.id} className={cn("p-4 rounded-2xl border transition-colors cursor-pointer", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222]" : "bg-white border-black/5 hover:bg-gray-50")} onClick={() => {
+                    <div key={music.id} className={cn("p-4 rounded-2xl border transition-colors cursor-pointer relative group", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222]" : "bg-white border-black/5 hover:bg-gray-50")} onClick={() => {
                       setSelectedItem(music);
                       setFormData(music);
-                      setIsReadOnly(true);
+                      setIsReadOnly(!canEdit);
                       setIsEditing(true);
                     }}>
                       <div className="flex items-center gap-4">
@@ -3159,33 +3186,36 @@ export default function Admin() {
         isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
 
-        {rightSidebarView === "team" && (
-          <div className="flex-1 p-6 overflow-y-auto scrollbar-hide flex flex-col">
-            <div className="flex justify-end items-center mb-8 shrink-0">
-              <div className="flex gap-2">
-                <ActionIcon 
-                  icon={isDarkMode ? Sun : Moon} 
-                  onClick={() => setIsDarkMode(!isDarkMode)}
-                  active={!isDarkMode}
-                  isDark={isDarkMode}
-                />
-                <ActionIcon 
-                  icon={MessageSquare} 
-                  active={rightSidebarView !== "team"}
-                  onClick={() => setRightSidebarView("chat-list")}
-                  isDark={isDarkMode} 
-                />
-                <ActionIcon icon={Video} isDark={isDarkMode} />
-                <ActionIcon icon={Pin} isDark={isDarkMode} />
-                <ActionIcon 
-                  icon={Users} 
-                  active={rightSidebarView === "team"}
-                  onClick={() => setRightSidebarView("team")}
-                  isDark={isDarkMode} 
-                />
-              </div>
-            </div>
+        <div className="flex justify-between lg:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
+           <div className="lg:hidden">
+            <button onClick={() => setRightSidebarView("team")} className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-gray-500">
+              <X className="w-5 h-5" />
+            </button>
+           </div>
+           <div className="flex gap-2">
+            <ActionIcon 
+              icon={isDarkMode ? Sun : Moon} 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              active={false}
+              isDark={isDarkMode}
+            />
+            <ActionIcon 
+              icon={MessageSquare} 
+              active={rightSidebarView !== "team"}
+              onClick={() => setRightSidebarView("chat-list")}
+              isDark={isDarkMode} 
+            />
+            <ActionIcon 
+              icon={Users} 
+              active={rightSidebarView === "team"}
+              onClick={() => setRightSidebarView("team")}
+              isDark={isDarkMode} 
+            />
+          </div>
+        </div>
 
+        {rightSidebarView === "team" && (
+          <div className="flex-1 px-6 pt-4 overflow-y-auto scrollbar-hide flex flex-col">
             <div className="space-y-8 flex-1">
               {/* Members/Team Section */}
               <div>
@@ -3311,30 +3341,12 @@ export default function Admin() {
         )}
 
         {rightSidebarView === "chat-list" && (
-          <div className="flex-1 flex flex-col h-full bg-white dark:bg-[#0f0f0f] animate-in slide-in-from-right-4 duration-300">
-            <div className="p-6 pb-2">
-              <div className="flex justify-between items-center mb-6">
+          <div className={cn("flex-1 flex flex-col h-full animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
+            <div className="p-6 pt-4 pb-2">
+              <div className="flex justify-between items-center mb-4">
                 <div>
-                  <p className="text-gray-500 text-sm">Olá,</p>
-                  <h2 className={cn("text-2xl font-black", isDarkMode ? "text-white" : "text-black")}>{user?.displayName?.split(' ')[0] || 'Admin'}</h2>
+                  <h2 className={cn("text-2xl font-black", isDarkMode ? "text-white" : "text-black")}>Mensagens</h2>
                 </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setRightSidebarView("team")} className="lg:hidden w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
-                    <X className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  </button>
-                  <button className="hidden lg:flex w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
-                    <Search className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  </button>
-                  <button className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5">
-                    <MoreVertical className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex gap-2 mb-6 p-1 bg-gray-100 dark:bg-white/5 rounded-full">
-                <button className="flex-1 py-2 rounded-full bg-[#BF76FF] text-white text-xs font-bold shadow-md">Todas as Conversas</button>
-                <button className="flex-1 py-2 rounded-full text-gray-500 dark:text-gray-400 text-xs font-bold hover:bg-black/5 dark:hover:bg-white/5">Grupos</button>
-                <button className="flex-1 py-2 rounded-full text-gray-500 dark:text-gray-400 text-xs font-bold hover:bg-black/5 dark:hover:bg-white/5">Equipe</button>
               </div>
             </div>
             
@@ -3354,18 +3366,11 @@ export default function Admin() {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-baseline mb-1">
                       <h4 className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
-                      <span className="text-[10px] text-gray-400 whitespace-nowrap ml-2">
-                        {i === 0 ? "09:38" : i === 1 ? "Ontem" : "12 Jun"}
-                      </span>
                     </div>
                     <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
-                      {i === 2 && <Mic className="w-3 h-3" />} 
-                      {i === 0 ? "Ok, deixe-me verificar" : i === 1 ? "Legal, veja você amanhã..." : i === 2 ? "Mensagem de voz" : "Obrigado!"}
+                      Toque para abrir a conversa
                     </p>
                   </div>
-                  {i === 1 && (
-                    <div className="w-5 h-5 rounded-full bg-[#BF76FF] text-white flex justify-center items-center text-[10px] font-bold shadow-md shadow-[#BF76FF]/20 shrink-0">2</div>
-                  )}
                 </div>
               ))}
             </div>
@@ -3373,7 +3378,7 @@ export default function Admin() {
         )}
 
         {rightSidebarView === "chat-active" && activeChatUser && (
-          <div className="flex-1 flex flex-col h-full bg-[#f8f9fa] dark:bg-[#0a0a0a] relative animate-in slide-in-from-right-4 duration-300">
+          <div className={cn("flex-1 flex flex-col h-full relative animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
             {/* Header */}
             <div className={cn("px-5 py-4 border-b flex items-center justify-between shadow-sm z-10 shrink-0", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
               <div className="flex items-center gap-3">
@@ -3508,7 +3513,7 @@ export default function Admin() {
   );
 }
 
-function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mobile }: { icon: any, active?: boolean, onClick: () => void, label: string, collapsed?: boolean, isDark?: boolean, mobile?: boolean }) {
+function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mobile, notificationCount }: { icon: any, active?: boolean, onClick: () => void, label: string, collapsed?: boolean, isDark?: boolean, mobile?: boolean, notificationCount?: number }) {
   if (mobile) {
     return (
       <button 
@@ -3521,12 +3526,17 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
         )}
       >
         <div className={cn(
-          "w-10 h-10 rounded-xl flex items-center justify-center transition-all",
+          "w-10 h-10 rounded-xl flex items-center justify-center transition-all relative",
           active 
             ? isDark ? "bg-white/10 text-white" : "bg-[#BF76FF]/10 text-[#BF76FF]" 
             : "bg-transparent"
         )}>
           <Icon className="w-6 h-6" />
+          {notificationCount ? (
+             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black shadow-md border border-white dark:border-[#0a0a0a]">
+               {notificationCount}
+             </span>
+          ) : null}
         </div>
         <span className={cn(
           "text-[9px] font-bold uppercase tracking-tighter transition-all",
@@ -3560,16 +3570,26 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
       title={collapsed ? label : ""}
     >
       <div className={cn(
-        "flex items-center justify-center transition-colors",
+        "flex items-center justify-center transition-colors relative",
         collapsed ? "w-full" : "w-5",
         active ? "text-[#BF76FF]" : isDark ? "text-gray-400 group-hover:text-gray-300" : "text-gray-500 group-hover:text-gray-700"
       )}>
         <Icon className="w-5 h-5" />
+        {notificationCount ? (
+           <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-[#0a0a0a] shadow-md font-black">
+             {notificationCount > 9 ? '9+' : notificationCount}
+           </span>
+        ) : null}
       </div>
       
       {!collapsed && (
-        <span className="text-sm whitespace-nowrap transition-opacity duration-300">
+        <span className="text-sm flex-1 text-left whitespace-nowrap transition-opacity duration-300 flex justify-between items-center">
           {label}
+          {notificationCount ? (
+             <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">
+               {notificationCount}
+             </span>
+          ) : null}
         </span>
       )}
       
@@ -3733,9 +3753,10 @@ interface TeamMemberProps {
   onEditProfile?: () => void;
   onDelete?: () => void;
   isDark?: boolean;
+  isAdmin?: boolean;
 }
 
-function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, isDark }: TeamMemberProps) {
+function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, isDark, isAdmin }: TeamMemberProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const name = member.name || "Membro";
   const status = member.status_presence || "offline";
@@ -3858,17 +3879,42 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
                       setShowTooltip(false);
                       if (onViewProfile) onViewProfile();
                     }}
-                    className="w-full bg-white text-black h-12 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all mb-2"
+                    className="w-full bg-white text-black h-12 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all mb-2 cursor-pointer"
                   >
                     Ver perfil
                   </button>
-                  {onDelete && (
+                  {isAdmin && (member.status === "pending" || member.status === "pending_approval") ? (
+                    <div className="flex gap-2">
+                       <button
+                         onClick={async () => {
+                            setShowTooltip(false);
+                            try {
+                              await updateDoc(doc(db, "members", member.id), { status: "active", updatedAt: serverTimestamp() });
+                            } catch(err) {
+                              console.error(err);
+                            }
+                         }}
+                         className="flex-1 bg-green-500/10 text-green-500 h-10 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-green-500 hover:text-white transition-all cursor-pointer"
+                       >
+                         Aprovar
+                       </button>
+                       <button
+                         onClick={() => {
+                            setShowTooltip(false);
+                            if (onDelete) onDelete();
+                         }}
+                         className="flex-1 bg-red-500/10 text-red-500 h-10 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer"
+                       >
+                         Recusar
+                       </button>
+                    </div>
+                  ) : onDelete && (
                     <button
                       onClick={() => {
                         setShowTooltip(false);
                         onDelete();
                       }}
-                      className="w-full bg-red-500/10 text-red-500 h-10 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
+                      className="w-full bg-red-500/10 text-red-500 h-10 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer"
                     >
                       Excluir Membro
                     </button>
