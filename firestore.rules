@@ -48,6 +48,11 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Agenda Direcao collection
+    match /agenda-direcao/{eventId} {
+      allow read, write: if true;
+    }
+
     // Settings collection
     match /settings/{settingId} {
       allow read, write: if true;

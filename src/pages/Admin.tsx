@@ -775,6 +775,7 @@ export default function Admin() {
   const [musics, setMusics] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [agenda, setAgenda] = useState<any[]>([]);
+  const [agendaDirecao, setAgendaDirecao] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -1023,16 +1024,22 @@ export default function Admin() {
 
   const canViewTab = (tab: string) => {
     if (tab === "config" && !canViewSettings) return false;
+    
+    // Strict restriction for Direção profile
+    if (currentRole === "Direção") {
+      return tab === "agenda-direcao";
+    }
+
     if (isEffectivelyAdmin) return true;
     const rolePerms = settings.permissions?.[currentRole];
     
     const defaultVals: any = {
       "visao-geral": true,
-      "eventos": !["Membro", "Visitante"].includes(currentRole),
-      "musica": !["Membro", "Visitante"].includes(currentRole),
-      "membros": !["Membro", "Visitante"].includes(currentRole),
-      "agenda": !["Membro", "Visitante"].includes(currentRole),
-      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor"
+      "eventos": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "musica": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção"
     };
 
     if (!rolePerms) {
@@ -1074,6 +1081,10 @@ export default function Admin() {
       setAgenda(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => handleFirestoreError(err, OperationType.LIST, "agenda"));
 
+    const unsubAgendaDirecao = onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc")), (snap) => {
+      setAgendaDirecao(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.log("Agenda direction fetch error: ", err));
+
     const unsubNotifs = onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (snap) => {
       setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => handleFirestoreError(err, OperationType.LIST, "notifications"));
@@ -1090,6 +1101,7 @@ export default function Admin() {
       unsubMusics();
       unsubMembers();
       unsubAgenda();
+      unsubAgendaDirecao();
       unsubNotifs();
       unsubSkills();
     };
@@ -1123,12 +1135,13 @@ export default function Admin() {
     if (activeTab === "musica") return musics.filter(m => m.title?.toLowerCase().includes(query));
     if (activeTab === "membros") return members.filter(m => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
+    if (activeTab === "agenda-direcao") return agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     return [];
-  }, [activeTab, searchQuery, posts, musics, members, agenda]);
+  }, [activeTab, searchQuery, posts, musics, members, agenda, agendaDirecao]);
 
   const handleSave = async () => {
     try {
-      const collectionName = activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "membros" ? "members" : "agenda";
+      const collectionName = activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
       
       let dataToSave = { ...formData };
       if (activeTab === "membros" && formData.ministries?.length > 0) {
@@ -1169,7 +1182,7 @@ export default function Admin() {
         // Log Activity
         await addDoc(collection(db, "notifications"), {
           title: "Atividade",
-          message: `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'musica' ? 'música' : 'registro'}: ${dataToSave.title || dataToSave.name}`,
+          message: `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'agenda-direcao' ? 'item na agenda da direção' : activeTab === 'musica' ? 'música' : 'registro'}: ${dataToSave.title || dataToSave.name}`,
           type: "activity",
           memberId: user?.uid,
           createdAt: serverTimestamp(),
@@ -1216,7 +1229,7 @@ export default function Admin() {
   }, [posts, agenda]);
 
   const handleDelete = (id: string, collectionOverride?: string) => {
-    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "membros" ? "members" : "agenda");
+    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
     setDeleteConfirm({ id, collection: colName });
   };
 
@@ -1795,10 +1808,12 @@ export default function Admin() {
             </div>
 
             {/* Mobile Bottom Bar Items */}
-            <div className="md:hidden flex flex-row justify-center gap-2 sm:gap-6 w-full items-center px-2">
-              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+            <div className="md:hidden flex flex-row justify-center gap-1 sm:gap-4 w-full items-center px-1">
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "team"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("team"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica" && rightSidebarView === "team"} onClick={() => { setActiveTab("musica"); setRightSidebarView("team"); }} label="Música" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "team"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("team"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "team"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("team"); }} label="Direção" collapsed={true} isDark={isDarkMode} mobile />}
+              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Mensagens" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
                 <SheetTrigger
@@ -2140,65 +2155,6 @@ export default function Admin() {
                         isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5"
                       )}
                     >
-                      {/* Notifications Preview */}
-                      <div className="p-2 mb-2 border-b border-white/5">
-                        <div className="flex items-center justify-between px-2 mb-3">
-                          <h6 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Notificações</h6>
-                          <button 
-                            onClick={handleClearAll}
-                            className="text-[10px] text-[#BF76FF] hover:underline"
-                          >
-                            Limpar Tudo
-                          </button>
-                        </div>
-                        <div className="space-y-1 max-h-48 overflow-y-auto scrollbar-hide">
-                          {displayNotifications.length > 0 ? (
-                            displayNotifications.slice(0, 5).map(n => (
-                              <button 
-                                key={n.id} 
-                                onClick={async () => {
-                                  if (!n.read) {
-                                    await updateDoc(doc(db, "notifications", n.id), { read: true });
-                                  }
-                                  if (n.type === "registration" && n.memberId) {
-                                    setActiveTab("membros");
-                                    const member = members.find(m => m.id === n.memberId);
-                                    if (member) {
-                                      setSelectedItem(member);
-                                      setFormData(member);
-                                      setIsEditing(true);
-                                      // We don't set isReadOnly to true here so they can immediately approve/edit
-                                      setIsReadOnly(false);
-                                    }
-                                  }
-                                  setShowProfileMenu(false);
-                                }}
-                                className={cn(
-                                  "w-full text-left p-2 rounded-xl text-[10px] transition-all relative group/notif", 
-                                  isDarkMode 
-                                    ? n.read ? "bg-white/5 text-gray-500" : "bg-white/10 text-gray-300" 
-                                    : n.read ? "bg-gray-50 text-gray-500" : "bg-primary/5 text-gray-700"
-                                )}
-                              >
-                                <div className="flex items-center gap-2 mb-0.5">
-                                  {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-[#BF76FF]" />}
-                                  <span className={cn("font-bold block", isDarkMode ? "text-white" : "text-black")}>{n.title}</span>
-                                </div>
-                                <p className="line-clamp-2">{n.message}</p>
-                                {n.type === "registration" && !n.read && (
-                                  <div className="mt-1 text-[#BF76FF] font-bold flex items-center gap-1 opacity-0 group-hover/notif:opacity-100 transition-opacity">
-                                    Liberar Acesso <ChevronRight className="w-3 h-3" />
-                                  </div>
-                                )}
-                              </button>
-                            ))
-                          ) : (
-                            <p className="text-[10px] text-gray-500 text-center py-2 italic">Nenhuma notificação</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Status Selection */}
                       <div className="space-y-1 p-1">
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">Seu Status</p>
                         {[
@@ -3007,9 +2963,33 @@ export default function Admin() {
                 <div className="flex justify-between items-center mb-8">
                   <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda da Direção</h2>
                 </div>
-                <div className={cn("border rounded-[32px] p-8 md:p-12 transition-colors", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                  <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
-                </div>
+                <CalendarView 
+                  agenda={agendaDirecao.map(a => ({ ...a, type: 'agenda' }))} 
+                  isDark={isDarkMode}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onNewEvent={(date) => {
+                    setSelectedItem(null);
+                    setFormData({ date: format(date, "yyyy-MM-dd'T'19:00") });
+                    setIsReadOnly(false);
+                    setIsEditing(true);
+                  }}
+                  onViewEvent={(item) => {
+                    setSelectedItem(item);
+                    setFormData(item);
+                    setIsReadOnly(true);
+                    setIsEditing(true);
+                  }}
+                  onEditEvent={(item) => {
+                    setSelectedItem(item);
+                    setFormData(item);
+                    setIsReadOnly(false);
+                    setIsEditing(true);
+                  }}
+                  onDeleteEvent={(item) => {
+                    handleDelete(item.id, "agenda-direcao");
+                  }}
+                />
               </div>
             ) : activeTab === "conversas" ? (
               <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -3211,7 +3191,7 @@ export default function Admin() {
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile) */}
       <aside className={cn(
-        "fixed inset-y-0 right-0 z-[60] w-full lg:w-80 border-l flex-col pt-0 overflow-hidden transition-transform duration-300 lg:relative lg:flex lg:z-auto",
+        "fixed top-0 bottom-20 right-0 z-[40] w-full lg:bottom-0 lg:z-auto lg:w-80 border-l flex-col overflow-hidden transition-transform duration-300 lg:relative lg:flex",
         rightSidebarView !== "team" ? "translate-x-0 flex" : "translate-x-full lg:translate-x-0 hidden lg:flex",
         isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
