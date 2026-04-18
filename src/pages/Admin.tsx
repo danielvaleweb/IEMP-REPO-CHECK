@@ -1832,7 +1832,11 @@ export default function Admin() {
                           onClick={() => {
                             setActiveViewRole(role);
                             setIsWorkspaceOpen(false);
-                            setActiveTab("visao-geral");
+                            if (role === "Direção") {
+                              setActiveTab("agenda-direcao");
+                            } else {
+                              setActiveTab("visao-geral");
+                            }
                           }}
                           className={cn(
                             "w-full px-4 py-2.5 rounded-xl text-left text-xs font-bold transition-colors",
@@ -1869,6 +1873,7 @@ export default function Admin() {
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos" && rightSidebarView === "team"} onClick={() => { setActiveTab("eventos"); setRightSidebarView("team"); }} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => { setActiveTab("musica"); setRightSidebarView("team"); }} label="Música" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("team"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("team"); }} label="Direção" collapsed={true} isDark={isDarkMode} mobile />}
               <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
