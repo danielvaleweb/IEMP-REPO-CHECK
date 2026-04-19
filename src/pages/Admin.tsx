@@ -733,6 +733,11 @@ export default function Admin() {
   const [mentionSearch, setMentionSearch] = useState("");
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
 
+  const stripMentions = (text: string) => {
+    if (!text) return "";
+    return text.replace(/@\{([^}]+)\}/g, '@$1');
+  };
+
   // Reset unread count when chat becomes active
   useEffect(() => {
     if (rightSidebarView === "chat-active" && activeChatUser?.id && profile?.id) {
@@ -741,7 +746,7 @@ export default function Admin() {
         [`unreadCount.${profile.id}`]: 0
       }).catch(err => console.error("Error resetting unread count", err));
     }
-  }, [rightSidebarView, activeChatUser?.id, profile?.id]);
+  }, [rightSidebarView, activeChatUser?.id, profile?.id, chatMessages.length]);
 
   const renderMessageWithMentions = (text: string) => {
     if (!text) return null;
@@ -764,9 +769,9 @@ export default function Admin() {
                     setActiveTab("membros");
                     setViewingMember(member);
                   }}
-                  className="font-bold text-blue-300 hover:text-white underline underline-offset-2 cursor-pointer transition-colors"
+                  className="font-black text-[#BF76FF] hover:text-[#A05ADB] underline underline-offset-2 cursor-pointer transition-colors"
                 >
-                  @{fullName}
+                  {'@'}{fullName}
                 </span>
               );
             }
@@ -4171,7 +4176,7 @@ export default function Admin() {
                           )}
                         </div>
                         <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
-                          {chat.lastMessage || "Toque para abrir a conversa"}
+                          {stripMentions(chat.lastMessage) || "Toque para abrir a conversa"}
                         </p>
                       </div>
                     </div>
@@ -4242,12 +4247,12 @@ export default function Admin() {
               {/* Mention Suggestions */}
               {showMentionSuggestions && (
                 <div className={cn(
-                  "absolute bottom-full left-4 mb-2 min-w-[200px] max-h-48 overflow-y-auto rounded-2xl shadow-xl z-[100] border p-1",
+                  "absolute bottom-[calc(100%+8px)] left-4 right-4 max-h-64 overflow-y-auto rounded-2xl shadow-2xl z-[100] border p-1 animate-in fade-in slide-in-from-bottom-2 duration-200",
                   isDarkMode ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10"
                 )}>
                   {members
                     .filter(m => m.name?.toLowerCase().includes(mentionSearch.toLowerCase()))
-                    .slice(0, 5)
+                    .slice(0, 10)
                     .map(m => (
                       <button
                         key={m.id}
@@ -4259,25 +4264,31 @@ export default function Admin() {
                           setMentionSearch("");
                         }}
                         className={cn(
-                          "w-full flex items-center gap-3 p-2 rounded-xl text-left transition-colors",
+                          "w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all group",
                           isDarkMode ? "hover:bg-white/5" : "hover:bg-gray-50"
                         )}
                       >
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-white/10 flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center shrink-0 border border-transparent group-hover:border-[#BF76FF]/30 overflow-hidden transition-all">
                           {m.photoURL ? (
                             <img src={m.photoURL} className="w-full h-full object-cover" />
                           ) : (
-                            <span className="text-xs font-bold text-[#BF76FF]">{m.name?.[0]}</span>
+                            <span className="text-sm font-bold text-[#BF76FF]">{m.name?.[0]}</span>
                           )}
                         </div>
-                        <span className={cn("text-xs font-bold truncate", isDarkMode ? "text-gray-200" : "text-gray-900")}>
-                          {m.name}
-                        </span>
+                        <div className="flex flex-col min-w-0">
+                          <span className={cn("text-sm font-bold truncate", isDarkMode ? "text-gray-100" : "text-gray-900")}>
+                            {m.name}
+                          </span>
+                          <span className="text-[10px] opacity-40 uppercase tracking-tighter font-black">Membro da Equipe</span>
+                        </div>
                       </button>
                     ))
                   }
                   {members.filter(m => m.name?.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
-                    <div className="p-3 text-[10px] text-center opacity-50 italic">Nenhum membro encontrado</div>
+                    <div className="p-4 text-[10px] text-center opacity-40 italic flex flex-col items-center gap-2">
+                       <Users className="w-4 h-4" />
+                       Nenhum membro encontrado
+                    </div>
                   )}
                 </div>
               )}
