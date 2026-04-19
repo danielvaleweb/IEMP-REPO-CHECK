@@ -45,7 +45,7 @@ service cloud.firestore {
 
     // Chats collection
     match /chats/{document=**} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if true;
     }
 
     // Agenda Direcao collection

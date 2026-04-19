@@ -57,7 +57,7 @@ export default function Gallery() {
         </div>
 
         {!selectedAlbum ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
             {ALBUMS.map((album) => (
               <motion.div
                 key={album.id}
@@ -106,7 +106,7 @@ export default function Gallery() {
             </div>
 
             {/* Full width header photo for the event as requested */}
-            <div className="w-full h-[60vh] rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
+            <div className="w-full h-[40vh] md:h-[60vh] rounded-3xl md:rounded-[3rem] overflow-hidden shadow-2xl border border-white/10">
               <img 
                 src={selectedAlbum.cover} 
                 alt={selectedAlbum.title} 

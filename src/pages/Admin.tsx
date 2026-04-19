@@ -78,7 +78,8 @@ import {
   orderBy, 
   serverTimestamp,
   where,
-  getDocs
+  getDocs,
+  increment
 } from "firebase/firestore";
 import { 
   differenceInMonths,
@@ -509,9 +510,9 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
           </div>
         </div>
 
-        <div className="p-8 md:p-12 grid grid-cols-1 md:grid-cols-3 gap-12">
-          <div className="md:col-span-2 space-y-12">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="p-6 md:p-12 grid grid-cols-1 xl:grid-cols-3 gap-8 xl:gap-12">
+          <div className="xl:col-span-2 space-y-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
                 { 
                   label: (() => {
@@ -575,7 +576,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <h3 className={cn("text-xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>Informações de Contato</h3>
                 <div className="space-y-4">
@@ -720,15 +721,98 @@ export default function Admin() {
     });
   }, [user, isAdmin, loading, profile]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1280);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [viewingMember, setViewingMember] = useState<any>(null);
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
-  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active">("team");
+  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden">("team");
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
   const [activeChats, setActiveChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+
+  // Reset unread count when chat becomes active
+  useEffect(() => {
+    if (rightSidebarView === "chat-active" && activeChatUser?.id && profile?.id) {
+      const chatId = [profile.id, activeChatUser.id].sort().join('_');
+      updateDoc(doc(db, "chats", chatId), {
+        [`unreadCount.${profile.id}`]: 0
+      }).catch(err => console.error("Error resetting unread count", err));
+    }
+  }, [rightSidebarView, activeChatUser?.id, profile?.id]);
+
+  const renderMessageWithMentions = (text: string) => {
+    if (!text) return null;
+
+    // Detect format @{Name} or just links
+    const parts = text.split(/(@\{[^}]+\})|(https?:\/\/[^\s]+)/g);
+    return (
+      <p className="text-sm whitespace-pre-wrap">
+        {parts.filter(Boolean).map((part, i) => {
+          if (part.startsWith("@{") && part.endsWith("}")) {
+            const fullName = part.substring(2, part.length - 1);
+            const member = members.find(m => m.name === fullName);
+            
+            if (member) {
+              return (
+                <span 
+                  key={i} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTab("membros");
+                    setViewingMember(member);
+                  }}
+                  className="font-bold text-blue-300 hover:text-white underline underline-offset-2 cursor-pointer transition-colors"
+                >
+                  @{fullName}
+                </span>
+              );
+            }
+            return `@${fullName}`;
+          }
+
+          if (part.startsWith("http")) {
+            return (
+              <a 
+                key={i}
+                href={part}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:underline break-all"
+              >
+                {part}
+              </a>
+            );
+          }
+
+          return part;
+        })}
+      </p>
+    );
+  };
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1280) {
+        setIsSidebarCollapsed(true);
+        if (rightSidebarView === "team") {
+          setRightSidebarView("hidden");
+        }
+      } else {
+        if (rightSidebarView === "hidden") {
+          setRightSidebarView("team");
+        }
+      }
+    };
+    
+    // Run once on mount
+    handleResize();
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Real-time Chat Fetching
   useEffect(() => {
@@ -757,11 +841,12 @@ export default function Admin() {
     setChatInput(""); // clear immediately
     
     try {
-      // Update Chat Index
+      // Update Chat Index with unread count
       await setDoc(doc(db, "chats", chatId), {
         participants: [profile.id, activeChatUser.id],
         lastMessage: msgText,
-        lastMessageTime: serverTimestamp()
+        lastMessageTime: serverTimestamp(),
+        [`unreadCount.${activeChatUser.id}`]: increment(1)
       }, { merge: true });
 
       // Add to messages subcollection
@@ -817,6 +902,17 @@ export default function Admin() {
   const [currentPlayingMusic, setCurrentPlayingMusic] = useState<any>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (rightSidebarView === "chat-active") {
+      scrollToBottom();
+    }
+  }, [chatMessages, rightSidebarView]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -1429,13 +1525,26 @@ export default function Admin() {
                   setIsSubmitting(true);
                   
                   if (email === "iempministerioprofecia@gmail.com" && password === "admin") {
-                    setCustomLogin(true, {
-                      name: "Administrador",
-                      email: email,
-                      role: "admin"
-                    });
-                    setIsSubmitting(false);
-                    return;
+                    try {
+                      const q = query(collection(db, "members"), where("email", "==", email));
+                      const querySnapshot = await getDocs(q);
+                      const memberId = !querySnapshot.empty ? querySnapshot.docs[0].id : "admin_master";
+                      const memberData = !querySnapshot.empty ? querySnapshot.docs[0].data() : {};
+                      
+                      setCustomLogin(true, {
+                        id: memberId,
+                        name: memberData.name || "Administrador Master",
+                        email: email,
+                        role: "admin",
+                        ...memberData
+                      });
+                      
+                      window.alert("Login efetuado com sucesso!");
+                      setIsSubmitting(false);
+                      return;
+                    } catch (e) {
+                      console.error("Erro no login especial:", e);
+                    }
                   }
                   
                   try {
@@ -2119,7 +2228,31 @@ export default function Admin() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-4 pl-0 pr-2 mr-[5px] ml-[75px] md:ml-0 md:mr-0 md:px-8 md:flex-1 justify-end relative">
+          <div className="flex items-center gap-2 md:gap-4 pl-0 pr-2 md:px-8 md:flex-1 justify-end relative ml-auto">
+            {/* Toggle Sidebar Buttons (Only visible when sidebar is not permanent) */}
+            <div className="hidden md:flex xl:hidden items-center gap-1 mr-1">
+              <button 
+                onClick={() => setRightSidebarView(rightSidebarView === "team" ? "hidden" : "team")}
+                className={cn(
+                  "p-2 rounded-xl transition-all",
+                  rightSidebarView === "team" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500 hover:bg-black/5 dark:hover:bg-white/5"
+                )}
+                title="Membros"
+              >
+                <Users className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
+                className={cn(
+                  "p-2 rounded-xl transition-all",
+                  rightSidebarView === "chat-list" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500 hover:bg-black/5 dark:hover:bg-white/5"
+                )}
+                title="Mensagens"
+              >
+                <MessageSquare className="w-5 h-5" />
+              </button>
+            </div>
+
             <div className="relative">
               <button 
                 className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
@@ -2294,8 +2427,8 @@ export default function Admin() {
         </header>
 
         {/* Content View */}
-        <div className="flex-1 p-3 md:p-8 pb-32 md:pb-8 overflow-y-auto scroll-smooth scrollbar-hide overscroll-contain touch-pan-y">
-          <div className="max-w-5xl mx-auto w-full space-y-4 md:space-y-8">
+        <div className="flex-1 p-2 md:p-8 pb-32 md:pb-8 overflow-y-auto scroll-smooth scrollbar-hide overscroll-contain touch-pan-y">
+          <div className="max-w-6xl mx-auto w-full space-y-4 md:space-y-8">
             {isEditing ? (
               <Card className={cn("border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all", isDarkMode ? "bg-[#111]" : "bg-white border-black/5")}>
                 <div className="space-y-8">
@@ -3514,32 +3647,32 @@ export default function Admin() {
                 </div>
 
                 {/* Section: Summary Cards (Moved Down on Mobile) */}
-                <div className="order-2 md:order-1 grid grid-cols-3 gap-2 md:gap-6 mt-4">
-                  <Card className={cn("border-white/5 p-3 md:p-6 rounded-3xl transition-colors flex flex-col md:flex-row items-center gap-2 md:gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Users className="w-4 h-4 md:w-6 md:h-6 text-blue-500" />
+                <div className="order-2 md:order-1 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6 mt-4">
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-colors flex items-center gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
                     </div>
-                    <div className="text-center md:text-left">
-                      <p className="text-[8px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Membros</p>
-                      <h4 className={cn("text-sm md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{members.length}</h4>
-                    </div>
-                  </Card>
-                  <Card className={cn("border-white/5 p-3 md:p-6 rounded-3xl transition-colors flex flex-col md:flex-row items-center gap-2 md:gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
-                      <Calendar className="w-4 h-4 md:w-6 md:h-6 text-orange-500" />
-                    </div>
-                    <div className="text-center md:text-left">
-                      <p className="text-[8px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Agendados</p>
-                      <h4 className={cn("text-sm md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{agenda.length}</h4>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Membros</p>
+                      <h4 className={cn("text-xl md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{members.length}</h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-3 md:p-6 rounded-3xl transition-colors flex flex-col md:flex-row items-center gap-2 md:gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-8 h-8 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
-                      <MessageSquare className="w-4 h-4 md:w-6 md:h-6 text-[#BF76FF]" />
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-colors flex items-center gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                      <Calendar className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
                     </div>
-                    <div className="text-center md:text-left">
-                      <p className="text-[8px] md:text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5 md:mb-1">Mensagens</p>
-                      <h4 className={cn("text-sm md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Agendados</p>
+                      <h4 className={cn("text-xl md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{agenda.length}</h4>
+                    </div>
+                  </Card>
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-colors flex items-center gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-[#BF76FF]" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Mensagens</p>
+                      <h4 className={cn("text-xl md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
                     </div>
                   </Card>
                 </div>
@@ -3829,16 +3962,16 @@ export default function Admin() {
         </AnimatePresence>
       </main>
 
-      {/* Sidebar 3: Stats & Files (Hidden on mobile) */}
+      {/* Sidebar 3: Stats & Files (Hidden on mobile/tablets, only permanent on XL) */}
       <aside className={cn(
-        "fixed top-14 bottom-20 right-0 z-[40] w-full lg:top-0 lg:bottom-0 lg:z-auto lg:w-80 border-l flex-col overflow-hidden transition-transform duration-300 lg:relative lg:flex",
-        rightSidebarView !== "team" ? "translate-x-0 flex" : "translate-x-full lg:translate-x-0 hidden lg:flex",
+        "fixed top-14 bottom-20 right-0 z-[40] w-full xl:top-0 xl:bottom-0 xl:z-auto xl:w-80 border-l flex-col overflow-hidden transition-all duration-300 xl:relative xl:flex",
+        rightSidebarView !== "hidden" ? "translate-x-0 flex" : "translate-x-full xl:translate-x-0 hidden xl:flex",
         isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
 
-        <div className="hidden lg:flex justify-between lg:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
-           <div className="lg:hidden">
-            <button onClick={() => setRightSidebarView("team")} className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-gray-500">
+        <div className="flex justify-between xl:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
+           <div className="xl:hidden">
+            <button onClick={() => setRightSidebarView("hidden")} className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-gray-500">
               <X className="w-5 h-5" />
             </button>
            </div>
@@ -3993,7 +4126,7 @@ export default function Admin() {
         )}
 
         {rightSidebarView === "chat-list" && (
-          <div className={cn("flex-1 flex flex-col h-full animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
+          <div className={cn("flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
             <div className="p-6 pt-4 pb-2">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -4030,6 +4163,12 @@ export default function Admin() {
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-baseline mb-1">
                           <h4 className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
+                          {chat.unreadCount?.[profile?.id || ''] > 0 && (
+                            <div className="bg-[#BF76FF] text-white text-[10px] font-black h-5 px-2 rounded-full flex items-center justify-center gap-1 animate-pulse shadow-sm shadow-[#BF76FF]/40">
+                              <Clock className="w-2.5 h-2.5" />
+                              <span>{chat.unreadCount[profile?.id || '']}</span>
+                            </div>
+                          )}
                         </div>
                         <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
                           {chat.lastMessage || "Toque para abrir a conversa"}
@@ -4044,7 +4183,7 @@ export default function Admin() {
         )}
 
         {rightSidebarView === "chat-active" && activeChatUser && (
-          <div className={cn("flex-1 flex flex-col h-full relative animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
+          <div className={cn("flex-1 flex flex-col relative overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
             {/* Header */}
             <div className={cn("px-5 py-4 border-b flex items-center justify-between shadow-sm z-10 shrink-0", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
               <div className="flex items-center gap-3">
@@ -4069,7 +4208,7 @@ export default function Admin() {
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 flex flex-col scrollbar-hide">
+            <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 flex flex-col scrollbar-hide min-h-0">
                {chatMessages.length === 0 ? (
                  <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50">
                     <MessageSquare className="w-12 h-12 mb-4" />
@@ -4090,24 +4229,82 @@ export default function Admin() {
                               : "bg-white border border-black/5 text-gray-800 rounded-tl-sm self-start mr-auto"
                        )}
                      >
-                       <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                       {renderMessageWithMentions(msg.text)}
                      </div>
                    );
                  })
                )}
+               <div ref={messagesEndRef} />
             </div>
 
             {/* Input Area */}
-            <div className={cn("p-4 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-t border-black/5")}>
+            <div className={cn("p-4 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] relative", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-t border-black/5")}>
+              {/* Mention Suggestions */}
+              {showMentionSuggestions && (
+                <div className={cn(
+                  "absolute bottom-full left-4 mb-2 min-w-[200px] max-h-48 overflow-y-auto rounded-2xl shadow-xl z-[100] border p-1",
+                  isDarkMode ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10"
+                )}>
+                  {members
+                    .filter(m => m.name?.toLowerCase().includes(mentionSearch.toLowerCase()))
+                    .slice(0, 5)
+                    .map(m => (
+                      <button
+                        key={m.id}
+                        onClick={() => {
+                          const lastAtIndex = chatInput.lastIndexOf('@');
+                          const beforeAt = chatInput.substring(0, lastAtIndex);
+                          setChatInput(`${beforeAt}@{${m.name}} `);
+                          setShowMentionSuggestions(false);
+                          setMentionSearch("");
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-2 rounded-xl text-left transition-colors",
+                          isDarkMode ? "hover:bg-white/5" : "hover:bg-gray-50"
+                        )}
+                      >
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 dark:bg-white/10 flex items-center justify-center shrink-0">
+                          {m.photoURL ? (
+                            <img src={m.photoURL} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-xs font-bold text-[#BF76FF]">{m.name?.[0]}</span>
+                          )}
+                        </div>
+                        <span className={cn("text-xs font-bold truncate", isDarkMode ? "text-gray-200" : "text-gray-900")}>
+                          {m.name}
+                        </span>
+                      </button>
+                    ))
+                  }
+                  {members.filter(m => m.name?.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
+                    <div className="p-3 text-[10px] text-center opacity-50 italic">Nenhum membro encontrado</div>
+                  )}
+                </div>
+              )}
+
               <div className={cn("flex items-end gap-2 p-1.5 pl-3 rounded-3xl transition-transform focus-within:-translate-y-1", isDarkMode ? "bg-white/5 focus-within:bg-white/10" : "bg-gray-100 focus-within:bg-gray-200")}>
-                <button className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors mb-0.5">
-                  <Mic className="w-5 h-5" />
-                </button>
                 <textarea 
                   rows={1}
                   placeholder="Mensagem..." 
                   value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setChatInput(val);
+                    
+                    const lastAtIndex = val.lastIndexOf('@');
+                    if (lastAtIndex !== -1) {
+                      const textAfterAt = val.substring(lastAtIndex + 1);
+                      // Only show suggestions if '@' is in the last word or if typing a potential name
+                      if (!textAfterAt.includes('\n')) {
+                        setMentionSearch(textAfterAt);
+                        setShowMentionSuggestions(true);
+                      } else {
+                        setShowMentionSuggestions(false);
+                      }
+                    } else {
+                      setShowMentionSuggestions(false);
+                    }
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault();
@@ -4120,9 +4317,6 @@ export default function Admin() {
                     e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
                   }}
                 />
-                <button className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors mb-0.5">
-                  <Paperclip className="w-5 h-5" />
-                </button>
                 <button 
                   onClick={sendChatMessage}
                   disabled={!chatInput.trim()}

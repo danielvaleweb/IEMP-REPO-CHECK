@@ -46,10 +46,10 @@ export default function Live() {
 
   return (
     <div className="pt-24 pb-12 px-4 min-h-screen gradient-bg">
-      <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-3 gap-8">
         
         {/* Main Content: Video & Info */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="xl:col-span-2 space-y-6">
           <div className="aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-black/5 relative group">
             <iframe
               width="100%"
@@ -161,7 +161,7 @@ export default function Live() {
         </div>
 
         {/* Sidebar: Live Chat */}
-        <div className="lg:col-span-1">
+        <div className="xl:col-span-1">
           <Card className="glass-panel border-black/5 rounded-3xl overflow-hidden h-full flex flex-col">
             <CardHeader className="bg-muted/50 border-b border-black/5 flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2 text-lg">

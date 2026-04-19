@@ -20,11 +20,11 @@ export default function Bible() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Books Sidebar */}
-          <div className="md:col-span-1 glass-panel rounded-3xl p-6 border-black/5">
+          <div className="lg:col-span-1 glass-panel rounded-3xl p-6 border-black/5 h-fit lg:sticky lg:top-24">
             <h3 className="font-bold mb-4 uppercase tracking-widest text-xs text-primary">Livros</h3>
-            <ScrollArea className="h-[600px] pr-4">
+            <ScrollArea className="h-[200px] lg:h-[600px] pr-4">
               <div className="space-y-1">
                 {["Gênesis", "Êxodo", "Levítico", "Números", "Deuteronômio", "Josué", "Juízes", "Rute"].map((book) => (
                   <button key={book} className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-primary/10 hover:text-primary transition-colors">
@@ -42,7 +42,7 @@ export default function Bible() {
           </div>
 
           {/* Reading Area */}
-          <div className="md:col-span-3 glass-panel rounded-3xl p-8 md:p-12 border-black/5">
+          <div className="lg:col-span-3 glass-panel rounded-3xl p-6 md:p-12 border-black/5">
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-3xl font-bold">Gênesis 1</h2>
               <Button variant="ghost" size="icon" className="rounded-full hover:bg-white/10 text-white">
