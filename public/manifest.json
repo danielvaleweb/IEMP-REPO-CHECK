@@ -1,0 +1,27 @@
+{
+  "name": "Igreja Ministério Profecia",
+  "short_name": "Profecia",
+  "description": "Site oficial da Igreja Ministério Profecia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#BF76FF",
+  "icons": [
+    {
+      "src": "https://i.imgur.com/FPvzVFp.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.imgur.com/hAcnt1E.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.imgur.com/hAcnt1E.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
