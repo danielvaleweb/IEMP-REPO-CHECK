@@ -53,6 +53,7 @@ import {
   MoreVertical,
   Play,
   Pause,
+  PartyPopper,
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -462,7 +463,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
       </button>
 
       <div className={cn("rounded-[40px] overflow-hidden border transition-all", isDark ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-2xl")}>
-        <div className="relative h-64 md:h-80">
+        <div className="relative min-h-[500px] md:h-80">
           <img 
             src={member.coverImage || "https://picsum.photos/seed/church/1200/400"} 
             className="w-full h-full object-cover opacity-60"
@@ -470,7 +471,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
           />
           <div className={cn("absolute inset-0 bg-gradient-to-t", isDark ? "from-[#111] to-transparent" : "from-white/80 to-transparent")} />
           
-          <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col md:flex-row items-end justify-between gap-6">
+          <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6 w-full md:w-auto">
               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-8 border-[#111] bg-[#1a1a1a] overflow-hidden shadow-2xl relative z-10">
                 {member.photoURL ? (
@@ -725,7 +726,7 @@ export default function Admin() {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [viewingMember, setViewingMember] = useState<any>(null);
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
-  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden">("team");
+  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden">("hidden");
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
   const [activeChats, setActiveChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -892,6 +893,12 @@ export default function Admin() {
   const [email, setEmail] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [activeTab, setActiveTab] = useState("visao-geral");
+  
+  // Close right sidebar when changing tabs
+  useEffect(() => {
+    setRightSidebarView("hidden");
+  }, [activeTab]);
+
   const [showPending, setShowPending] = useState(false);
   const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
@@ -2029,12 +2036,11 @@ export default function Admin() {
 
             {/* Mobile Bottom Bar Items */}
             <div className="md:hidden flex flex-row justify-around w-full items-center px-2 py-1">
-              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("team"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos" && rightSidebarView === "team"} onClick={() => { setActiveTab("eventos"); setRightSidebarView("team"); }} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => { setActiveTab("musica"); setRightSidebarView("team"); }} label="Música" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("team"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("team"); }} label="Direção" collapsed={true} isDark={isDarkMode} mobile />}
-              <SidebarItem icon={MessageSquare} active={rightSidebarView !== "team"} onClick={() => setRightSidebarView("chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("eventos"); setRightSidebarView("hidden"); }} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Direção" collapsed={true} isDark={isDarkMode} mobile iconClassName="text-[#BF76FF]" />}
+              <SidebarItem icon={MessageSquare} active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
                 <SheetTrigger
@@ -2127,7 +2133,7 @@ export default function Admin() {
                             render={
                               <button className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")} />
                             }
-                            onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }}
+                            onClick={() => { setActiveTab("config"); setRightSidebarView("hidden"); }}
                           >
                             <Settings className="w-5 h-5 text-gray-400" />
                             <span className="text-xs font-bold">Configurações</span>
@@ -2255,6 +2261,18 @@ export default function Admin() {
                 title="Mensagens"
               >
                 <MessageSquare className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="md:hidden">
+              <button 
+                onClick={() => { setActiveTab("musica"); setRightSidebarView("hidden"); }}
+                className={cn(
+                  "p-2 rounded-xl transition-all",
+                  activeTab === "musica" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500 hover:bg-black/5 dark:hover:bg-white/5"
+                )}
+              >
+                <Music className="w-5 h-5" />
               </button>
             </div>
 
@@ -3653,31 +3671,31 @@ export default function Admin() {
 
                 {/* Section: Summary Cards (Moved Down on Mobile) */}
                 <div className="order-2 md:order-1 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6 mt-4">
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-colors flex items-center gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Users className="w-6 h-6 text-blue-500" />
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Membros</p>
-                      <h4 className={cn("text-xl md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{members.length}</h4>
+                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{members.length}</h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-colors flex items-center gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
-                      <Calendar className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
+                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                      <Calendar className="w-6 h-6 text-orange-500" />
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Agendados</p>
-                      <h4 className={cn("text-xl md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{agenda.length}</h4>
+                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{agenda.length}</h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-colors flex items-center gap-4", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
-                      <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-[#BF76FF]" />
+                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-12 h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-6 h-6 text-[#BF76FF]" />
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Mensagens</p>
-                      <h4 className={cn("text-xl md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
+                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
                     </div>
                   </Card>
                 </div>
@@ -3975,29 +3993,31 @@ export default function Admin() {
       )}>
 
         <div className="flex justify-between xl:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
-           <div className="xl:hidden">
+           <div className="hidden md:block xl:hidden">
             <button onClick={() => setRightSidebarView("hidden")} className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-gray-500">
               <X className="w-5 h-5" />
             </button>
            </div>
            <div className="flex gap-2">
-            <ActionIcon 
-              icon={isDarkMode ? Sun : Moon} 
-              onClick={() => setIsDarkMode(!isDarkMode)}
-              active={false}
-              isDark={isDarkMode}
-            />
+            <div className="hidden md:block">
+              <ActionIcon 
+                icon={isDarkMode ? Sun : Moon} 
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                active={false}
+                isDark={isDarkMode}
+              />
+            </div>
             <ActionIcon 
               icon={MessageSquare} 
-              active={rightSidebarView !== "team"}
-              onClick={() => setRightSidebarView("chat-list")}
+              active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
+              onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
               isDark={isDarkMode} 
             />
             {currentRole !== "Direção" && (
               <ActionIcon 
                 icon={Users} 
                 active={rightSidebarView === "team"}
-                onClick={() => setRightSidebarView("team")}
+                onClick={() => setRightSidebarView(rightSidebarView === "team" ? "hidden" : "team")}
                 isDark={isDarkMode} 
               />
             )}
@@ -4385,7 +4405,7 @@ export default function Admin() {
   );
 }
 
-function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mobile, notificationCount }: { icon: any, active?: boolean, onClick: () => void, label: string, collapsed?: boolean, isDark?: boolean, mobile?: boolean, notificationCount?: number }) {
+function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mobile, notificationCount, iconClassName }: { icon: any, active?: boolean, onClick: () => void, label: string, collapsed?: boolean, isDark?: boolean, mobile?: boolean, notificationCount?: number, iconClassName?: string }) {
   if (mobile) {
     return (
       <button 
@@ -4403,7 +4423,7 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
             ? isDark ? "bg-white/10 text-white" : "bg-[#BF76FF]/10 text-[#BF76FF]" 
             : "bg-transparent"
         )}>
-          <Icon className="w-6 h-6" />
+          <Icon className={cn("w-6 h-6", iconClassName)} />
           {notificationCount ? (
              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black shadow-md border border-white dark:border-[#0a0a0a]">
                {notificationCount}
