@@ -53,6 +53,7 @@ import {
   Play,
   Pause,
   PartyPopper,
+  ExternalLink,
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -3985,7 +3986,17 @@ export default function Admin() {
                     <div className="space-y-4">
                       <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                         <div className="flex flex-col gap-2">
-                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>YouTube Channel ID</label>
+                          <div className="flex items-center justify-between">
+                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>YouTube Channel ID</label>
+                            <a 
+                              href="https://commentpicker.com/youtube-channel-id.php" 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-[10px] text-[#BF76FF] hover:underline flex items-center gap-1"
+                            >
+                              Como encontrar o ID? <ExternalLink className="w-2 h-2" />
+                            </a>
+                          </div>
                           <Input 
                             className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
                             placeholder="Ex: UCILgaItnqDH3plhRXD54QUg"

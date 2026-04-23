@@ -91,7 +91,8 @@ async function startServer() {
       // Look for the JSON data in the page
       // Using a more robust regex that handles newlines and different script tag formats
       const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/) || 
-                    html.match(/>window\["ytInitialData"\] = ({[\s\S]*?});/);
+                    html.match(/>window\["ytInitialData"\] = ({[\s\S]*?});/) ||
+                    html.match(/ytInitialData\s*=\s*({[\s\S]*?});/);
       
       if (match) {
         try {
@@ -210,7 +211,8 @@ async function startServer() {
       
       // Look for the JSON data in the page
       const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/) || 
-                    html.match(/>window\["ytInitialData"\] = ({[\s\S]*?});/);
+                    html.match(/>window\["ytInitialData"\] = ({[\s\S]*?});/) ||
+                    html.match(/ytInitialData\s*=\s*({[\s\S]*?});/);
       
       if (match) {
         try {

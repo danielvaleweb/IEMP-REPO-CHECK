@@ -12,7 +12,8 @@ import {
   MapPin,
   ExternalLink,
   X,
-  Tag
+  Tag,
+  Youtube
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -150,14 +151,16 @@ export default function Home() {
         setVideos([
           {
             id: "channel_fallback_1",
-            title: "Culto de Celebração (Assista no Canal)",
+            isPlaceholder: true,
+            title: "Configure seu Canal no Painel Admin",
             thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
             published: new Date().toISOString(),
             link: `https://www.youtube.com/${configHandle}/videos`
           },
           {
             id: "channel_fallback_2",
-            title: "Momento de Oração",
+            isPlaceholder: true,
+            title: "Acesse o Dashboard para carregar seus vídeos",
             thumbnail: "https://images.unsplash.com/photo-1510590337019-5ef8d3d32116?auto=format&fit=crop&q=80&w=1920",
             published: new Date().toISOString(),
             link: `https://www.youtube.com/${configHandle}/videos`
@@ -180,7 +183,8 @@ export default function Home() {
           setLives([
             {
               id: "live_fallback_1",
-              title: "Culto Ao Vivo (Acesse o Canal)",
+              isPlaceholder: true,
+              title: "Transmissão ao Vivo (Pendente de Configuração)",
               thumbnail: "https://picsum.photos/seed/live1/1920/1080",
               published: new Date().toISOString(),
               link: `https://www.youtube.com/${configHandle}/live`
@@ -193,7 +197,8 @@ export default function Home() {
         setLives([
           {
             id: "live_fallback_error",
-            title: "Transmissão Encerrada",
+            isPlaceholder: true,
+            title: "Não foi possível carregar as lives",
             thumbnail: "https://picsum.photos/seed/liveerror/1920/1080",
             published: new Date().toISOString(),
             link: `https://www.youtube.com/${configHandle}/live`
@@ -436,15 +441,22 @@ export default function Home() {
                 onClick={() => handleWatchVideo(video)}
               >
                 <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
-                  <img 
-                    src={video.thumbnail} 
-                    alt={video.title} 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    referrerPolicy="no-referrer"
-                  />
+                  {video.isPlaceholder ? (
+                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-6 text-center gap-2">
+                      <Youtube className="w-8 h-8 text-white/20" />
+                      <span className="text-[10px] text-white/40 uppercase tracking-widest leading-tight">Configuração Pendente</span>
+                    </div>
+                  ) : (
+                    <img 
+                      src={video.thumbnail} 
+                      alt={video.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                     <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-                      <Play className="w-6 h-6 text-white fill-current" />
+                      {video.isPlaceholder ? <ExternalLink className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-white fill-current" />}
                     </div>
                     <button 
                       className={cn(
@@ -466,7 +478,10 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
-                <h3 className="text-sm font-bold text-white line-clamp-2 group-hover:text-[#BF76FF] transition-colors">
+                <h3 className={cn(
+                  "text-sm font-bold line-clamp-2 transition-colors",
+                  video.isPlaceholder ? "text-white/60 italic" : "text-white group-hover:text-[#BF76FF]"
+                )}>
                   {cleanTitle(video.title)}
                 </h3>
                 <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">
@@ -503,15 +518,22 @@ export default function Home() {
                   onClick={() => handleWatchVideo(life)}
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
-                    <img 
-                      src={life.thumbnail} 
-                      alt={life.title} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
+                    {life.isPlaceholder ? (
+                      <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-6 text-center gap-2">
+                        <Youtube className="w-8 h-8 text-white/20" />
+                        <span className="text-[10px] text-white/40 uppercase tracking-widest leading-tight">Configuração Pendente</span>
+                      </div>
+                    ) : (
+                      <img 
+                        src={life.thumbnail} 
+                        alt={life.title} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        referrerPolicy="no-referrer"
+                      />
+                    )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-                        <Play className="w-6 h-6 text-white fill-current" />
+                        {life.isPlaceholder ? <ExternalLink className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-white fill-current" />}
                       </div>
                       <button 
                         className={cn(
@@ -530,7 +552,10 @@ export default function Home() {
                       </button>
                     </div>
                   </div>
-                  <h3 className="text-sm font-bold text-white line-clamp-2 group-hover:text-red-500 transition-colors">
+                  <h3 className={cn(
+                    "text-sm font-bold line-clamp-2 transition-colors",
+                    life.isPlaceholder ? "text-white/60 italic" : "text-white group-hover:text-red-500"
+                  )}>
                     {cleanTitle(life.title)}
                   </h3>
                   <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">
