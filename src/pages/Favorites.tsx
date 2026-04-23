@@ -63,7 +63,7 @@ export default function Favorites() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {favorites.filter(f => f.category === "music").map((item, index) => (
-                    <FavoriteCard key={item.id} item={item} index={index} toggleFavorite={toggleFavorite} />
+                    <FavoriteCard key={`music-${item.id}`} item={item} index={index} toggleFavorite={toggleFavorite} />
                   ))}
                 </div>
               </section>
@@ -78,7 +78,7 @@ export default function Favorites() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {favorites.filter(f => f.category === "event").map((item, index) => (
-                    <FavoriteCard key={item.id} item={item} index={index} toggleFavorite={toggleFavorite} />
+                    <FavoriteCard key={`event-${item.id}`} item={item} index={index} toggleFavorite={toggleFavorite} />
                   ))}
                 </div>
               </section>
@@ -93,7 +93,7 @@ export default function Favorites() {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {favorites.filter(f => f.category === "video").map((item, index) => (
-                    <FavoriteCard key={item.id} item={item} index={index} toggleFavorite={toggleFavorite} />
+                    <FavoriteCard key={`video-${item.id}`} item={item} index={index} toggleFavorite={toggleFavorite} />
                   ))}
                 </div>
               </section>
@@ -113,7 +113,7 @@ export default function Favorites() {
   );
 }
 
-function FavoriteCard({ item, index, toggleFavorite }: { item: any, index: number, toggleFavorite: any }) {
+function FavoriteCard({ item, index, toggleFavorite }: { item: any, index: number, toggleFavorite: any, key?: string }) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}

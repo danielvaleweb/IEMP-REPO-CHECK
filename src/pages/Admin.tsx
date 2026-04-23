@@ -1395,6 +1395,11 @@ export default function Admin() {
 
       let dataToSave = sanitizeData(formData);
 
+      // Identify newly added members to notify via chat
+      const currentInvited = formData.invitedMembers || [];
+      const previousInvitedIds = new Set((selectedItem?.invitedMembers || []).map((m: any) => m.id));
+      const newInvitedMembers = currentInvited.filter((m: any) => !previousInvitedIds.has(m.id));
+
       // Merge address fields into location string if they exist
       if (formData.street || formData.city) {
         const streetNum = formData.street ? (formData.streetNumber ? `${formData.street}, ${formData.streetNumber}` : formData.street) : "";
@@ -1459,6 +1464,42 @@ export default function Admin() {
           read: true
         });
       }
+
+      // Send auto chat messages to newly invited members
+      if (newInvitedMembers.length > 0 && profile?.id && dataToSave.title) {
+        for (const member of newInvitedMembers) {
+          const chatId = [profile.id, member.id].sort().join('_');
+          const autoMsg = `Você foi escalado para o compromisso: "${dataToSave.title}"`;
+          
+          try {
+            await setDoc(doc(db, "chats", chatId), {
+              participants: [profile.id, member.id],
+              lastMessage: autoMsg,
+              lastMessageTime: serverTimestamp(),
+              [`unreadCount.${member.id}`]: increment(1)
+            }, { merge: true });
+
+            await addDoc(collection(db, "chats", chatId, "messages"), {
+              text: autoMsg,
+              senderId: profile.id,
+              timestamp: serverTimestamp()
+            });
+
+            await addDoc(collection(db, "notifications"), {
+              userId: member.id,
+              title: "Escala de Compromisso",
+              message: `${profile.name || user?.displayName || 'Admin'} escalou você: ${dataToSave.title}`,
+              read: false,
+              type: "chat",
+              senderId: profile.id,
+              createdAt: serverTimestamp()
+            });
+          } catch (e) {
+            console.error("Error sending auto chat message:", e);
+          }
+        }
+      }
+
       setIsEditing(false);
       setSelectedItem(null);
       setFormData({});

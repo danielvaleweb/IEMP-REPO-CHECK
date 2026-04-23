@@ -276,9 +276,19 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    
+    // Serve static files
     app.use(express.static(distPath));
+    
+    // SPA Fallback
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      const indexPath = path.join(distPath, "index.html");
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error(`Error sending index.html at ${indexPath}:`, err);
+          res.status(500).send("Internal Server Error: Page not found on server.");
+        }
+      });
     });
   }
 
