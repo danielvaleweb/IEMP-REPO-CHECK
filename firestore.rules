@@ -2,60 +2,171 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
-    function isAuthenticated() {
+    // Pillar 0: Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Functions ---
+    function isSignedIn() {
       return request.auth != null;
     }
-    
+
+    // Hardcoded admin for bootstrap and fallback
+    function isMasterAdmin() {
+      return isSignedIn() && request.auth.token.email == "iempministerioprofecia@gmail.com";
+    }
+
+    // RBAC check from members collection
+    function getRole() {
+      return exists(/databases/$(database)/documents/members/$(request.auth.uid)) 
+        ? get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role 
+        : 'member';
+    }
+
     function isAdmin() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role == 'admin' ||
-         request.auth.token.email == "iempministerioprofecia@gmail.com");
+      return isSignedIn() && (
+        isMasterAdmin() || 
+        getRole() == 'admin' || 
+        getRole() == 'Administradores' || 
+        getRole() == 'Desenvolvedor' ||
+        getRole() == 'Direção'
+      );
     }
 
     function isEditor() {
-      return isAuthenticated() && 
-        (get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role in ['admin', 'editor']);
+      return isSignedIn() && (
+        isAdmin() || 
+        getRole() == 'editor' || 
+        getRole() == 'Mídia' || 
+        getRole() == 'Secretaria'
+      );
     }
 
-    // Members collection
+    function isOwner(authorId) {
+      return isSignedIn() && (request.auth.uid == authorId);
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- Entity Validations ---
+
+    function isValidMember(data) {
+      return data.keys().hasAll(['name', 'email', 'role']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 100;
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['title']) &&
+             data.title is string &&
+             (data.authorId == null || data.authorId is string);
+    }
+
+    function isValidMusic(data) {
+      return data.keys().hasAll(['title']) &&
+             data.title is string;
+    }
+
+    function isValidVignette(data) {
+      return data.keys().hasAll(['title']) &&
+             data.title is string;
+    }
+
+    function isValidPlaylist(data) {
+      return data.keys().hasAll(['title', 'authorId']) &&
+             data.title is string &&
+             data.authorId is string;
+    }
+
+    function isValidAgenda(data) {
+      return data.keys().hasAll(['title']) &&
+             data.title is string;
+    }
+
+    // --- Collection Rules ---
+
+    match /test/connection {
+      allow read: if true;
+    }
+
     match /members/{memberId} {
-      allow read, write: if true;
+      allow get: if isSignedIn();
+      allow list: if isMasterAdmin() || isAdmin(); 
+      allow create: if isMasterAdmin() || isAdmin() || (isSignedIn() && request.auth.uid == memberId && incoming().role == 'member') || (incoming().status == 'pending' && incoming().role == 'member');
+      allow update: if isMasterAdmin() || isAdmin() || (isOwner(memberId) && incoming().role == existing().role);
+      allow delete: if isMasterAdmin() || isAdmin();
     }
 
-    // Posts collection
     match /posts/{postId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidPost(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
     }
 
-    // Music collection
     match /musics/{musicId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidMusic(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
     }
 
-    // Agenda collection
+    match /vignettes/{vignetteId} {
+      allow read: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidVignette(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
     match /agenda/{eventId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidAgenda(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
     }
 
-    // Notifications collection
-    match /notifications/{notifId} {
-      allow read, write: if true;
-    }
-
-    // Chats collection
-    match /chats/{document=**} {
-      allow read, write: if true;
-    }
-
-    // Agenda Direcao collection
     match /agenda-direcao/{eventId} {
-      allow read, write: if true;
+      allow read, write: if isMasterAdmin() || isAdmin();
     }
 
-    // Settings collection
+    match /playlists/{playlistId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidPlaylist(incoming()) && incoming().authorId == request.auth.uid;
+      allow update: if isSignedIn() && (isMasterAdmin() || isAdmin() || (isOwner(existing().authorId) && incoming().authorId == existing().authorId));
+      allow delete: if isMasterAdmin() || isAdmin() || isOwner(existing().authorId);
+    }
+
+    match /notifications/{notifId} {
+      allow get: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.userId == 'all' || 
+        resource.data.userId == 'admin' || 
+        isMasterAdmin() || 
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.userId == request.auth.uid || 
+        resource.data.userId == 'all' || 
+        resource.data.userId == 'admin' || 
+        isMasterAdmin()
+      );
+      allow create: if isMasterAdmin() || isAdmin() || 
+                    incoming().type == 'registration' || 
+                    incoming().type == 'chat';
+      allow update, delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
     match /settings/{settingId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isMasterAdmin() || isAdmin();
+    }
+
+    match /chats/{chatId} {
+      allow list: if isSignedIn() && (isMasterAdmin() || (resource.data.participants != null && request.auth.uid in resource.data.participants));
+      allow get: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.auth.uid in chatId.split('_'));
+      allow write: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.auth.uid in chatId.split('_'));
+
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.auth.uid in chatId.split('_'));
+      }
     }
   }
 }

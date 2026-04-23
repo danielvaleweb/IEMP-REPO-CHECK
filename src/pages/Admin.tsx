@@ -3,7 +3,6 @@ import {
   LayoutDashboard, 
   Image as ImageIcon, 
   FileText, 
-  Music, 
   Settings, 
   LogOut,
   Plus,
@@ -80,7 +79,9 @@ import {
   serverTimestamp,
   where,
   getDocs,
-  increment
+  increment,
+  getCountFromServer,
+  limit
 } from "firebase/firestore";
 import { 
   differenceInMonths,
@@ -99,8 +100,8 @@ import {
   isAfter
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetTrigger, SheetClose } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from "@/components/ui/sheet";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -171,7 +172,8 @@ function CalendarView({
   canDelete = false,
   modalTitle = "Compromissos do Dia",
   emptyMessage = "Nenhum evento cadastrado para este dia.",
-  newEventButtonLabel = "Cadastrar novo evento"
+  newEventButtonLabel = "Cadastrar novo evento",
+  deleteButtonLabel = "Excluir"
 }: { 
   agenda: any[], 
   onNewEvent: (date: Date) => void, 
@@ -183,7 +185,8 @@ function CalendarView({
   canDelete?: boolean,
   modalTitle?: string,
   emptyMessage?: string,
-  newEventButtonLabel?: string
+  newEventButtonLabel?: string,
+  deleteButtonLabel?: string
 }) {
   const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -346,7 +349,7 @@ function CalendarView({
                             <Edit className="w-4 h-4 mr-2" /> Editar
                           </Button>
                         )}
-                        {canDelete && (
+                        {(canDelete || (event.authorId === user?.uid)) && (
                           <Button 
                             variant="ghost" 
                             size="sm" 
@@ -357,7 +360,7 @@ function CalendarView({
                               onDeleteEvent(event);
                             }}
                           >
-                            <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                            <Trash2 className="w-4 h-4 mr-2" /> {deleteButtonLabel}
                           </Button>
                         )}
                       </div>
@@ -880,11 +883,20 @@ export default function Admin() {
 
   // Data States
   const [posts, setPosts] = useState<any[]>([]);
-  const [musics, setMusics] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [agenda, setAgenda] = useState<any[]>([]);
   const [agendaDirecao, setAgendaDirecao] = useState<any[]>([]);
+  const [vignettes, setVignettes] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  
+  // Stats state to avoid full-collection reads
+  const [counts, setCounts] = useState({
+    members: 0,
+    agenda: 0,
+    posts: 0,
+    unreadNotifications: 0
+  });
+
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
@@ -911,9 +923,6 @@ export default function Admin() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [currentPlayingMusic, setCurrentPlayingMusic] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = () => {
@@ -925,32 +934,6 @@ export default function Admin() {
       scrollToBottom();
     }
   }, [chatMessages, rightSidebarView]);
-
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.pause();
-      setIsPlaying(false);
-    } else {
-      audioRef.current.play().catch(e => console.log("Playback error:", e));
-      setIsPlaying(true);
-    }
-  };
-
-  const handlePlayMusic = (music: any) => {
-    if (currentPlayingMusic?.id === music.id) {
-      togglePlay();
-    } else {
-      setCurrentPlayingMusic(music);
-      setIsPlaying(true);
-    }
-  };
-
-  useEffect(() => {
-    if (currentPlayingMusic && isPlaying && audioRef.current) {
-      audioRef.current.play().catch(e => console.log("Playback error:", e));
-    }
-  }, [currentPlayingMusic, isPlaying]);
 
   const [authError, setAuthError] = useState("");
 
@@ -982,6 +965,12 @@ export default function Admin() {
     const query = searchQuery.toLowerCase();
     
     const results: any[] = [];
+
+    vignettes.forEach(v => {
+      if (v.title?.toLowerCase().includes(query)) {
+        results.push({ type: 'radio', item: v, title: v.title, sub: "Vinheta de Rádio", icon: Mic });
+      }
+    });
     
     members.forEach(m => {
       if (m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query)) {
@@ -1007,36 +996,40 @@ export default function Admin() {
   useEffect(() => {
     const seedNotifs = async () => {
       if (user && notifications.length === 0 && !loading) {
-        // Check if there are truly no notifications in DB for this user
-        const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
-        const snap = await getDocs(q);
-        if (snap.empty) {
-          const samples = [
-            { 
-              userId: user.uid, 
-              title: "Nova Mensagem", 
-              message: "Daniel te enviou uma nova mensagem", 
-              createdAt: serverTimestamp(), 
-              read: false 
-            },
-            { 
-              userId: user.uid, 
-              title: "Aniversário", 
-              message: "Hoje é aniversário de Josy Pereira", 
-              createdAt: serverTimestamp(), 
-              read: false 
-            },
-            { 
-              userId: user.uid, 
-              title: "Evento Alterado", 
-              message: "O evento Juiz de fora em Gerezim mudou para dia 10 de maio", 
-              createdAt: serverTimestamp(), 
-              read: false 
+        try {
+          // Check if there are truly no notifications in DB for this user
+          const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
+          const snap = await getDocs(q);
+          if (snap.empty) {
+            const samples = [
+              { 
+                userId: user.uid, 
+                title: "Nova Mensagem", 
+                message: "Daniel te enviou uma nova mensagem", 
+                createdAt: serverTimestamp(), 
+                read: false 
+              },
+              { 
+                userId: user.uid, 
+                title: "Aniversário", 
+                message: "Hoje é aniversário de Josy Pereira", 
+                createdAt: serverTimestamp(), 
+                read: false 
+              },
+              { 
+                userId: user.uid, 
+                title: "Evento Alterado", 
+                message: "O evento Juiz de fora em Gerezim mudou para dia 10 de maio", 
+                createdAt: serverTimestamp(), 
+                read: false 
+              }
+            ];
+            for (const n of samples) {
+              await addDoc(collection(db, "notifications"), n);
             }
-          ];
-          for (const n of samples) {
-            await addDoc(collection(db, "notifications"), n);
           }
+        } catch (error) {
+          console.error("Error seeding notifications:", error);
         }
       }
     };
@@ -1171,8 +1164,36 @@ export default function Admin() {
   // Form States
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, collection: string } | null>(null);
   const [formData, setFormData] = useState<any>({});
+
+  // Split location into fields for editing
+  useEffect(() => {
+    if (isEditing && formData?.location && !formData?.street && !formData?.city) {
+      const loc = formData.location;
+      // Regex for format: "Rua, Numero - Bairro, Cidade - UF"
+      const regex = /^(.*?),\s*(\d+.*?|S\/N)\s*-\s*(.*?),\s*(.*?)\s*-\s*([A-Za-z]{2})$/i;
+      const match = loc.match(regex);
+      if (match) {
+        setFormData(prev => ({
+          ...prev,
+          street: match[1],
+          streetNumber: match[2],
+          neighborhood: match[3],
+          city: match[4],
+          state: match[5].toUpperCase()
+        }));
+      } else {
+        // Simple fallback splits for less structured strings
+        const commaParts = loc.split(',').map(s => s.trim());
+        if (commaParts.length >= 2) {
+          setFormData(prev => ({ ...prev, street: commaParts[0], streetNumber: commaParts[1] }));
+        }
+      }
+    }
+  }, [isEditing, formData?.location]);
   const [showWhatsAppModal, setShowWhatsAppModal] = useState<any>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const [isImportEventDialogOpen, setIsImportEventDialogOpen] = useState(false);
+  const [importSearch, setImportSearch] = useState("");
   const [tempDate, setTempDate] = useState("");
   const [tempStartTime, setTempStartTime] = useState("");
   const [tempEndTime, setTempEndTime] = useState("");
@@ -1196,7 +1217,7 @@ export default function Admin() {
     const defaultVals: any = {
       "visao-geral": true,
       "eventos": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "musica": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "radio": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção"
@@ -1218,59 +1239,94 @@ export default function Admin() {
   useEffect(() => {
     if (!user) return;
 
+    // Fetch total counts once for the dashboard summary
+    const fetchCounts = async () => {
+      try {
+        const [membersSnap, agendaSnap, vignettesSnap, postsSnap, unreadSnap] = await Promise.all([
+          isAdmin ? getCountFromServer(collection(db, "members")) : Promise.resolve({ data: () => ({ count: 0 }) }),
+          getCountFromServer(collection(db, "agenda")),
+          getCountFromServer(collection(db, "vignettes")),
+          getCountFromServer(collection(db, "posts")),
+          getCountFromServer(query(
+            collection(db, "notifications"), 
+            where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
+            where("read", "==", false)
+          ))
+        ]);
+        
+        setCounts({
+          members: membersSnap.data().count,
+          agenda: agendaSnap.data().count,
+          vignettes: vignettesSnap.data().count,
+          posts: postsSnap.data().count,
+          unreadNotifications: unreadSnap.data().count
+        });
+      } catch (err) {
+        console.error("Error fetching counts:", err);
+      }
+    };
+    fetchCounts();
+
     // Settings can always be fetched
     const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
       if (docSnap.exists()) {
         setSettings(docSnap.data());
       }
-    }, (err) => handleFirestoreError(err, OperationType.GET, "settings"));
+    }, (err) => console.error("Error loading settings:", err));
 
-    const unsubPosts = onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc")), (snap) => {
+    const unsubPosts = onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
       setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "posts"));
+    }, (err) => console.error("Error loading posts:", err));
 
-    const unsubMusics = onSnapshot(query(collection(db, "musics"), orderBy("createdAt", "desc")), (snap) => {
-      setMusics(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "musics"));
-
-    const unsubMembers = onSnapshot(collection(db, "members"), (snap) => {
+    const unsubMembers = isAdmin ? onSnapshot(query(collection(db, "members"), limit(200)), (snap) => {
       setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "members"));
+    }, (err) => console.error("Error loading members:", err)) : () => {};
 
-    const unsubAgenda = onSnapshot(query(collection(db, "agenda"), orderBy("date", "asc")), (snap) => {
+    const unsubAgenda = onSnapshot(query(collection(db, "agenda"), orderBy("date", "asc"), limit(200)), (snap) => {
       setAgenda(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "agenda"));
+    }, (err) => console.error("Error loading agenda:", err));
 
-    const unsubAgendaDirecao = onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc")), (snap) => {
+    const unsubAgendaDirecao = isAdmin ? onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc"), limit(200)), (snap) => {
       setAgendaDirecao(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.log("Agenda direction fetch error: ", err));
+    }, (err) => console.error("Error loading agenda-direcao:", err)) : () => {};
+
+    const unsubVignettes = onSnapshot(query(collection(db, "vignettes"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
+      setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error("Error loading vignettes:", err));
 
     const unsubNotifs = onSnapshot(query(
       collection(db, "notifications"), 
-      where("userId", "in", [user?.uid, "all", "admin"]),
-      orderBy("createdAt", "desc")
+      where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
+      orderBy("createdAt", "desc"),
+      limit(100)
     ), (snap) => {
       setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => {
-      // If the above query fails due to missing composite index, fallback to all notifications filtered in memory
-      onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (snapFallback) => {
-        setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
-      });
+      // If the above query fails due to missing composite index, fallback to filtering by userId locally to avoid list errors.
+      if (!isAdmin) {
+        onSnapshot(query(collection(db, "notifications"), where("userId", "==", user?.uid), limit(100)), (snapFallback) => {
+          setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
+      } else {
+        onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(100)), (snapFallback) => {
+          setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
+        }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
+      }
     });
 
     const unsubSkills = onSnapshot(doc(db, "settings", "skills"), (snap) => {
       if (snap.exists()) {
         setAvailableSkills(snap.data().list || []);
       }
-    }, (err) => handleFirestoreError(err, OperationType.GET, "settings/skills"));
+    }, (err) => console.error("Error loading skills settings:", err));
 
     return () => {
       unsubSettings();
       unsubPosts();
-      unsubMusics();
       unsubMembers();
       unsubAgenda();
       unsubAgendaDirecao();
+      unsubVignettes();
       unsubNotifs();
       unsubSkills();
     };
@@ -1301,20 +1357,63 @@ export default function Admin() {
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase();
     if (activeTab === "eventos") return posts.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
-    if (activeTab === "musica") return musics.filter(m => m.title?.toLowerCase().includes(query));
+    if (activeTab === "radio") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
     if (activeTab === "membros") return members.filter(m => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     if (activeTab === "agenda-direcao") return agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     return [];
-  }, [activeTab, searchQuery, posts, musics, members, agenda, agendaDirecao]);
+  }, [activeTab, searchQuery, posts, members, agenda, agendaDirecao]);
 
   const handleSave = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const collectionName = activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
+      let collectionName = activeTab === "eventos" ? "posts" : activeTab === "radio" ? "vignettes" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
       
-      let dataToSave = { ...formData };
+      // Override collection if editing an item that has a specific type (e.g. from merged agenda)
+      if (selectedItem?.type) {
+        collectionName = selectedItem.type === 'post' ? 'posts' : 
+                         selectedItem.type === 'agenda-direcao' ? 'agenda-direcao' : 'agenda';
+      }
+      
+      // Sanitize all values in dataToSave recursively to remove any 'undefined'
+      const sanitizeData = (obj: any): any => {
+        if (Array.isArray(obj)) {
+          return obj.map(v => sanitizeData(v)).filter(v => v !== undefined);
+        }
+        if (obj !== null && typeof obj === 'object') {
+          return Object.entries(obj).reduce((acc, [key, value]) => {
+            const sanitized = sanitizeData(value);
+            if (sanitized !== undefined) {
+              acc[key] = sanitized;
+            }
+            return acc;
+          }, {} as any);
+        }
+        return obj === undefined ? null : obj;
+      };
+
+      let dataToSave = sanitizeData(formData);
+
+      // Merge address fields into location string if they exist
+      if (formData.street || formData.city) {
+        const streetNum = formData.street ? (formData.streetNumber ? `${formData.street}, ${formData.streetNumber}` : formData.street) : "";
+        const parts = [
+          streetNum,
+          formData.neighborhood,
+          formData.city,
+          formData.state
+        ].filter(Boolean);
+        
+        // Custom format: "Street, Num - Neighborhood, City - UF"
+        let formattedLocation = streetNum;
+        if (formData.neighborhood) formattedLocation += ` - ${formData.neighborhood}`;
+        if (formData.city) formattedLocation += `, ${formData.city}`;
+        if (formData.state) formattedLocation += ` - ${formData.state.toUpperCase()}`;
+        
+        dataToSave.location = formattedLocation || formData.location;
+      }
+      
       if (activeTab === "membros" && formData.ministries?.length > 0) {
         // Clean up 'Desenvolvimento' to 'Desenvolvedor'
         dataToSave.ministries = formData.ministries.map((m: any) => {
@@ -1328,17 +1427,17 @@ export default function Admin() {
       }
 
       if (selectedItem?.id) {
-        await updateDoc(doc(db, collectionName, selectedItem.id), {
+        await setDoc(doc(db, collectionName, selectedItem.id), {
           ...dataToSave,
           updatedAt: serverTimestamp()
-        });
+        }, { merge: true });
         
         // Log Activity
         await addDoc(collection(db, "notifications"), {
           title: "Atividade",
-          message: `Atualizou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'musica' ? 'música' : 'perfil'}: ${dataToSave.title || dataToSave.name}`,
+          message: `Atualizou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'radio' ? 'vinheta' : 'perfil'}: ${dataToSave.title || dataToSave.name}`,
           type: "activity",
-          memberId: user?.uid,
+          memberId: user?.uid || profile?.id || "admin",
           createdAt: serverTimestamp(),
           read: true
         });
@@ -1346,16 +1445,16 @@ export default function Admin() {
         await addDoc(collection(db, collectionName), {
           ...dataToSave,
           createdAt: serverTimestamp(),
-          authorId: user?.uid,
-          authorName: user?.displayName || "Admin"
+          authorId: user?.uid || profile?.id || "admin",
+          authorName: user?.displayName || profile?.name || "Admin"
         });
 
         // Log Activity
         await addDoc(collection(db, "notifications"), {
           title: "Atividade",
-          message: `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'agenda-direcao' ? 'compromisso na direção' : activeTab === 'musica' ? 'música' : 'registro'}: ${dataToSave.title || dataToSave.name}`,
+          message: `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'agenda-direcao' ? 'compromisso na direção' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name}`,
           type: "activity",
-          memberId: user?.uid,
+          memberId: user?.uid || profile?.id || "admin",
           createdAt: serverTimestamp(),
           read: true
         });
@@ -1401,8 +1500,50 @@ export default function Admin() {
     return [...fromAgenda, ...fromPosts].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [posts, agenda]);
 
+  const eventsToImport = useMemo(() => {
+    return mergedAgenda.filter(item => 
+      item.title?.toLowerCase().includes(importSearch.toLowerCase()) ||
+      item.location?.toLowerCase().includes(importSearch.toLowerCase())
+    );
+  }, [mergedAgenda, importSearch]);
+
+  const handleImportEvent = async (event: any) => {
+    try {
+      const dataToSave = {
+        title: event.title,
+        date: event.date,
+        endTime: event.endTime || "",
+        location: event.location || "",
+        description: event.description || "",
+        organization: event.organization || "Importado",
+        inviteChurch: false,
+        invitedMembers: [],
+        thumbnail: event.thumbnail || "",
+        createdAt: serverTimestamp(),
+        authorId: user?.uid || profile?.id || "admin",
+        authorName: user?.displayName || profile?.name || "Admin"
+      };
+
+      await addDoc(collection(db, "agenda-direcao"), dataToSave);
+      
+      // Log Activity
+      await addDoc(collection(db, "notifications"), {
+        title: "Atividade",
+        message: `Importou evento para agenda da direção: ${dataToSave.title}`,
+        type: "activity",
+        memberId: user?.uid || profile?.id || "admin",
+        createdAt: serverTimestamp(),
+        read: true
+      });
+
+      setIsImportEventDialogOpen(false);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, "agenda-direcao");
+    }
+  };
+
   const handleDelete = (id: string, collectionOverride?: string) => {
-    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "musica" ? "musics" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
+    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "radio" ? "vignettes" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
     setDeleteConfirm({ id, collection: colName });
   };
 
@@ -1442,7 +1583,7 @@ export default function Admin() {
     );
   }
 
-  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("musica") && !canViewTab("membros") && !canViewTab("agenda") && !canViewTab("agenda-direcao"))) {
+  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("membros") && !canViewTab("agenda") && !canViewTab("agenda-direcao"))) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col p-6">
         {/* Header / Back Button */}
@@ -2006,7 +2147,7 @@ export default function Admin() {
             <div className="hidden md:flex flex-col gap-1.5 w-full">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("musica") && <SidebarItem icon={Music} active={activeTab === "musica"} onClick={() => setActiveTab("musica")} label="Música" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("radio") && <SidebarItem icon={Mic} active={activeTab === "radio"} onClick={() => setActiveTab("radio")} label="Web Rádio" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
@@ -2044,16 +2185,14 @@ export default function Admin() {
               
               <Sheet>
                 <SheetTrigger
-                  render={
-                    <button className={cn(
-                      "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all",
-                      isDarkMode ? "text-gray-400" : "text-gray-500"
-                    )}>
-                      <Menu className="w-6 h-6" />
-                      <span className="text-[10px] font-bold uppercase">Menu</span>
-                    </button>
-                  }
-                />
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all outline-none",
+                    isDarkMode ? "text-gray-400" : "text-gray-500"
+                  )}
+                >
+                  <Menu className="w-6 h-6" />
+                  <span className="text-[10px] font-bold uppercase">Menu</span>
+                </SheetTrigger>
                 <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
                   <div className="flex items-center justify-between px-2 mb-2">
                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Aparência do Tema</p>
@@ -2130,20 +2269,16 @@ export default function Admin() {
                       <div className="grid grid-cols-2 gap-2">
                         {canViewSettings && (
                           <SheetClose 
-                            render={
-                              <button className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-white/5" : "bg-gray-100")} />
-                            }
                             onClick={() => { setActiveTab("config"); setRightSidebarView("hidden"); }}
+                            className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all text-left", isDarkMode ? "bg-white/5" : "bg-gray-100")}
                           >
                             <Settings className="w-5 h-5 text-gray-400" />
                             <span className="text-xs font-bold">Configurações</span>
                           </SheetClose>
                         )}
                         <SheetClose 
-                          render={
-                            <button className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all", isDarkMode ? "bg-red-500/10" : "bg-red-50")} />
-                          }
                           onClick={logout}
+                          className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all text-left", isDarkMode ? "bg-red-500/10" : "bg-red-50")}
                         >
                           <LogOut className="w-5 h-5 text-red-500" />
                           <span className="text-xs font-bold text-red-500">Sair</span>
@@ -2175,16 +2310,87 @@ export default function Admin() {
                 <ChevronLeft className="w-5 h-5" />
               </button>
             ) : (
-              <div className="md:hidden flex flex-col items-start leading-none gap-0 ml-1">
-                <div className="flex items-center gap-1.5">
-                  <span className={cn("font-black text-[13px] tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Ministerio</span>
-                  <span className={cn("font-light text-[13px] tracking-tight uppercase", isDarkMode ? "text-white/80" : "text-gray-600")}>Profecia</span>
+              <div className="md:hidden flex items-center gap-4">
+                <div className="flex flex-col items-start leading-none gap-0 ml-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className={cn("font-black text-[13px] tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Ministerio</span>
+                    <span className={cn("font-light text-[13px] tracking-tight uppercase", isDarkMode ? "text-white/80" : "text-gray-600")}>Profecia</span>
+                  </div>
+                  <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
                 </div>
-                <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
               </div>
             )}
           </div>
           
+          <div className="flex-1 flex md:hidden items-center justify-end px-4 gap-2">
+             <Dialog>
+                <DialogTrigger className={cn("p-2 rounded-full transition-colors cursor-pointer outline-none", isDarkMode ? "text-gray-400 hover:bg-white/5" : "text-gray-500 hover:bg-black/5")}>
+                   <Search className="w-5 h-5" />
+                </DialogTrigger>
+                <DialogContent className={cn("border-none", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
+                   <DialogHeader>
+                      <DialogTitle className="text-xl font-black uppercase tracking-tighter">Pesquisar no Painel</DialogTitle>
+                   </DialogHeader>
+                   <div className="py-4">
+                      <div className="relative">
+                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                         <Input 
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Buscar membros, eventos, músicas..."
+                            className={cn("h-14 pl-12 rounded-2xl border-none", isDarkMode ? "bg-white/5" : "bg-black/5")}
+                         />
+                      </div>
+                      <div className="mt-4 max-h-[300px] overflow-y-auto">
+                        {globalSearchResults.map((res, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              if (res.type === 'membros') setViewingMember(res.item);
+                              setSelectedItem(res.item);
+                              setFormData(res.item);
+                              setActiveTab(res.type === 'posts' ? 'eventos' : res.type);
+                              setIsEditing(!(res.type === 'membros' || res.type === 'agenda'));
+                            }}
+                            className={cn("w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors", isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5")}
+                          >
+                             <div className="w-10 h-10 rounded-lg bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
+                                {res.type === 'membros' ? <Users className="w-5 h-5 text-[#BF76FF]" /> : <Calendar className="w-5 h-5 text-[#BF76FF]" />}
+                             </div>
+                             <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-bold truncate">{res.title}</span>
+                                <span className="text-[10px] uppercase font-bold text-gray-500">{res.type}</span>
+                             </div>
+                          </button>
+                        ))}
+                      </div>
+                   </div>
+                </DialogContent>
+             </Dialog>
+             <Sheet>
+               <SheetTrigger className={cn("p-2 rounded-full transition-colors cursor-pointer outline-none", isDarkMode ? "text-gray-400 hover:bg-white/5" : "text-gray-500 hover:bg-black/5")}>
+                  <Menu className="w-6 h-6" />
+               </SheetTrigger>
+               <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
+                   <SheetTitle className="sr-only">Menu Mobile do Dashboard</SheetTitle>
+                   <div className="flex items-center justify-between px-2 mb-2">
+                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Painel Administrativo</p>
+                   </div>
+                   <div className="grid grid-cols-2 gap-3">
+                      <Button onClick={() => setActiveTab("visao-geral")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
+                        <Home className="w-6 h-6" /> <span className="text-[10px] font-bold">Início</span>
+                      </Button>
+                      <Button onClick={() => setActiveTab("radio")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
+                        <Mic className="w-6 h-6" /> <span className="text-[10px] font-bold">Web Rádio</span>
+                      </Button>
+                      <Button onClick={() => setActiveTab("membros")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
+                        <Users className="w-6 h-6" /> <span className="text-[10px] font-bold">Membros</span>
+                      </Button>
+                   </div>
+               </SheetContent>
+             </Sheet>
+          </div>
+
           <div className="hidden md:flex flex-[2] justify-center relative">
             <div className={cn(
               "relative group transition-all duration-300 w-full max-w-[400px]",
@@ -2264,27 +2470,15 @@ export default function Admin() {
               </button>
             </div>
 
-            <div className="md:hidden">
-              <button 
-                onClick={() => { setActiveTab("musica"); setRightSidebarView("hidden"); }}
-                className={cn(
-                  "p-2 rounded-xl transition-all",
-                  activeTab === "musica" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500 hover:bg-black/5 dark:hover:bg-white/5"
-                )}
-              >
-                <Music className="w-5 h-5" />
-              </button>
-            </div>
-
             <div className="relative">
               <button 
                 className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
                 onClick={() => setShowNotifications(!showNotifications)}
               >
-                <Bell className={cn("w-5 h-5", displayNotifications.some(n => !n.read) && "text-[#BF76FF]")} />
-                {displayNotifications.some(n => !n.read) && (
+                <Bell className={cn("w-5 h-5", counts.unreadNotifications > 0 && "text-[#BF76FF]")} />
+                {counts.unreadNotifications > 0 && (
                   <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a] flex items-center justify-center text-[9px] text-white font-black shadow-lg px-1 animate-bounce">
-                    {displayNotifications.filter(n => !n.read).length}
+                    {counts.unreadNotifications}
                   </div>
                 )}
               </button>
@@ -2317,7 +2511,11 @@ export default function Admin() {
                             <button 
                               key={n.id} 
                               onClick={async () => {
-                                if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true });
+                                try {
+                                  if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true });
+                                } catch (e) {
+                                  handleFirestoreError(e, OperationType.UPDATE, `notifications/${n.id}`);
+                                }
                                 if (n.type === "registration" && n.memberId) {
                                   setActiveTab("membros");
                                   const member = members.find(m => m.id === n.memberId);
@@ -2455,7 +2653,7 @@ export default function Admin() {
             {isEditing ? (
               <Card className={cn("border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all", isDarkMode ? "bg-[#111]" : "bg-white border-black/5")}>
                 <div className="space-y-8">
-                  {isReadOnly && activeTab === "agenda-direcao" ? (
+                  {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") ? (
                     <div className="mb-2">
                       <Button 
                         variant="ghost" 
@@ -2472,7 +2670,7 @@ export default function Admin() {
                         <Edit className="w-6 h-6 text-[#BF76FF]" />
                       </div>
                         <h4 className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                          {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Novo"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'musica' ? 'Música' : activeTab === 'membros' ? 'Membro' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
+                          {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Novo"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'membros' ? 'Membro' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
                         </h4>
                     </div>
                   )}
@@ -2490,13 +2688,17 @@ export default function Admin() {
                         <Button 
                           className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-lg"
                           onClick={async () => {
-                            await updateDoc(doc(db, "members", selectedItem.id), { status: "approved" });
-                            const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi APROVADO! Você já pode acessar usando seu e-mail e a senha padrão (admin).`;
-                            if (selectedItem.phone) {
-                              window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                            try {
+                              await updateDoc(doc(db, "members", selectedItem.id), { status: "approved" });
+                              const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi APROVADO! Você já pode acessar usando seu e-mail e a senha padrão (admin).`;
+                              if (selectedItem.phone) {
+                                window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                              }
+                              setIsEditing(false);
+                              setSelectedItem(null);
+                            } catch (e) {
+                              handleFirestoreError(e, OperationType.UPDATE, `members/${selectedItem.id}`);
                             }
-                            setIsEditing(false);
-                            setSelectedItem(null);
                           }}
                         >
                           <CheckCircle2 className="w-5 h-5 mr-2" /> Aprovar
@@ -2506,19 +2708,23 @@ export default function Admin() {
                           onClick={async () => {
                             let reason = "Não atende aos requisitos no momento.";
                             try {
-                              const userReason = window.prompt("Motivo da reprovação:");
-                              if (userReason === null) return; // Cancelled
-                              if (userReason) reason = userReason;
+                              try {
+                                const userReason = window.prompt("Motivo da reprovação:");
+                                if (userReason === null) return; // Cancelled
+                                if (userReason) reason = userReason;
+                              } catch (e) {
+                                // Prompt blocked, use default reason
+                              }
+                              await updateDoc(doc(db, "members", selectedItem.id), { status: "rejected", rejectReason: reason });
+                              const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi REPROVADO. Motivo: ${reason}`;
+                              if (selectedItem.phone) {
+                                window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                              }
+                              setIsEditing(false);
+                              setSelectedItem(null);
                             } catch (e) {
-                              // Prompt blocked, use default reason
+                              handleFirestoreError(e, OperationType.UPDATE, `members/${selectedItem.id}`);
                             }
-                            await updateDoc(doc(db, "members", selectedItem.id), { status: "rejected", rejectReason: reason });
-                            const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi REPROVADO. Motivo: ${reason}`;
-                            if (selectedItem.phone) {
-                              window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                            }
-                            setIsEditing(false);
-                            setSelectedItem(null);
                           }}
                         >
                           <X className="w-5 h-5 mr-2" /> Reprovar
@@ -2527,7 +2733,7 @@ export default function Admin() {
                     </div>
                   )}
                   
-                  {activeTab === "agenda-direcao" && (
+                  {(activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") && (
                     isReadOnly ? (
                       <motion.div 
                         initial={{ opacity: 0, y: 20 }}
@@ -2535,15 +2741,37 @@ export default function Admin() {
                         className="space-y-10 py-4"
                       >
                         {/* Header Section */}
+                        {activeTab === "eventos" && formData.image && (
+                          <div className="relative aspect-video w-full rounded-[40px] overflow-hidden shadow-2xl mb-12">
+                            <img src={formData.image} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                            <div className="absolute top-8 left-8">
+                              <span className="bg-primary px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
+                                {formData.organization || "Evento"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <div className="h-[2px] w-8 bg-[#BF76FF]" />
-                            <p className="text-[#BF76FF] font-black uppercase tracking-[0.2em] text-[10px]">Agenda da Direção</p>
+                            <p className="text-[#BF76FF] font-black uppercase tracking-[0.2em] text-[10px]">{activeTab === 'eventos' ? 'Detalhes do Evento' : 'Agenda da Direção'}</p>
                           </div>
                           <h3 className={cn("text-4xl md:text-6xl font-black tracking-tighter transition-colors leading-[0.9]", isDarkMode ? "text-white" : "text-black")}>
                             {formData.title}
                           </h3>
                         </div>
+
+                        {activeTab === "eventos" && formData.content && (
+                          <div className={cn("p-8 md:p-12 rounded-[40px] border transition-all text-lg md:text-xl font-medium leading-relaxed", isDarkMode ? "bg-white/5 border-white/5 text-gray-300" : "bg-white border-black/5 text-gray-700 shadow-sm")}>
+                            <div className="flex items-center gap-2 mb-6">
+                              <div className="w-1 h-6 bg-primary rounded-full" />
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Sobre o Evento</h4>
+                            </div>
+                            <p className="whitespace-pre-wrap">{formData.content}</p>
+                          </div>
+                        )}
 
                         {/* Info Cards Row */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
@@ -2555,7 +2783,11 @@ export default function Admin() {
                              <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
                                {(() => {
                                  try {
-                                   return typeof formData.date === 'string' && formData.date ? format(parseISO(formData.date.split('T')[0]), 'dd/MM/yyyy') : '...';
+                                   if (!formData.date) return '...';
+                                   if (formData.date.includes('T')) {
+                                      return format(parseISO(formData.date.split('T')[0]), 'dd/MM/yyyy');
+                                   }
+                                   return formData.date;
                                  } catch(e) {
                                    return '...';
                                  }
@@ -2568,8 +2800,8 @@ export default function Admin() {
                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Horário</p>
                              </div>
                              <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
-                               {typeof formData.date === 'string' && formData.date.includes('T') && formData.date.split('T')[1] 
-                                 ? `${formData.date.split('T')[1].substring(0, 5)} às ${formData.endTime || '...'}` 
+                               {formData.date && formData.date.includes('T') && formData.date.split('T')[1] 
+                                 ? `${formData.date.split('T')[1].substring(0, 5)}${formData.endTime ? ` às ${formData.endTime}` : ''}` 
                                  : 'Horário não definido'}
                              </p>
                           </div>
@@ -2579,10 +2811,27 @@ export default function Admin() {
                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Organização</p>
                              </div>
                              <p className={cn("text-xl font-black truncate", isDarkMode ? "text-white" : "text-black")}>
-                               {formData.organizer || "Igreja Local"}
+                               {formData.organization || formData.organizer || "Igreja Local"}
                              </p>
                           </div>
                         </div>
+
+                        {/* Photo Gallery Preview (for Events) */}
+                        {activeTab === "eventos" && formData.gallery && Array.isArray(formData.gallery) && formData.gallery.length > 0 && (
+                          <div className="space-y-6">
+                            <div className="flex items-center gap-3">
+                              <div className="h-[2px] w-6 bg-primary" />
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Galeria de Fotos</h4>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                               {formData.gallery.map((url: string, i: number) => (
+                                 <div key={i} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                                   <img src={url} alt="" className="w-full h-full object-cover" />
+                                 </div>
+                               ))}
+                            </div>
+                          </div>
+                        )}
 
                         {/* Location Section */}
                         {formData.location && (
@@ -2604,7 +2853,6 @@ export default function Admin() {
                                  Abrir no GPS <MapPin className="w-5 h-5" />
                               </Button>
                             </div>
-                            {/* Background decoration */}
                             <div className="absolute top-0 right-0 w-80 h-80 bg-[#BF76FF]/5 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none" />
                             <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#BF76FF]/3 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
                           </div>
@@ -2615,14 +2863,14 @@ export default function Admin() {
                           <div className="space-y-8 py-6">
                              <div className="flex items-center gap-6">
                                 <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Quem estará presente</h5>
-                                <div className="h-[1px] flex-1 bg-gradient-to-r from-white/5 to-transparent" />
+                                <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/5" : "bg-black/5")} />
                              </div>
                              
                              <div className="flex flex-wrap gap-x-8 gap-y-10">
                                 {formData.invitedMembers.map((m: any) => (
                                   <div key={m.id} className="flex flex-col items-center gap-4 group">
                                      <div className="relative">
-                                       <div className="w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg] bg-white/5">
+                                       <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                                           <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
                                             {m.photo ? (
                                               <img src={m.photo} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
@@ -2633,7 +2881,7 @@ export default function Admin() {
                                             )}
                                           </div>
                                        </div>
-                                       <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-lg border-4 border-[#111] z-10 hidden md:block" />
+                                       <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-lg border-4 z-10 hidden md:block", isDarkMode ? "border-[#111]" : "border-white")} />
                                      </div>
                                      <div className="text-center space-y-0.5">
                                        <p className={cn("text-[11px] font-black uppercase tracking-[0.15em] transition-colors", isDarkMode ? "text-white group-hover:text-[#BF76FF]" : "text-black")}>
@@ -2658,13 +2906,13 @@ export default function Admin() {
                                  <div className={cn("p-8 rounded-[32px] text-sm leading-relaxed font-medium md:min-h-[160px]", isDarkMode ? "bg-white/5 text-gray-400" : "bg-gray-50 text-gray-600 shadow-sm")}>
                                     {formData.additionalInfo}
                                  </div>
-                               </div>
+                                </div>
                              )}
                              {formData.observations && (
                                <div className="space-y-4">
                                  <div className="flex items-center gap-2">
                                    <div className="w-1 h-1 rounded-full bg-[#BF76FF]" />
-                                   <h6 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Observações Importantes</h6>
+                                   <h6 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em]">Observações Importantes (Dashboard)</h6>
                                  </div>
                                  <div className={cn("p-8 rounded-[32px] text-sm leading-relaxed italic md:min-h-[160px] border border-dashed border-[#BF76FF]/20", isDarkMode ? "bg-[#BF76FF]/5 text-[#BF76FF]/80" : "bg-purple-50 text-[#BF76FF]")}>
                                     "{formData.observations}"
@@ -2676,17 +2924,48 @@ export default function Admin() {
                       </motion.div>
                     ) : (
                       <>
-                        <div className="space-y-4">
+                        <div className="space-y-6">
+                          {activeTab === "eventos" && (
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem de Capa</label>
+                              <Input 
+                                className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                placeholder="https://exemplo.com/banner.jpg"
+                                value={formData.image || ""}
+                                onChange={(e) => setFormData({...formData, image: e.target.value})}
+                                readOnly={isReadOnly}
+                              />
+                              {formData.image && (
+                                <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                  <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Qual é o compromisso?</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{activeTab === 'eventos' ? 'Título do Evento' : 'Título do Compromisso'}</label>
                             <Input 
                               className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                              placeholder="Ex: Visitar igreja no Grama"
+                              placeholder={activeTab === 'eventos' ? "Ex: Conferência de Jovens 2024" : "Ex: Visitar igreja no Grama"}
                               value={formData.title || ""}
                               onChange={(e) => setFormData({...formData, title: e.target.value})}
                               readOnly={isReadOnly}
                             />
                           </div>
+
+                          {activeTab === "eventos" && (
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio/Descrição do Evento</label>
+                              <Textarea 
+                                className={cn("border-none min-h-[150px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                placeholder="Conte mais sobre o evento..."
+                                value={formData.content || ""}
+                                onChange={(e) => setFormData({...formData, content: e.target.value})}
+                                readOnly={isReadOnly}
+                              />
+                            </div>
+                          )}
 
                           <div className="grid grid-cols-1 gap-4">
                             <div className="space-y-2">
@@ -2735,12 +3014,12 @@ export default function Admin() {
                             </div>
 
                             <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Quem está organizando?</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Organização / Quem convidou?</label>
                               <Input 
                                 className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Ex: Igreja que convidou, nossa igreja"
-                                value={formData.organizer || ""}
-                                onChange={(e) => setFormData({...formData, organizer: e.target.value})}
+                                placeholder="Ex: Igreja Local, Ministério Profecia..."
+                                value={formData.organization || formData.organizer || ""}
+                                onChange={(e) => setFormData({...formData, organization: e.target.value, organizer: e.target.value})}
                                 readOnly={isReadOnly}
                               />
                             </div>
@@ -2759,7 +3038,7 @@ export default function Admin() {
                                   onClick={() => setFormData({...formData, inviteChurch: false, invitedMembers: []})}
                                   className={cn("px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all", !formData.inviteChurch ? "bg-red-500 text-white shadow-lg" : "text-gray-500")}
                                 >
-                                  Não, será restrito
+                                  Não
                                 </button>
                                 <button 
                                   type="button"
@@ -2767,363 +3046,239 @@ export default function Admin() {
                                   onClick={() => setFormData({...formData, inviteChurch: true})}
                                   className={cn("px-4 py-2 rounded-lg text-[10px] font-bold uppercase transition-all", formData.inviteChurch ? "bg-green-500 text-white shadow-lg" : "text-gray-500")}
                                 >
-                                  Sim, será aberto
+                                  Sim
                                 </button>
                               </div>
                             </div>
 
-                            {(formData.inviteChurch || (formData.invitedMembers?.length > 0)) && (
-                              <div className="pt-4 border-t border-[#BF76FF]/10">
+                            {formData.inviteChurch && (
+                              <div className="pt-4 border-t border-[#BF76FF]/10 animate-in fade-in slide-in-from-top-2 duration-300">
                                 <Button
                                   type="button"
                                   variant="outline"
                                   onClick={() => setIsMemberSelectorOpen(true)}
                                   className={cn("w-full border-dashed border-2 py-8 rounded-2xl flex flex-col gap-2 transition-all", isDarkMode ? "border-white/10 hover:border-[#BF76FF] bg-white/5" : "border-black/10 hover:border-[#BF76FF] bg-black/5")}
+                                  disabled={isReadOnly}
                                 >
                                   <Plus className="w-6 h-6 text-[#BF76FF]" />
                                     <span className={cn("text-xs font-bold", isDarkMode ? "text-white" : "text-black")}>
                                       {formData.invitedMembers?.length > 0 
-                                        ? `${formData.invitedMembers.length} membros convidados` 
-                                        : "Clique para marcar os membros que deseja que esteja presente"}
+                                        ? `${formData.invitedMembers.length} membros específicos convidados` 
+                                        : "Convidar membros específicos"}
                                     </span>
                                   </Button>
 
-                                  {formData.invitedMembers?.length > 0 && (
-                                    <div className="mt-4 px-2">
-                                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Membros selecionados:</p>
-                                      <div className="flex flex-wrap gap-2">
-                                        {(formData.invitedMembers || []).map((m: any) => (
-                                          <div key={m.id} className="flex items-center gap-2 bg-[#BF76FF]/10 px-3 py-1.5 rounded-full border border-[#BF76FF]/20 group relative">
-                                            <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                                              {m.photo ? <img src={m.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Users className="w-3 h-3 m-1 text-gray-500" />}
-                                            </div>
-                                            <span className="text-[10px] font-bold text-[#BF76FF]">{m.name}</span>
-                                            {!isReadOnly && (
-                                              <button 
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  const filtered = formData.invitedMembers.filter((item: any) => item.id !== m.id);
-                                                  setFormData({...formData, invitedMembers: filtered});
-                                                }}
-                                                className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-1"
-                                              >
-                                                <X className="w-2 h-2" />
-                                              </button>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                
-                                <Dialog open={isMemberSelectorOpen} onOpenChange={setIsMemberSelectorOpen}>
-                                  <DialogContent className={cn("sm:max-w-2xl p-0 overflow-hidden flex flex-col rounded-[32px] border", isDarkMode ? "bg-[#0a0a0a] border-white/10" : "bg-white border-black/10")}>
-                                    <div className="p-8 border-b border-white/5">
-                                      <h3 className={cn("text-xl font-black uppercase tracking-tighter mb-4", isDarkMode ? "text-white" : "text-black")}>Convidar Membros</h3>
-                                      <div className="relative">
-                                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                                        <Input 
-                                          className={cn("pl-10 h-12 rounded-xl border-none", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
-                                          placeholder="Buscar membros..."
-                                          value={memberSearch}
-                                          onChange={(e) => setMemberSearch(e.target.value)}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="flex-1 overflow-y-auto max-h-[400px] p-4 space-y-2 scrollbar-hide">
-                                      {(members || [])
-                                        .filter(m => m.name?.toLowerCase().includes(memberSearch.toLowerCase()))
-                                        .map(member => {
-                                          const isChecked = (formData.invitedMembers || []).some((m: any) => m.id === member.id);
-                                          return (
-                                            <div 
-                                              key={member.id}
-                                              onClick={() => {
-                                                const current = formData.invitedMembers || [];
-                                                if (isChecked) {
-                                                  setFormData({ ...formData, invitedMembers: current.filter((m: any) => m.id !== member.id) });
-                                                } else {
-                                                  setFormData({ ...formData, invitedMembers: [...current, { id: member.id, name: member.name, photo: member.photoURL }] });
-                                                }
-                                              }}
-                                              className={cn(
-                                                "flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border",
-                                                isChecked 
-                                                  ? "bg-[#BF76FF]/10 border-[#BF76FF]/30" 
-                                                  : isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-gray-50 border-black/5 hover:bg-gray-100"
-                                              )}
-                                            >
-                                              <div className="flex items-center gap-3">
-                                                {member.photoURL ? (
-                                                  <img src={member.photoURL} alt="" className="w-10 h-10 rounded-full object-cover" referrerPolicy="no-referrer" />
-                                                ) : (
-                                                  <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500">
-                                                    <Users className="w-5 h-5" />
-                                                  </div>
-                                                )}
-                                                <div>
-                                                  <p className={cn("text-xs font-bold", isDarkMode ? "text-white" : "text-black")}>{member.name}</p>
-                                                  <p className="text-[10px] text-gray-500">{member.role || "Membro"}</p>
-                                                </div>
+                                    {formData.invitedMembers?.length > 0 && (
+                                      <div className="mt-4 px-2">
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Membros selecionados:</p>
+                                        <div className="flex flex-wrap gap-2">
+                                          {(formData.invitedMembers || []).map((m: any) => (
+                                            <div key={m.id} className="flex items-center gap-2 bg-[#BF76FF]/10 px-3 py-1.5 rounded-full border border-[#BF76FF]/20 group relative">
+                                              <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden shrink-0">
+                                                {m.photo ? <img src={m.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Users className="w-3 h-3 m-1 text-gray-500" />}
                                               </div>
-                                              {isChecked && <CheckCircle2 className="w-5 h-5 text-green-500" />}
+                                              <span className="text-[10px] font-bold text-[#BF76FF]">{m.name}</span>
+                                              {!isReadOnly && (
+                                                <button 
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const filtered = formData.invitedMembers.filter((item: any) => item.id !== m.id);
+                                                    setFormData({...formData, invitedMembers: filtered});
+                                                  }}
+                                                  className="w-4 h-4 rounded-full bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity ml-1"
+                                                >
+                                                  <X className="w-2 h-2" />
+                                                </button>
+                                              )}
                                             </div>
-                                          );
-                                        })}
-                                    </div>
-                                    <div className="p-6 bg-black/5 dark:bg-white/5 flex justify-end">
-                                      <Button 
-                                        className="bg-[#BF76FF] hover:bg-[#8E44AD] text-white font-bold rounded-xl"
-                                        onClick={() => setIsMemberSelectorOpen(false)}
-                                      >
-                                        Confirmar ({formData.invitedMembers?.length || 0})
-                                      </Button>
-                                    </div>
-                                  </DialogContent>
-                                </Dialog>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                </div>
+                              )}
+                          </div>
+
+                          <div className="space-y-4">
+                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Endereço do Local</label>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                              <div className="md:col-span-3 space-y-2">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Rua / Logradouro</label>
+                                <div className="relative group">
+                                  <Input 
+                                    className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                    placeholder="Ex: Rua das Flores"
+                                    value={formData.street || ""}
+                                    onChange={(e) => setFormData({...formData, street: e.target.value})}
+                                    readOnly={isReadOnly}
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Número</label>
+                                <Input 
+                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="123 ou S/N"
+                                  value={formData.streetNumber || ""}
+                                  onChange={(e) => setFormData({...formData, streetNumber: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Bairro</label>
+                                <Input 
+                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="Bairro"
+                                  value={formData.neighborhood || ""}
+                                  onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cidade</label>
+                                <Input 
+                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="Cidade"
+                                  value={formData.city || ""}
+                                  onChange={(e) => setFormData({...formData, city: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Estado (UF)</label>
+                                <Input 
+                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors uppercase", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="UF"
+                                  maxLength={2}
+                                  value={formData.state || ""}
+                                  onChange={(e) => setFormData({...formData, state: e.target.value.toUpperCase()})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Hidden full location field for legacy support if needed, but we combine on save */}
+                            {!formData.street && formData.location && (
+                              <div className="pt-2">
+                                <p className="text-[10px] text-amber-500 font-bold">Endereço legado: {formData.location}</p>
                               </div>
                             )}
                           </div>
 
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local</label>
-                            <div className="relative group">
-                              <Input 
-                                className={cn("border-none h-14 rounded-2xl px-6 pr-14 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="R. Cleonice Rainho, 19 - Aeroporto, Juiz de Fora - MG"
-                                value={formData.location || ""}
-                                onChange={(e) => setFormData({...formData, location: e.target.value})}
-                                readOnly={isReadOnly}
-                              />
-                            </div>
-                            <p className="text-[10px] text-gray-500 px-2 italic">O endereço se tornará um link clicável para o Google Maps automaticamente.</p>
-                          </div>
-
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Informações adicionais (Contatos)</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Contatos (Infos Adicionais)</label>
                               <Textarea 
                                 className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Ex: Contato de quem está organizando, contato da mídia da outra igreja..."
+                                placeholder="Ex: Contato do Pastor da outra igreja..."
                                 value={formData.additionalInfo || ""}
                                 onChange={(e) => setFormData({...formData, additionalInfo: e.target.value})}
                                 readOnly={isReadOnly}
                               />
                             </div>
                             <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Observações</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Observações Internas (Admin)</label>
                               <Textarea 
                                 className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Ex: Observações de horário, estacionamento e outros detalhes..."
+                                placeholder="Ex: Pegar chave com fulano..."
                                 value={formData.observations || ""}
                                 onChange={(e) => setFormData({...formData, observations: e.target.value})}
                                 readOnly={isReadOnly}
                               />
                             </div>
                           </div>
-                        </div>
-                      </>
-                    )
-                  )}
 
-                  {activeTab === "agenda" && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título do Evento</label>
-                        <Input 
-                          className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
-                          value={formData.title || ""}
-                          onChange={(e) => setFormData({...formData, title: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data e Hora</label>
-                          <Input 
-                            type="datetime-local"
-                            className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
-                            value={formData.date || ""}
-                            onChange={(e) => setFormData({...formData, date: e.target.value})}
-                            readOnly={isReadOnly}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local</label>
-                          <Input 
-                            className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
-                            value={formData.location || ""}
-                            onChange={(e) => setFormData({...formData, location: e.target.value})}
-                            readOnly={isReadOnly}
-                          />
-                        </div>
-                      </div>
-                    </>
-                  )}
-
-                  {activeTab === "eventos" && (
-                    <>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem</label>
-                        <Input 
-                          className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
-                          placeholder="https://exemplo.com/imagem.jpg"
-                          value={formData.image || ""}
-                          onChange={(e) => setFormData({...formData, image: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título do Evento</label>
-                        <Input 
-                          className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
-                          value={formData.title || ""}
-                          onChange={(e) => setFormData({...formData, title: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio do Evento</label>
-                        <Textarea 
-                          className={cn("border-none min-h-[150px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                          value={formData.content || ""}
-                          onChange={(e) => setFormData({...formData, content: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data e Horários</label>
-                          <Button 
-                            type="button"
-                            variant="outline"
-                            disabled={isReadOnly}
-                            className="w-full bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white flex justify-start font-normal hover:bg-[#222]"
-                            onClick={() => {
-                              // Pre-fill if exists
-                              if (formData.date) {
-                                if (formData.date.includes('T')) {
-                                  const parts = formData.date.split('T');
-                                  setTempDate(parts[0]);
-                                  setTempStartTime(parts[1]?.substring(0, 5) || "");
-                                  setTempEndTime(formData.endTime || "");
-                                } else {
-                                  // Fallback for old custom format
-                                  const parts = formData.date.split(' - ');
-                                  if (parts.length >= 3) {
-                                    const dateParts = parts[0].split('/');
-                                    if (dateParts.length === 3) {
-                                      setTempDate(`${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`);
-                                    }
-                                    setTempStartTime(parts[1]);
-                                    setTempEndTime(parts[2]);
-                                  }
-                                }
-                              } else {
-                                setTempDate("");
-                                setTempStartTime("");
-                                setTempEndTime("");
-                              }
-                              setIsDatePickerOpen(true);
-                            }}
-                          >
-                            <Calendar className="w-4 h-4 mr-2 text-[#BF76FF]" />
-                            {formData.date ? (
-                              formData.date.includes('T') ? (
-                                (() => {
-                                  try {
-                                    return `${format(parseISO(formData.date), 'dd/MM/yyyy')} - ${formData.date.split('T')[1]?.substring(0, 5)}${formData.endTime ? ` - ${formData.endTime}` : ''}`
-                                  } catch (e) { return formData.date; }
-                                })()
-                              ) : formData.date
-                            ) : "Selecionar data e horários"}
-                          </Button>
-
-                          <Dialog open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
-                            <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-md max-h-[90vh] overflow-y-auto">
-                              <DialogHeader>
-                                <DialogTitle>Configurar Data e Horários</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data do Evento</label>
+                          {activeTab === "eventos" && (
+                            <div className="space-y-8 pt-6 border-t border-white/5">
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do Vídeo do YouTube</label>
+                                <div className="relative">
+                                  <Youtube className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500" />
                                   <Input 
-                                    type="date"
-                                    className="bg-[#1a1a1a] border-none h-12 rounded-xl px-4 text-white"
-                                    value={tempDate}
-                                    onChange={(e) => setTempDate(e.target.value)}
+                                    className={cn("border-none h-14 rounded-full pl-14 pr-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                    placeholder="https://www.youtube.com/watch?v=..."
+                                    value={formData.youtubeLink || ""}
+                                    onChange={(e) => setFormData({...formData, youtubeLink: e.target.value})}
+                                    readOnly={isReadOnly}
                                   />
                                 </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Início</label>
-                                    <Input 
-                                      type="time"
-                                      className="bg-[#1a1a1a] border-none h-12 rounded-xl px-4 text-white"
-                                      value={tempStartTime}
-                                      onChange={(e) => setTempStartTime(e.target.value)}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Término</label>
-                                    <Input 
-                                      type="time"
-                                      className="bg-[#1a1a1a] border-none h-12 rounded-xl px-4 text-white"
-                                      value={tempEndTime}
-                                      onChange={(e) => setTempEndTime(e.target.value)}
-                                    />
-                                  </div>
+                              </div>
+
+                              <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Galeria de Fotos</label>
+                                  {!isReadOnly && (
+                                    <Button 
+                                      type="button"
+                                      onClick={() => {
+                                        const current = Array.isArray(formData.gallery) ? formData.gallery : [];
+                                        setFormData({ ...formData, gallery: [...current, ""] });
+                                      }}
+                                      className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all text-[10px] font-black uppercase px-4"
+                                    >
+                                      <Plus className="w-3 h-3 mr-2" /> Adicionar Foto
+                                    </Button>
+                                  )}
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                  {(Array.isArray(formData.gallery) ? formData.gallery : []).map((url, i) => (
+                                    <div key={i} className={cn("p-4 rounded-3xl border transition-all space-y-3 relative group", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                                      <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                          <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                                          <Input 
+                                            className={cn("border-none h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                                            placeholder="URL da imagem..."
+                                            value={url}
+                                            onChange={(e) => {
+                                              const newGallery = [...formData.gallery];
+                                              newGallery[i] = e.target.value;
+                                              setFormData({ ...formData, gallery: newGallery });
+                                            }}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                        {!isReadOnly && (
+                                          <Button 
+                                            type="button" 
+                                            variant="ghost"
+                                            className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shrink-0"
+                                            onClick={() => {
+                                              const newGallery = formData.gallery.filter((_: any, idx: number) => idx !== i);
+                                              setFormData({ ...formData, gallery: newGallery });
+                                            }}
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </Button>
+                                        )}
+                                      </div>
+                                      {url && (
+                                        <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20 group-hover:scale-[1.02] transition-transform duration-300">
+                                          <img src={url} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                  
+                                  {(Array.isArray(formData.gallery) ? formData.gallery : []).length === 0 && (
+                                    <div className={cn("col-span-full py-12 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center text-gray-500 gap-3 opacity-50", isDarkMode ? "border-white/10" : "border-black/10")}>
+                                       <ImageIcon className="w-10 h-10 opacity-20" />
+                                       <p className="text-[10px] font-black uppercase tracking-widest text-center">Cole o link de uma imagem para ver a miniatura</p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
-                              <div className="flex justify-end gap-3">
-                                <Button variant="ghost" onClick={() => setIsDatePickerOpen(false)}>Cancelar</Button>
-                                <Button 
-                                  className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white font-bold"
-                                  onClick={() => {
-                                    if (tempDate && tempStartTime && tempEndTime) {
-                                      const isoDate = `${tempDate}T${tempStartTime}`;
-                                      setFormData({ ...formData, date: isoDate, endTime: tempEndTime });
-                                      setIsDatePickerOpen(false);
-                                    }
-                                  }}
-                                >
-                                  Confirmar
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
+                            </div>
+                          )}
                         </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Organização</label>
-                          <Input 
-                            className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
-                            value={formData.organization || ""}
-                            onChange={(e) => setFormData({...formData, organization: e.target.value})}
-                            readOnly={isReadOnly}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local (Rua/bairro/cidade/ponto de referência)</label>
-                        <Input 
-                          className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-6 text-white" 
-                          value={formData.location || ""}
-                          onChange={(e) => setFormData({...formData, location: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Observações do Evento</label>
-                        <Textarea 
-                          className="bg-[#1a1a1a] border-none min-h-[100px] rounded-2xl p-6 text-white" 
-                          placeholder="Ex: equipamentos que precisa, ponto de energia pegar na casa da Maria..."
-                          value={formData.observations || ""}
-                          onChange={(e) => setFormData({...formData, observations: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
-                    </>
-                  )}
+                      </>
+                    ))
+                  }
 
                   {activeTab === "membros" && (
                     <div className="space-y-8">
@@ -3312,7 +3467,11 @@ export default function Admin() {
                                 }
                                 const newList = [...availableSkills, newSkillName.trim()];
                                 try {
-                                  await setDoc(doc(db, "settings", "skills"), { list: newList });
+                                  try {
+                                    await setDoc(doc(db, "settings", "skills"), { list: newList });
+                                  } catch (e) {
+                                    handleFirestoreError(e, OperationType.UPDATE, 'settings/skills');
+                                  }
                                   setNewSkillName("");
                                 } catch (err) {
                                   handleFirestoreError(err, OperationType.WRITE, "settings/skills");
@@ -3339,48 +3498,36 @@ export default function Admin() {
                     </div>
                   )}
 
-                  {activeTab === "musica" && (
+                  {activeTab === "radio" && (
                     <>
                       <div className="space-y-4">
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Música</label>
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título da Vinheta</label>
                           <Input 
                             className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            placeholder="Ex: Identidade Profecia, Chamada de Culto..."
                             value={formData.title || ""}
                             onChange={(e) => setFormData({...formData, title: e.target.value})}
                             readOnly={isReadOnly}
                           />
                         </div>
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Artista/Ministério</label>
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do YouTube (Vinheta)</label>
                           <Input 
                             className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                            placeholder="Ex: Diante do Trono, Fernandinho..."
-                            value={formData.artist || ""}
-                            onChange={(e) => setFormData({...formData, artist: e.target.value})}
-                            readOnly={isReadOnly}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link Direto do Áudio (.mp3)</label>
-                          <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                            placeholder="https://exemplo.com/audio.mp3"
-                            value={formData.audioUrl || ""}
-                            onChange={(e) => setFormData({...formData, audioUrl: e.target.value})}
-                            readOnly={isReadOnly}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do YouTube (Opcional)</label>
-                          <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                            placeholder="https://youtube.com/watch?v=..."
+                            placeholder="Cole o link do YouTube aqui..."
                             value={formData.youtubeUrl || ""}
                             onChange={(e) => {
                               const url = e.target.value;
-                              const videoId = url.split('v=')[1]?.split('&')[0];
-                              setFormData({...formData, youtubeUrl: url, videoId});
+                              const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                              const match = url.match(regExp);
+                              const videoId = (match && match[2].length === 11) ? match[2] : null;
+                              setFormData({
+                                ...formData, 
+                                youtubeUrl: url, 
+                                videoId: videoId || "",
+                                thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ""
+                              });
                             }}
                             readOnly={isReadOnly}
                           />
@@ -3390,16 +3537,42 @@ export default function Admin() {
                   )}
 
                   <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-white/5 items-stretch sm:items-center">
-                            {isReadOnly && activeTab === "agenda-direcao" ? (
-                              currentRole !== "Direção" && (
-                                <Button 
-                                  variant="outline"
-                                  className={cn("w-full sm:w-auto rounded-2xl h-12 px-8 font-bold border-none transition-all", isDarkMode ? "bg-white/5 text-white hover:bg-[#BF76FF] hover:text-white" : "bg-gray-100 text-black hover:bg-[#BF76FF] hover:text-white")}
-                                  onClick={() => setIsReadOnly(false)}
-                                >
-                                  <Edit className="w-4 h-4 mr-2" /> Editar Compromisso
-                                </Button>
-                              )
+                            {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") ? (
+                              <>
+                                {currentRole !== "Direção" && activeTab === "agenda-direcao" && (
+                                  <Button 
+                                    variant="outline"
+                                    className={cn("w-full sm:w-auto rounded-2xl h-12 px-8 font-bold border-none transition-all", isDarkMode ? "bg-white/5 text-white hover:bg-[#BF76FF] hover:text-white" : "bg-gray-100 text-black hover:bg-[#BF76FF] hover:text-white")}
+                                    onClick={() => setIsReadOnly(false)}
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" /> Editar Compromisso
+                                  </Button>
+                                )}
+                                
+                                {activeTab === "agenda-direcao" && (canDelete || selectedItem?.authorId === user?.uid) && (
+                                  <Button 
+                                    variant="ghost"
+                                    className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
+                                    onClick={() => {
+                                      if (selectedItem) {
+                                        handleDelete(selectedItem.id, "agenda-direcao");
+                                        setIsEditing(false);
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" /> Remover da Agenda
+                                  </Button>
+                                )}
+
+                                {activeTab === "eventos" && canEdit && (
+                                  <Button 
+                                    className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer"
+                                    onClick={() => setIsReadOnly(false)}
+                                  >
+                                    <Edit className="w-4 h-4 mr-2" /> Editar Evento
+                                  </Button>
+                                )}
+                              </>
                             ) : !isReadOnly && (
                               <Button 
                                 className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 order-1 sm:order-2 sm:ml-auto" 
@@ -3429,7 +3602,6 @@ export default function Admin() {
                           const col = selectedItem.type === 'post' ? 'posts' : 
                                       selectedItem.type === 'agenda' ? 'agenda' :
                                       activeTab === "eventos" ? "posts" : 
-                                      activeTab === "musica" ? "musics" : 
                                       activeTab === "membros" ? "members" : "agenda";
                           handleDelete(selectedItem.id, col);
                         }}
@@ -3534,13 +3706,13 @@ export default function Admin() {
                   </>
                 )}
               </div>
-            ) : activeTab === "musica" && !isEditing ? (
+            ) : activeTab === "radio" ? (
               <div className="space-y-6 pb-32">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                  <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Repertório Musical</h2>
+                  <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Vinhetas da Web Rádio</h2>
                   {canEdit && (
                     <Button 
-                      className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold truncate"
+                      className="w-full sm:w-auto bg-gradient-to-r from-[#BF76FF] to-[#8E44AD] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold truncate"
                       onClick={() => {
                         setSelectedItem(null);
                         setFormData({});
@@ -3548,27 +3720,25 @@ export default function Admin() {
                         setIsEditing(true);
                       }}
                     >
-                      <Plus className="w-4 h-4 mr-2 shrink-0" /> Adicionar música
+                      <Plus className="w-4 h-4 mr-2 shrink-0" /> Adicionar Vinheta
                     </Button>
                   )}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredItems.map(music => (
-                    <div key={music.id} className={cn("p-4 rounded-2xl border transition-colors cursor-pointer relative group", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222]" : "bg-white border-black/5 hover:bg-gray-50")} onClick={() => handlePlayMusic(music)}>
+                  {filteredItems.map(vignette => (
+                    <div key={vignette.id} className={cn("p-4 rounded-2xl border transition-colors cursor-pointer relative group", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222]" : "bg-white border-black/5 hover:bg-gray-50")}>
                       <div className="flex items-center gap-4">
-                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-colors", currentPlayingMusic?.id === music.id ? "bg-[#BF76FF] text-white" : "bg-purple-500/10 text-purple-500")}>
-                          {currentPlayingMusic?.id === music.id && isPlaying ? <Pause className="w-6 h-6 animate-pulse" /> : <Play className="w-6 h-6" />}
-                        </div>
+                        <img src={vignette.thumbnail || "https://picsum.photos/seed/mic/100/100"} className="w-12 h-12 rounded-xl object-cover" alt="" />
                         <div className="flex-1 min-w-0">
-                          <h4 className={cn("font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{music.title}</h4>
-                          <p className="text-xs text-gray-500">{music.artist || "Artista desconhecido"}</p>
+                          <h4 className={cn("font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{vignette.title}</h4>
+                          <p className="text-xs text-muted-foreground uppercase tracking-widest">Vinheta ⚡</p>
                         </div>
                         <button 
                           className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSelectedItem(music);
-                            setFormData(music);
+                            setSelectedItem(vignette);
+                            setFormData(vignette);
                             setIsReadOnly(!canEdit);
                             setIsEditing(true);
                           }}
@@ -3580,7 +3750,7 @@ export default function Admin() {
                   ))}
                   {filteredItems.length === 0 && (
                     <div className="col-span-full text-center py-12 text-gray-500">
-                      Nenhuma música encontrada.
+                      Nenhuma vinheta encontrada.
                     </div>
                   )}
                 </div>
@@ -3593,7 +3763,7 @@ export default function Admin() {
                 canDelete={canDelete}
                 onNewEvent={() => {
                   setSelectedItem(null);
-                  setFormData({});
+                  setFormData({ organization: profile?.role || "Membro" });
                   setIsReadOnly(false);
                   setIsEditing(true);
                 }}
@@ -3677,7 +3847,7 @@ export default function Admin() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Membros</p>
-                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{members.length}</h4>
+                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.members}</h4>
                     </div>
                   </Card>
                   <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
@@ -3686,7 +3856,7 @@ export default function Admin() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Agendados</p>
-                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{agenda.length}</h4>
+                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.agenda}</h4>
                     </div>
                   </Card>
                   <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
@@ -3695,7 +3865,7 @@ export default function Admin() {
                     </div>
                     <div>
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Mensagens</p>
-                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{displayNotifications.filter(n => !n.read).length}</h4>
+                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
                     </div>
                   </Card>
                 </div>
@@ -3704,15 +3874,25 @@ export default function Admin() {
               <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div className="flex justify-between items-center mb-8">
                   <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda da Direção</h2>
+                  {canEdit && (
+                    <Button 
+                      variant="outline"
+                      onClick={() => setIsImportEventDialogOpen(true)}
+                      className={cn("rounded-xl border-dashed border-[#BF76FF] text-[#BF76FF] hover:bg-[#BF76FF]/10 cursor-pointer hidden md:flex")}
+                    >
+                      <LinkIcon className="w-4 h-4 mr-2" /> Adicionar Existente
+                    </Button>
+                  )}
                 </div>
                 <CalendarView 
-                  agenda={agendaDirecao.map(a => ({ ...a, type: 'agenda' }))} 
+                  agenda={agendaDirecao.map(a => ({ ...a, type: 'agenda-direcao' }))} 
                   isDark={isDarkMode}
                   canEdit={canEdit}
                   canDelete={canDelete}
                   modalTitle="Novo Compromisso"
                   emptyMessage="Não tem compromisso agendados para hoje."
                   newEventButtonLabel="Novo Compromisso"
+                  deleteButtonLabel="Remover da Agenda"
                   onNewEvent={(date) => {
                     setSelectedItem(null);
                     setFormData({ date: format(date, "yyyy-MM-dd"), inviteChurch: false, invitedMembers: [] });
@@ -3775,7 +3955,7 @@ export default function Admin() {
                               try {
                                 await setDoc(doc(db, "settings", "general"), { enableHeaderVideos: newValue }, { merge: true });
                               } catch (error) {
-                                handleFirestoreError(error, OperationType.WRITE, "settings/general");
+                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
                               }
                             }}
                           />
@@ -3831,7 +4011,11 @@ export default function Admin() {
                                               }
                                             };
                                             try {
-                                              await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
+                                              try {
+                                                await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
+                                              } catch (e) {
+                                                handleFirestoreError(e, OperationType.UPDATE, 'settings/general');
+                                              }
                                             } catch (error) {
                                               handleFirestoreError(error, OperationType.WRITE, "settings/general");
                                             }
@@ -3851,7 +4035,7 @@ export default function Admin() {
                                   {[
                                     { label: "Início", key: "visao-geral" },
                                     { label: "Eventos", key: "eventos" },
-                                    { label: "Música", key: "musica" },
+                                    { label: "Web Rádio", key: "radio" },
                                     { label: "Membros", key: "membros" },
                                     { label: "Agenda", key: "agenda" },
                                     { label: "Agen. Direção", key: "agenda-direcao" }
@@ -3860,7 +4044,7 @@ export default function Admin() {
                                     const defaultVals: any = {
                                       "visao-geral": true,
                                       "eventos": !["Membro", "Visitante"].includes(role),
-                                      "musica": !["Membro", "Visitante"].includes(role),
+                                      "radio": !["Membro", "Visitante"].includes(role),
                                       "membros": !["Membro", "Visitante"].includes(role),
                                       "agenda": !["Membro", "Visitante"].includes(role),
                                       "agenda-direcao": role === "Administradores" || role === "Desenvolvedor"
@@ -3933,56 +4117,6 @@ export default function Admin() {
           </div>
         </div>
 
-        {/* Linear Design Music Player (Global) */}
-        <AnimatePresence>
-          {currentPlayingMusic && (
-            <motion.div 
-              initial={{ y: 100 }}
-              animate={{ y: 0 }}
-              exit={{ y: 100 }}
-              className={cn(
-                "fixed bottom-20 left-4 right-4 lg:left-[calc(260px+2rem)] lg:right-[calc(320px+2rem)] z-50 p-4 rounded-[28px] border shadow-2xl flex items-center gap-4 transition-all duration-500",
-                isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10 shadow-[0_20px_50px_rgba(0,0,0,0.1)]"
-              )}
-            >
-              <div className="w-12 h-12 rounded-xl bg-[#BF76FF] flex items-center justify-center text-white shrink-0 shadow-lg shadow-[#BF76FF]/20">
-                <Music className={cn("w-6 h-6", isPlaying && "animate-spin-slow")} />
-              </div>
-              
-              <div className="flex-1 min-w-0">
-                <p className={cn("text-xs font-black truncate uppercase tracking-widest mb-0.5", isDarkMode ? "text-white" : "text-black")}>{currentPlayingMusic.title}</p>
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">{currentPlayingMusic.artist || 'Artista Desconhecido'}</p>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="rounded-full hover:bg-[#BF76FF]/10 hover:text-[#BF76FF]"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    togglePlay();
-                  }}
-                >
-                  {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current" />}
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="rounded-full text-red-500 hover:bg-red-500/10"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (audioRef.current) audioRef.current.pause();
-                    setIsPlaying(false);
-                    setCurrentPlayingMusic(null);
-                  }}
-                >
-                  <X className="w-5 h-5" />
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </main>
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile/tablets, only permanent on XL) */}
@@ -4393,14 +4527,164 @@ export default function Admin() {
         </DialogContent>
       </Dialog>
 
-      <audio 
-        ref={audioRef}
-        key={currentPlayingMusic?.id}
-        src={currentPlayingMusic?.audioUrl || undefined}
-        onEnded={() => setIsPlaying(false)}
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-      />
+      {/* Import Event Dialog */}
+      <Dialog open={isImportEventDialogOpen} onOpenChange={setIsImportEventDialogOpen}>
+        <DialogContent className={cn("sm:max-w-xl p-0 overflow-hidden max-h-[85vh] flex flex-col rounded-[32px] border", isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10")}>
+          <div className="p-8 pb-4">
+            <DialogHeader>
+              <DialogTitle className={cn("text-2xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>Adicionar Evento Existente</DialogTitle>
+            </DialogHeader>
+            <div className="mt-6 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input 
+                placeholder="Pesquisar em eventos e agenda comum..."
+                value={importSearch}
+                onChange={(e) => setImportSearch(e.target.value)}
+                className={cn("pl-12 h-14 rounded-2xl border-none transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+              />
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin scrollbar-thumb-[#BF76FF]/20">
+            <div className="space-y-3 pt-4">
+              {eventsToImport.length > 0 ? (
+                eventsToImport.map((event) => (
+                  <div 
+                    key={`${event.type}-${event.id}`}
+                    onClick={() => handleImportEvent(event)}
+                    className={cn(
+                      "p-4 rounded-2xl border transition-all cursor-pointer group flex items-center justify-between",
+                      isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10 hover:border-[#BF76FF]/30" : "bg-gray-50 border-black/5 hover:bg-white hover:shadow-lg hover:border-[#BF76FF]/30"
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      {event.thumbnail ? (
+                        <img src={event.thumbnail} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />
+                      ) : (
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", event.type === 'post' ? "bg-blue-500/10 text-blue-500" : "bg-orange-500/10 text-orange-500")}>
+                          {event.type === 'post' ? <Star className="w-6 h-6" /> : <Calendar className="w-6 h-6" />}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h4 className={cn("font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{event.title}</h4>
+                        <div className="flex items-center gap-2 text-[10px] text-gray-500 font-medium">
+                          <CalendarDays className="w-3 h-3" />
+                          <span>{safeFormatDate(event.date)}</span>
+                          <span>•</span>
+                          <span className="uppercase tracking-widest">{event.type === 'post' ? 'Evento' : 'Agenda'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" className="group-hover:text-[#BF76FF] transition-colors rounded-full">
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-20 opacity-40">
+                  <Search className="w-12 h-12 mx-auto mb-4" />
+                  <p className="text-sm font-bold">Nenhum evento encontrado</p>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className={cn("p-6 border-t flex justify-end", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-gray-50")}>
+            <Button variant="ghost" onClick={() => setIsImportEventDialogOpen(false)} className="rounded-xl font-bold">Cancelar</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Member Selector Dialog */}
+      <Dialog open={isMemberSelectorOpen} onOpenChange={setIsMemberSelectorOpen}>
+        <DialogContent className={cn("sm:max-w-md p-0 overflow-hidden max-h-[85vh] flex flex-col rounded-[32px] border", isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10")}>
+          <div className="p-8 pb-4">
+            <DialogHeader>
+              <DialogTitle className={cn("text-2xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>Convidar Membros</DialogTitle>
+            </DialogHeader>
+            <div className="mt-6 relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input 
+                placeholder="Pesquisar por nome ou cargo..."
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                className={cn("pl-12 h-14 rounded-2xl border-none transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+              />
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin scrollbar-thumb-[#BF76FF]/20">
+            <div className="space-y-2 pt-4">
+              {members
+                .filter(m => (m.name?.toLowerCase().includes(memberSearch.toLowerCase()) || m.role?.toLowerCase().includes(memberSearch.toLowerCase())) && m.status !== "pending")
+                .map((member) => {
+                  const isSelected = formData.invitedMembers?.some((m: any) => m.id === member.id);
+                  return (
+                    <div 
+                      key={member.id}
+                      onClick={() => {
+                        const currentInvited = formData.invitedMembers || [];
+                        if (isSelected) {
+                          setFormData({
+                            ...formData,
+                            invitedMembers: currentInvited.filter((m: any) => m.id !== member.id)
+                          });
+                        } else {
+                          setFormData({
+                            ...formData,
+                            invitedMembers: [...currentInvited, { id: member.id, name: member.name, photo: member.photoURL }]
+                          });
+                        }
+                      }}
+                      className={cn(
+                        "p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between group",
+                        isSelected 
+                          ? isDarkMode ? "bg-[#BF76FF]/20 border-[#BF76FF]/40" : "bg-[#BF76FF]/10 border-[#BF76FF]/30"
+                          : isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-gray-50 border-black/5 hover:bg-white hover:shadow-md"
+                      )}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-200 shrink-0">
+                          {member.photoURL ? (
+                            <img src={member.photoURL} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold">
+                              {member.name?.[0]}
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className={cn("text-sm font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{member.name}</h4>
+                          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest leading-none mt-1">
+                            {formatRoles(member)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className={cn(
+                        "w-6 h-6 rounded-lg flex items-center justify-center transition-all",
+                        isSelected ? "bg-[#BF76FF] text-white" : isDarkMode ? "bg-white/10 text-transparent" : "bg-black/5 text-transparent"
+                      )}>
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+          
+          <div className={cn("p-6 border-t flex justify-between items-center", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-gray-50")}>
+            <p className="text-xs text-gray-500 font-bold">
+              {formData.invitedMembers?.length || 0} selecionados
+            </p>
+            <Button 
+              className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white rounded-xl font-bold px-8"
+              onClick={() => setIsMemberSelectorOpen(false)}
+            >
+              Concluir
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

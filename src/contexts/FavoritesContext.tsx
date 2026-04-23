@@ -1,23 +1,26 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-interface Video {
+export type FavoriteCategory = "music" | "event" | "video";
+
+export interface FavoriteItem {
   id: string;
   title: string;
   thumbnail: string;
   published: string;
   link: string;
+  category: FavoriteCategory;
 }
 
 interface FavoritesContextType {
-  favorites: Video[];
-  toggleFavorite: (video: Video) => void;
-  isFavorite: (videoId: string) => boolean;
+  favorites: FavoriteItem[];
+  toggleFavorite: (item: FavoriteItem) => void;
+  isFavorite: (itemId: string) => boolean;
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
-  const [favorites, setFavorites] = useState<Video[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem("church_favorites");
@@ -30,22 +33,22 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const toggleFavorite = (video: Video) => {
+  const toggleFavorite = (item: FavoriteItem) => {
     setFavorites(prev => {
-      const isFav = prev.some(v => v.id === video.id);
+      const isFav = prev.some(v => v.id === item.id);
       let newFavs;
       if (isFav) {
-        newFavs = prev.filter(v => v.id !== video.id);
+        newFavs = prev.filter(v => v.id !== item.id);
       } else {
-        newFavs = [...prev, video];
+        newFavs = [...prev, item];
       }
       localStorage.setItem("church_favorites", JSON.stringify(newFavs));
       return newFavs;
     });
   };
 
-  const isFavorite = (videoId: string) => {
-    return favorites.some(v => v.id === videoId);
+  const isFavorite = (itemId: string) => {
+    return favorites.some(v => v.id === itemId);
   };
 
   return (

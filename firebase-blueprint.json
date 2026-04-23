@@ -1,5 +1,30 @@
 {
   "entities": {
+    "Playlist": {
+      "title": "Playlist",
+      "description": "Playlists criadas pelos membros",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorPhoto": { "type": "string" },
+        "coverImage": { "type": "string" },
+        "tracks": { 
+          "type": "array",
+          "items": { "type": "object", "properties": {
+            "id": { "type": "string" },
+            "title": { "type": "string" },
+            "videoId": { "type": "string" },
+            "thumbnail": { "type": "string" },
+            "type": { "type": "string", "enum": ["normal", "vignette"] }
+          }}
+        },
+        "isPublic": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "authorId", "tracks"]
+    },
     "Post": {
       "title": "Post",
       "description": "Artigos e notícias da igreja",
@@ -14,19 +39,6 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "content", "authorId"]
-    },
-    "Music": {
-      "title": "Music",
-      "description": "Músicas para tocar de fundo",
-      "type": "object",
-      "properties": {
-        "title": { "type": "string" },
-        "youtubeUrl": { "type": "string" },
-        "videoId": { "type": "string" },
-        "addedBy": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["title", "youtubeUrl", "videoId"]
     },
     "Member": {
       "title": "Member",
@@ -68,6 +80,18 @@
       },
       "required": ["title", "message", "read"]
     },
+    "Vignette": {
+      "title": "Vignette",
+      "description": "Vinhetas e jingles da rádio",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "videoId": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "videoId"]
+    },
     "Settings": {
       "title": "Settings",
       "description": "Configurações gerais do site",
@@ -82,10 +106,6 @@
       "schema": "Post",
       "description": "Coleção de artigos"
     },
-    "/musics/{musicId}": {
-      "schema": "Music",
-      "description": "Playlist de fundo"
-    },
     "/members/{memberId}": {
       "schema": "Member",
       "description": "Equipe e permissões"
@@ -97,6 +117,14 @@
     "/notifications/{notifId}": {
       "schema": "Notification",
       "description": "Alertas administrativos"
+    },
+    "/playlists/{playlistId}": {
+      "schema": "Playlist",
+      "description": "Playlists musicais dos membros"
+    },
+    "/vignettes/{vignetteId}": {
+      "schema": "Vignette",
+      "description": "Coleção de vinhetas da rádio"
     },
     "/settings/{settingId}": {
       "schema": "Settings",

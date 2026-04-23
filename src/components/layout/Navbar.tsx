@@ -10,7 +10,7 @@ import {
   Heart,
   ChevronRight
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -44,6 +44,7 @@ const menuGroups = [
   {
     name: "Conteúdo",
     items: [
+      { name: "Rádio", path: "/admin?tab=radio" },
       { name: "Bíblia Online", path: "/biblia" },
       { name: "Galeria de fotos", path: "/galeria" },
       { name: "Galeria de Vídeos", path: "/#videos" },
@@ -232,18 +233,16 @@ export default function Navbar() {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  render={
-                    <button className="flex items-center gap-3 opacity-90 hover:opacity-100 transition-opacity outline-none group">
-                      <div className="text-right hidden xl:block">
-                        <p className="text-sm font-bold text-white leading-none">{user.displayName?.split(' ')[0]}</p>
-                      </div>
-                      <Avatar className="h-9 w-9 border border-white/20 group-hover:border-[#BF76FF]/50 transition-colors">
-                        <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
-                        <AvatarFallback className="bg-primary/20 text-primary text-xs">{user.displayName?.[0] || "U"}</AvatarFallback>
-                      </Avatar>
-                    </button>
-                  }
-                />
+                  className="flex items-center gap-3 opacity-90 hover:opacity-100 transition-opacity outline-none group"
+                >
+                  <div className="text-right hidden xl:block">
+                    <p className="text-sm font-bold text-white leading-none">{user.displayName?.split(' ')[0]}</p>
+                  </div>
+                  <Avatar className="h-9 w-9 border border-white/20 group-hover:border-[#BF76FF]/50 transition-colors">
+                    <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-xs">{user.displayName?.[0] || "U"}</AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-black border-white/10 text-white rounded-xl mt-4 p-2 shadow-2xl" align="end">
                   <div className="flex flex-col space-y-1 p-3">
                     <p className="text-sm font-medium leading-none">{user.displayName}</p>
@@ -277,12 +276,10 @@ export default function Navbar() {
             <div className="md:hidden">
               <Sheet>
                 <SheetTrigger
-                  render={
-                    <Button variant="ghost" size="icon" className="text-white/90 hover:text-white hover:bg-white/10 rounded-full">
-                      <Menu className="w-6 h-6" />
-                    </Button>
-                  }
-                />
+                  className={cn("text-white/90 hover:text-white hover:bg-white/10 rounded-full", buttonVariants({ variant: "ghost", size: "icon" }))}
+                >
+                  <Menu className="w-6 h-6" />
+                </SheetTrigger>
                 <SheetContent side="right" className="bg-black border-white/10 text-white w-[85%] sm:w-[400px] p-0">
                 <div className="flex flex-col h-full">
                   <div className="p-6 border-b border-white/10">

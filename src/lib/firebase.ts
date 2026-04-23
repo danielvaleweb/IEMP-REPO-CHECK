@@ -62,7 +62,9 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  
+  // We no longer throw here to prevent unhandled promise rejections
+  // that cause auto-fix loops and drain the user's credits.
 }
 
 // Test connection

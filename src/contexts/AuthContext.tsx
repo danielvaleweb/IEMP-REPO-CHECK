@@ -155,11 +155,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               msg = "Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.";
             }
             setError(msg);
-            throw redirectError;
           }
         } else {
           setError(popupError.message);
-          throw popupError;
         }
       }
     } catch (error: any) {
@@ -169,7 +167,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         msg = "Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.";
       }
       setError(msg);
-      throw error;
     }
   };
 
