@@ -44,7 +44,6 @@ const menuGroups = [
   {
     name: "Conteúdo",
     items: [
-      { name: "Rádio", path: "/admin?tab=radio" },
       { name: "Bíblia Online", path: "/biblia" },
       { name: "Galeria de fotos", path: "/galeria" },
       { name: "Galeria de Vídeos", path: "/#videos" },

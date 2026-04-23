@@ -39,7 +39,11 @@ export default function Home() {
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
       if (docSnap.exists()) {
-        setSettings(docSnap.data());
+        const data = docSnap.data();
+        setSettings(data);
+        if (data.nextService) {
+          setNextService(data.nextService);
+        }
       }
     }, (err) => console.error("Error loading settings:", err));
     return () => unsubSettings();
@@ -102,7 +106,7 @@ export default function Home() {
           fullDate: eventDate,
           invitedMembers: data.invitedMembers || [],
           neighborhood: data.neighborhood || "",
-          rating: (Math.random() * (5 - 3.5) + 3.5).toFixed(1) // Fake rating for the movie look
+          rating: "5.0" // Fixed rating instead of random to look more professional
         };
       });
 
@@ -141,18 +145,18 @@ export default function Home() {
         console.error("Error fetching videos, using fallbacks:", error);
         setVideos([
           {
-            id: "dQw4w9WgXcQ",
-            title: "Culto de Celebração - 14/04",
-            thumbnail: "https://picsum.photos/seed/church1/1920/1080",
+            id: "fallback_1",
+            title: "Culto de Celebração",
+            thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
             published: new Date().toISOString(),
-            link: "https://youtube.com/watch?v=dQw4w9WgXcQ"
+            link: "https://youtube.com/channel/UCILgaItnqDH3plhRXD54QUg"
           },
           {
-            id: "9bZkp7q19f0",
-            title: "Estudo Bíblico: Romanos 8",
-            thumbnail: "https://picsum.photos/seed/church2/1920/1080",
+            id: "fallback_2",
+            title: "Momento de Oração",
+            thumbnail: "https://images.unsplash.com/photo-1510590337019-5ef8d3d32116?auto=format&fit=crop&q=80&w=1920",
             published: new Date().toISOString(),
-            link: "https://youtube.com/watch?v=9bZkp7q19f0"
+            link: "https://youtube.com/channel/UCILgaItnqDH3plhRXD54QUg"
           }
         ]);
       }
@@ -670,11 +674,9 @@ export default function Home() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     
-                    <div className="absolute top-6 left-6 bg-white/95 backdrop-blur-md px-3 py-1 rounded-xl flex items-center gap-1.5 shadow-lg">
-                      <span className="text-xs font-black text-black">{event.rating}</span>
-                      <svg className="w-3.5 h-3.5 text-primary fill-current" viewBox="0 0 20 20">
-                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                      </svg>
+                    <div className="absolute top-6 left-6 bg-white/95 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg border border-black/5">
+                      <MapPin className="w-3.5 h-3.5 text-primary" />
+                      <span className="text-xs font-black text-black uppercase tracking-tighter">{event.neighborhood || "Local"}</span>
                     </div>
 
                     <button 
@@ -698,7 +700,6 @@ export default function Home() {
                     </button>
                     
                     <div className="absolute bottom-6 left-6 right-6 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500">
-                      <p className="text-[10px] font-black text-white/60 mb-1 uppercase tracking-widest">{event.category}</p>
                       <h4 className="text-xl font-black text-white leading-tight uppercase">{event.title}</h4>
                     </div>
                   </div>

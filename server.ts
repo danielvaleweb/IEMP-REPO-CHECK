@@ -59,10 +59,11 @@ async function startServer() {
 
   // API Route to get recent videos
   app.get("/api/recent-videos", async (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       const channelId = "UCILgaItnqDH3plhRXD54QUg";
-      // Using the handle URL for better scraping compatibility
-      const videosUrl = `https://www.youtube.com/@ministerio_profecia/videos`;
+      // Using the channel ID URL for better stability in different regions
+      const videosUrl = `https://www.youtube.com/channel/${channelId}/videos`;
       
       const response = await fetch(videosUrl, {
         headers: {
@@ -165,10 +166,11 @@ async function startServer() {
 
   // API Route to get recent lives/streams
   app.get("/api/recent-lives", async (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       const channelId = "UCILgaItnqDH3plhRXD54QUg";
-      // Using the handle URL for streams
-      const streamsUrl = `https://www.youtube.com/@ministerio_profecia/streams`;
+      // Using the channel ID URL for streams
+      const streamsUrl = `https://www.youtube.com/channel/${channelId}/streams`;
       
       const response = await fetch(streamsUrl, {
         headers: {

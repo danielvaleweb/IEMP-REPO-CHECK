@@ -1050,7 +1050,7 @@ export default function Admin() {
     "Membro"
   ], []);
 
-  const isMasterAdmin = user?.email === "iempministerioprofecia@gmail.com";
+  const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
   const isAdminOrDev = profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || isMasterAdmin;
 
   // Notifications Filtering Logic
@@ -1200,8 +1200,8 @@ export default function Admin() {
 
   const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
 
-  const isEffectivelyAdmin = isMasterAdmin && (!activeViewRole || activeViewRole === "Administradores");
-  const canViewSettings = currentRole === "Desenvolvedor" || (isMasterAdmin && (!activeViewRole || activeViewRole === "Administradores" || activeViewRole === "Desenvolvedor"));
+  const isEffectivelyAdmin = (isMasterAdmin || profile?.role === "Administradores") && (!activeViewRole || activeViewRole === "Administradores");
+  const canViewSettings = currentRole === "Desenvolvedor" || currentRole === "Administradores" || (isMasterAdmin && (!activeViewRole || activeViewRole === "Administradores" || activeViewRole === "Desenvolvedor"));
 
   const canViewTab = (tab: string) => {
     if (tab === "config" && !canViewSettings) return false;
@@ -1368,7 +1368,7 @@ export default function Admin() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      let collectionName = activeTab === "eventos" ? "posts" : activeTab === "radio" ? "vignettes" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
+      let collectionName = activeTab === "eventos" ? "posts" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
       
       // Override collection if editing an item that has a specific type (e.g. from merged agenda)
       if (selectedItem?.type) {
@@ -2188,7 +2188,6 @@ export default function Admin() {
             <div className="hidden md:flex flex-col gap-1.5 w-full">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("radio") && <SidebarItem icon={Mic} active={activeTab === "radio"} onClick={() => setActiveTab("radio")} label="Web Rádio" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
@@ -2420,9 +2419,6 @@ export default function Admin() {
                    <div className="grid grid-cols-2 gap-3">
                       <Button onClick={() => setActiveTab("visao-geral")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
                         <Home className="w-6 h-6" /> <span className="text-[10px] font-bold">Início</span>
-                      </Button>
-                      <Button onClick={() => setActiveTab("radio")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
-                        <Mic className="w-6 h-6" /> <span className="text-[10px] font-bold">Web Rádio</span>
                       </Button>
                       <Button onClick={() => setActiveTab("membros")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
                         <Users className="w-6 h-6" /> <span className="text-[10px] font-bold">Membros</span>
@@ -3055,10 +3051,10 @@ export default function Admin() {
                             </div>
 
                             <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Organização / Quem convidou?</label>
+                              <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Quem convidou / Localização</label>
                               <Input 
-                                className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Ex: Igreja Local, Ministério Profecia..."
+                                className={cn("border-none h-14 rounded-2xl px-6 transition-colors shadow-sm", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                placeholder="Ex: Igreja Local..."
                                 value={formData.organization || formData.organizer || ""}
                                 onChange={(e) => setFormData({...formData, organization: e.target.value, organizer: e.target.value})}
                                 readOnly={isReadOnly}
@@ -3210,22 +3206,28 @@ export default function Admin() {
                             )}
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Contatos (Infos Adicionais)</label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/5 p-6 rounded-[32px] border border-white/5">
+                            <div className="space-y-3">
+                              <label className="text-xs font-black text-[#BF76FF] uppercase tracking-[0.2em] flex items-center gap-2">
+                                <div className="w-1 h-3 bg-[#BF76FF] rounded-full" />
+                                Contatos & Informações
+                              </label>
                               <Textarea 
-                                className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Ex: Contato do Pastor da outra igreja..."
+                                className={cn("border-none min-h-[120px] rounded-2xl p-6 transition-all shadow-inner", isDarkMode ? "bg-black/40 text-white focus:bg-black/60" : "bg-white text-black")} 
+                                placeholder="Informações de contato e detalhes adicionais..."
                                 value={formData.additionalInfo || ""}
                                 onChange={(e) => setFormData({...formData, additionalInfo: e.target.value})}
                                 readOnly={isReadOnly}
                               />
                             </div>
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Observações Internas (Admin)</label>
+                            <div className="space-y-3">
+                              <label className="text-xs font-black text-amber-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <div className="w-1 h-3 bg-amber-500 rounded-full" />
+                                Observações Importantes
+                              </label>
                               <Textarea 
-                                className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Ex: Pegar chave com fulano..."
+                                className={cn("border-none min-h-[120px] rounded-2xl p-6 transition-all shadow-inner", isDarkMode ? "bg-amber-500/5 text-amber-200 focus:bg-amber-500/10" : "bg-amber-50 text-amber-900")} 
+                                placeholder="Observações importantes para a equipe..."
                                 value={formData.observations || ""}
                                 onChange={(e) => setFormData({...formData, observations: e.target.value})}
                                 readOnly={isReadOnly}
@@ -3981,6 +3983,26 @@ export default function Admin() {
                     <h4 className={cn("text-2xl font-bold mb-4 transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
                     
                     <div className="space-y-4">
+                      <div className={cn("flex flex-col gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                        <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Próximo Culto (Frase no início)</label>
+                          <Input 
+                            className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
+                            placeholder="Ex: Domingo às 19:00"
+                            value={settings.nextService ?? "Domingo às 19:00"}
+                            onChange={async (e) => {
+                              const newValue = e.target.value;
+                              try {
+                                await setDoc(doc(db, "settings", "general"), { nextService: newValue }, { merge: true });
+                              } catch (error) {
+                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
+                              }
+                            }}
+                          />
+                          <p className="text-[10px] text-gray-500 italic mt-1 pl-1">Esta frase aparece no topo da página inicial abaixo do título principal.</p>
+                        </div>
+                      </div>
+
                       <div className={cn("flex items-center justify-between p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                         <div>
                           <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Vídeos no Header (Início)</h5>
@@ -4076,7 +4098,6 @@ export default function Admin() {
                                   {[
                                     { label: "Início", key: "visao-geral" },
                                     { label: "Eventos", key: "eventos" },
-                                    { label: "Web Rádio", key: "radio" },
                                     { label: "Membros", key: "membros" },
                                     { label: "Agenda", key: "agenda" },
                                     { label: "Agen. Direção", key: "agenda-direcao" }
@@ -4085,7 +4106,6 @@ export default function Admin() {
                                     const defaultVals: any = {
                                       "visao-geral": true,
                                       "eventos": !["Membro", "Visitante"].includes(role),
-                                      "radio": !["Membro", "Visitante"].includes(role),
                                       "membros": !["Membro", "Visitante"].includes(role),
                                       "agenda": !["Membro", "Visitante"].includes(role),
                                       "agenda-direcao": role === "Administradores" || role === "Desenvolvedor"

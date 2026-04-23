@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               name: user.displayName,
               email: user.email,
               photoURL: user.photoURL,
-              role: user.email === "iempministerioprofecia@gmail.com" ? "admin" : "member",
+              role: user.email === "iempministerioprofecia@gmail.com" ? "Administradores" : "Membro",
               status: user.email === "iempministerioprofecia@gmail.com" ? "approved" : "pending",
               hasDashboardAccess: user.email === "iempministerioprofecia@gmail.com",
               createdAt: new Date().toISOString()
@@ -200,9 +200,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const isAdmin = (firebaseUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") || 
                   (auth.currentUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") ||
+                  profile?.role === "Administradores" || 
                   profile?.role === "admin" || 
                   profile?.role === "Direção" ||
+                  profile?.role === "Desenvolvedor" ||
                   customUserData?.role === "admin" || 
+                  customUserData?.role === "Administradores" ||
                   (isCustomLoggedIn && !customUserData);
 
   useEffect(() => {
