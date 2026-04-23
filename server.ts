@@ -18,8 +18,19 @@ async function startServer() {
 
   app.get("/api/live-status", async (req, res) => {
     try {
-      const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      const handle = (req.query.handle as string) || "@ministerio_profecia";
+      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      channelId = channelId.trim();
+      if (channelId.includes('youtube.com/channel/')) {
+        channelId = channelId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
+      } else if (channelId.includes('youtube.com/@')) {
+         channelId = '@' + channelId.split('youtube.com/@')[1].split('/')[0].split('?')[0];
+      }
+      let handle = (req.query.handle as string) || "@ministerio_profecia";
+      handle = handle.trim();
+      if (handle.includes('youtube.com/')) {
+         handle = handle.split('youtube.com/')[1].split('/')[0].split('?')[0];
+         if(!handle.startsWith('@')) handle = '@' + handle;
+      }
       
       // Try both handle and channel ID for live status
       const urls = [
@@ -71,9 +82,19 @@ async function startServer() {
   app.get("/api/recent-videos", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      // Using the channel ID URL for better stability in different regions
-      const videosUrl = `https://www.youtube.com/channel/${channelId}/videos`;
+      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      channelId = channelId.trim();
+      // Extract from URL if they pasted one
+      if (channelId.includes('youtube.com/channel/')) {
+        channelId = channelId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
+      } else if (channelId.includes('youtube.com/@')) {
+         channelId = '@' + channelId.split('youtube.com/@')[1].split('/')[0].split('?')[0];
+      }
+      
+      let videosUrl = `https://www.youtube.com/channel/${channelId}/videos`;
+      if (channelId.startsWith('@')) {
+        videosUrl = `https://www.youtube.com/${channelId}/videos`;
+      }
       
       const response = await fetch(videosUrl, {
         headers: {
@@ -155,6 +176,8 @@ async function startServer() {
         } catch (parseError) {
           console.error("Error parsing ytInitialData:", parseError);
         }
+      } else {
+        console.error("Could not match ytInitialData regex for:", videosUrl);
       }
       
       // Fallback to RSS if scraping fails
@@ -192,9 +215,17 @@ async function startServer() {
   app.get("/api/recent-lives", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      // Using the channel ID URL for streams
-      const streamsUrl = `https://www.youtube.com/channel/${channelId}/streams`;
+      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      channelId = channelId.trim();
+      if (channelId.includes('youtube.com/channel/')) {
+        channelId = channelId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
+      } else if (channelId.includes('youtube.com/@')) {
+         channelId = '@' + channelId.split('youtube.com/@')[1].split('/')[0].split('?')[0];
+      }
+      let streamsUrl = `https://www.youtube.com/channel/${channelId}/streams`;
+      if (channelId.startsWith('@')) {
+        streamsUrl = `https://www.youtube.com/${channelId}/streams`;
+      }
       
       const response = await fetch(streamsUrl, {
         headers: {
