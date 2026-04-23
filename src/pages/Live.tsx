@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { db } from "@/lib/firebase";
+import { doc, onSnapshot } from "firebase/firestore";
 
 const MOCK_RANKING = [
   { id: "1", name: "Irmão José", points: 1250, level: "Ancião", rank: 1 },
@@ -37,12 +39,18 @@ export default function Live() {
   const [prayerRequest, setPrayerRequest] = useState("");
   const [chatMessage, setChatMessage] = useState("");
   const [videoId, setVideoId] = useState("");
+  const [settings, setSettings] = useState<any>({});
 
   useEffect(() => {
-    // In a real app, you would fetch the current live video ID from your backend or YouTube API
-    // For now, we'll use the channel-based embed for the video which is automatic
-    // The chat unfortunately requires a specific video ID (v=...)
+    const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        setSettings(docSnap.data());
+      }
+    });
+    return () => unsub();
   }, []);
+
+  const channelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
 
   return (
     <div className="pt-24 pb-12 px-4 min-h-screen gradient-bg">
@@ -54,7 +62,7 @@ export default function Live() {
             <iframe
               width="100%"
               height="100%"
-              src={`https://www.youtube-nocookie.com/embed/live_stream?channel=UCILgaItnqDH3plhRXD54QUg&origin=${window.location.origin}`}
+              src={`https://www.youtube-nocookie.com/embed/live_stream?channel=${channelId}&origin=${window.location.origin}`}
               title="YouTube Live Stream"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -74,7 +82,7 @@ export default function Live() {
               </div>
               <div className="flex gap-2">
                 <a 
-                  href="https://www.youtube.com/channel/UCILgaItnqDH3plhRXD54QUg" 
+                  href={`https://www.youtube.com/channel/${channelId}`} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center rounded-full border border-white/10 px-4 py-2 text-sm font-medium hover:bg-white/5 transition-colors text-white"

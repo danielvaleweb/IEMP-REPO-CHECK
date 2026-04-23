@@ -129,9 +129,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // Only attempt to fetch when settings are available
+    const configChannelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
+    const configHandle = settings.youtubeHandle || "@ministerio_profecia";
+
     const fetchVideos = async () => {
       try {
-        const response = await fetch("/api/recent-videos");
+        const response = await fetch(`/api/recent-videos?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch videos");
         const data = await response.json();
         
@@ -145,18 +149,18 @@ export default function Home() {
         console.error("Error fetching videos, using fallbacks:", error);
         setVideos([
           {
-            id: "fallback_1",
-            title: "Culto de Celebração",
+            id: "channel_fallback_1",
+            title: "Culto de Celebração (Assista no Canal)",
             thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
             published: new Date().toISOString(),
-            link: "https://youtube.com/channel/UCILgaItnqDH3plhRXD54QUg"
+            link: `https://www.youtube.com/${configHandle}/videos`
           },
           {
-            id: "fallback_2",
+            id: "channel_fallback_2",
             title: "Momento de Oração",
             thumbnail: "https://images.unsplash.com/photo-1510590337019-5ef8d3d32116?auto=format&fit=crop&q=80&w=1920",
             published: new Date().toISOString(),
-            link: "https://youtube.com/channel/UCILgaItnqDH3plhRXD54QUg"
+            link: `https://www.youtube.com/${configHandle}/videos`
           }
         ]);
       }
@@ -164,7 +168,7 @@ export default function Home() {
 
     const fetchLives = async () => {
       try {
-        const response = await fetch("/api/recent-lives");
+        const response = await fetch(`/api/recent-lives?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch lives");
         const data = await response.json();
         
@@ -176,10 +180,10 @@ export default function Home() {
           setLives([
             {
               id: "live_fallback_1",
-              title: "Culto Ao Vivo",
+              title: "Culto Ao Vivo (Acesse o Canal)",
               thumbnail: "https://picsum.photos/seed/live1/1920/1080",
               published: new Date().toISOString(),
-              link: "#"
+              link: `https://www.youtube.com/${configHandle}/live`
             }
           ]);
         }
@@ -192,7 +196,7 @@ export default function Home() {
             title: "Transmissão Encerrada",
             thumbnail: "https://picsum.photos/seed/liveerror/1920/1080",
             published: new Date().toISOString(),
-            link: "#"
+            link: `https://www.youtube.com/${configHandle}/live`
           }
         ]);
       }
@@ -204,7 +208,7 @@ export default function Home() {
     // Check if live
     const checkLive = async () => {
       try {
-        const response = await fetch("/api/live-status");
+        const response = await fetch(`/api/live-status?channelId=${configChannelId}&handle=${configHandle}`);
         if (response.ok) {
           const data = await response.json();
           setIsLive(data.isLive);
@@ -219,7 +223,7 @@ export default function Home() {
     checkLive();
     const interval = setInterval(checkLive, 60000);
     return () => clearInterval(interval);
-  }, []);
+  }, [settings.youtubeChannelId, settings.youtubeHandle]);
 
   // Auto-play carousel every 30 seconds
   useEffect(() => {
@@ -269,6 +273,16 @@ export default function Home() {
     }
     // If it's a relative string like "Há 2 dias" or "Recentemente"
     return published;
+  };
+
+  const handleWatchVideo = (video: any) => {
+    if (!video) return;
+    if (video.id.includes('fallback')) {
+      window.open(video.link || "https://www.youtube.com/@ministerio_profecia/videos", '_blank');
+      return;
+    }
+    setSelectedVideo(video);
+    setIsWatching(true);
   };
 
   return (
@@ -339,10 +353,7 @@ export default function Home() {
                     <Button
                       size="lg"
                       className="bg-white text-black hover:bg-white/90 hover:scale-105 transition-all duration-300 rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2 group"
-                      onClick={() => {
-                        setSelectedVideo(videos[currentIndex]);
-                        setIsWatching(true);
-                      }}
+                      onClick={() => handleWatchVideo(videos[currentIndex])}
                     >
                       <Play className="w-6 h-6 fill-current" />
                       Assistir
@@ -422,10 +433,7 @@ export default function Home() {
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
                 className="group cursor-pointer"
-                onClick={() => {
-                  setSelectedVideo(video);
-                  setIsWatching(true);
-                }}
+                onClick={() => handleWatchVideo(video)}
               >
                 <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
                   <img 
@@ -492,10 +500,7 @@ export default function Home() {
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
                   className="group cursor-pointer"
-                  onClick={() => {
-                    setSelectedVideo(life);
-                    setIsWatching(true);
-                  }}
+                  onClick={() => handleWatchVideo(life)}
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
                     <img 

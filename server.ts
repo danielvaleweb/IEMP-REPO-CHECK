@@ -16,44 +16,54 @@ async function startServer() {
     attributeNamePrefix: "@_"
   });
 
-  // API Route to check YouTube Live Status
   app.get("/api/live-status", async (req, res) => {
     try {
-      // Using the handle URL is often more reliable
-      const youtubeUrl = `https://www.youtube.com/@ministerio_profecia/live`;
+      const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      const handle = (req.query.handle as string) || "@ministerio_profecia";
       
-      const response = await fetch(youtubeUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
-        },
-        // Wait at most 5 seconds for YouTube
-        signal: AbortSignal.timeout(5000)
-      });
+      // Try both handle and channel ID for live status
+      const urls = [
+        `https://www.youtube.com/${handle}/live`,
+        `https://www.youtube.com/channel/${channelId}/live`
+      ];
       
-      // If we can't reach YouTube or get a weird status, assume not live rather than erroring 500
-      if (!response.ok) {
-        console.warn(`YouTube live check returned status ${response.status}`);
-        return res.json({ isLive: false });
-      }
+      let isLive = false;
+      
+      for (const youtubeUrl of urls) {
+        try {
+          const response = await fetch(youtubeUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept': 'text/html',
+              'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+            },
+            signal: AbortSignal.timeout(4000)
+          });
+          
+          if (!response.ok) continue;
 
-      const html = await response.text();
-      
-      // Check for live indicators in the HTML
-      const isLive = html.includes('{"text":" ao vivo"}') || 
-                     html.includes('{"text":" ao vivo "}') || 
-                     html.includes('{"text":" watching"}') || 
-                     html.includes('isLive":true') ||
-                     html.includes('"isLive":true') ||
-                     html.includes('style":"LIVE"') ||
-                     html.includes('LIVE') && html.includes('watching') ||
-                     html.includes('liveStreamability');
+          const html = await response.text();
+          
+          if (html.includes('{"text":" ao vivo"}') || 
+              html.includes('{"text":" ao vivo "}') || 
+              html.includes('{"text":" watching"}') || 
+              html.includes('isLive":true') ||
+              html.includes('"isLive":true') ||
+              html.includes('style":"LIVE"') ||
+              html.includes('LIVE') && html.includes('watching') ||
+              html.includes('canonical" href="https://www.youtube.com/watch?v=')) {
+            isLive = true;
+            break;
+          }
+        } catch (e) {
+          console.warn(`Failed checking live status for ${youtubeUrl}:`, e);
+        }
+      }
 
       res.json({ isLive });
     } catch (error) {
       console.error("Server error checking live status:", error);
-      res.status(500).json({ isLive: false, error: "Internal server error" });
+      res.status(500).json({ isLive: false });
     }
   });
 
@@ -61,7 +71,7 @@ async function startServer() {
   app.get("/api/recent-videos", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      const channelId = "UCILgaItnqDH3plhRXD54QUg";
+      const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       // Using the channel ID URL for better stability in different regions
       const videosUrl = `https://www.youtube.com/channel/${channelId}/videos`;
       
@@ -69,18 +79,27 @@ async function startServer() {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en+FX+999'
         }
       });
       
       if (!response.ok) throw new Error(`Failed to fetch videos page: ${response.status}`);
       
       const html = await response.text();
-      const match = html.match(/var ytInitialData = ({.*?});/);
+      
+      // Look for the JSON data in the page
+      // Using a more robust regex that handles newlines and different script tag formats
+      const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/) || 
+                    html.match(/>window\["ytInitialData"\] = ({[\s\S]*?});/);
       
       if (match) {
         try {
-          const data = JSON.parse(match[1]);
+          // Remove potential trailing semicolons or extra characters
+          let jsonStr = match[1].trim();
+          if (jsonStr.endsWith(';')) jsonStr = jsonStr.slice(0, -1);
+          
+          const data = JSON.parse(jsonStr);
           const tabs = data.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
           
           // Find the videos tab (check title and common params)
@@ -139,7 +158,11 @@ async function startServer() {
       
       // Fallback to RSS if scraping fails
       const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-      const rssResponse = await fetch(rssUrl);
+      const rssResponse = await fetch(rssUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
       if (rssResponse.ok) {
         const xmlData = await rssResponse.text();
         const jsonObj = parser.parse(xmlData);
@@ -168,7 +191,7 @@ async function startServer() {
   app.get("/api/recent-lives", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      const channelId = "UCILgaItnqDH3plhRXD54QUg";
+      const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       // Using the channel ID URL for streams
       const streamsUrl = `https://www.youtube.com/channel/${channelId}/streams`;
       
@@ -176,18 +199,26 @@ async function startServer() {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
+          'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7',
+          'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en+FX+999'
         }
       });
       
       if (!response.ok) throw new Error(`Failed to fetch streams page: ${response.status}`);
       
       const html = await response.text();
-      const match = html.match(/var ytInitialData = ({.*?});/);
+      
+      // Look for the JSON data in the page
+      const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/) || 
+                    html.match(/>window\["ytInitialData"\] = ({[\s\S]*?});/);
       
       if (match) {
         try {
-          const data = JSON.parse(match[1]);
+          // Remove potential trailing semicolons or extra characters
+          let jsonStr = match[1].trim();
+          if (jsonStr.endsWith(';')) jsonStr = jsonStr.slice(0, -1);
+          
+          const data = JSON.parse(jsonStr);
           const tabs = data.contents?.twoColumnBrowseResultsRenderer?.tabs || [];
           
           // Find the streams tab

@@ -3983,6 +3983,44 @@ export default function Admin() {
                     <h4 className={cn("text-2xl font-bold mb-4 transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
                     
                     <div className="space-y-4">
+                      <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                        <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>YouTube Channel ID</label>
+                          <Input 
+                            className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
+                            placeholder="Ex: UCILgaItnqDH3plhRXD54QUg"
+                            value={settings.youtubeChannelId ?? "UCILgaItnqDH3plhRXD54QUg"}
+                            onChange={async (e) => {
+                              const newValue = e.target.value;
+                              try {
+                                await setDoc(doc(db, "settings", "general"), { youtubeChannelId: newValue }, { merge: true });
+                              } catch (error) {
+                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>YouTube Handle</label>
+                          <Input 
+                            className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
+                            placeholder="Ex: @ministerio_profecia"
+                            value={settings.youtubeHandle ?? "@ministerio_profecia"}
+                            onChange={async (e) => {
+                              const newValue = e.target.value;
+                              try {
+                                await setDoc(doc(db, "settings", "general"), { youtubeHandle: newValue }, { merge: true });
+                              } catch (error) {
+                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
+                              }
+                            }}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <p className="text-[10px] text-gray-500 italic pl-1">Essas configurações definem de qual canal o site buscará os vídeos e lives recentes.</p>
+                        </div>
+                      </div>
+
                       <div className={cn("flex flex-col gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Próximo Culto (Frase no início)</label>
