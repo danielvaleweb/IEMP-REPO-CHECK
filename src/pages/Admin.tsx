@@ -54,6 +54,7 @@ import {
   Pause,
   PartyPopper,
   ExternalLink,
+  ClipboardList
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -259,7 +260,7 @@ function CalendarView({
                 <div className="space-y-0.5 md:space-y-1">
                   {dayEvents.slice(0, 3).map((event, j) => (
                     <div 
-                      key={`calendar-event-${event.id || `idx-${j}`}-${day.toISOString()}`}
+                      key={`calendar-event-${day.toISOString()}-${j}-${event.id || 'no-id'}`}
                       className={cn(
                         "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded truncate transition-colors relative group/event",
                         day.getDay() === 6 
@@ -317,7 +318,7 @@ function CalendarView({
               {selectedDayEvents.length > 0 ? (
                 selectedDayEvents.map((event, idx) => {
                   return (
-                    <div key={`day-event-detail-${event.id || `idx-${idx}`}-${selectedDay?.toISOString()}`} className={cn("p-4 rounded-2xl border space-y-3 transition-colors", isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                    <div key={`day-event-detail-${selectedDay?.toISOString()}-${idx}-${event.id || 'no-id'}`} className={cn("p-4 rounded-2xl border space-y-3 transition-colors", isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                       <div>
                         <h4 className="font-bold text-lg">{event.title}</h4>
                         <p className="text-sm text-gray-400">{safeFormatTime(event.date)} • {event.location || "Sem local"}</p>
@@ -1202,12 +1203,31 @@ export default function Admin() {
   const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
   const [localSettings, setLocalSettings] = useState<any>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [logs, setLogs] = useState<any[]>([]);
+
+  const logAction = async (action: string, target: string, details: string) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, "audit-logs"), {
+        action,
+        target,
+        details,
+        userId: user.uid,
+        userName: profile?.name || user.displayName || "Usuário desconhecido",
+        userEmail: user.email,
+        timestamp: serverTimestamp()
+      });
+    } catch (error) {
+      console.error("Erro ao registrar log:", error);
+    }
+  };
 
   const isEffectivelyAdmin = (isMasterAdmin || profile?.role === "Administradores") && (!activeViewRole || activeViewRole === "Administradores");
   const canViewSettings = currentRole === "Desenvolvedor" || currentRole === "Administradores" || (isMasterAdmin && (!activeViewRole || activeViewRole === "Administradores" || activeViewRole === "Desenvolvedor"));
+  const canViewLogs = canViewSettings;
 
   const canViewTab = (tab: string) => {
-    if (tab === "config" && !canViewSettings) return false;
+    if ((tab === "config" || tab === "logs") && !canViewSettings) return false;
     
     // Strict restriction for Direção profile
     if (currentRole === "Direção") {
@@ -1297,6 +1317,10 @@ export default function Admin() {
       setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading vignettes:", err));
 
+    const unsubLogs = canViewLogs ? onSnapshot(query(collection(db, "audit-logs"), orderBy("timestamp", "desc"), limit(100)), (snap) => {
+      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error("Error loading logs:", err)) : () => {};
+
     const unsubNotifs = onSnapshot(query(
       collection(db, "notifications"), 
       where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
@@ -1330,6 +1354,7 @@ export default function Admin() {
       unsubAgenda();
       unsubAgendaDirecao();
       unsubVignettes();
+      unsubLogs();
       unsubNotifs();
       unsubSkills();
     };
@@ -1440,6 +1465,8 @@ export default function Admin() {
           updatedAt: serverTimestamp()
         }, { merge: true });
         
+        logAction("atualizar", collectionName, `Atualizou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name}`);
+        
         // Log Activity
         await addDoc(collection(db, "notifications"), {
           title: "Atividade",
@@ -1450,12 +1477,14 @@ export default function Admin() {
           read: true
         });
       } else {
-        await addDoc(collection(db, collectionName), {
+        const newDoc = await addDoc(collection(db, collectionName), {
           ...dataToSave,
           createdAt: serverTimestamp(),
           authorId: user?.uid || profile?.id || "admin",
           authorName: user?.displayName || profile?.name || "Admin"
         });
+
+        logAction("criar", collectionName, `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'agenda-direcao' ? 'compromisso na direção' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name} (ID: ${newDoc.id})`);
 
         // Log Activity
         await addDoc(collection(db, "notifications"), {
@@ -1596,6 +1625,7 @@ export default function Admin() {
     try {
       console.log('Excluindo item:', deleteConfirm.id, 'da coleção:', deleteConfirm.collection);
       await deleteDoc(doc(db, deleteConfirm.collection, deleteConfirm.id));
+      logAction("excluir", deleteConfirm.collection, `Excluiu item ID: ${deleteConfirm.id}`);
       setSelectedItem(null);
       setIsEditing(false);
       setDeleteConfirm(null);
@@ -2194,6 +2224,7 @@ export default function Admin() {
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewLogs && <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => setActiveTab("logs")} label="Audit Logs" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
             </div>
 
             {/* Bottom items (Desktop) */}
@@ -2387,7 +2418,7 @@ export default function Admin() {
                       <div className="mt-4 max-h-[300px] overflow-y-auto">
                         {globalSearchResults.map((res, i) => (
                           <button
-                            key={`search-res-overlay-${res.type}-${res.item?.id || i}`}
+                            key={`search-res-overlay-${res.type}-${i}-${res.item?.id || 'no-id'}`}
                             onClick={() => {
                               if (res.type === 'membros') setViewingMember(res.item);
                               setSelectedItem(res.item);
@@ -2455,7 +2486,7 @@ export default function Admin() {
                 )}>
                   {globalSearchResults.map((res, i) => (
                     <button
-                      key={`search-res-desktop-${res.type}-${res.item?.id || i}`}
+                      key={`search-res-desktop-${res.type}-${i}-${res.item?.id || 'no-id'}`}
                       onClick={() => {
                         if (res.type === 'membros') setViewingMember(res.item);
                         setSelectedItem(res.item);
@@ -2547,9 +2578,9 @@ export default function Admin() {
                       </div>
                       <div className="space-y-1">
                         {displayNotifications.length > 0 ? (
-                          displayNotifications.map(n => (
+                          displayNotifications.map((n, i) => (
                             <button 
-                              key={n.id} 
+                              key={n.id || i} 
                               onClick={async () => {
                                 try {
                                   if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true });
@@ -3838,10 +3869,10 @@ export default function Admin() {
                       )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {activeMembersForDisplay.map(member => (
-                        <div key={member.id} className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                      {activeMembersForDisplay.map((member, i) => (
+                        <div key={member.id || i} className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-sm")}>
                           <TeamMember 
-                            key={member.id}
+                            key={member.id || i}
                             member={member}
                             active={member.email === user?.email}
                             onWhatsApp={() => openWhatsApp(member)}
@@ -4109,6 +4140,7 @@ export default function Admin() {
                           setIsSavingSettings(true);
                           try {
                              await setDoc(doc(db, "settings", "general"), { ...localSettings }, { merge: true });
+                             logAction("atualizar", "settings", `Atualizou configurações gerais: ${Object.keys(localSettings).join(", ")}`);
                              setLocalSettings({}); // Clear local settings so it falls back to DB settings
                           } catch (error) {
                              handleFirestoreError(error, OperationType.UPDATE, "settings/general");
@@ -4325,6 +4357,62 @@ export default function Admin() {
                   </div>
                 </Card>
               </div>
+            ) : activeTab === "logs" ? (
+              <div className="p-4 md:p-8">
+                <div className="flex justify-between items-center mb-8">
+                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Audit Logs</h2>
+                </div>
+                <Card className={cn("border rounded-[32px] transition-colors overflow-hidden", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                   <div className="overflow-x-auto">
+                     <table className="w-full text-left">
+                       <thead>
+                         <tr className={cn("border-b transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Data/Hora</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Usuário</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Ação</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Alvo</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Detalhes</th>
+                         </tr>
+                       </thead>
+                       <tbody className={cn("divide-y", isDarkMode ? "divide-white/5" : "divide-black/5")}>
+                         {logs.map((log, i) => (
+                           <tr key={log.id || i} className={cn("hover:bg-white/5 transition-colors")}>
+                             <td className="p-6 text-xs text-gray-400 whitespace-nowrap">
+                               {log.timestamp?.toDate ? format(log.timestamp.toDate(), "dd/MM/yyyy HH:mm:ss") : "Carregando..."}
+                             </td>
+                             <td className="p-6">
+                               <div className="flex flex-col">
+                                 <span className={cn("text-xs font-bold", isDarkMode ? "text-white" : "text-black")}>{log.userName || "Admin"}</span>
+                                 <span className="text-[10px] text-gray-500">{log.userEmail}</span>
+                               </div>
+                             </td>
+                             <td className="p-6">
+                               <span className={cn(
+                                 "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest",
+                                 log.action === 'criar' ? "bg-green-500/10 text-green-500" :
+                                 log.action === 'atualizar' ? "bg-blue-500/10 text-blue-500" :
+                                 log.action === 'excluir' ? "bg-red-500/10 text-red-500" :
+                                 "bg-gray-500/10 text-gray-400"
+                               )}>
+                                 {log.action}
+                               </span>
+                             </td>
+                             <td className="p-6 text-xs font-medium text-gray-400">{log.target}</td>
+                             <td className="p-6 text-xs text-gray-400 min-w-[200px]">{log.details}</td>
+                           </tr>
+                         ))}
+                         {logs.length === 0 && (
+                           <tr>
+                             <td colSpan={5} className="p-20 text-center text-gray-500 text-sm">
+                               Nenhum log encontrado.
+                             </td>
+                           </tr>
+                         )}
+                       </tbody>
+                     </table>
+                   </div>
+                </Card>
+              </div>
             ) : (
               <div className="text-center py-20 flex flex-col items-center justify-center h-full">
                 <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-6">
@@ -4423,9 +4511,9 @@ export default function Admin() {
                         </h5>
                         <div className="space-y-4">
                           {roleMembers.length > 0 ? (
-                            roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map(member => (
+                            roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map((member, i) => (
                               <TeamMember 
-                                key={`role-member-${role}-${member.id}`} 
+                                key={`role-member-${role}-${member.id || i}`} 
                                 member={member}
                                 active={member.email === user?.email}
                                 onWhatsApp={() => openWhatsApp(member)}
@@ -4460,9 +4548,9 @@ export default function Admin() {
                           Membros
                         </h5>
                         <div className="space-y-4">
-                          {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map(member => (
+                          {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map((member, i) => (
                             <TeamMember 
-                              key={`sidebar-standard-${member.id}`} 
+                              key={`sidebar-standard-${member.id || i}`} 
                               member={member}
                               active={member.email === user?.email}
                               onWhatsApp={() => openWhatsApp(member)}
@@ -4493,9 +4581,9 @@ export default function Admin() {
                           Visitantes
                         </h5>
                         <div className="space-y-4">
-                          {visitors.map(member => (
+                          {visitors.map((member, i) => (
                             <TeamMember 
-                              key={`sidebar-visitor-${member.id}`} 
+                              key={`sidebar-visitor-${member.id || i}`} 
                               member={member}
                               active={member.email === user?.email}
                               onWhatsApp={() => openWhatsApp(member)}
@@ -4850,11 +4938,11 @@ export default function Admin() {
             <div className="space-y-2 pt-4">
               {members
                 .filter(m => (m.name?.toLowerCase().includes(memberSearch.toLowerCase()) || m.role?.toLowerCase().includes(memberSearch.toLowerCase())) && m.status !== "pending")
-                .map((member) => {
+                .map((member, idx) => {
                   const isSelected = formData.invitedMembers?.some((m: any) => m.id === member.id);
                   return (
                     <div 
-                      key={member.id}
+                      key={`invited-member-selection-${member.id || idx}`}
                       onClick={() => {
                         const currentInvited = formData.invitedMembers || [];
                         if (isSelected) {
@@ -5164,9 +5252,10 @@ interface TeamMemberProps {
   onDelete?: () => void;
   isDark?: boolean;
   isAdmin?: boolean;
+  logAction?: (action: string, target: string, details: string) => void;
 }
 
-function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, isDark, isAdmin }: TeamMemberProps) {
+function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, isDark, isAdmin, logAction }: TeamMemberProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const name = member.name || "Membro";
   const status = member.status_presence || "offline";

@@ -492,15 +492,15 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {videos.slice(0, 5).map((video, idx) => (
               <motion.div
-                key={`home-video-${video.id || `idx-${idx}`}`}
+                key={`home-video-${idx}-${video.id || 'no-id'}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
-                className="group cursor-pointer"
+                className="group cursor-pointer min-w-[75%] sm:min-w-[45%] md:min-w-0 snap-start"
                 onClick={() => handleWatchVideo(video)}
               >
                 <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
@@ -569,15 +569,15 @@ export default function Home() {
           {lives.length === 0 ? (
             <div className="text-white/40 text-sm">Nenhuma live recente encontrada.</div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {lives.slice(0, 5).map((life, idx) => (
                 <motion.div
-                  key={`home-life-${life.id || `idx-${idx}`}`}
+                  key={`home-life-${idx}-${life.id || 'no-id'}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
-                  className="group cursor-pointer"
+                  className="group cursor-pointer min-w-[75%] sm:min-w-[45%] md:min-w-0 snap-start"
                   onClick={() => handleWatchVideo(life)}
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
@@ -640,7 +640,7 @@ export default function Home() {
             <div className="mb-20">
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-1 h-8 bg-primary rounded-full" />
-                <h2 className="text-3xl md:text-4xl font-black tracking-tighter uppercase italic">Próximas Experiências</h2>
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tighter uppercase font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">Próximos Eventos</h2>
               </div>
               
               <motion.div
@@ -750,7 +750,7 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {(pastEvents.length > 0 ? pastEvents : []).slice(0, 6).map((event, idx) => (
                 <motion.div
-                  key={`past-event-${event.id || `idx-${idx}`}`}
+                  key={`past-event-${idx}-${event.id || 'no-id'}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}

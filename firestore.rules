@@ -85,6 +85,14 @@ service cloud.firestore {
              data.title is string;
     }
 
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['action', 'target', 'userId', 'timestamp']) &&
+             data.action is string &&
+             data.target is string &&
+             data.userId == request.auth.uid &&
+             data.timestamp == request.time;
+    }
+
     // --- Collection Rules ---
 
     match /test/connection {
@@ -162,6 +170,12 @@ service cloud.firestore {
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isMasterAdmin() || isAdmin();
+    }
+
+    match /audit-logs/{logId} {
+      allow read: if isMasterAdmin() || isAdmin();
+      allow create: if (isMasterAdmin() || isEditor()) && isValidAuditLog(incoming());
+      allow update, delete: if false;
     }
 
     match /chats/{chatId} {

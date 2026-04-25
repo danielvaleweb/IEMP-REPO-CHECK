@@ -99,6 +99,21 @@
       "properties": {
         "enableHeaderVideos": { "type": "boolean" }
       }
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Registro de ações realizadas no dashboard",
+      "type": "object",
+      "properties": {
+        "action": { "type": "string" },
+        "target": { "type": "string" },
+        "details": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["action", "target", "userId", "timestamp"]
     }
   },
   "firestore": {
@@ -129,6 +144,10 @@
     "/settings/{settingId}": {
       "schema": "Settings",
       "description": "Configurações globais"
+    },
+    "/audit-logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Logs de auditoria do dashboard"
     }
   }
 }
