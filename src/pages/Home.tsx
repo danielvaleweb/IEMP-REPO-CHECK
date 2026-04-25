@@ -308,6 +308,12 @@ export default function Home() {
 
   // Show video after 3 seconds of slide change
   useEffect(() => {
+    // Avoid autoplaying background iframe on mobile devices to prevent YouTube bot verification prompt
+    if (window.innerWidth <= 768) {
+      setShowVideo(false);
+      return;
+    }
+
     if (settings.enableHeaderVideos === false) {
       setShowVideo(false);
       return;

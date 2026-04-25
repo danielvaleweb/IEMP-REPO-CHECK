@@ -59,8 +59,6 @@ const menuGroups = [
   }
 ];
 
-import Logo from "@/components/ui/Logo";
-
 export default function Navbar() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
@@ -128,8 +126,9 @@ export default function Navbar() {
         )}
         <div className="w-full px-6 md:px-12 flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="opacity-90 hover:opacity-100 transition-opacity">
-            <Logo isDark={true} />
+          <Link to="/" className="flex items-center group opacity-90 hover:opacity-100 transition-opacity">
+            <span className="text-white font-extralight text-xl tracking-tight">Ministério</span>
+            <span className="text-white font-bold text-xl tracking-tight ml-1.5">Profecia</span>
           </Link>
 
           {/* Desktop Nav - Centered */}
@@ -283,9 +282,10 @@ export default function Navbar() {
                 <SheetContent side="right" className="bg-black border-white/10 text-white w-[85%] sm:w-[400px] p-0">
                 <div className="flex flex-col h-full">
                   <div className="p-6 border-b border-white/10">
-                    <SheetTitle>
-                      <Link to="/" onClick={() => setOpenMenu(null)}>
-                        <Logo isDark={true} />
+                    <SheetTitle className="flex items-center">
+                      <Link to="/" onClick={() => setOpenMenu(null)} className="flex items-center">
+                        <span className="text-white font-extralight text-xl tracking-tight">Ministério</span>
+                        <span className="text-white font-bold text-xl tracking-tight ml-1.5">Profecia</span>
                       </Link>
                     </SheetTitle>
                   </div>

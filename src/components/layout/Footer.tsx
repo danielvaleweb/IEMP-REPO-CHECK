@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { Facebook, Instagram, Youtube, Mail, MapPin, Phone } from "lucide-react";
+import Logo from "@/components/ui/Logo";
 
 export default function Footer() {
   const location = useLocation();
@@ -12,13 +13,10 @@ export default function Footer() {
     <footer className="bg-black border-t border-white/5 pt-16 pb-8 px-4">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-bold">
-              P
-            </div>
-            <span className="font-bold text-xl gradient-text">Ministério Profecia</span>
-          </div>
-          <p className="text-white/40 text-sm leading-relaxed">
+          <Link to="/" className="inline-block opacity-90 hover:opacity-100 transition-opacity">
+            <Logo isDark={true} />
+          </Link>
+          <p className="text-white text-sm leading-relaxed">
             Levando a palavra de Deus e transformando vidas através do evangelho. 
             Nossa missão é ser luz no mundo e sal na terra.
           </p>
@@ -36,8 +34,8 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="font-bold mb-6 text-foreground uppercase tracking-widest text-sm">Links Rápidos</h4>
-          <ul className="flex flex-col gap-3 text-white/40 text-sm">
+          <h4 className="font-bold mb-6 text-foreground uppercase tracking-widest text-sm text-white">Links Rápidos</h4>
+          <ul className="flex flex-col gap-3 text-white text-sm">
             <li><Link to="/quem-somos" className="hover:text-primary transition-colors">Quem Somos</Link></li>
             <li><Link to="/biblia" className="hover:text-primary transition-colors">Bíblia Online</Link></li>
             <li><Link to="/discipulado" className="hover:text-primary transition-colors">Discipulado</Link></li>
@@ -47,15 +45,15 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="font-bold mb-6 text-foreground uppercase tracking-widest text-sm">Contato</h4>
-          <ul className="flex flex-col gap-4 text-white/40 text-sm">
+          <h4 className="font-bold mb-6 text-foreground uppercase tracking-widest text-sm text-white">Contato</h4>
+          <ul className="flex flex-col gap-4 text-white text-sm">
             <li className="flex items-start gap-3">
               <MapPin className="w-5 h-5 text-primary shrink-0" />
-              <span>Rua da Igreja, 123 - Centro, Cidade - UF</span>
+              <span>R. Cleonice Rainho, 19 - Aeroporto, Juiz de Fora - MG</span>
             </li>
             <li className="flex items-center gap-3">
               <Phone className="w-5 h-5 text-primary shrink-0" />
-              <span>(00) 0000-0000</span>
+              <span>(32) 998288650</span>
             </li>
             <li className="flex items-center gap-3">
               <Mail className="w-5 h-5 text-primary shrink-0" />
@@ -65,8 +63,8 @@ export default function Footer() {
         </div>
 
         <div>
-          <h4 className="font-bold mb-6 text-foreground uppercase tracking-widest text-sm">Legal</h4>
-          <ul className="flex flex-col gap-3 text-white/40 text-sm">
+          <h4 className="font-bold mb-6 text-foreground uppercase tracking-widest text-sm text-white">Legal</h4>
+          <ul className="flex flex-col gap-3 text-white text-sm">
             <li><Link to="/estatuto" className="hover:text-primary transition-colors">Estatuto</Link></li>
             <li><Link to="/imprensa" className="hover:text-primary transition-colors">Imprensa</Link></li>
             <li><Link to="/fale-conosco" className="hover:text-primary transition-colors">Fale Conosco</Link></li>
@@ -75,9 +73,9 @@ export default function Footer() {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/20">
-        <p>© {new Date().getFullYear()} Igreja Ministério Profecia. Todos os direitos reservados.</p>
-        <p>Desenvolvido com ❤️ para a obra de Deus.</p>
+      <div className="max-w-7xl mx-auto pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white">
+        <p className="text-white">© {new Date().getFullYear()} Ministério Profecia - CNPJ 12.009.110/0001-01. Todos os direitos reservados.</p>
+        <p className="text-white">Desenvolvido com ❤️ para a obra de Deus.</p>
       </div>
     </footer>
   );

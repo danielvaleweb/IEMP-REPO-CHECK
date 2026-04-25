@@ -97,8 +97,12 @@ export default function NoticiaDetalhe() {
     if (url.includes('youtube.com/shorts/')) {
       return url.replace('shorts/', 'embed/');
     }
-    if (url.includes('instagram.com/p/') || url.includes('instagram.com/reels/')) {
-      return url.split('?')[0] + 'embed';
+    if (url.includes('instagram.com/')) {
+      // Handle p, reel, reels
+      const match = url.match(/instagram\.com\/(?:p|reel|reels)\/([a-zA-Z0-9_-]+)/);
+      if (match) {
+        return `https://www.instagram.com/p/${match[1]}/embed/captioned/`;
+      }
     }
     return url;
   };
@@ -177,7 +181,7 @@ export default function NoticiaDetalhe() {
 
       {/* Article Header (Jornalístico) */}
       <div className="max-w-[1000px] mx-auto px-4 md:px-8 pt-12 pb-8">
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6 text-left items-start text-black">
           <div className="flex items-center gap-2">
             <span className="text-[#c4170c] font-black text-sm uppercase tracking-widest">{post.organization || "Blog"}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
@@ -194,12 +198,12 @@ export default function NoticiaDetalhe() {
             </p>
           )}
 
-          <div className="flex flex-col md:flex-row md:items-center justify-between border-y border-gray-100 py-6 gap-6 mt-4">
+          <div className="flex flex-col w-full md:flex-row md:items-center justify-between border-y border-gray-100 py-6 gap-6 mt-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden border border-gray-200">
+              <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden border border-gray-200 shrink-0">
                 <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(post.source || "Ministério Profecia")}&background=BF76FF&color=fff`} className="w-full h-full object-cover" alt="Author" />
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col text-left">
                 <span className="text-sm font-bold text-gray-900">Fonte: {post.source || "Ministério Profecia"}</span>
                 <span className="text-xs text-gray-500 font-medium">
                   {post.date || new Date().toLocaleDateString('pt-BR')} — Atualizado em {new Date(post.createdAt?.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -208,7 +212,7 @@ export default function NoticiaDetalhe() {
             </div>
 
             {/* Share Buttons (Matching image style) */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 w-full md:w-auto">
               <button 
                 onClick={() => handleShare('facebook')}
                 className="flex-1 md:w-32 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm group"
@@ -263,12 +267,13 @@ export default function NoticiaDetalhe() {
                 <Play className="w-5 h-5 text-[#BF76FF] fill-current" />
                 <h3 className="text-xl font-black uppercase tracking-tighter">Vídeo relacionado</h3>
               </div>
-              <div className="aspect-video w-full rounded-3xl overflow-hidden shadow-xl bg-black border border-gray-100">
+              <div className={`w-full rounded-3xl overflow-hidden shadow-xl bg-black border border-gray-100 ${post.videoUrl.includes('instagram.com') ? 'max-w-[400px] h-[600px] mx-auto bg-transparent border-none' : 'aspect-video'}`}>
                 <iframe 
                   src={getEmbedUrl(post.videoUrl) || ""} 
-                  className="w-full h-full"
+                  className="w-full h-full border-none"
                   allowFullScreen
                   title="Video Player"
+                  scrolling="no"
                 />
               </div>
             </div>
