@@ -246,7 +246,7 @@ export default function EventDetails() {
                const theme = colors[idx % colors.length];
                return (
                  <motion.div 
-                   key={`guest-${idx}`}
+                   key={`guest-detail-${guest.name}-${idx}`}
                    initial={{ opacity: 0, y: 20 }}
                    animate={{ opacity: 1, y: 0 }}
                    transition={{ delay: idx * 0.1 }}
@@ -465,7 +465,7 @@ export default function EventDetails() {
                 
                 return (
                   <div 
-                    key={`gallery-${index}`} 
+                    key={`event-gallery-${url}-${index}`} 
                     className={cn(
                       "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500",
                       spanClasses,

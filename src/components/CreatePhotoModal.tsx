@@ -13,6 +13,7 @@ interface CreatePhotoModalProps {
 
 export default function CreatePhotoModal({ isOpen, onClose, eventTitle, frameUrl }: CreatePhotoModalProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0, ratio: 1 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
@@ -35,7 +36,19 @@ export default function CreatePhotoModal({ isOpen, onClose, eventTitle, frameUrl
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const reader = new FileReader();
-      reader.onload = (event) => setSelectedImage(event.target?.result as string);
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        const img = new Image();
+        img.onload = () => {
+          setImageDimensions({
+            width: img.width,
+            height: img.height,
+            ratio: img.width / img.height
+          });
+          setSelectedImage(result);
+        };
+        img.src = result;
+      };
       reader.readAsDataURL(e.target.files[0]);
     }
   };
@@ -80,74 +93,107 @@ export default function CreatePhotoModal({ isOpen, onClose, eventTitle, frameUrl
     setIsDragging(false);
   };
 
+  const isDataURL = (s: string) => s?.startsWith('data:') || false;
+
   const handleDownload = async () => {
     if (!selectedImage || !canvasRef.current) return;
     
     setGenerating(true);
     
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
 
-    // Target size for high res download
-    canvas.width = 1080;
-    canvas.height = 1080;
+    // Identify format and adjust canvas
+    // We use a base of 1080 for the relevant dimension
+    if (imageDimensions.ratio >= 1) {
+      // Landscape or Square
+      canvas.width = 1080;
+      canvas.height = 1080 / imageDimensions.ratio;
+    } else {
+      // Portrait
+      canvas.height = 1080;
+      canvas.width = 1080 * imageDimensions.ratio;
+    }
 
     // Load user image
     const img = new Image();
+    if (!isDataURL(selectedImage)) {
+      img.crossOrigin = "anonymous";
+    }
     img.src = selectedImage;
     
-    await new Promise((resolve) => {
-      img.onload = () => {
-        // Background color
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    try {
+      const result = await new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            // Background color
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // Calculate drawing dimensions
-        const baseScale = Math.max(canvas.width / img.width, canvas.height / img.height);
-        const finalScale = baseScale * scale;
-        
-        const drawWidth = img.width * finalScale;
-        const drawHeight = img.height * finalScale;
-        
-        // The display container is a square. We map the position offsets 
-        // to our 1080x1080 canvas based on some approximation since the preview 
-        // box might be differently sized. Let's assume preview is ~300x300.
-        const previewSize = 300; 
-        const ratio = canvas.width / previewSize;
-        
-        const dx = (canvas.width / 2) - (drawWidth / 2) + (position.x * ratio);
-        const dy = (canvas.height / 2) - (drawHeight / 2) + (position.y * ratio);
+            // Calculate drawing dimensions for the user image
+            const previewSize = 300; 
+            const canvasToPreviewRatio = canvas.width / (imageDimensions.ratio >= 1 ? previewSize : previewSize * imageDimensions.ratio);
+            
+            const drawWidth = canvas.width * scale;
+            const drawHeight = (canvas.width / imageDimensions.ratio) * scale;
+            
+            const dx = (canvas.width / 2) - (drawWidth / 2) + (position.x * canvasToPreviewRatio);
+            const dy = (canvas.height / 2) - (drawHeight / 2) + (position.y * canvasToPreviewRatio);
 
-        ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
+            ctx.drawImage(img, dx, dy, drawWidth, drawHeight);
 
-        // Load Frame
-        const frame = new Image();
-        frame.src = FRAME_PLACEHOLDER;
-        
-        frame.onload = () => {
-          ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
-          
-          // Trigger Download
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-          const link = document.createElement('a');
-          link.href = dataUrl;
-          link.download = `meu-ingresso-${Date.now()}.jpg`;
-          link.click();
-          
-          setGenerating(false);
-          onClose();
-          
-          // Success Feedback
-          confetti({
-            particleCount: 150,
-            spread: 80,
-            origin: { y: 0.6 },
-            colors: ['#BF76FF', '#EC4899', '#ffffff']
-          });
+            // Load Frame
+            const frame = new Image();
+            frame.crossOrigin = "anonymous";
+            frame.src = FRAME_PLACEHOLDER;
+            
+            frame.onload = () => {
+              try {
+                const frameAspectRatio = frame.width / frame.height;
+                const fWidth = canvas.width;
+                const fHeight = fWidth / frameAspectRatio;
+                
+                ctx.drawImage(frame, 0, canvas.height - fHeight, fWidth, fHeight);
+                
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+                resolve(dataUrl);
+              } catch (err) {
+                reject(err);
+              }
+            };
+            frame.onerror = (err) => reject(new Error("Erro ao carregar a moldura. Verifique a conexão."));
+          } catch (err) {
+            reject(err);
+          }
         };
-      };
-    });
+        img.onerror = () => reject(new Error("Erro ao carregar sua foto."));
+      });
+
+      if (result) {
+        const link = document.createElement('a');
+        link.href = result as string;
+        link.download = `meu-post-${Date.now()}.jpg`;
+        link.click();
+        
+        onClose();
+        confetti({
+          particleCount: 150,
+          spread: 80,
+          origin: { y: 0.6 },
+          colors: ['#BF76FF', '#EC4899', '#ffffff']
+        });
+      }
+    } catch (err: any) {
+      console.error("Critical error in download:", err);
+      if (err.name === 'SecurityError') {
+        alert("Erro de segurança: A imagem da moldura não permite download direto devido a restrições de segurança (CORS). Tente usar uma moldura diferente ou entre em contato com o suporte.");
+      } else {
+        alert(`Não foi possível gerar a imagem: ${err.message || "Erro desconhecido"}`);
+      }
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -196,7 +242,13 @@ export default function CreatePhotoModal({ isOpen, onClose, eventTitle, frameUrl
                   <div className="text-center w-full">
                     <p className="text-gray-500 text-xs font-bold uppercase tracking-widest mb-3">Arraste para ajustar</p>
                     
-                    <div className="relative w-[300px] h-[300px] mx-auto bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200">
+                    <div 
+                      className="relative mx-auto bg-gray-100 rounded-lg overflow-hidden shrink-0 border border-gray-200"
+                      style={{
+                        width: imageDimensions.ratio >= 1 ? '300px' : `${300 * imageDimensions.ratio}px`,
+                        height: imageDimensions.ratio >= 1 ? `${300 / imageDimensions.ratio}px` : '300px'
+                      }}
+                    >
                       {/* Interaction Layer */}
                       <div 
                         className="absolute inset-0 z-20 cursor-move"
@@ -221,18 +273,20 @@ export default function CreatePhotoModal({ isOpen, onClose, eventTitle, frameUrl
                           alt="Preview" 
                           className="max-w-none pointer-events-none"
                           style={{
-                            height: '300px', // base size
-                            width: 'auto'
+                            width: imageDimensions.ratio >= 1 ? '300px' : 'auto',
+                            height: imageDimensions.ratio >= 1 ? 'auto' : '300px'
                           }}
                         />
                       </div>
                       
                       {/* Frame Layer */}
-                      <img 
-                        src={FRAME_PLACEHOLDER} 
-                        className="absolute inset-0 w-full h-full z-10 pointer-events-none" 
-                        alt="Moldura" 
-                      />
+                      <div className="absolute inset-0 z-10 pointer-events-none flex flex-col justify-end">
+                        <img 
+                          src={FRAME_PLACEHOLDER} 
+                          className="w-full h-auto" 
+                          alt="Moldura" 
+                        />
+                      </div>
                     </div>
                   </div>
 

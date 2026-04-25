@@ -118,7 +118,7 @@ export default function Gallery() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {selectedAlbum.photos.map((photo, idx) => (
                 <motion.div
-                  key={idx}
+                  key={`photo-${selectedAlbum.id}-${idx}`}
                   whileHover={{ scale: 1.02 }}
                   className="aspect-square rounded-2xl overflow-hidden cursor-pointer border border-white/5"
                   onClick={() => setSelectedPhoto(photo)}

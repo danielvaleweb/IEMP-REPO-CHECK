@@ -33,7 +33,7 @@ export default function EBD() {
                   { title: "Jovens", age: "15 a 25 anos" },
                   { title: "Adultos", age: "Acima de 25 anos" }
                 ].map((classe, i) => (
-                  <Card key={i} className="glass-panel border-black/5 p-6">
+                  <Card key={`ebd-class-${i}`} className="glass-panel border-black/5 p-6">
                     <GraduationCap className="w-8 h-8 text-primary mb-4" />
                     <h3 className="font-bold text-lg">{classe.title}</h3>
                     <p className="text-sm text-muted-foreground">{classe.age}</p>

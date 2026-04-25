@@ -240,7 +240,7 @@ function CalendarView({
             
             return (
               <div 
-                key={i} 
+                key={`calendar-day-${day.toISOString()}`} 
                 onClick={() => setSelectedDay(day)}
                 className={cn(
                   "min-h-[50px] md:min-h-[100px] p-1 md:p-2 rounded-lg md:rounded-xl border transition-all cursor-pointer relative group",
@@ -259,7 +259,7 @@ function CalendarView({
                 <div className="space-y-0.5 md:space-y-1">
                   {dayEvents.slice(0, 3).map((event, j) => (
                     <div 
-                      key={j}
+                      key={`calendar-event-${event.id || `idx-${j}`}-${day.toISOString()}`}
                       className={cn(
                         "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded truncate transition-colors relative group/event",
                         day.getDay() === 6 
@@ -317,7 +317,7 @@ function CalendarView({
               {selectedDayEvents.length > 0 ? (
                 selectedDayEvents.map((event, idx) => {
                   return (
-                    <div key={idx} className={cn("p-4 rounded-2xl border space-y-3 transition-colors", isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                    <div key={`day-event-detail-${event.id || `idx-${idx}`}-${selectedDay?.toISOString()}`} className={cn("p-4 rounded-2xl border space-y-3 transition-colors", isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                       <div>
                         <h4 className="font-bold text-lg">{event.title}</h4>
                         <p className="text-sm text-gray-400">{safeFormatTime(event.date)} • {event.location || "Sem local"}</p>
@@ -556,8 +556,8 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
                   icon: isBirthdayToday ? CandleIcon : Cake, 
                   color: isBirthdayToday ? "text-orange-500 animate-pulse" : "text-pink-500" 
                 }
-              ].map((stat, i) => (
-                <div key={i} className={cn("p-6 rounded-3xl border transition-colors", isDark ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
+              ].map((stat) => (
+                <div key={`stat-${stat.label}`} className={cn("p-6 rounded-3xl border transition-colors", isDark ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
                   <div className={cn("w-10 h-10 rounded-2xl flex items-center justify-center mb-4 relative", isDark ? "bg-white/5" : "bg-white shadow-sm")}>
                     {stat.label === "Aniversário" && isBirthdayToday ? (
                       <CandleIcon isDark={isDark} />
@@ -629,7 +629,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
                     const prep = getPreposition(displayPath);
                     
                     return (
-                      <span key={i} className={cn("px-4 py-2 rounded-full text-xs font-bold", isLeader ? "bg-[#BF76FF] text-white" : "bg-[#BF76FF]/10 text-[#BF76FF]")}>
+                      <span key={`ministry-${mName}`} className={cn("px-4 py-2 rounded-full text-xs font-bold", isLeader ? "bg-[#BF76FF] text-white" : "bg-[#BF76FF]/10 text-[#BF76FF]")}>
                         {isLeader ? `Líder ${prep} ${displayPath}` : `Participa ${prep} ${displayPath}`}
                       </span>
                     );
@@ -657,7 +657,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
                           { action: "Participou do Culto de Domingo", time: "2 dias atrás" },
                           { action: "Bio atualizada", time: "Hoje" }
                         ].map((act, i) => (
-                          <div key={i} className="flex gap-4">
+                          <div key={`act-primary-${act.action}-${i}`} className="flex gap-4">
                             <div className="w-2 h-2 rounded-full bg-[#BF76FF] mt-1.5 shrink-0" />
                             <div>
                               <p className={cn("text-sm font-bold transition-colors", isDark ? "text-white" : "text-black")}>{act.action}</p>
@@ -670,7 +670,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
                   }
 
                   return activities.map((act, i) => (
-                    <div key={i} className="flex gap-4">
+                    <div key={`act-list-${act.id || i}`} className="flex gap-4">
                       <div className="w-2 h-2 rounded-full bg-[#BF76FF] mt-1.5 shrink-0" />
                       <div>
                         <p className={cn("text-sm font-bold transition-colors", isDark ? "text-white" : "text-black")}>{act.message}</p>
@@ -697,7 +697,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
               <h3 className={cn("text-xl font-bold mb-6 transition-colors", isDark ? "text-white" : "text-black")}>Habilidades</h3>
               <div className="flex flex-wrap gap-2">
                 {(member.skills || ["Liderança", "Música", "Comunicação", "Organização"]).map((skill: string, i: number) => (
-                  <span key={i} className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors", isDark ? "bg-white/5 text-gray-400" : "bg-white text-gray-600 shadow-sm")}>
+                  <span key={`skill-${skill}-${i}`} className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors", isDark ? "bg-white/5 text-gray-400" : "bg-white text-gray-600 shadow-sm")}>
                     {skill}
                   </span>
                 ))}
@@ -768,7 +768,7 @@ export default function Admin() {
             if (member) {
               return (
                 <span 
-                  key={i} 
+                  key={`content-part-${i}`} 
                   onClick={(e) => {
                     e.stopPropagation();
                     setActiveTab("membros");
@@ -786,7 +786,7 @@ export default function Admin() {
           if (part.startsWith("http")) {
             return (
               <a 
-                key={i}
+                key={`social-link-${i}`}
                 href={part}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -2158,7 +2158,7 @@ export default function Admin() {
                     <div className="space-y-1 max-h-[400px] overflow-y-auto overflow-x-hidden p-1 scrollbar-hide">
                       {allRoles.map(role => (
                         <button
-                          key={role}
+                          key={`role-option-${role}`}
                           onClick={() => {
                             setActiveViewRole(role);
                             setIsWorkspaceOpen(false);
@@ -2278,7 +2278,7 @@ export default function Admin() {
                         <div className="space-y-2 mt-2">
                           {globalSearchResults.slice(0, 4).map((res, i) => (
                             <button
-                              key={i}
+                              key={`search-res-list-${res.type}-${res.item?.id || i}`}
                               onClick={() => {
                                 if (res.type === 'membros') setViewingMember(res.item);
                                 setSelectedItem(res.item);
@@ -2387,7 +2387,7 @@ export default function Admin() {
                       <div className="mt-4 max-h-[300px] overflow-y-auto">
                         {globalSearchResults.map((res, i) => (
                           <button
-                            key={i}
+                            key={`search-res-overlay-${res.type}-${res.item?.id || i}`}
                             onClick={() => {
                               if (res.type === 'membros') setViewingMember(res.item);
                               setSelectedItem(res.item);
@@ -2455,7 +2455,7 @@ export default function Admin() {
                 )}>
                   {globalSearchResults.map((res, i) => (
                     <button
-                      key={i}
+                      key={`search-res-desktop-${res.type}-${res.item?.id || i}`}
                       onClick={() => {
                         if (res.type === 'membros') setViewingMember(res.item);
                         setSelectedItem(res.item);
@@ -2865,7 +2865,7 @@ export default function Admin() {
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                {formData.gallery.map((url: string, i: number) => (
-                                 <div key={i} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                                 <div key={`gallery-preview-${url}-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
                                    <img src={url} alt="" className="w-full h-full object-cover" />
                                  </div>
                                ))}
@@ -3287,7 +3287,7 @@ export default function Admin() {
                               {formData.guests && Array.isArray(formData.guests) && formData.guests.length > 0 && (
                                 <div className="space-y-4">
                                   {formData.guests.map((guest: any, i: number) => (
-                                    <div key={i} className="flex gap-4 p-4 rounded-b-2xl rounded-t-lg bg-black/10 dark:bg-white/5 border border-white/5 relative group">
+                                    <div key={`guest-form-${guest.name || 'new'}-${i}`} className="flex gap-4 p-4 rounded-b-2xl rounded-t-lg bg-black/10 dark:bg-white/5 border border-white/5 relative group">
                                       <div className="flex-1 space-y-4">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                           <div className="space-y-2">
@@ -3391,7 +3391,7 @@ export default function Admin() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                   {(Array.isArray(formData.gallery) ? formData.gallery : []).map((url, i) => (
-                                    <div key={i} className={cn("p-4 rounded-3xl border transition-all space-y-3 relative group", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                                    <div key={`gallery-form-${i}`} className={cn("p-4 rounded-3xl border transition-all space-y-3 relative group", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-white border-black/5 shadow-sm")}>
                                       <div className="flex gap-2">
                                         <div className="relative flex-1">
                                           <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
@@ -3532,7 +3532,7 @@ export default function Admin() {
                             const isLeader = typeof ministry === 'object' ? ministry.isLeader : false;
 
                             return (
-                              <div key={role} className={cn("p-4 rounded-2xl border flex items-center justify-between transition-all", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
+                              <div key={`role-selection-${role}`} className={cn("p-4 rounded-2xl border flex items-center justify-between transition-all", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
                                 <div className="flex items-center gap-3">
                                   <input 
                                     type="checkbox"
@@ -4203,7 +4203,7 @@ export default function Admin() {
                       <h4 className={cn("text-xl font-bold mb-6 transition-colors", isDarkMode ? "text-white" : "text-black")}>Permissões por Cargo</h4>
                       <div className="space-y-4">
                         {allRoles.map(role => (
-                          <div key={role} className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                          <div key={`role-permission-${role}`} className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                             <div className="flex items-center justify-between mb-4">
                               <h5 className="font-bold text-[#BF76FF]">{role === "Administradores" ? "Administrador Master" : role}</h5>
                             </div>
@@ -4416,7 +4416,7 @@ export default function Admin() {
                     });
                     if (roleMembers.length === 0 && rightSidebarSearch) return null;
                     return (
-                      <div key={role} className="space-y-3">
+                      <div key={`role-group-${role}`} className="space-y-3">
                         <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
                           <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
                           {role === "Administradores" ? "Administrador Master" : role}
@@ -4425,7 +4425,7 @@ export default function Admin() {
                           {roleMembers.length > 0 ? (
                             roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map(member => (
                               <TeamMember 
-                                key={member.id} 
+                                key={`role-member-${role}-${member.id}`} 
                                 member={member}
                                 active={member.email === user?.email}
                                 onWhatsApp={() => openWhatsApp(member)}
@@ -4462,7 +4462,7 @@ export default function Admin() {
                         <div className="space-y-4">
                           {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map(member => (
                             <TeamMember 
-                              key={member.id} 
+                              key={`sidebar-standard-${member.id}`} 
                               member={member}
                               active={member.email === user?.email}
                               onWhatsApp={() => openWhatsApp(member)}
@@ -4495,7 +4495,7 @@ export default function Admin() {
                         <div className="space-y-4">
                           {visitors.map(member => (
                             <TeamMember 
-                              key={member.id} 
+                              key={`sidebar-visitor-${member.id}`} 
                               member={member}
                               active={member.email === user?.email}
                               onWhatsApp={() => openWhatsApp(member)}

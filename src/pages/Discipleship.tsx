@@ -24,7 +24,7 @@ export default function Discipleship() {
                 "Descoberta de dons e talentos ministeriais.",
                 "Preparação para o batismo e vida cristã ativa."
               ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
+                <div key={`discipleship-reason-${i}`} className="flex items-start gap-3">
                   <CheckCircle className="w-6 h-6 text-primary shrink-0" />
                   <p className="text-muted-foreground">{item}</p>
                 </div>
