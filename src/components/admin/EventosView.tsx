@@ -16,7 +16,8 @@ export function EventosView({
   canDelete = false,
   title = "Eventos do Mês",
   buttonLabel = "Cadastrar novo evento",
-  emptyLabel = "Nenhum item cadastrado."
+  emptyLabel = "Nenhum item cadastrado.",
+  buttonIcon: ButtonIcon = Plus
 }: { 
   events: any[], 
   onNewEvent: () => void, 
@@ -28,7 +29,8 @@ export function EventosView({
   canDelete?: boolean,
   title?: string,
   buttonLabel?: string,
-  emptyLabel?: string
+  emptyLabel?: string,
+  buttonIcon?: any
 }) {
   return (
     <div className="p-6 h-full flex flex-col">
@@ -39,7 +41,7 @@ export function EventosView({
             className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer"
             onClick={onNewEvent}
           >
-            <Plus className="w-4 h-4 mr-2" /> {buttonLabel}
+            <ButtonIcon className="w-4 h-4 mr-2" /> {buttonLabel}
           </Button>
         )}
       </div>

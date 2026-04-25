@@ -2771,10 +2771,14 @@ export default function Admin() {
                   ) : (
                     <div className="flex items-center gap-4 mb-2">
                       <div className="w-12 h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center">
-                        <Edit className="w-6 h-6 text-[#BF76FF]" />
+                        {activeTab === 'noticias' ? (
+                          <Newspaper className="w-6 h-6 text-[#BF76FF]" />
+                        ) : (
+                          <Edit className="w-6 h-6 text-[#BF76FF]" />
+                        )}
                       </div>
                         <h4 className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                          {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Novo"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'membros' ? 'Membro' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
+                          {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Nova"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'noticias' ? 'Matéria' : activeTab === 'membros' ? 'Membro' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
                         </h4>
                     </div>
                   )}
@@ -3248,29 +3252,31 @@ export default function Admin() {
                             </div>
                           )}
 
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{(activeTab === 'eventos' || activeTab === 'noticias') ? 'Título da Postagem' : 'Título do Compromisso'}</label>
-                            <Input 
-                              className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                              placeholder={(activeTab === 'eventos' || activeTab === 'noticias') ? "Ex: Conferência de Jovens 2024" : "Ex: Visitar igreja no Grama"}
-                              value={formData.title || ""}
-                              onChange={(e) => setFormData({...formData, title: e.target.value})}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
+                          {activeTab !== "noticias" && (
+                            <>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{activeTab === 'eventos' ? 'Título da Postagem' : 'Título do Compromisso'}</label>
+                                <Input 
+                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder={activeTab === 'eventos' ? "Ex: Conferência de Jovens 2024" : "Ex: Visitar igreja no Grama"}
+                                  value={formData.title || ""}
+                                  onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
 
-                          {(activeTab === "eventos" || activeTab === "noticias") && (
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{activeTab === "eventos" ? "Bio/Descrição do Evento" : "Conteúdo da Matéria"}</label>
-                              <Textarea 
-                                className={cn("border-none min-h-[150px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder={activeTab === "eventos" ? "Conte mais sobre o evento..." : "Escreva o texto da reportagem..."}
-                                value={formData.content || ""}
-                                onChange={(e) => setFormData({...formData, content: e.target.value})}
-                                readOnly={isReadOnly}
-                              />
-                            </div>
-                          )}
+                              {activeTab === "eventos" && (
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio/Descrição do Evento</label>
+                                  <Textarea 
+                                    className={cn("border-none min-h-[150px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                    placeholder="Conte mais sobre o evento..."
+                                    value={formData.content || ""}
+                                    onChange={(e) => setFormData({...formData, content: e.target.value})}
+                                    readOnly={isReadOnly}
+                                  />
+                                </div>
+                              )}
 
                           <div className="grid grid-cols-1 gap-4">
                             <div className="space-y-2">
@@ -3690,6 +3696,8 @@ export default function Admin() {
                                 </div>
                               </div>
                             </div>
+                          )}
+                            </>
                           )}
                         </div>
                       </>
@@ -4178,7 +4186,8 @@ export default function Admin() {
                 canEdit={canEdit}
                 canDelete={canDelete}
                 title={activeTab === "eventos" ? "Eventos do Mês" : "Blog & Notícias"}
-                buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Escrever nova matéria"}
+                buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}
+                buttonIcon={activeTab === "eventos" ? Plus : Newspaper}
                 emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
                 onNewEvent={() => {
                   setSelectedItem(null);
