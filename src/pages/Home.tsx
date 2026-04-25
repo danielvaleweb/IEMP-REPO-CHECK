@@ -360,7 +360,7 @@ export default function Home() {
         <AnimatePresence mode="wait">
           {videos[currentIndex] && (
             <motion.div
-              key={videos[currentIndex].id}
+              key={`main-video-${videos[currentIndex].id}-${currentIndex}`}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -495,7 +495,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
             {videos.slice(0, 5).map((video, idx) => (
               <motion.div
-                key={video.id}
+                key={`video-${video.id}-${idx}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -572,7 +572,7 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
               {lives.slice(0, 5).map((life, idx) => (
                 <motion.div
-                  key={life.id}
+                  key={`life-${life.id}-${idx}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -711,7 +711,7 @@ export default function Home() {
                        <div className="flex -space-x-3">
                           {(upcomingEvents[0].invitedMembers || []).slice(0, 4).map((member: any, i: number) => (
                             <img 
-                              key={member.id || i} 
+                              key={`main-event-member-${member.id || 'idx-'}${i}`} 
                               src={member.photo || member.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "Membro")}&background=random`} 
                               className="w-10 h-10 rounded-full border-2 border-black object-cover" 
                               alt={member.name}
@@ -750,7 +750,7 @@ export default function Home() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {(pastEvents.length > 0 ? pastEvents : []).slice(0, 6).map((event, idx) => (
                 <motion.div
-                  key={event.id}
+                  key={`past-event-${event.id}-${idx}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -817,7 +817,7 @@ export default function Home() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {upcomingEvents.slice(1, 5).map((event, idx) => (
                   <motion.div
-                    key={event.id}
+                    key={`upcoming-event-${event.id}-${idx}`}
                     initial={{ opacity: 0, scale: 0.9 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     viewport={{ once: true }}
@@ -890,7 +890,7 @@ export default function Home() {
                   { icon: Clock, title: "Culto de Oração", detail: "Terças às 20:00" },
                   { icon: MapPin, title: "Endereço", detail: "Rua Exemplo, 123 - Cidade/UF" }
                 ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/30 transition-colors group">
+                  <div key={`link-card-${i}`} className="flex items-center gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/30 transition-colors group">
                     <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
                       <item.icon className="w-6 h-6" />
                     </div>

@@ -103,6 +103,11 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidPost(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
+      
+      match /attendees/{userId} {
+        allow read: if true;
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     match /musics/{musicId} {

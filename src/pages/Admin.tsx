@@ -3054,14 +3054,29 @@ export default function Admin() {
                             </div>
 
                             <div className="space-y-2">
-                              <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Quem convidou / Localização</label>
+                              <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Nome do Organizador / Igreja Local</label>
                               <Input 
                                 className={cn("border-none h-14 rounded-2xl px-6 transition-colors shadow-sm", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Ex: Igreja Local..."
-                                value={formData.organization || formData.organizer || ""}
-                                onChange={(e) => setFormData({...formData, organization: e.target.value, organizer: e.target.value})}
+                                placeholder="Ex: Pr. Fernando ou Igreja Batista..."
+                                value={formData.organizer || formData.organization || ""}
+                                onChange={(e) => setFormData({...formData, organizer: e.target.value, organization: e.target.value})}
                                 readOnly={isReadOnly}
                               />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Foto do Organizador (URL)</label>
+                              <Input 
+                                className={cn("border-none h-14 rounded-2xl px-6 transition-colors shadow-sm", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                placeholder="URL da foto do organizador (Convener)"
+                                value={formData.organizerImage || ""}
+                                onChange={(e) => setFormData({...formData, organizerImage: e.target.value})}
+                                readOnly={isReadOnly}
+                              />
+                              {formData.organizerImage && (
+                                <div className="mt-2 w-16 h-16 overflow-hidden rounded-xl border border-white/5">
+                                  <img src={formData.organizerImage} alt="Preview" className="w-full h-full object-cover" />
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -3237,6 +3252,96 @@ export default function Admin() {
                               />
                             </div>
                           </div>
+
+                          {activeTab === "eventos" && (
+                            <div className="space-y-6 pt-6 border-t border-white/5">
+                              <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Convidados / Palestrantes</label>
+                                {!isReadOnly && (
+                                  <Button 
+                                    type="button"
+                                    onClick={() => {
+                                      const current = Array.isArray(formData.guests) ? formData.guests : [];
+                                      setFormData({ ...formData, guests: [...current, { name: "", image: "", role: "" }] });
+                                    }}
+                                    className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all text-[10px] font-black uppercase px-4"
+                                  >
+                                    <Plus className="w-3 h-3 mr-2" /> Adicionar Convidado
+                                  </Button>
+                                )}
+                              </div>
+                              
+                              {formData.guests && Array.isArray(formData.guests) && formData.guests.length > 0 && (
+                                <div className="space-y-4">
+                                  {formData.guests.map((guest: any, i: number) => (
+                                    <div key={i} className="flex gap-4 p-4 rounded-b-2xl rounded-t-lg bg-black/10 dark:bg-white/5 border border-white/5 relative group">
+                                      <div className="flex-1 space-y-4">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                          <div className="space-y-2">
+                                            <Input 
+                                              className={cn("border-none h-12 rounded-xl px-4 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-white text-black")} 
+                                              placeholder="Nome (Ex: Pr. Fernando)"
+                                              value={guest.name || ""}
+                                              onChange={(e) => {
+                                                const newGuests = [...formData.guests];
+                                                newGuests[i].name = e.target.value;
+                                                setFormData({ ...formData, guests: newGuests });
+                                              }}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+                                          <div className="space-y-2">
+                                            <Input 
+                                              className={cn("border-none h-12 rounded-xl px-4 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-white text-black")} 
+                                              placeholder="Função (Ex: Convener)"
+                                              value={guest.role || ""}
+                                              onChange={(e) => {
+                                                const newGuests = [...formData.guests];
+                                                newGuests[i].role = e.target.value;
+                                                setFormData({ ...formData, guests: newGuests });
+                                              }}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Input 
+                                            className={cn("border-none h-12 rounded-xl px-4 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-white text-black")} 
+                                            placeholder="URL da Foto do Convidado"
+                                            value={guest.image || ""}
+                                            onChange={(e) => {
+                                              const newGuests = [...formData.guests];
+                                              newGuests[i].image = e.target.value;
+                                              setFormData({ ...formData, guests: newGuests });
+                                            }}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                        {guest.image && (
+                                           <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-primary/20">
+                                             <img src={guest.image} alt={guest.name} className="w-full h-full object-cover" />
+                                           </div>
+                                        )}
+                                      </div>
+                                      {!isReadOnly && (
+                                        <Button 
+                                          type="button" 
+                                          variant="ghost"
+                                          className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-red-500 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity p-0 flex items-center justify-center shrink-0"
+                                          onClick={() => {
+                                            const newGuests = formData.guests.filter((_: any, idx: number) => idx !== i);
+                                            setFormData({ ...formData, guests: newGuests });
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {activeTab === "eventos" && (
                             <div className="space-y-8 pt-6 border-t border-white/5">

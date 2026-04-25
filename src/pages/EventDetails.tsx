@@ -1,22 +1,54 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, setDoc, deleteDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, ArrowRight, Calendar, Clock, MapPin, Tag, Navigation, Play, Image as ImageIcon, Download, Lock } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { handleFirestoreError, OperationType } from "@/lib/firebase";
+import confetti from "canvas-confetti";
+import Navbar from "@/components/layout/Navbar";
+import CreatePhotoModal from "@/components/CreatePhotoModal";
+
+const playSuccessSound = () => {
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) return;
+    const ctx = new AudioContext();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+    osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+    osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); // G5
+    osc.frequency.setValueAtTime(1046.50, ctx.currentTime + 0.3); // C6
+    
+    gain.gain.setValueAtTime(0.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 1);
+    
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 1);
+  } catch (err) {
+    console.warn("Audio Context unable to play", err);
+  }
+};
 
 export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isConfirmed, setIsConfirmed] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
 
   useEffect(() => {
-    // Scroll to top
     window.scrollTo(0, 0);
 
     const fetchEvent = async () => {
@@ -27,6 +59,12 @@ export default function EventDetails() {
         if (docSnap.exists()) {
           setEvent({ id: docSnap.id, ...docSnap.data() });
         }
+        
+        if (user) {
+          const attendeeRef = doc(db, "posts", id, "attendees", user.uid);
+          const attendeeSnap = await getDoc(attendeeRef);
+          setIsConfirmed(attendeeSnap.exists());
+        }
       } catch (error) {
         console.error("Error fetching event:", error);
       } finally {
@@ -34,26 +72,77 @@ export default function EventDetails() {
       }
     };
     fetchEvent();
-  }, [id]);
+  }, [id, user]);
+
+  const toggleConfirmation = async () => {
+    if (!user) {
+      navigate("/admin"); // Redirect to login
+      return;
+    }
+    
+    setConfirming(true);
+    try {
+      if (!id) return;
+      const attendeeRef = doc(db, "posts", id, "attendees", user.uid);
+      if (isConfirmed) {
+        await deleteDoc(attendeeRef);
+        setIsConfirmed(false);
+      } else {
+        await setDoc(attendeeRef, { 
+          name: profile?.name || user.displayName || "Usuário", 
+          photo: profile?.photoURL || user.photoURL || "",
+          confirmedAt: new Date().toISOString()
+        });
+        setIsConfirmed(true);
+        playSuccessSound();
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 },
+          colors: ['#BF76FF', '#EC4899', '#ffffff']
+        });
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `posts/${id}/attendees`);
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const sharePhoto = async (url: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Fototeca do Evento',
+          text: 'Encontrei essa foto no evento, confira!',
+          url: url,
+        });
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else {
+      navigator.clipboard.writeText(url);
+      alert("Link da imagem copiado!");
+    }
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full font-bold animate-spin" />
+      <div className="min-h-screen bg-[#190022] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#BF76FF] border-t-transparent rounded-full font-bold animate-spin" />
       </div>
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center text-black">
+      <div className="min-h-screen bg-[#190022] flex flex-col items-center justify-center text-white">
         <h2 className="text-2xl font-bold mb-4">Evento não encontrado</h2>
-        <Button onClick={() => navigate("/")} variant="outline" className="border-black text-black">Voltar para o Início</Button>
+        <Button onClick={() => navigate("/")} variant="outline" className="border-[#BF76FF] text-white">Voltar para o Início</Button>
       </div>
     );
   }
 
-  // Parse dates
   let displayDate = event.date || "";
   let startTime = "";
   let endTime = event.endTime || "";
@@ -70,8 +159,9 @@ export default function EventDetails() {
   }
 
   const navigateToMaps = () => {
-    if (!event.location) return;
-    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`;
+    if (!event.location && !event.street) return;
+    const loc = event.location || `${event.street || ''} ${event.streetNumber || ''} ${event.city || ''}`;
+    const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(loc)}`;
     window.open(url, '_blank');
   };
 
@@ -84,180 +174,310 @@ export default function EventDetails() {
 
   const youtubeId = getYoutubeVideoId(event.youtubeLink);
 
+  const guests = event.guests || [];
+  const organizerDisplay = event.organizer || event.organization || "Organizador Local";
+  const organizerImage = event.organizerImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(organizerDisplay)}&background=BF76FF&color=fff&size=512`;
+
   return (
-    <div className="min-h-screen bg-white text-black font-sans pb-24 selection:bg-primary/20 selection:text-primary">
-      {/* Hero Header */}
-      <div className="relative h-[60vh] md:h-[75vh] w-full overflow-hidden">
-        <div className="absolute inset-0 bg-black/60 z-10" />
-        <img 
-          src={event.image || `https://picsum.photos/seed/${event.id}/1920/1080`} 
-          alt={event.title}
-          className="w-full h-full object-cover scale-105 animate-in zoom-in duration-1000 ease-out"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/10 to-transparent z-10" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-transparent z-10" />
-        
-        {/* Navigation */}
-        <div className="absolute top-0 left-0 w-full p-6 z-30 flex justify-between items-center">
+    <div className="min-h-screen bg-gradient-to-br from-[#2C0037] to-[#10001D] text-white font-sans selection:bg-[#BF76FF]/40 selection:text-white relative overflow-hidden flex flex-col pb-32">
+      <Navbar />
+      {/* Background Grid */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0 opacity-5" 
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(255,255,255,1) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255,255,255,1) 1px, transparent 1px)
+          `,
+          backgroundSize: '160px 160px'
+        }}
+      />
+      
+      {/* Navigation Top Bar */}
+      <div className="fixed top-20 md:top-24 left-0 w-full p-4 md:p-6 z-40 flex justify-between items-center pointer-events-none">
+        <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
           <Button 
             onClick={() => navigate(-1)} 
             variant="ghost" 
-            className="bg-white/10 backdrop-blur-md text-white hover:bg-white/20 hover:text-white rounded-2xl h-12 px-6 shadow-lg transition-all font-bold group border border-white/10"
+            className="pointer-events-auto bg-black/40 backdrop-blur-xl text-white hover:bg-white/10 hover:text-white rounded-2xl h-12 px-6 transition-all font-bold group border border-white/10 shrink-0 cursor-pointer shadow-[0_0_20px_rgba(0,0,0,0.5)]"
           >
             <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" /> Voltar
           </Button>
-
-          {event.organization && (
-            <div className="bg-white/10 backdrop-blur-md border border-white/10 text-white px-5 py-2.5 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center shadow-lg">
-              <Tag className="w-4 h-4 mr-2" />
-              {event.organization}
-            </div>
-          )}
-        </div>
-        
-        {/* Hero Title Overlay */}
-        <div className="absolute bottom-32 md:bottom-40 left-0 w-full px-6 z-20">
-          <div className="max-w-5xl mx-auto flex flex-col gap-4">
-            <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out">
-              <span className="bg-primary/90 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest shadow-xl backdrop-blur-md border border-white/10 inline-block mb-6">
-                Evento Oficial
-              </span>
-              <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter uppercase leading-[0.9] text-white drop-shadow-2xl hero-title filter">
-                {event.title}
-              </h1>
-            </div>
-          </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 relative z-30 -mt-24">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-12 lg:gap-16">
-          {/* Main Content */}
-          <div className="space-y-12">
-            <div>
-              <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-1 bg-black rounded-full" />
-                <h3 className="text-2xl font-black uppercase tracking-tighter">Sobre o Evento</h3>
-              </div>
-              <div className="max-w-none">
-                <p className="text-gray-600 leading-[1.8] text-lg lg:text-xl font-medium whitespace-pre-wrap">
-                  {event.content}
-                </p>
-              </div>
-            </div>
+      <div className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-12 py-8 pt-24 md:pt-32 relative z-10 flex flex-col items-center">
+        {/* Title */}
+        <div className="text-left w-full mb-12 flex flex-col items-start">
+          <motion.p 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: "easeOut" }}
+            className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-[#BF76FF] mb-4 text-left"
+          >
+            Apresenta
+          </motion.p>
+          <motion.h1 
+            initial={{ opacity: 0, scale: 0.9, filter: "blur(10px)" }}
+            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+            transition={{ duration: 0.8, ease: "easeOut", type: "spring", bounce: 0.4 }}
+            className="text-5xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.85] drop-shadow-2xl text-white uppercase text-left w-full block"
+          >
+            {event.title}
+          </motion.h1>
+          {event.content && (
+             <motion.p 
+               initial={{ opacity: 0 }}
+               animate={{ opacity: 1 }}
+               transition={{ delay: 0.4, duration: 0.8 }}
+               className="mt-8 text-gray-300 md:text-xl max-w-3xl leading-relaxed border-l-2 border-[#BF76FF] pl-4 text-left"
+             >
+               {event.content}
+             </motion.p>
+          )}
+        </div>
+
+        {/* Content Structure */}
+        <div className="w-full flex flex-col lg:flex-row gap-8 lg:gap-16 items-start justify-center mt-4">
+          
+          {/* Guests Grid - Left Side */}
+          <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+             {guests.map((guest: any, idx: number) => {
+               const colors = [
+                 { bg: "bg-pink-500", shadow: "shadow-[0_0_20px_rgba(236,72,153,0.3)] group-hover:shadow-[0_0_40px_rgba(236,72,153,0.6)]" },
+                 { bg: "bg-purple-600", shadow: "shadow-[0_0_20px_rgba(147,51,234,0.3)] group-hover:shadow-[0_0_40px_rgba(147,51,234,0.6)]" },
+                 { bg: "bg-orange-500", shadow: "shadow-[0_0_20px_rgba(249,115,22,0.3)] group-hover:shadow-[0_0_40px_rgba(249,115,22,0.6)]" },
+                 { bg: "bg-teal-500", shadow: "shadow-[0_0_20px_rgba(20,184,166,0.3)] group-hover:shadow-[0_0_40px_rgba(20,184,166,0.6)]" },
+                 { bg: "bg-blue-600", shadow: "shadow-[0_0_20px_rgba(37,99,235,0.3)] group-hover:shadow-[0_0_40px_rgba(37,99,235,0.6)]" },
+                 { bg: "bg-yellow-500", shadow: "shadow-[0_0_20px_rgba(234,179,8,0.3)] group-hover:shadow-[0_0_40px_rgba(234,179,8,0.6)]" }
+               ];
+               const theme = colors[idx % colors.length];
+               return (
+                 <motion.div 
+                   key={`guest-${idx}`}
+                   initial={{ opacity: 0, y: 20 }}
+                   animate={{ opacity: 1, y: 0 }}
+                   transition={{ delay: idx * 0.1 }}
+                   className="flex flex-col items-center group relative cursor-pointer"
+                 >
+                   <div 
+                     className={cn(
+                       "w-full aspect-square rounded-[30px] overflow-hidden mb-3 relative transition-all duration-500 group-hover:-translate-y-2 border-2 border-white/10",
+                       theme.shadow
+                     )}
+                   >
+                     {guest.image ? (
+                       <img src={guest.image} alt={guest.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
+                     ) : (
+                       <div className={cn("w-full h-full flex items-center justify-center text-white/50 text-4xl font-black", theme.bg)}>{guest.name?.charAt(0)}</div>
+                     )}
+                   </div>
+                   <h4 className="text-white font-light uppercase text-sm md:text-base text-center leading-tight tracking-tight mt-2">{guest.name}</h4>
+                   <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1 text-center">{guest.role}</p>
+                 </motion.div>
+               );
+             })}
           </div>
-          <div className="space-y-4 pt-4">
-            {/* Bento Box 1: Date */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 group transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center shrink-0 text-primary group-hover:bg-primary group-hover:text-white transition-all duration-300">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Quando</h3>
-                <p className="text-base font-black text-gray-900 leading-none">{displayDate}</p>
-              </div>
-            </div>
 
-            {/* Bento Box 2: Time */}
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center gap-4 group transition-all duration-300">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/5 flex items-center justify-center shrink-0 text-blue-500 group-hover:bg-blue-500 group-hover:text-white transition-all duration-300">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div className="text-left">
-                <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1">Horário</h3>
-                <div className="flex items-center gap-2 leading-none">
-                  <p className="text-base font-black text-gray-900">{startTime || "--:--"}</p>
-                  {endTime && (
-                    <>
-                      <div className="w-2 h-0.5 bg-gray-200 rounded-full" />
-                      <p className="text-xs font-bold text-gray-400">{endTime}</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Bento Box 3: Location */}
-            <div className="bg-gray-900 rounded-2xl shadow-md p-4 flex flex-col overflow-hidden relative group transition-all duration-300">
-              <div className="absolute inset-0 bg-gradient-to-br from-[#BF76FF]/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-              
-              <div className="flex items-start gap-4 relative z-10 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-white">
-                  <MapPin className="w-5 h-5" />
-                </div>
-                <div className="text-left">
-                  <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest leading-none mb-1.5">Localização</h3>
-                  <p className="text-white text-sm font-bold leading-snug">{event.location || "A definir"}</p>
-                </div>
-              </div>
-
-              {event.location && (
-                <Button 
-                  onClick={navigateToMaps}
-                  className="w-full bg-white text-black hover:bg-gradient-to-r hover:from-primary hover:to-secondary hover:text-white hover:scale-[1.05] hover:shadow-[0_10px_25px_-5px_rgba(191,118,255,0.4)] rounded-xl h-12 relative z-10 font-black uppercase tracking-widest text-xs flex items-center justify-center transition-all duration-300 border border-gray-100/50"
-                >
-                  Me leve até lá
-                </Button>
-              )}
-            </div>
-
-            {/* Optional Youtube Embed */}
-            {youtubeId && (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 pt-4">
-                <div className="flex items-center gap-4 mb-8">
-                  <div className="w-12 h-1 bg-red-500 rounded-full" />
-                  <h3 className="text-2xl font-black uppercase tracking-tighter">Vídeo</h3>
-                </div>
-                <div className="aspect-video w-full rounded-3xl overflow-hidden shadow-[0_20px_50px_rgb(0,0,0,0.1)] border border-gray-100 group relative">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${youtubeId}?rel=0`}
-                    className="w-full h-full relative z-10"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                  <div className="absolute inset-0 bg-gray-100 animate-pulse" />
-                </div>
-              </div>
-            )}
+          {/* Organizer Card - Right Side */}
+          <div className="w-full lg:w-[400px] xl:w-[450px] shrink-0 mt-8 lg:mt-0">
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.95 }}
+               animate={{ opacity: 1, scale: 1 }}
+               transition={{ duration: 0.8 }}
+               className="bg-[#BF76FF] rounded-[40px] p-2 relative overflow-hidden group shadow-[0_0_50px_rgba(191,118,255,0.2)]"
+             >
+               <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent z-10 pointer-events-none" />
+               <div className="w-full aspect-[4/5] object-cover rounded-[36px] overflow-hidden bg-purple-900 relative border border-white/10">
+                  <img src={organizerImage} alt={organizerDisplay} className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none rounded-[36px]" />
+               </div>
+               <div className="absolute bottom-6 left-0 w-full text-center z-20 px-4">
+                 <h3 className="text-3xl font-black uppercase tracking-tighter text-white drop-shadow-lg">{organizerDisplay}</h3>
+                 <p className="text-white text-[10px] font-black uppercase tracking-[0.2em] mt-1 drop-shadow-lg opacity-80">Organizador (Convener)</p>
+               </div>
+             </motion.div>
           </div>
         </div>
 
-        {/* Optional Photo Gallery */}
+        {/* Info & Call to Action Bar */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.1 }}
+          className="w-full mt-16 lg:mt-24 bg-[#10001D]/80 backdrop-blur-3xl border border-white/10 rounded-[32px] md:rounded-[40px] p-6 md:p-8 flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)]"
+        >
+           <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent pointer-events-none" />
+           
+           <div className="flex flex-col md:flex-row gap-6 lg:gap-12 w-full lg:w-auto items-center md:items-start text-white relative z-10">
+              {/* Box 1 (Data) */}
+              <div className="flex items-center gap-4 text-left border-b border-white/10 md:border-b-0 md:border-r pb-4 md:pb-0 md:pr-12 w-full md:w-auto">
+                 <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                   <Calendar className="w-5 h-5 text-[#BF76FF]" />
+                 </div>
+                 <div>
+                   <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Data</p>
+                   <h4 className="text-xl md:text-2xl font-black leading-none text-white">{displayDate || "TBA"}</h4>
+                 </div>
+              </div>
+              
+              {/* Box 2 (Hora) */}
+              <div className="flex items-center gap-4 text-left border-b border-white/10 md:border-b-0 md:border-r pb-4 md:pb-0 md:pr-12 w-full md:w-auto">
+                 <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                   <Clock className="w-5 h-5 text-[#BF76FF]" />
+                 </div>
+                 <div>
+                   <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Hora</p>
+                   <h4 className="text-xl md:text-2xl font-black leading-none text-white">{startTime || "--:--"}</h4>
+                 </div>
+              </div>
+
+              {/* Box 3 (Local) */}
+              <div className="flex items-center gap-4 text-left w-full md:w-auto">
+                 <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                   <MapPin className="w-5 h-5 text-[#BF76FF]" />
+                 </div>
+                 <div className="flex flex-col items-start gap-2">
+                   <div>
+                     <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Localização</p>
+                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                       <h4 className="text-sm md:text-base font-bold leading-tight max-w-[200px] text-white">{event.location || event.street || "Sede IEMP"}</h4>
+                       <Button 
+                         onClick={navigateToMaps}
+                         variant="secondary"
+                         className="h-7 px-3 text-[10px] font-black uppercase tracking-widest bg-green-500 hover:bg-green-600 text-white border-none rounded-lg transition-colors cursor-pointer"
+                       >
+                         Ver no Mapa
+                       </Button>
+                     </div>
+                   </div>
+                 </div>
+              </div>
+            </div>
+        </motion.div>
+        
+        {/* Quick Action Buttons Space */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="w-full flex flex-col md:flex-row items-center justify-center gap-4 mt-8"
+        >
+           <Button 
+             onClick={toggleConfirmation}
+             disabled={confirming}
+             className={cn(
+               "w-full md:w-auto h-16 px-10 rounded-2xl font-black text-xl transition-all duration-300 uppercase tracking-tight relative overflow-hidden shrink-0 z-10 cursor-pointer",
+               isConfirmed 
+                 ? "bg-green-500 hover:bg-green-600 text-white" 
+                 : "bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white shadow-[0_10px_40px_rgba(191,118,255,0.4)]"
+             )}
+           >
+             <span className="relative z-10 flex items-center gap-3">
+               {confirming ? (
+                 <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+               ) : isConfirmed ? (
+                 <>
+                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.6 }}>
+                     <ThumbsUp className="w-8 h-8" />
+                   </motion.div>
+                   Eu vou!
+                 </>
+               ) : (
+                 <>Opa, estou nessa!</>
+               )}
+             </span>
+           </Button>
+
+           <Button 
+             onClick={() => setIsPhotoModalOpen(true)}
+             className="w-full md:w-auto h-16 px-10 rounded-2xl font-black text-lg transition-all duration-300 uppercase tracking-tight bg-white hover:bg-gray-100 text-[#10001D] shadow-[0_10px_40px_rgba(255,255,255,0.2)] cursor-pointer"
+           >
+             <span className="relative z-10 flex items-center gap-3">
+               <Eye className="w-6 h-6" />
+               Criar minha foto
+             </span>
+           </Button>
+        </motion.div>
+
+        {/* Contact Buttons Space */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="w-full flex flex-col mt-24 items-start"
+        >
+           <div className="flex items-center gap-4 mb-6">
+             <div className="w-8 h-[2px] bg-[#BF76FF]" />
+             <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Ficou alguma dúvida?</p>
+           </div>
+           <div className="flex flex-col sm:flex-row items-center gap-4 ml-12 w-full sm:w-auto">
+             <Button onClick={() => window.open('https://api.whatsapp.com/send?phone=5532998288650', '_blank')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-green-500 hover:to-green-500 hover:text-white hover:shadow-green-500/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
+               <MessageCircle className="w-4 h-4" /> WhatsApp
+             </Button>
+             <Button onClick={() => window.open('mailto:contato@ministerioprofecia.com.br')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-white hover:to-white hover:text-black hover:shadow-white/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
+               <Headset className="w-4 h-4" /> Suporte
+             </Button>
+           </div>
+        </motion.div>
+
+        {/* Video Area */}
+        {youtubeId && (
+           <div className="w-full mt-24">
+             <div className="flex flex-col md:flex-row items-center md:items-end justify-between mb-8 gap-4">
+               <div className="flex items-center gap-4 w-full">
+                 <div className="w-8 h-[2px] bg-[#BF76FF]" />
+                 <h3 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white/90">Vídeo do Evento</h3>
+               </div>
+             </div>
+             <div className="aspect-video w-full rounded-[30px] md:rounded-[40px] overflow-hidden border border-white/10 relative shadow-2xl">
+               <iframe
+                 src={`https://www.youtube.com/embed/${youtubeId}?rel=0`}
+                 className="w-full h-full relative z-10"
+                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                 allowFullScreen
+               />
+             </div>
+           </div>
+        )}
+
+        {/* Photo Gallery Area */}
         {event.gallery && Array.isArray(event.gallery) && event.gallery.length > 0 && (
-          <div className="mt-20 animate-in fade-in slide-in-from-bottom-8 duration-500 delay-300">
-            <div className="flex flex-col items-center justify-center text-center mb-12">
-              <div className="w-16 h-1 bg-[#BF76FF] rounded-full mb-6" />
-              <h3 className="text-4xl lg:text-5xl font-black uppercase tracking-tighter flex items-center gap-3">
-                Momentos Inesquecíveis
-              </h3>
-              <p className="text-gray-500 mt-4 max-w-lg mb-4">Confira tudo o que rolou neste evento através das lentes da nossa equipe de mídia.</p>
+           <div className="w-full mt-24 animate-in fade-in slide-in-from-bottom-8 duration-500 delay-300">
+            <div className="flex flex-col items-start w-full mb-12">
+              <div className="flex items-center gap-4 mb-2">
+                <div className="w-8 h-[2px] bg-[#BF76FF]" />
+                <h3 className="text-4xl lg:text-5xl font-black uppercase tracking-tighter text-white">
+                  Fototeca do Evento
+                </h3>
+              </div>
+              <p className="text-gray-400 mt-2 max-w-lg mb-4 ml-12">Encontre a sua, mande para um amigo.</p>
             </div>
             
-            <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[150px] md:auto-rows-[200px] gap-3 md:gap-4 lg:gap-6 relative group/gallery">
+            <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[150px] md:auto-rows-[240px] gap-3 md:gap-4 relative group/gallery z-10">
               
               {/* Blur Overlay for Guests */}
               {!user && (
                 <motion.div 
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="absolute inset-x-0 inset-y-0 z-30 flex flex-col items-center justify-center p-6 text-center"
+                  className="absolute inset-x-0 inset-y-0 z-30 flex flex-col items-center justify-center p-6 text-center bg-black/40 backdrop-blur-md rounded-[2.5rem]"
                 >
                   <motion.div 
                     initial={{ scale: 0.9, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, type: "spring", damping: 20 }}
-                    className="bg-white/80 backdrop-blur-xl border border-white/20 p-8 md:p-12 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col items-center justify-center gap-6 max-w-sm"
+                    className="relative bg-[#10001D]/80 backdrop-blur-3xl border border-white/10 p-8 md:p-12 rounded-[2.5rem] shadow-2xl flex flex-col items-center justify-center gap-6 max-w-sm"
                   >
-                    <div className="w-20 h-20 rounded-[2rem] bg-orange-500/10 flex items-center justify-center text-orange-500 mb-2">
-                      <Lock className="w-10 h-10" />
+                    <div className="w-20 h-20 rounded-[2rem] bg-[#BF76FF]/20 flex items-center justify-center text-[#BF76FF] mb-2 border border-[#BF76FF]/30">
+                       <Lock className="w-10 h-10" />
                     </div>
                     <div className="space-y-2">
-                      <p className="text-2xl font-black uppercase tracking-tighter text-gray-900">Galeria Restrita</p>
-                      <p className="text-sm font-medium text-gray-600 leading-relaxed">Acesse sua conta para ver e baixar todas as fotos em alta resolução deste evento.</p>
+                      <p className="text-2xl font-black uppercase tracking-tighter text-white">Fotos Restritas</p>
+                      <p className="text-sm font-medium text-gray-400 leading-relaxed">Faça login para ver e baixar todas as fotos deste evento.</p>
                     </div>
                     <Button 
                       onClick={() => navigate("/admin")} 
-                      className="bg-black hover:bg-gray-900 text-white shadow-2xl h-14 px-10 rounded-2xl w-full uppercase tracking-widest text-xs font-black transition-all hover:scale-[1.02] active:scale-95"
+                      className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white shadow-2xl h-14 px-10 rounded-2xl w-full uppercase tracking-widest text-xs font-black transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
                     >
                       Fazer Login
                     </Button>
@@ -266,23 +486,23 @@ export default function EventDetails() {
               )}
 
               {event.gallery.map((url: string, index: number) => {
-                // Layout classes based on sequence to create a nice masonry bento look
                 let spanClasses = "col-span-1 row-span-1";
-                if (index % 7 === 0) spanClasses = "col-span-2 row-span-2"; // Big Feature
+                if (index % 7 === 0) spanClasses = "col-span-2 row-span-2"; // Big Focus
                 else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1"; // Wide
                 else if (index % 7 === 5) spanClasses = "col-span-1 row-span-2"; // Tall
                 
                 return (
                   <div 
-                    key={index} 
+                    key={`gallery-${index}`} 
                     className={cn(
-                      "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-gray-100 group relative transition-all duration-500",
+                      "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500",
                       spanClasses,
-                      !user && "filter blur-md md:blur-lg opacity-70 cursor-not-allowed scale-[0.98]",
-                      user && "shadow-sm hover:shadow-[0_20px_50px_rgb(0,0,0,0.12)] cursor-pointer hover:z-10 hover:scale-[1.02]"
+                      !user && "filter blur-xl opacity-50 cursor-not-allowed scale-[0.98]",
+                      user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 hover:scale-[1.02] border border-white/10"
                     )}
+                    onClick={() => user && setSelectedPhotoIndex(index)}
                   >
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10" />
+                    <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
                     <img 
                       src={url} 
                       alt={`Galeria ${index + 1}`} 
@@ -290,21 +510,24 @@ export default function EventDetails() {
                     />
                     
                     {user && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                      <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
                         <Button 
-                          className="pointer-events-auto bg-white hover:bg-gray-100 text-black rounded-full w-14 h-14 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 delay-100"
-                          onClick={() => {
-                            // Dummy direct download trigger (for real usage this requires a Blob approach)
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.download = `evento-foto-${index + 1}.jpg`;
-                            link.target = '_blank';
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
+                          className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedPhotoIndex(index);
                           }}
                         >
-                          <Download className="w-5 h-5" />
+                          <Eye className="w-5 h-5" />
+                        </Button>
+                        <Button 
+                          className="pointer-events-auto bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sharePhoto(url);
+                          }}
+                        >
+                          <Share className="w-5 h-5" />
                         </Button>
                       </div>
                     )}
@@ -312,9 +535,96 @@ export default function EventDetails() {
                 );
               })}
             </div>
-          </div>
+           </div>
         )}
       </div>
+
+      {/* Gallery Lightbox Modal */}
+      <AnimatePresence>
+        {selectedPhotoIndex !== null && event.gallery && user && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center"
+          >
+            {/* Top Bar inside Modal */}
+            <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center z-50 bg-gradient-to-b from-black/80 to-transparent">
+              <span className="text-white/50 font-bold text-sm tracking-widest uppercase">
+                {selectedPhotoIndex + 1} / {event.gallery.length}
+              </span>
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => sharePhoto(event.gallery[selectedPhotoIndex])}
+                  className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
+                >
+                  <Share className="w-5 h-5" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => alert("Favoritado! (funcionalidade em desenvolvimento)")}
+                  className="bg-white/10 hover:bg-pink-500/20 text-white hover:text-pink-500 rounded-full w-12 h-12 p-0 cursor-pointer"
+                >
+                  <Heart className="w-5 h-5" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setSelectedPhotoIndex(null)}
+                  className="bg-white/10 hover:bg-red-500/80 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Prev Button */}
+            {selectedPhotoIndex > 0 && (
+              <Button 
+                variant="ghost" 
+                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 z-50 bg-white/10 hover:bg-white/20 text-white rounded-full w-14 h-14 p-0 backdrop-blur-md cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); setSelectedPhotoIndex(selectedPhotoIndex - 1); }}
+              >
+                <ChevronLeft className="w-8 h-8" />
+              </Button>
+            )}
+
+            {/* Next Button */}
+            {selectedPhotoIndex < event.gallery.length - 1 && (
+              <Button 
+                variant="ghost" 
+                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-50 bg-white/10 hover:bg-white/20 text-white rounded-full w-14 h-14 p-0 backdrop-blur-md cursor-pointer"
+                onClick={(e) => { e.stopPropagation(); setSelectedPhotoIndex(selectedPhotoIndex + 1); }}
+              >
+                <ChevronRight className="w-8 h-8" />
+              </Button>
+            )}
+
+            <motion.div 
+              key={selectedPhotoIndex}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="w-full h-full p-4 md:p-20 flex items-center justify-center cursor-pointer"
+              onClick={() => setSelectedPhotoIndex(null)}
+            >
+              <img 
+                src={event.gallery[selectedPhotoIndex]} 
+                alt="Fullscreen Gallery Preview" 
+                className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" 
+                onClick={(e) => e.stopPropagation()} // prevent close on clicking image
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <CreatePhotoModal 
+        isOpen={isPhotoModalOpen} 
+        onClose={() => setIsPhotoModalOpen(false)} 
+        eventTitle={event.title} 
+      />
     </div>
   );
 }
