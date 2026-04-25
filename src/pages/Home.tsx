@@ -173,7 +173,7 @@ export default function Home() {
           };
         });
         
-        return Array.from(new Map(mappedItems.map((v: any) => [v.title.toLowerCase().trim(), v])).values()).slice(0, 6);
+        return mappedItems.slice(0, 10);
       }
       throw new Error("RSS2JSON failed");
     };
@@ -188,9 +188,7 @@ export default function Home() {
         const data = JSON.parse(text);
         
         if (data && data.length > 0) {
-          // Deduplicate by title to prevent parts of the same stream appearing multiple times
-          const uniqueVideos = Array.from(new Map(data.map((v: any) => [v.title.toLowerCase().trim(), v])).values());
-          setVideos(uniqueVideos);
+          setVideos(data);
         } else {
           throw new Error("Empty videos array");
         }
@@ -237,9 +235,7 @@ export default function Home() {
         const data = JSON.parse(text);
         
         if (data && data.length > 0) {
-          // Deduplicate by title to prevent parts of the same stream appearing multiple times
-          const uniqueLives = Array.from(new Map(data.map((v: any) => [v.title.toLowerCase().trim(), v])).values());
-          setLives(uniqueLives);
+          setLives(data);
         } else {
           throw new Error("Empty lives array");
         }
@@ -492,8 +488,8 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {videos.slice(0, 5).map((video, idx) => (
+          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+            {videos.slice(0, 8).map((video, idx) => (
               <motion.div
                 key={`home-video-${idx}-${video.id || 'no-id'}`}
                 initial={{ opacity: 0, y: 20 }}
@@ -569,8 +565,8 @@ export default function Home() {
           {lives.length === 0 ? (
             <div className="text-white/40 text-sm">Nenhuma live recente encontrada.</div>
           ) : (
-            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-              {lives.slice(0, 5).map((life, idx) => (
+            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+              {lives.slice(0, 8).map((life, idx) => (
                 <motion.div
                   key={`home-life-${idx}-${life.id || 'no-id'}`}
                   initial={{ opacity: 0, y: 20 }}

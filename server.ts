@@ -156,22 +156,19 @@ async function startServer() {
               };
             });
             
-          // Ensure uniqueness by ID and Title (sometimes they have different IDs for same stream)
+          // Ensure uniqueness primarily by ID
           const uniqueItems: any[] = [];
-          const seenTitles = new Set();
           const seenIds = new Set();
           
           for (const vid of videos) {
-            const normalizedTitle = vid.title.toLowerCase().trim();
-            if (!seenTitles.has(normalizedTitle) && !seenIds.has(vid.id)) {
-              seenTitles.add(normalizedTitle);
+            if (!seenIds.has(vid.id)) {
               seenIds.add(vid.id);
               uniqueItems.push(vid);
             }
           }
 
           if (uniqueItems.length > 0) {
-            return res.json(uniqueItems.slice(0, 6));
+            return res.json(uniqueItems.slice(0, 8));
           }
         } catch (parseError) {
           console.error("Error parsing ytInitialData:", parseError);
@@ -291,22 +288,19 @@ async function startServer() {
               };
             });
             
-          const uniqueItems: any[] = [];
-          const seenIds = new Set();
-          const seenTitles = new Set();
-          
-          for (const vid of streams) {
-            const normalizedTitle = vid.title.toLowerCase().trim();
-            if (!seenIds.has(vid.id) && !seenTitles.has(normalizedTitle)) {
-              seenIds.add(vid.id);
-              seenTitles.add(normalizedTitle);
-              uniqueItems.push(vid);
+            const uniqueItems: any[] = [];
+            const seenIds = new Set();
+            
+            for (const vid of streams) {
+              if (!seenIds.has(vid.id)) {
+                seenIds.add(vid.id);
+                uniqueItems.push(vid);
+              }
             }
-          }
 
-          if (uniqueItems.length > 0) {
-            return res.json(uniqueItems.slice(0, 6));
-          }
+            if (uniqueItems.length > 0) {
+              return res.json(uniqueItems.slice(0, 8));
+            }
         } catch (parseError) {
           console.error("Error parsing ytInitialData for streams:", parseError);
         }
