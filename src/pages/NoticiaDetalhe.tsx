@@ -24,6 +24,12 @@ import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "
 import { db } from "@/lib/firebase";
 import Markdown from "react-markdown";
 
+declare global {
+  interface Window {
+    instgrm: any;
+  }
+}
+
 export default function NoticiaDetalhe() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -98,14 +104,26 @@ export default function NoticiaDetalhe() {
       return url.replace('shorts/', 'embed/');
     }
     if (url.includes('instagram.com/')) {
-      // Handle p, reel, reels
-      const match = url.match(/instagram\.com\/(?:p|reel|reels)\/([a-zA-Z0-9_-]+)/);
-      if (match) {
-        return `https://www.instagram.com/p/${match[1]}/embed/captioned/`;
-      }
+      // Return raw URL to be handled by blockquote
+      return url;
     }
     return url;
   };
+
+  useEffect(() => {
+    if (post?.videoUrl?.includes('instagram.com/')) {
+      // Load Instagram embed script if it doesn't exist
+      if (!window.instgrm) {
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = '//www.instagram.com/embed.js';
+        document.body.appendChild(s);
+      } else {
+        // Trigger generic process
+        window.instgrm.Embeds.process();
+      }
+    }
+  }, [post?.videoUrl]);
 
   const handleShare = (platform: string) => {
     const url = window.location.href;
@@ -198,38 +216,38 @@ export default function NoticiaDetalhe() {
             </p>
           )}
 
-          <div className="flex flex-col w-full md:flex-row md:items-center justify-between border-y border-gray-100 py-6 gap-6 mt-4">
+          <div className="flex flex-col w-full md:flex-row md:items-center justify-start border-y border-gray-100 py-6 gap-8 mt-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden border border-gray-200 shrink-0">
                 <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(post.source || "Ministério Profecia")}&background=BF76FF&color=fff`} className="w-full h-full object-cover" alt="Author" />
               </div>
-              <div className="flex flex-col text-left">
+              <div className="flex flex-col text-left mr-8">
                 <span className="text-sm font-bold text-gray-900">Fonte: {post.source || "Ministério Profecia"}</span>
                 <span className="text-xs text-gray-500 font-medium">
-                  {post.date || new Date().toLocaleDateString('pt-BR')} — Atualizado em {new Date(post.createdAt?.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  {post.date || new Date().toLocaleDateString('pt-BR')} {post.createdAt?.seconds ? `— Atualizado em ${new Date(post.createdAt.seconds * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` : ''}
                 </span>
               </div>
             </div>
 
             {/* Share Buttons (Matching image style) */}
-            <div className="flex items-center gap-2 w-full md:w-auto">
+            <div className="flex items-center gap-2">
               <button 
                 onClick={() => handleShare('facebook')}
-                className="flex-1 md:w-32 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm group"
+                className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm group"
               >
-                <Facebook className="w-6 h-6 text-[#1877F2] fill-current" />
+                <Facebook className="w-5 h-5 text-[#1877F2] fill-current" />
               </button>
               <button 
                 onClick={() => handleShare('whatsapp')}
-                className="flex-1 md:w-32 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm group"
+                className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm group"
               >
-                <MessageCircle className="w-6 h-6 text-[#25D366] fill-current" />
+                <MessageCircle className="w-5 h-5 text-[#25D366] fill-current" />
               </button>
               <button 
                 onClick={() => handleShare('native')}
-                className="flex-1 md:w-48 h-12 rounded-2xl bg-gray-50 border-2 border-[#1877F2] flex items-center justify-center hover:bg-white transition-colors shadow-sm group"
+                className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-white transition-colors shadow-sm group"
               >
-                <Share2 className="w-6 h-6 text-gray-600" />
+                <Share2 className="w-5 h-5 text-gray-600" />
               </button>
             </div>
           </div>
@@ -267,14 +285,26 @@ export default function NoticiaDetalhe() {
                 <Play className="w-5 h-5 text-[#BF76FF] fill-current" />
                 <h3 className="text-xl font-black uppercase tracking-tighter">Vídeo relacionado</h3>
               </div>
-              <div className={`w-full rounded-3xl overflow-hidden shadow-xl bg-black border border-gray-100 ${post.videoUrl.includes('instagram.com') ? 'max-w-[400px] h-[600px] mx-auto bg-transparent border-none' : 'aspect-video'}`}>
-                <iframe 
-                  src={getEmbedUrl(post.videoUrl) || ""} 
-                  className="w-full h-full border-none"
-                  allowFullScreen
-                  title="Video Player"
-                  scrolling="no"
-                />
+              <div className={`w-full rounded-3xl overflow-hidden shadow-xl bg-black border border-gray-100 ${post.videoUrl.includes('instagram.com') ? 'max-w-[400px] mx-auto bg-transparent border-none shadow-none' : 'aspect-video'}`}>
+                {post.videoUrl.includes('instagram.com') ? (
+                  <>
+                    <blockquote 
+                      className="instagram-media w-full mb-0" 
+                      data-instgrm-permalink={`${post.videoUrl.split('?')[0]}?utm_source=ig_embed&amp;utm_campaign=loading`}
+                      data-instgrm-version="14"
+                      style={{ background: '#FFF', border: '0', borderRadius: '3px', boxShadow: '0 0 1px 0 rgba(0,0,0,0.5),0 1px 10px 0 rgba(0,0,0,0.15)', margin: '1px', maxWidth: '540px', minWidth: '326px', padding: '0', width: 'calc(100% - 2px)' }}
+                    >
+                    </blockquote>
+                  </>
+                ) : (
+                  <iframe 
+                    src={getEmbedUrl(post.videoUrl) || ""} 
+                    className="w-full h-full border-none"
+                    allowFullScreen
+                    title="Video Player"
+                    scrolling="no"
+                  />
+                )}
               </div>
             </div>
           )}

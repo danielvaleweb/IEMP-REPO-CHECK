@@ -1,6 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
 import { Facebook, Instagram, Youtube, Mail, MapPin, Phone } from "lucide-react";
-import Logo from "@/components/ui/Logo";
 
 export default function Footer() {
   const location = useLocation();
@@ -13,8 +12,9 @@ export default function Footer() {
     <footer className="bg-black border-t border-white/5 pt-16 pb-8 px-4">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
         <div className="flex flex-col gap-4">
-          <Link to="/" className="inline-block opacity-90 hover:opacity-100 transition-opacity">
-            <Logo isDark={true} />
+          <Link to="/" className="flex items-center group opacity-90 hover:opacity-100 transition-opacity">
+            <span className="text-white font-extralight text-xl tracking-tight">Ministério</span>
+            <span className="text-white font-bold text-xl tracking-tight ml-1.5">Profecia</span>
           </Link>
           <p className="text-white text-sm leading-relaxed">
             Levando a palavra de Deus e transformando vidas através do evangelho. 
