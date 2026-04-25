@@ -133,29 +133,6 @@ async function startServer() {
           
           const contents = videosTab?.tabRenderer?.content?.richGridRenderer?.contents || [];
           
-          const videos = contents
-            .filter((c: any) => {
-              const v = c.richItemRenderer?.content?.videoRenderer;
-              // Filter out upcoming events and ensure it's a video
-              return v && !v.upcomingEventData;
-            })
-            .slice(0, 10) // Get more to handle duplicates
-            .map((c: any) => {
-              const v = c.richItemRenderer.content.videoRenderer;
-              const videoId = v.videoId;
-              
-              // Try to get a more reliable date
-              let publishedText = v.publishedTimeText?.simpleText || "Recentemente";
-              
-              return {
-                id: videoId,
-                title: v.title?.runs?.[0]?.text || "Sem título",
-                thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-                published: publishedText,
-                link: `https://www.youtube.com/watch?v=${videoId}`
-              };
-            });
-            
           // Improved extraction logic to find more items in different renderer types
           const videos: any[] = [];
           
@@ -295,27 +272,6 @@ async function startServer() {
           // Alternatively, just pick the one containing videos
           const contents = streamsTab?.tabRenderer?.content?.richGridRenderer?.contents || tabs.find((t: any) => t.tabRenderer?.content?.richGridRenderer?.contents)?.tabRenderer?.content?.richGridRenderer?.contents || [];
           
-          const streams = contents
-            .filter((c: any) => {
-              const v = c.richItemRenderer?.content?.videoRenderer;
-              // Filter out upcoming events and ensure it's a video
-              return v && !v.upcomingEventData;
-            })
-            .slice(0, 10)
-            .map((c: any) => {
-              const v = c.richItemRenderer.content.videoRenderer;
-              const videoId = v.videoId;
-              let publishedText = v.publishedTimeText?.simpleText || "Recentemente";
-              
-              return {
-                id: videoId,
-                title: v.title?.runs?.[0]?.text || "Sem título",
-                thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-                published: publishedText,
-                link: `https://www.youtube.com/watch?v=${videoId}`
-              };
-            });
-            
           const streams: any[] = [];
           
           const findStreams = (obj: any) => {
