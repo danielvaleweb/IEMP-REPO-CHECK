@@ -162,7 +162,7 @@ export default function Home() {
            filteredItems = data.items;
         }
 
-        return filteredItems.map((item: any) => {
+        const mappedItems = filteredItems.map((item: any) => {
           const videoId = item.guid.replace('yt:video:', '');
           return {
             id: videoId,
@@ -171,7 +171,9 @@ export default function Home() {
             published: new Date(item.pubDate).toLocaleDateString('pt-BR'),
             link: item.link
           };
-        }).slice(0, 6);
+        });
+        
+        return Array.from(new Map(mappedItems.map((v: any) => [v.title.toLowerCase().trim(), v])).values()).slice(0, 6);
       }
       throw new Error("RSS2JSON failed");
     };
@@ -186,7 +188,8 @@ export default function Home() {
         const data = JSON.parse(text);
         
         if (data && data.length > 0) {
-          const uniqueVideos = Array.from(new Map(data.map((v: any) => [v.id, v])).values());
+          // Deduplicate by title to prevent parts of the same stream appearing multiple times
+          const uniqueVideos = Array.from(new Map(data.map((v: any) => [v.title.toLowerCase().trim(), v])).values());
           setVideos(uniqueVideos);
         } else {
           throw new Error("Empty videos array");
@@ -234,7 +237,8 @@ export default function Home() {
         const data = JSON.parse(text);
         
         if (data && data.length > 0) {
-          const uniqueLives = Array.from(new Map(data.map((v: any) => [v.id, v])).values());
+          // Deduplicate by title to prevent parts of the same stream appearing multiple times
+          const uniqueLives = Array.from(new Map(data.map((v: any) => [v.title.toLowerCase().trim(), v])).values());
           setLives(uniqueLives);
         } else {
           throw new Error("Empty lives array");
