@@ -489,8 +489,8 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {videos.slice(0, 10).map((video, idx) => (
+          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {videos.slice(0, 5).map((video, idx) => (
               <motion.div
                 key={`home-video-${idx}-${video.id || 'no-id'}`}
                 initial={{ opacity: 0, y: 20 }}
@@ -566,8 +566,8 @@ export default function Home() {
           {lives.length === 0 ? (
             <div className="text-white/40 text-sm">Nenhuma live recente encontrada.</div>
           ) : (
-            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {lives.slice(0, 10).map((life, idx) => (
+            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {lives.slice(0, 5).map((life, idx) => (
                 <motion.div
                   key={`home-life-${idx}-${life.id || 'no-id'}`}
                   initial={{ opacity: 0, y: 20 }}

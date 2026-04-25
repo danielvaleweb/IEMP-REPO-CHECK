@@ -84,55 +84,18 @@ async function startServer() {
     try {
       let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       channelId = channelId.trim();
-      if (channelId.includes('youtube.com/channel/')) {
-        channelId = channelId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
-      } else if (channelId.includes('youtube.com/@')) {
-         channelId = '@' + channelId.split('youtube.com/@')[1].split('/')[0].split('?')[0];
-      }
       
       const videos: any[] = [];
       const seenIds = new Set();
 
-      // 1. Try RSS first (Most reliable for recent content)
-      try {
-        const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId.startsWith('@') ? 'UCILgaItnqDH3plhRXD54QUg' : channelId}`;
-        const rssResponse = await fetch(rssUrl);
-        if (rssResponse.ok) {
-          const xmlData = await rssResponse.text();
-          const jsonObj = parser.parse(xmlData);
-          const entries = jsonObj.feed?.entry || [];
-          const entriesArray = Array.isArray(entries) ? entries : [entries];
-          
-          for (const entry of entriesArray) {
-            const id = entry["yt:videoId"];
-            if (id && !seenIds.has(id)) {
-              const title = entry.title || "";
-              const lowTitle = title.toLowerCase();
-              // Filter for regular videos (not lives)
-              const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
-              if (!isLive) {
-                seenIds.add(id);
-                videos.push({
-                  id,
-                  title,
-                  thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                  date: new Date(entry.published).toLocaleDateString('pt-BR'),
-                  published: entry.published
-                });
-              }
-            }
-          }
-        }
-      } catch (e) { console.warn("RSS failed"); }
-
-      // 2. Try Scraping (Gets more data/specific tabs)
+      // 1. Try Scraping first (Full tab data is often better than RSS for categorization)
       try {
         let videosUrl = channelId.startsWith('@') ? `https://www.youtube.com/${channelId}/videos` : `https://www.youtube.com/channel/${channelId}/videos`;
         const response = await fetch(videosUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'pt-BR,pt;q=0.9',
-            'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en+FX+999'
+            'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en'
           }
         });
         if (response.ok) {
@@ -150,7 +113,7 @@ async function startServer() {
                   videos.push({
                     id,
                     title: v.title?.runs?.[0]?.text || v.title?.simpleText,
-                    thumbnail: v.thumbnail?.thumbnails?.[0]?.url,
+                    thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
                     date: v.publishedTimeText?.simpleText || "Recente"
                   });
                 }
@@ -161,7 +124,40 @@ async function startServer() {
             findDeepVideos(data);
           }
         }
-      } catch (e) { console.warn("Scraping failed"); }
+      } catch (e) { console.warn("Videos Scraping failed"); }
+
+      // 2. RSS Fallback/Enrichment
+      if (videos.length < 5) {
+        try {
+          const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId.startsWith('@') ? 'UCILgaItnqDH3plhRXD54QUg' : channelId}`;
+          const rssResponse = await fetch(rssUrl);
+          if (rssResponse.ok) {
+            const xmlData = await rssResponse.text();
+            const jsonObj = parser.parse(xmlData);
+            const entries = jsonObj.feed?.entry || [];
+            const entriesArray = Array.isArray(entries) ? entries : [entries];
+            
+            for (const entry of entriesArray) {
+              const id = entry["yt:videoId"];
+              if (id && !seenIds.has(id)) {
+                const title = entry.title || "";
+                const lowTitle = title.toLowerCase();
+                // Avoid clearly live content in the videos section if we have other things
+                const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
+                if (!isLive || videos.length < 5) {
+                  seenIds.add(id);
+                  videos.push({
+                    id,
+                    title,
+                    thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                    date: new Date(entry.published).toLocaleDateString('pt-BR')
+                  });
+                }
+              }
+            }
+          }
+        } catch (e) { console.warn("RSS failed"); }
+      }
 
       res.json(videos.slice(0, 15));
     } catch (error) {
@@ -179,45 +175,14 @@ async function startServer() {
       const lives: any[] = [];
       const seenIds = new Set();
 
-      // 1. Try RSS first (Filter FOR lives)
-      try {
-        const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId.startsWith('@') ? 'UCILgaItnqDH3plhRXD54QUg' : channelId}`;
-        const rssResponse = await fetch(rssUrl);
-        if (rssResponse.ok) {
-          const xmlData = await rssResponse.text();
-          const jsonObj = parser.parse(xmlData);
-          const entries = jsonObj.feed?.entry || [];
-          const entriesArray = Array.isArray(entries) ? entries : [entries];
-          
-          for (const entry of entriesArray) {
-            const id = entry["yt:videoId"];
-            if (id && !seenIds.has(id)) {
-              const title = entry.title || "";
-              const lowTitle = title.toLowerCase();
-              const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
-              if (isLive) {
-                seenIds.add(id);
-                lives.push({
-                  id,
-                  title,
-                  thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                  date: new Date(entry.published).toLocaleDateString('pt-BR'),
-                  published: entry.published
-                });
-              }
-            }
-          }
-        }
-      } catch (e) { console.warn("RSS Live failed"); }
-
-      // 2. Try Scraping specific streams tab
+      // 1. Try Scraping the specific Streams tab first
       try {
         let streamsUrl = channelId.startsWith('@') ? `https://www.youtube.com/${channelId}/streams` : `https://www.youtube.com/channel/${channelId}/streams`;
         const response = await fetch(streamsUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept-Language': 'pt-BR,pt;q=0.9',
-            'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en+FX+999'
+            'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en'
           }
         });
         if (response.ok) {
@@ -235,8 +200,8 @@ async function startServer() {
                   lives.push({
                     id,
                     title: v.title?.runs?.[0]?.text || v.title?.simpleText,
-                    thumbnail: v.thumbnail?.thumbnails?.[0]?.url,
-                    date: v.publishedTimeText?.simpleText || "Recente"
+                    thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                    date: v.publishedTimeText?.simpleText || "Ao Vivo"
                   });
                 }
               } else {
@@ -248,9 +213,40 @@ async function startServer() {
         }
       } catch (e) { console.warn("Streams scraping failed"); }
 
+      // 2. RSS Fallback with keyword filtering
+      if (lives.length < 5) {
+        try {
+          const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId.startsWith('@') ? 'UCILgaItnqDH3plhRXD54QUg' : channelId}`;
+          const rssResponse = await fetch(rssUrl);
+          if (rssResponse.ok) {
+            const xmlData = await rssResponse.text();
+            const jsonObj = parser.parse(xmlData);
+            const entries = jsonObj.feed?.entry || [];
+            const entriesArray = Array.isArray(entries) ? entries : [entries];
+            
+            for (const entry of entriesArray) {
+              const id = entry["yt:videoId"];
+              const title = entry.title || "";
+              const lowTitle = title.toLowerCase();
+              const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
+              
+              if (id && !seenIds.has(id) && isLive) {
+                seenIds.add(id);
+                lives.push({
+                  id,
+                  title,
+                  thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                  date: new Date(entry.published).toLocaleDateString('pt-BR')
+                });
+              }
+            }
+          }
+        } catch (e) { console.warn("RSS Live failed"); }
+      }
+
       res.json(lives.slice(0, 15));
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch" });
+      res.status(500).json({ error: "Failed to fetch lives" });
     }
   });
 
