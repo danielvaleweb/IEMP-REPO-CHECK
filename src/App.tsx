@@ -22,12 +22,13 @@ import StaticPages from "@/pages/StaticPages";
 import { cn } from "@/lib/utils";
 
 import EventDetails from "@/pages/EventDetails";
+import NoticiaDetalhe from "@/pages/NoticiaDetalhe";
 
 function AppContent() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
   const isAdminPage = location.pathname.startsWith("/admin");
-  const isEventPage = location.pathname.startsWith("/evento/");
+  const isEventPage = location.pathname.startsWith("/evento/") || location.pathname.startsWith("/noticia/");
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary">
@@ -40,6 +41,7 @@ function AppContent() {
           <Route path="/favoritos" element={<Favorites />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/evento/:id" element={<EventDetails />} />
+          <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
           <Route path="/quem-somos" element={<About />} />
           <Route path="/biblia" element={<Bible />} />
           <Route path="/departamentos/:dept" element={<Departments />} />

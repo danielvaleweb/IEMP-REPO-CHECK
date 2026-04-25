@@ -13,7 +13,10 @@ export function EventosView({
   onViewEvent,
   isDark,
   canEdit = false,
-  canDelete = false
+  canDelete = false,
+  title = "Eventos do Mês",
+  buttonLabel = "Cadastrar novo evento",
+  emptyLabel = "Nenhum item cadastrado."
 }: { 
   events: any[], 
   onNewEvent: () => void, 
@@ -22,18 +25,21 @@ export function EventosView({
   onViewEvent: (event: any) => void,
   isDark?: boolean,
   canEdit?: boolean,
-  canDelete?: boolean
+  canDelete?: boolean,
+  title?: string,
+  buttonLabel?: string,
+  emptyLabel?: string
 }) {
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>Eventos do Mês</h2>
+        <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>{title}</h2>
         {canEdit && (
           <Button 
             className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer"
             onClick={onNewEvent}
           >
-            <Plus className="w-4 h-4 mr-2" /> Cadastrar novo evento
+            <Plus className="w-4 h-4 mr-2" /> {buttonLabel}
           </Button>
         )}
       </div>
@@ -74,14 +80,14 @@ export function EventosView({
               </div>
               <div className="flex items-center gap-2 text-xs text-white/80 drop-shadow-md">
                 <MapPin className="w-3 h-3 text-[#BF76FF]" />
-                <span className="line-clamp-1">{event.location}</span>
+                <span className="line-clamp-1">{event.location || event.category || "Notícia"}</span>
               </div>
             </div>
           </div>
         ))}
         {events.length === 0 && (
           <div className="col-span-full py-20 text-center text-gray-500">
-            Nenhum evento cadastrado.
+            {emptyLabel}
           </div>
         )}
       </div>

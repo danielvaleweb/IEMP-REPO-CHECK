@@ -112,7 +112,7 @@ const WhatsAppIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const CandleIcon = ({ isDark }: { isDark: boolean }) => (
+const CandleIcon = ({ isDark = true }: { isDark?: boolean }) => (
   <div className="relative w-10 h-10 flex items-center justify-center">
     <div className={cn("w-3 h-8 rounded-t-lg absolute bottom-1 shadow-sm", isDark ? "bg-pink-500/40" : "bg-pink-100")} />
     <div className="w-0.5 h-2 bg-gray-600 absolute bottom-9" />
@@ -886,6 +886,7 @@ export default function Admin() {
 
   // Data States
   const [posts, setPosts] = useState<any[]>([]);
+  const [blog, setBlog] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [agenda, setAgenda] = useState<any[]>([]);
   const [agendaDirecao, setAgendaDirecao] = useState<any[]>([]);
@@ -897,6 +898,8 @@ export default function Admin() {
     members: 0,
     agenda: 0,
     posts: 0,
+    blog: 0,
+    vignettes: 0,
     unreadNotifications: 0
   });
 
@@ -982,9 +985,13 @@ export default function Admin() {
     });
     
     posts.forEach(p => {
-      if (p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query)) {
-        const sub = p.category === "Evento" ? "Evento" : "Notícia";
-        results.push({ type: p.category === "Evento" ? 'eventos' : 'noticias', item: p, title: p.title, sub: `${sub} • ${p.date || "Sem data"}`, icon: p.category === "Evento" ? PartyPopper : Newspaper });
+      const isMatch = p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query);
+      if (isMatch) {
+        if (p.category === "Evento") {
+          results.push({ type: 'eventos', item: p, title: p.title, sub: `Evento • ${p.date || "Sem data"}`, icon: PartyPopper });
+        } else {
+          results.push({ type: 'noticias', item: p, title: p.title, sub: `Notícia • ${p.date || "Sem data"}`, icon: Newspaper });
+        }
       }
     });
 
@@ -1242,6 +1249,7 @@ export default function Admin() {
     const defaultVals: any = {
       "visao-geral": true,
       "eventos": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "noticias": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "radio": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
@@ -1266,29 +1274,37 @@ export default function Admin() {
 
     // Fetch total counts once for the dashboard summary
     const fetchCounts = async () => {
-      try {
-        const [membersSnap, agendaSnap, vignettesSnap, postsSnap, unreadSnap] = await Promise.all([
-          isAdmin ? getCountFromServer(collection(db, "members")) : Promise.resolve({ data: () => ({ count: 0 }) }),
-          getCountFromServer(collection(db, "agenda")),
-          getCountFromServer(collection(db, "vignettes")),
-          getCountFromServer(collection(db, "posts")),
-          getCountFromServer(query(
-            collection(db, "notifications"), 
-            where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
-            where("read", "==", false)
-          ))
-        ]);
-        
-        setCounts({
-          members: membersSnap.data().count,
-          agenda: agendaSnap.data().count,
-          vignettes: vignettesSnap.data().count,
-          posts: postsSnap.data().count,
-          unreadNotifications: unreadSnap.data().count
-        });
-      } catch (err) {
-        console.error("Error fetching counts:", err);
-      }
+      const safeGetCount = async (coll: any, label: string) => {
+        try {
+          const snap = await getCountFromServer(coll);
+          return snap.data().count;
+        } catch (err) {
+          console.error(`Error fetching count for ${label}:`, err);
+          return 0;
+        }
+      };
+
+      const [membersCount, agendaCount, vignettesCount, postsCount, blogCount, unreadCount] = await Promise.all([
+        isAdmin ? safeGetCount(collection(db, "members"), "members") : Promise.resolve(0),
+        safeGetCount(collection(db, "agenda"), "agenda"),
+        safeGetCount(collection(db, "vignettes"), "vignettes"),
+        safeGetCount(collection(db, "posts"), "posts"),
+        safeGetCount(collection(db, "blog"), "blog"),
+        safeGetCount(query(
+          collection(db, "notifications"), 
+          where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
+          where("read", "==", false)
+        ), "notifications")
+      ]);
+      
+      setCounts({
+        members: membersCount,
+        agenda: agendaCount,
+        vignettes: vignettesCount,
+        posts: postsCount,
+        blog: blogCount,
+        unreadNotifications: unreadCount
+      });
     };
     fetchCounts();
 
@@ -1302,6 +1318,10 @@ export default function Admin() {
     const unsubPosts = onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
       setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading posts:", err));
+
+    const unsubBlog = onSnapshot(query(collection(db, "blog"), limit(200)), (snap) => {
+      setBlog(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error("Error loading blog:", err));
 
     const unsubMembers = isAdmin ? onSnapshot(query(collection(db, "members"), limit(200)), (snap) => {
       setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
@@ -1352,6 +1372,7 @@ export default function Admin() {
     return () => {
       unsubSettings();
       unsubPosts();
+      unsubBlog();
       unsubMembers();
       unsubAgenda();
       unsubAgendaDirecao();
@@ -1386,8 +1407,8 @@ export default function Admin() {
   // Search Logic
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    if (activeTab === "eventos") return posts.filter(p => (p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query)) && p.category === "Evento");
-    if (activeTab === "noticias") return posts.filter(p => (p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query)) && p.category !== "Evento");
+    if (activeTab === "eventos") return posts.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
+    if (activeTab === "noticias") return blog.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
     if (activeTab === "radio") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
     if (activeTab === "membros") return members.filter(m => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
@@ -1399,7 +1420,7 @@ export default function Admin() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      let collectionName = (activeTab === "eventos" || activeTab === "noticias") ? "posts" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
+      let collectionName = activeTab === "eventos" ? "posts" : activeTab === "noticias" ? "blog" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
       
       // Override collection if editing an item that has a specific type (e.g. from merged agenda)
       if (selectedItem?.type) {
@@ -2729,7 +2750,7 @@ export default function Admin() {
             {isEditing ? (
               <Card className={cn("border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all", isDarkMode ? "bg-[#111]" : "bg-white border-black/5")}>
                 <div className="space-y-8">
-                  {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") ? (
+                  {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") ? (
                     <div className="mb-2">
                       <Button 
                         variant="ghost" 
@@ -2809,7 +2830,7 @@ export default function Admin() {
                     </div>
                   )}
                   
-                  {(activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") && (
+                  {(activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") && (
                     isReadOnly ? (
                       <motion.div 
                         initial={{ opacity: 0, y: 20 }}
@@ -2832,18 +2853,18 @@ export default function Admin() {
                         <div className="space-y-4">
                           <div className="flex items-center gap-3">
                             <div className="h-[2px] w-8 bg-[#BF76FF]" />
-                            <p className="text-[#BF76FF] font-black uppercase tracking-[0.2em] text-[10px]">{activeTab === 'eventos' ? 'Detalhes do Evento' : 'Agenda da Direção'}</p>
+                            <p className="text-[#BF76FF] font-black uppercase tracking-[0.2em] text-[10px]">{activeTab === 'eventos' ? 'Detalhes do Evento' : activeTab === 'noticias' ? 'Detalhes da Notícia' : 'Agenda da Direção'}</p>
                           </div>
                           <h3 className={cn("text-4xl md:text-6xl font-black tracking-tighter transition-colors leading-[0.9]", isDarkMode ? "text-white" : "text-black")}>
                             {formData.title}
                           </h3>
                         </div>
 
-                        {activeTab === "eventos" && formData.content && (
+                        {(activeTab === "eventos" || activeTab === "noticias") && formData.content && (
                           <div className={cn("p-8 md:p-12 rounded-[40px] border transition-all text-lg md:text-xl font-medium leading-relaxed", isDarkMode ? "bg-white/5 border-white/5 text-gray-300" : "bg-white border-black/5 text-gray-700 shadow-sm")}>
                             <div className="flex items-center gap-2 mb-6">
                               <div className="w-1 h-6 bg-primary rounded-full" />
-                              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Sobre o Evento</h4>
+                              <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">{activeTab === "eventos" ? "Sobre o Evento" : "Matéria jornalística"}</h4>
                             </div>
                             <p className="whitespace-pre-wrap">{formData.content}</p>
                           </div>
@@ -3004,7 +3025,7 @@ export default function Admin() {
                           {activeTab === "eventos" && (
                             <>
                               <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem de Capa</label>
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem de Capa (Evento)</label>
                                 <Input 
                                   className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
                                   placeholder="https://exemplo.com/banner.jpg"
@@ -3032,23 +3053,93 @@ export default function Admin() {
                             </>
                           )}
 
+                          {activeTab === "noticias" && (
+                            <>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem da Notícia</label>
+                                <Input 
+                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="https://exemplo.com/noticia.jpg"
+                                  value={formData.image || ""}
+                                  onChange={(e) => setFormData({...formData, image: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                                {formData.image && (
+                                  <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Legenda / Descrição da Imagem</label>
+                                <Input 
+                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="Ex: Foto por João Silva / Arquivo Ministério Profecia"
+                                  value={formData.imageCaption || ""}
+                                  onChange={(e) => setFormData({...formData, imageCaption: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Subtítulo / Gravata</label>
+                                <Input 
+                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="Um resumo impactante para aparecer abaixo do título"
+                                  value={formData.subtitle || ""}
+                                  onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Fonte da Matéria</label>
+                                <Input 
+                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="Ex: G1, Gospel Prime, Redação Interna"
+                                  value={formData.source || ""}
+                                  onChange={(e) => setFormData({...formData, source: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL do Vídeo (YouTube / Instagram / Shorts)</label>
+                                <Input 
+                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="Link do vídeo para incorporação"
+                                  value={formData.videoUrl || ""}
+                                  onChange={(e) => setFormData({...formData, videoUrl: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Galeria de Fotos (Dê Enter para cada URL)</label>
+                                <Textarea 
+                                  className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="Cole aqui os links das fotos extras, um por linha"
+                                  value={formData.gallery || ""}
+                                  onChange={(e) => setFormData({...formData, gallery: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                            </>
+                          )}
+
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{activeTab === 'eventos' ? 'Título do Evento' : 'Título do Compromisso'}</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{(activeTab === 'eventos' || activeTab === 'noticias') ? 'Título da Postagem' : 'Título do Compromisso'}</label>
                             <Input 
                               className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                              placeholder={activeTab === 'eventos' ? "Ex: Conferência de Jovens 2024" : "Ex: Visitar igreja no Grama"}
+                              placeholder={(activeTab === 'eventos' || activeTab === 'noticias') ? "Ex: Conferência de Jovens 2024" : "Ex: Visitar igreja no Grama"}
                               value={formData.title || ""}
                               onChange={(e) => setFormData({...formData, title: e.target.value})}
                               readOnly={isReadOnly}
                             />
                           </div>
 
-                          {activeTab === "eventos" && (
+                          {(activeTab === "eventos" || activeTab === "noticias") && (
                             <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio/Descrição do Evento</label>
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{activeTab === "eventos" ? "Bio/Descrição do Evento" : "Conteúdo da Matéria"}</label>
                               <Textarea 
                                 className={cn("border-none min-h-[150px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="Conte mais sobre o evento..."
+                                placeholder={activeTab === "eventos" ? "Conte mais sobre o evento..." : "Escreva o texto da reportagem..."}
                                 value={formData.content || ""}
                                 onChange={(e) => setFormData({...formData, content: e.target.value})}
                                 readOnly={isReadOnly}
@@ -3961,11 +4052,13 @@ export default function Admin() {
                 isDark={isDarkMode}
                 canEdit={canEdit}
                 canDelete={canDelete}
+                title={activeTab === "eventos" ? "Eventos do Mês" : "Blog & Notícias"}
+                buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Escrever nova matéria"}
+                emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
                 onNewEvent={() => {
                   setSelectedItem(null);
                   setFormData({ 
-                    organization: profile?.role || "Membro",
-                    category: activeTab === "eventos" ? "Evento" : "Notícia"
+                    organization: profile?.role || "Membro"
                   });
                   setIsReadOnly(false);
                   setIsEditing(true);
@@ -3983,7 +4076,7 @@ export default function Admin() {
                   setIsEditing(true);
                 }}
                 onDeleteEvent={(item) => {
-                  handleDelete(item.id, "posts");
+                  handleDelete(item.id, activeTab === "noticias" ? "blog" : "posts");
                 }}
               />
             ) : activeTab === "agenda" ? (

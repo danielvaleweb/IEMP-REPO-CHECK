@@ -114,12 +114,35 @@
         "timestamp": { "type": "string", "format": "date-time" }
       },
       "required": ["action", "target", "userId", "timestamp"]
+    },
+    "BlogPost": {
+      "title": "BlogPost",
+      "description": "Notícias e reportagens do blog",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "content": { "type": "string" },
+        "description": { "type": "string" },
+        "image": { "type": "string" },
+        "imageCaption": { "type": "string" },
+        "source": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "gallery": { "type": "string" },
+        "organization": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "content"]
     }
   },
   "firestore": {
     "/posts/{postId}": {
       "schema": "Post",
       "description": "Coleção de artigos"
+    },
+    "/blog/{blogId}": {
+      "schema": "BlogPost",
+      "description": "Notícias do blog"
     },
     "/members/{memberId}": {
       "schema": "Member",

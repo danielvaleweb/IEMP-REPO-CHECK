@@ -2,9 +2,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Pillar 0: Safety Net
-    match /{document=**} {
-      allow read, write: if false;
+    match /blog/{blogId} {
+      allow read, get, list: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidBlogPost(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /posts/{postId} {
+      allow read, get, list: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidPost(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+      
+      match /attendees/{userId} {
+        allow read: if true;
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     // --- Helper Functions ---
@@ -64,6 +76,12 @@ service cloud.firestore {
              (data.authorId == null || data.authorId is string);
     }
 
+    function isValidBlogPost(data) {
+      return data.keys().hasAll(['title', 'content']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.content is string;
+    }
+
     function isValidMusic(data) {
       return data.keys().hasAll(['title']) &&
              data.title is string;
@@ -107,17 +125,6 @@ service cloud.firestore {
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
-    match /posts/{postId} {
-      allow read: if true;
-      allow create, update: if (isMasterAdmin() || isEditor()) && isValidPost(incoming());
-      allow delete: if isMasterAdmin() || isAdmin();
-      
-      match /attendees/{userId} {
-        allow read: if true;
-        allow write: if isSignedIn() && request.auth.uid == userId;
-      }
-    }
-
     match /musics/{musicId} {
       allow read: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidMusic(incoming());
@@ -159,7 +166,8 @@ service cloud.firestore {
         resource.data.userId == request.auth.uid || 
         resource.data.userId == 'all' || 
         resource.data.userId == 'admin' || 
-        isMasterAdmin()
+        isMasterAdmin() ||
+        isAdmin()
       );
       allow create: if isMasterAdmin() || isAdmin() || 
                     incoming().type == 'registration' || 
@@ -186,6 +194,11 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read, write: if isSignedIn() && (isMasterAdmin() || isAdmin() || request.auth.uid in chatId.split('_'));
       }
+    }
+
+    // Pillar 0: Safety Net
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
