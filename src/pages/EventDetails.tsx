@@ -195,15 +195,7 @@ export default function EventDetails() {
       
       {/* Navigation Top Bar */}
       <div className="fixed top-20 md:top-24 left-0 w-full p-4 md:p-6 z-40 flex justify-between items-center pointer-events-none">
-        <div className="max-w-7xl mx-auto w-full flex justify-between items-center">
-          <Button 
-            onClick={() => navigate(-1)} 
-            variant="ghost" 
-            className="pointer-events-auto bg-black/40 backdrop-blur-xl text-white hover:bg-white/10 hover:text-white rounded-2xl h-12 px-6 transition-all font-bold group border border-white/10 shrink-0 cursor-pointer shadow-[0_0_20px_rgba(0,0,0,0.5)]"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2 group-hover:-translate-x-1 transition-transform" /> Voltar
-          </Button>
-        </div>
+        {/* Navigation bar removed as requested */}
       </div>
 
       <div className="flex-1 max-w-7xl mx-auto w-full px-6 md:px-12 py-8 pt-24 md:pt-32 relative z-10 flex flex-col items-center">
@@ -280,20 +272,18 @@ export default function EventDetails() {
           </div>
 
           {/* Organizer Card - Right Side */}
-          <div className="w-full lg:w-[400px] xl:w-[450px] shrink-0 mt-8 lg:mt-0">
+          <div className="w-full lg:w-[400px] xl:w-[450px] shrink-0 mt-8 lg:mt-0 flex justify-center lg:justify-end">
              <motion.div 
                initial={{ opacity: 0, scale: 0.95 }}
                animate={{ opacity: 1, scale: 1 }}
                transition={{ duration: 0.8 }}
-               className="bg-[#BF76FF] rounded-[40px] p-2 relative overflow-hidden group shadow-[0_0_50px_rgba(191,118,255,0.2)]"
+               className="relative overflow-hidden group w-full aspect-[4/5] rounded-[40px]"
              >
-               <div className="absolute inset-0 bg-gradient-to-t from-purple-900/80 via-transparent to-transparent z-10 pointer-events-none" />
-               <div className="w-full aspect-[4/5] object-cover rounded-[36px] overflow-hidden bg-purple-900 relative border border-white/10">
-                  <img src={organizerImage} alt={organizerDisplay} className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none rounded-[36px]" />
-               </div>
-               <div className="absolute bottom-6 left-0 w-full text-center z-20 px-4">
-                 <h3 className="text-3xl font-black uppercase tracking-tighter text-white drop-shadow-lg">{organizerDisplay}</h3>
-                 <p className="text-white text-[10px] font-black uppercase tracking-[0.2em] mt-1 drop-shadow-lg opacity-80">Organizador (Convener)</p>
+               <div className="absolute inset-0 bg-gradient-to-t from-[#10001D]/90 via-transparent to-transparent z-10 pointer-events-none rounded-[40px]" />
+               <img src={organizerImage} alt={organizerDisplay} className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none rounded-[40px]" />
+               <div className="absolute bottom-6 left-0 w-full text-center z-20 px-6">
+                 <h3 className="text-3xl lg:text-4xl font-black uppercase tracking-tighter text-white drop-shadow-lg">{organizerDisplay}</h3>
+                 <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mt-2 drop-shadow-lg">Organizador (Convener)</p>
                </div>
              </motion.div>
           </div>
@@ -304,55 +294,55 @@ export default function EventDetails() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="w-full mt-16 lg:mt-24 bg-[#10001D]/80 backdrop-blur-3xl border border-white/10 rounded-[32px] md:rounded-[40px] p-6 md:p-8 flex flex-col lg:flex-row items-center justify-between gap-8 relative overflow-hidden shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)]"
+          className="w-full mt-16 md:mt-24 bg-[#10001D]/80 backdrop-blur-3xl border border-white/10 rounded-[32px] md:rounded-[40px] p-6 lg:p-8 flex flex-col items-center relative overflow-hidden shadow-[0_20px_50px_-10px_rgba(0,0,0,0.5)]"
         >
            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/5 to-transparent pointer-events-none" />
            
-           <div className="flex flex-col md:flex-row gap-6 lg:gap-12 w-full lg:w-auto items-center md:items-start text-white relative z-10">
-              {/* Box 1 (Data) */}
-              <div className="flex items-center gap-4 text-left border-b border-white/10 md:border-b-0 md:border-r pb-4 md:pb-0 md:pr-12 w-full md:w-auto">
-                 <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-                   <Calendar className="w-5 h-5 text-[#BF76FF]" />
-                 </div>
-                 <div>
-                   <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Data</p>
-                   <h4 className="text-xl md:text-2xl font-black leading-none text-white">{displayDate || "TBA"}</h4>
-                 </div>
-              </div>
+           <div className="flex flex-col xl:flex-row gap-8 lg:gap-12 w-full items-center justify-between text-white relative z-10">
               
-              {/* Box 2 (Hora) */}
-              <div className="flex items-center gap-4 text-left border-b border-white/10 md:border-b-0 md:border-r pb-4 md:pb-0 md:pr-12 w-full md:w-auto">
-                 <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-                   <Clock className="w-5 h-5 text-[#BF76FF]" />
+              <div className="flex flex-col md:flex-row gap-6 md:gap-8 lg:gap-12 items-center justify-center xl:justify-start w-full md:w-auto">
+                 {/* Box 1 (Data) */}
+                 <div className="flex items-center gap-4 text-left md:border-r border-white/10 md:pr-8 lg:pr-12 w-full md:w-auto">
+                    <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                      <Calendar className="w-5 h-5 text-[#BF76FF]" />
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Data</p>
+                      <h4 className="text-xl md:text-2xl font-black leading-none text-white">{displayDate || "TBA"}</h4>
+                    </div>
                  </div>
-                 <div>
-                   <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Hora</p>
-                   <h4 className="text-xl md:text-2xl font-black leading-none text-white">{startTime || "--:--"}</h4>
+                 
+                 {/* Box 2 (Hora) */}
+                 <div className="flex items-center gap-4 text-left md:border-r border-white/10 md:pr-8 lg:pr-12 w-full md:w-auto">
+                    <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                      <Clock className="w-5 h-5 text-[#BF76FF]" />
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Hora</p>
+                      <h4 className="text-xl md:text-2xl font-black leading-none text-white">{startTime || "--:--"}</h4>
+                    </div>
+                 </div>
+
+                 {/* Box 3 (Local) */}
+                 <div className="flex items-center gap-4 text-left w-full md:w-auto">
+                    <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
+                      <MapPin className="w-5 h-5 text-[#BF76FF]" />
+                    </div>
+                    <div>
+                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Localização</p>
+                      <h4 className="text-sm md:text-base lg:text-xl font-bold leading-tight max-w-[200px] text-white truncate">{event.location || event.street || "Sede IEMP"}</h4>
+                    </div>
                  </div>
               </div>
 
-              {/* Box 3 (Local) */}
-              <div className="flex items-center gap-4 text-left w-full md:w-auto">
-                 <div className="w-12 h-12 bg-white/5 border border-white/10 text-white rounded-2xl flex items-center justify-center shrink-0 shadow-inner">
-                   <MapPin className="w-5 h-5 text-[#BF76FF]" />
-                 </div>
-                 <div className="flex flex-col items-start gap-2">
-                   <div>
-                     <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Localização</p>
-                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
-                       <h4 className="text-sm md:text-base font-bold leading-tight max-w-[200px] text-white">{event.location || event.street || "Sede IEMP"}</h4>
-                       <Button 
-                         onClick={navigateToMaps}
-                         variant="secondary"
-                         className="h-7 px-3 text-[10px] font-black uppercase tracking-widest bg-green-500 hover:bg-green-600 text-white border-none rounded-lg transition-colors cursor-pointer"
-                       >
-                         Ver no Mapa
-                       </Button>
-                     </div>
-                   </div>
-                 </div>
-              </div>
-            </div>
+              <Button 
+                onClick={navigateToMaps}
+                size="lg"
+                className="w-full xl:w-auto h-14 xl:px-10 rounded-2xl font-black text-sm lg:text-base transition-all duration-300 uppercase tracking-widest bg-green-500 hover:bg-green-600 text-white shadow-lg shrink-0 cursor-pointer border-none"
+              >
+                Ver no Mapa
+              </Button>
+           </div>
         </motion.div>
         
         {/* Quick Action Buttons Space */}
@@ -380,10 +370,10 @@ export default function EventDetails() {
                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.6 }}>
                      <ThumbsUp className="w-8 h-8" />
                    </motion.div>
-                   Eu vou!
+                   Tô dentro!
                  </>
                ) : (
-                 <>Opa, estou nessa!</>
+                 <>Eu vou</>
                )}
              </span>
            </Button>
@@ -400,25 +390,7 @@ export default function EventDetails() {
         </motion.div>
 
         {/* Contact Buttons Space */}
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
-          className="w-full flex flex-col mt-24 items-start"
-        >
-           <div className="flex items-center gap-4 mb-6">
-             <div className="w-8 h-[2px] bg-[#BF76FF]" />
-             <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Ficou alguma dúvida?</p>
-           </div>
-           <div className="flex flex-col sm:flex-row items-center gap-4 ml-12 w-full sm:w-auto">
-             <Button onClick={() => window.open('https://api.whatsapp.com/send?phone=5532998288650', '_blank')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-green-500 hover:to-green-500 hover:text-white hover:shadow-green-500/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
-               <MessageCircle className="w-4 h-4" /> WhatsApp
-             </Button>
-             <Button onClick={() => window.open('mailto:contato@ministerioprofecia.com.br')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-white hover:to-white hover:text-black hover:shadow-white/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
-               <Headset className="w-4 h-4" /> Suporte
-             </Button>
-           </div>
-        </motion.div>
+        {/* Contact buttons moved below gallery */}
 
         {/* Video Area */}
         {youtubeId && (
@@ -537,6 +509,27 @@ export default function EventDetails() {
             </div>
            </div>
         )}
+
+        {/* Contact Buttons Space */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="w-full flex flex-col mt-24 items-end text-right"
+        >
+           <div className="flex items-center gap-4 mb-6 justify-end w-full">
+             <p className="text-white/80 font-bold uppercase tracking-widest text-sm">Ficou alguma dúvida?</p>
+             <div className="w-8 h-[2px] bg-[#BF76FF]" />
+           </div>
+           <div className="flex flex-col sm:flex-row items-center justify-end gap-4 w-full sm:w-auto">
+             <Button onClick={() => window.open('https://api.whatsapp.com/send?phone=5532998288650', '_blank')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-green-500 hover:to-green-500 hover:text-white hover:shadow-green-500/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
+               <MessageCircle className="w-4 h-4" /> WhatsApp
+             </Button>
+             <Button onClick={() => window.open('mailto:contato@ministerioprofecia.com.br')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-white hover:to-white hover:text-black hover:shadow-white/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
+               <Headset className="w-4 h-4" /> Suporte
+             </Button>
+           </div>
+        </motion.div>
       </div>
 
       {/* Gallery Lightbox Modal */}
@@ -624,6 +617,7 @@ export default function EventDetails() {
         isOpen={isPhotoModalOpen} 
         onClose={() => setIsPhotoModalOpen(false)} 
         eventTitle={event.title} 
+        frameUrl={event.frameUrl}
       />
     </div>
   );

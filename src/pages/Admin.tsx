@@ -2966,21 +2966,34 @@ export default function Admin() {
                       <>
                         <div className="space-y-6">
                           {activeTab === "eventos" && (
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem de Capa</label>
-                              <Input 
-                                className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                placeholder="https://exemplo.com/banner.jpg"
-                                value={formData.image || ""}
-                                onChange={(e) => setFormData({...formData, image: e.target.value})}
-                                readOnly={isReadOnly}
-                              />
-                              {formData.image && (
-                                <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                  <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
-                                </div>
-                              )}
-                            </div>
+                            <>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem de Capa</label>
+                                <Input 
+                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="https://exemplo.com/banner.jpg"
+                                  value={formData.image || ""}
+                                  onChange={(e) => setFormData({...formData, image: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                                {formData.image && (
+                                  <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Moldura (Criar Foto)</label>
+                                <Input 
+                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  placeholder="https://exemplo.com/moldura.png"
+                                  value={formData.frameUrl || ""}
+                                  onChange={(e) => setFormData({...formData, frameUrl: e.target.value})}
+                                  readOnly={isReadOnly}
+                                />
+                                <p className="text-[10px] text-gray-500 mt-1 ml-2">URL da imagem para a função "Criar Minha Foto" (Ex: imagem com fundo transparente)</p>
+                              </div>
+                            </>
                           )}
 
                           <div className="space-y-2">

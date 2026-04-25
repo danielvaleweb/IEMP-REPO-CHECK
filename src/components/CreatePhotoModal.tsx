@@ -8,9 +8,10 @@ interface CreatePhotoModalProps {
   isOpen: boolean;
   onClose: () => void;
   eventTitle?: string;
+  frameUrl?: string;
 }
 
-export default function CreatePhotoModal({ isOpen, onClose, eventTitle }: CreatePhotoModalProps) {
+export default function CreatePhotoModal({ isOpen, onClose, eventTitle, frameUrl }: CreatePhotoModalProps) {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -20,8 +21,8 @@ export default function CreatePhotoModal({ isOpen, onClose, eventTitle }: Create
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Mock frame for now (can be passed as a prop later or loaded generically)
-  const FRAME_PLACEHOLDER = "data:image/svg+xml;utf8,<svg width='1080' height='1080' xmlns='http://www.w3.org/2000/svg'><rect width='1080' height='1080' fill='none' stroke='black' stroke-width='40'/><text x='540' y='100' font-family='sans-serif' font-size='60' text-anchor='middle' font-weight='bold' fill='black'>EU VOU!</text></svg>";
+  // Use provided frameUrl or fallback to generated placeholder
+  const FRAME_PLACEHOLDER = frameUrl || "data:image/svg+xml;utf8,<svg width='1080' height='1080' xmlns='http://www.w3.org/2000/svg'><rect width='1080' height='1080' fill='none' stroke='black' stroke-width='40'/><text x='540' y='100' font-family='sans-serif' font-size='60' text-anchor='middle' font-weight='bold' fill='black'>EU VOU!</text></svg>";
 
   useEffect(() => {
     if (!isOpen) {
