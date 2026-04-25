@@ -488,15 +488,15 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-            {videos.slice(0, 8).map((video, idx) => (
+          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+            {videos.slice(0, 10).map((video, idx) => (
               <motion.div
                 key={`home-video-${idx}-${video.id || 'no-id'}`}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
-                className="group cursor-pointer min-w-[75%] sm:min-w-[45%] md:min-w-0 snap-start"
+                className="group cursor-pointer min-w-[70%] sm:min-w-[45%] md:min-w-0 snap-start"
                 onClick={() => handleWatchVideo(video)}
               >
                 <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
@@ -565,15 +565,15 @@ export default function Home() {
           {lives.length === 0 ? (
             <div className="text-white/40 text-sm">Nenhuma live recente encontrada.</div>
           ) : (
-            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
-              {lives.slice(0, 8).map((life, idx) => (
+            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              {lives.slice(0, 10).map((life, idx) => (
                 <motion.div
                   key={`home-life-${idx}-${life.id || 'no-id'}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
-                  className="group cursor-pointer min-w-[75%] sm:min-w-[45%] md:min-w-0 snap-start"
+                  className="group cursor-pointer min-w-[70%] sm:min-w-[45%] md:min-w-0 snap-start"
                   onClick={() => handleWatchVideo(life)}
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">

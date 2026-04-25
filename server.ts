@@ -156,19 +156,47 @@ async function startServer() {
               };
             });
             
-          // Ensure uniqueness primarily by ID
+          // Improved extraction logic to find more items in different renderer types
+          const videos: any[] = [];
+          
+          // Function to recursively find video renderers
+          const findVideos = (obj: any) => {
+            if (!obj || typeof obj !== 'object') return;
+            if (obj.videoRenderer || obj.gridVideoRenderer) {
+              const v = obj.videoRenderer || obj.gridVideoRenderer;
+              try {
+                const id = v.videoId;
+                const title = v.title?.runs?.[0]?.text || v.title?.simpleText;
+                const thumbnail = v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url;
+                const date = v.publishedTimeText?.simpleText || "Recente";
+                
+                if (id && title) {
+                  videos.push({ id, title, thumbnail, date });
+                }
+              } catch (e) {}
+            } else {
+              Object.values(obj).forEach(val => findVideos(val));
+            }
+          };
+
+          findVideos(data);
+            
+          // Deduplicate by title to avoid clutter but keep uniqueness by ID first
           const uniqueItems: any[] = [];
+          const seenTitles = new Set();
           const seenIds = new Set();
           
           for (const vid of videos) {
-            if (!seenIds.has(vid.id)) {
+            const normalizedTitle = vid.title.toLowerCase().trim();
+            if (!seenIds.has(vid.id) && !seenTitles.has(normalizedTitle)) {
               seenIds.add(vid.id);
+              seenTitles.add(normalizedTitle);
               uniqueItems.push(vid);
             }
           }
 
           if (uniqueItems.length > 0) {
-            return res.json(uniqueItems.slice(0, 8));
+            return res.json(uniqueItems.slice(0, 12)); // Return up to 12 items
           }
         } catch (parseError) {
           console.error("Error parsing ytInitialData:", parseError);
@@ -288,19 +316,45 @@ async function startServer() {
               };
             });
             
-            const uniqueItems: any[] = [];
-            const seenIds = new Set();
-            
-            for (const vid of streams) {
-              if (!seenIds.has(vid.id)) {
-                seenIds.add(vid.id);
-                uniqueItems.push(vid);
-              }
+          const streams: any[] = [];
+          
+          const findStreams = (obj: any) => {
+            if (!obj || typeof obj !== 'object') return;
+            if (obj.videoRenderer || obj.gridVideoRenderer) {
+              const v = obj.videoRenderer || obj.gridVideoRenderer;
+              try {
+                const id = v.videoId;
+                const title = v.title?.runs?.[0]?.text || v.title?.simpleText;
+                const thumbnail = v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url;
+                const date = v.publishedTimeText?.simpleText || "Recent";
+                
+                if (id && title) {
+                  streams.push({ id, title, thumbnail, date });
+                }
+              } catch (e) {}
+            } else {
+              Object.values(obj).forEach(val => findStreams(val));
             }
+          };
 
-            if (uniqueItems.length > 0) {
-              return res.json(uniqueItems.slice(0, 8));
+          findStreams(data);
+            
+          const uniqueItems: any[] = [];
+          const seenIds = new Set();
+          const seenTitles = new Set();
+          
+          for (const vid of streams) {
+            const normalizedTitle = vid.title.toLowerCase().trim();
+            if (!seenIds.has(vid.id) && !seenTitles.has(normalizedTitle)) {
+              seenIds.add(vid.id);
+              seenTitles.add(normalizedTitle);
+              uniqueItems.push(vid);
             }
+          }
+
+          if (uniqueItems.length > 0) {
+            return res.json(uniqueItems.slice(0, 12));
+          }
         } catch (parseError) {
           console.error("Error parsing ytInitialData for streams:", parseError);
         }
