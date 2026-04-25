@@ -197,26 +197,26 @@ export default function NoticiaDetalhe() {
         )}
       </AnimatePresence>
 
-      {/* Article Header (Jornalístico) */}
-      <div className="max-w-[1000px] mx-auto px-4 md:px-8 pt-12 pb-8">
-        <div className="flex flex-col gap-6 text-left items-start text-black">
+      <div className="max-w-[1240px] mx-auto px-4 md:px-8 pb-24 pt-12 md:pt-16">
+        {/* Article Header (Jornalístico) Full Width */}
+        <div className="flex flex-col gap-6 text-left items-start text-black mb-10 w-full">
           <div className="flex items-center gap-2">
             <span className="text-[#c4170c] font-black text-sm uppercase tracking-widest">{post.organization || "Blog"}</span>
             <span className="w-1.5 h-1.5 rounded-full bg-gray-300" />
             <span className="text-gray-500 text-xs font-semibold uppercase">{post.category || "Notícia"}</span>
           </div>
 
-          <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-[0.95] text-[#111]">
+          <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-[0.95] text-[#111] max-w-5xl">
             {post.title}
           </h1>
 
           {post.subtitle && (
-            <p className="text-xl md:text-2xl text-gray-500 font-medium leading-[1.2] max-w-4xl border-l-4 border-gray-100 pl-6 mt-2">
+            <p className="text-xl md:text-2xl text-gray-500 font-medium leading-[1.2] max-w-4xl border-l-4 border-gray-200 pl-6 mt-2">
               {post.subtitle}
             </p>
           )}
 
-          <div className="flex flex-col w-full md:flex-row md:items-center justify-start border-y border-gray-100 py-6 gap-8 mt-4">
+          <div className="flex flex-col w-full md:flex-row md:items-end justify-between border-y border-gray-100 py-6 gap-8 mt-4">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-gray-100 overflow-hidden border border-gray-200 shrink-0">
                 <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(post.source || "Ministério Profecia")}&background=BF76FF&color=fff`} className="w-full h-full object-cover" alt="Author" />
@@ -229,35 +229,37 @@ export default function NoticiaDetalhe() {
               </div>
             </div>
 
-            {/* Share Buttons (Matching image style) */}
+            {/* Share Buttons */}
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => handleShare('facebook')}
-                className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm group"
+                className="h-10 px-4 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors shadow-sm group"
               >
-                <Facebook className="w-5 h-5 text-[#1877F2] fill-current" />
+                <Facebook className="w-4 h-4 text-[#1877F2] fill-current" />
+                <span className="text-xs font-bold text-[#1877F2]">Facebook</span>
               </button>
               <button 
                 onClick={() => handleShare('whatsapp')}
-                className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center hover:bg-gray-100 transition-colors shadow-sm group"
+                className="h-10 px-4 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors shadow-sm group"
               >
-                <MessageCircle className="w-5 h-5 text-[#25D366] fill-current" />
+                <MessageCircle className="w-4 h-4 text-[#25D366] fill-current" />
+                <span className="text-xs font-bold text-[#25D366]">WhatsApp</span>
               </button>
               <button 
                 onClick={() => handleShare('native')}
-                className="w-12 h-12 rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center hover:bg-white transition-colors shadow-sm group"
+                className="h-10 px-4 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center gap-2 hover:bg-white transition-colors shadow-sm group"
               >
-                <Share2 className="w-5 h-5 text-gray-600" />
+                <Share2 className="w-4 h-4 text-gray-600" />
+                <span className="text-xs font-bold text-gray-600">Compartilhar</span>
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-[1240px] mx-auto px-4 md:px-8 grid grid-cols-1 lg:grid-cols-12 gap-12 pb-24">
-        {/* Main Content Area */}
-        <div className="lg:col-span-8 flex flex-col gap-10">
-          {/* Main Photo with Caption */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          {/* Main Content Area */}
+          <div className="lg:col-span-8 flex flex-col gap-10">
+            {/* Main Photo with Caption */}
           <div className="flex flex-col gap-3">
              <div className="relative aspect-video rounded-3xl overflow-hidden shadow-2xl group cursor-pointer" onClick={() => setActiveImage(post.image)}>
               <img src={post.image} alt={post.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -358,15 +360,18 @@ export default function NoticiaDetalhe() {
 
           {/* Related Articles Topics */}
           {relatedPosts.length > 0 && (
-            <div className="mt-16 bg-gray-50 rounded-[40px] p-8 md:p-12">
+            <div className="mt-16 pt-16 border-t border-gray-100">
               <h2 className="text-2xl font-black mb-10 uppercase tracking-tighter text-[#111]">Matérias recomendadas</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {relatedPosts.map((rel) => (
-                  <Link key={rel.id} to={`/noticia/${rel.id}`} className="flex flex-col bg-white rounded-3xl p-2 shadow-sm hover:shadow-xl transition-shadow text-center">
-                    <div className="aspect-[4/3] rounded-2xl overflow-hidden mb-4">
-                      <img src={rel.image} className="w-full h-full object-cover" alt={rel.title} />
+                  <Link key={rel.id} to={`/noticia/${rel.id}`} className="group flex flex-col gap-4">
+                    <div className="aspect-video rounded-3xl overflow-hidden shadow-lg">
+                      <img src={rel.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={rel.title} />
                     </div>
-                    <h4 className="text-xs font-black uppercase tracking-tighter px-2 pb-2 line-clamp-2">{rel.title}</h4>
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-lg font-black leading-tight group-hover:text-[#BF76FF] transition-colors">{rel.title}</h3>
+                      <p className="text-sm text-gray-500 line-clamp-2">{rel.subtitle || rel.content?.substring(0, 80) + '...'}</p>
+                    </div>
                   </Link>
                 ))}
               </div>
@@ -380,7 +385,7 @@ export default function NoticiaDetalhe() {
               className="h-14 px-8 rounded-2xl gap-2 border-gray-200 text-gray-500 font-bold uppercase tracking-widest text-xs hover:border-[#BF76FF] hover:text-[#BF76FF] transition-all"
               onClick={() => navigate("/")}
             >
-              <ChevronLeft className="w-4 h-4" /> Voltar ao Portal
+              <ChevronLeft className="w-4 h-4" /> Voltar ao site
             </Button>
             <div className="flex items-center gap-3 text-gray-400 text-sm font-bold bg-gray-50 px-6 py-3 rounded-2xl">
               <Eye className="w-4 h-4 text-[#BF76FF]" /> {Math.floor(Math.random() * 5000) + 1000} leitores
@@ -422,31 +427,35 @@ export default function NoticiaDetalhe() {
 
             <div className="space-y-4">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest text-center px-4">
-                Siga o Ministério no Instagram
+                Siga a IEMP no instagram
               </p>
               <Button 
-                onClick={() => window.open('https://instagram.com', '_blank')}
+                onClick={() => window.open('https://www.instagram.com/ministerio_profecia/', '_blank')}
                 className="w-full h-14 rounded-2xl bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] text-white font-bold gap-2 hover:opacity-90 transition-opacity"
               >
-                <Instagram className="w-5 h-5" /> @ministerioprofecia
+                <Instagram className="w-5 h-5" /> @ministerio_profecia
               </Button>
             </div>
           </div>
           
-          <div className="aspect-[3/4] w-full bg-gray-50 rounded-[40px] flex flex-col items-center justify-center text-center p-8 gap-6 border border-gray-100 group overflow-hidden relative">
-             <div className="absolute inset-0 bg-gradient-to-b from-transparent to-[#BF76FF]/5" />
-             <div className="relative z-10 flex flex-col items-center">
-              <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-4">Anúncio</span>
-              <div className="w-24 h-24 rounded-3xl bg-white shadow-xl flex items-center justify-center mb-4 transform group-hover:rotate-12 transition-transform duration-500">
-                <MapPin className="w-10 h-10 text-[#BF76FF]" />
+          <div className="aspect-[3/4] w-full bg-black rounded-[40px] flex flex-col items-center justify-center text-center p-8 gap-6 border border-white/10 group overflow-hidden relative">
+             <div className="absolute inset-0 bg-gradient-to-t from-black via-black/80 to-transparent z-10" />
+             <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1516259762381-22954d7d3ad2?q=80&w=800&auto=format&fit=crop')] bg-cover bg-center opacity-40 group-hover:scale-105 transition-transform duration-700" />
+             <div className="relative z-20 flex flex-col items-center w-full">
+              <span className="text-[10px] font-black text-[#BF76FF] uppercase tracking-widest mb-4 bg-[#BF76FF]/20 px-3 py-1 rounded-full">Anúncio</span>
+              <div className="w-20 h-20 rounded-3xl bg-white shadow-2xl flex items-center justify-center mb-6 transform group-hover:scale-110 transition-transform duration-500">
+                <Play className="w-10 h-10 text-[#c4170c] fill-current translate-x-1" />
               </div>
-              <h4 className="text-lg font-black leading-tight mb-2">Venha nos visitar</h4>
-              <p className="text-sm text-gray-500 mb-6">Confira os horários de culto e nossa localização.</p>
-              <Button className="rounded-full bg-black text-white px-8">Ver Mapa</Button>
+              <h4 className="text-3xl text-white font-black leading-tight mb-2 uppercase tracking-tighter">@IEMPTV</h4>
+              <p className="text-sm text-gray-300 mb-6 font-medium">Siga nosso canal e acompanhe mensagens que edificam sua vida.</p>
+              <Button onClick={() => window.open('https://www.youtube.com/@ministerio_profecia', '_blank')} className="w-full h-12 rounded-xl bg-[#c4170c] hover:bg-[#a0130a] text-white font-bold gap-2 shadow-lg">
+                <Play className="w-4 h-4 fill-current" /> Inscrever-se
+              </Button>
              </div>
           </div>
         </aside>
       </div>
+    </div>
     </div>
   );
 }

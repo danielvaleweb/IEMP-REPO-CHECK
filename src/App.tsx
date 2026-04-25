@@ -28,7 +28,7 @@ function AppContent() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
   const isAdminPage = location.pathname.startsWith("/admin");
-  const isEventPage = location.pathname.startsWith("/evento/") || location.pathname.startsWith("/noticia/");
+  const isEventPage = location.pathname.startsWith("/evento/");
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary">
