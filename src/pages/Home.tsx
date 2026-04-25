@@ -134,7 +134,7 @@ export default function Home() {
     const configChannelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
     const configHandle = settings.youtubeHandle || "@ministerio_profecia";
 
-    const fetchFromRSS2JSON = async (chId: string) => {
+    const fetchFromRSS2JSON = async (chId: string, filterType?: 'videos' | 'lives') => {
       let cleanId = chId.trim();
       if (cleanId.startsWith('@') || cleanId.includes('youtube.com/@')) {
         cleanId = "UCILgaItnqDH3plhRXD54QUg"; // Default to known ID as RSS requires UC ID
@@ -145,7 +145,24 @@ export default function Home() {
       const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
       const data = await response.json();
       if (data.status === "ok" && data.items) {
-        return data.items.map((item: any) => {
+        let filteredItems = data.items;
+        
+        if (filterType) {
+          filteredItems = data.items.filter((item: any) => {
+            const t = (item.title || "").toLowerCase();
+            const isLive = t.includes('culto') || t.includes('ao vivo') || t.includes('podcast') || t.includes('live') || t.includes('transmissão') || t.includes('vigília');
+            if (filterType === 'videos') return !isLive;
+            if (filterType === 'lives') return isLive;
+            return true;
+          });
+        }
+        
+        // If strict filtering didn't return anything (maybe naming convention changed), fallback to unfiltered
+        if (filteredItems.length === 0) {
+           filteredItems = data.items;
+        }
+
+        return filteredItems.map((item: any) => {
           const videoId = item.guid.replace('yt:video:', '');
           return {
             id: videoId,
@@ -177,7 +194,7 @@ export default function Home() {
       } catch (error) {
         console.error("Local API failed, trying RSS2JSON fallback", error);
         try {
-          const fallbackData = await fetchFromRSS2JSON(configChannelId);
+          const fallbackData = await fetchFromRSS2JSON(configChannelId, 'videos');
           if (fallbackData && fallbackData.length > 0) {
             setVideos(fallbackData);
             return;
@@ -226,7 +243,7 @@ export default function Home() {
         console.error("Error fetching lives:", error);
         try {
           // Fallback to RSS data for lives too if backend is missing
-          const fallbackData = await fetchFromRSS2JSON(configChannelId);
+          const fallbackData = await fetchFromRSS2JSON(configChannelId, 'lives');
           if (fallbackData && fallbackData.length > 0) {
             setLives(fallbackData);
             return;

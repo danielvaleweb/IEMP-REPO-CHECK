@@ -191,7 +191,13 @@ async function startServer() {
         const xmlData = await rssResponse.text();
         const jsonObj = parser.parse(xmlData);
         const entries = jsonObj.feed?.entry || [];
-        const rssVideos = (Array.isArray(entries) ? entries : [entries]).slice(0, 6).map((entry: any) => {
+        const filteredEntries = (Array.isArray(entries) ? entries : [entries]).filter((entry: any) => {
+          if (!entry || !entry.title) return false;
+          const t = entry.title.toLowerCase();
+          return !t.includes('culto') && !t.includes('ao vivo') && !t.includes('podcast') && !t.includes('live') && !t.includes('transmissão') && !t.includes('vigília');
+        });
+        
+        const rssVideos = filteredEntries.slice(0, 6).map((entry: any) => {
           const videoId = entry["yt:videoId"];
           return {
             id: videoId,
@@ -313,7 +319,13 @@ async function startServer() {
         const xmlData = await rssResponse.text();
         const jsonObj = parser.parse(xmlData);
         const entries = jsonObj.feed?.entry || [];
-        const rssVideos = (Array.isArray(entries) ? entries : [entries]).slice(0, 6).map((entry: any) => {
+        const filteredEntries = (Array.isArray(entries) ? entries : [entries]).filter((entry: any) => {
+          if (!entry || !entry.title) return false;
+          const t = entry.title.toLowerCase();
+          return t.includes('culto') || t.includes('ao vivo') || t.includes('podcast') || t.includes('live') || t.includes('transmissão') || t.includes('vigília');
+        });
+        
+        const rssVideos = filteredEntries.slice(0, 6).map((entry: any) => {
           const videoId = entry["yt:videoId"];
           return {
             id: videoId,
