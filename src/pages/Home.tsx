@@ -134,11 +134,39 @@ export default function Home() {
     const configChannelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
     const configHandle = settings.youtubeHandle || "@ministerio_profecia";
 
+    const fetchFromRSS2JSON = async (chId: string) => {
+      let cleanId = chId.trim();
+      if (cleanId.startsWith('@') || cleanId.includes('youtube.com/@')) {
+        cleanId = "UCILgaItnqDH3plhRXD54QUg"; // Default to known ID as RSS requires UC ID
+      } else if (cleanId.includes('youtube.com/channel/')) {
+        cleanId = cleanId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
+      }
+      const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${cleanId}`;
+      const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
+      const data = await response.json();
+      if (data.status === "ok" && data.items) {
+        return data.items.map((item: any) => {
+          const videoId = item.guid.replace('yt:video:', '');
+          return {
+            id: videoId,
+            title: item.title,
+            thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+            published: new Date(item.pubDate).toLocaleDateString('pt-BR'),
+            link: item.link
+          };
+        }).slice(0, 6);
+      }
+      throw new Error("RSS2JSON failed");
+    };
+
     const fetchVideos = async () => {
       try {
         const response = await fetch(`/api/recent-videos?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch videos");
-        const data = await response.json();
+        
+        const text = await response.text();
+        if (text.trim().startsWith('<')) throw new Error("Backend not available, returned HTML");
+        const data = JSON.parse(text);
         
         if (data && data.length > 0) {
           const uniqueVideos = Array.from(new Map(data.map((v: any) => [v.id, v])).values());
@@ -147,7 +175,17 @@ export default function Home() {
           throw new Error("Empty videos array");
         }
       } catch (error) {
-        console.error("Error fetching videos, using fallbacks:", error);
+        console.error("Local API failed, trying RSS2JSON fallback", error);
+        try {
+          const fallbackData = await fetchFromRSS2JSON(configChannelId);
+          if (fallbackData && fallbackData.length > 0) {
+            setVideos(fallbackData);
+            return;
+          }
+        } catch (rssError) {
+          console.error("RSS fallback also failed", rssError);
+        }
+        
         setVideos([
           {
             id: "channel_fallback_1",
@@ -173,26 +211,30 @@ export default function Home() {
       try {
         const response = await fetch(`/api/recent-lives?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch lives");
-        const data = await response.json();
+        
+        const text = await response.text();
+        if (text.trim().startsWith('<')) throw new Error("Backend not available, returned HTML");
+        const data = JSON.parse(text);
         
         if (data && data.length > 0) {
           const uniqueLives = Array.from(new Map(data.map((v: any) => [v.id, v])).values());
           setLives(uniqueLives);
         } else {
-          // Add default fallback inside the try block gracefully
-          setLives([
-            {
-              id: "live_fallback_1",
-              isPlaceholder: true,
-              title: "Transmissão ao Vivo (Pendente de Configuração)",
-              thumbnail: "https://picsum.photos/seed/live1/1920/1080",
-              published: new Date().toISOString(),
-              link: `https://www.youtube.com/${configHandle}/live`
-            }
-          ]);
+          throw new Error("Empty lives array");
         }
       } catch (error) {
         console.error("Error fetching lives:", error);
+        try {
+          // Fallback to RSS data for lives too if backend is missing
+          const fallbackData = await fetchFromRSS2JSON(configChannelId);
+          if (fallbackData && fallbackData.length > 0) {
+            setLives(fallbackData);
+            return;
+          }
+        } catch (rssError) {
+          console.error("RSS fallback also failed", rssError);
+        }
+        
         // Fallback dummy data if endpoint completely fails
         setLives([
           {

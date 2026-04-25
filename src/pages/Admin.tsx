@@ -1200,6 +1200,8 @@ export default function Admin() {
   const [tempEndTime, setTempEndTime] = useState("");
 
   const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
+  const [localSettings, setLocalSettings] = useState<any>({});
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   const isEffectivelyAdmin = (isMasterAdmin || profile?.role === "Administradores") && (!activeViewRole || activeViewRole === "Administradores");
   const canViewSettings = currentRole === "Desenvolvedor" || currentRole === "Administradores" || (isMasterAdmin && (!activeViewRole || activeViewRole === "Administradores" || activeViewRole === "Desenvolvedor"));
@@ -3981,7 +3983,30 @@ export default function Admin() {
               <div className="p-4 md:p-8">
                 <Card className={cn("border rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                   <div className="space-y-6">
-                    <h4 className={cn("text-2xl font-bold mb-4 transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
+                      <Button 
+                        disabled={isSavingSettings || Object.keys(localSettings).length === 0}
+                        onClick={async () => {
+                          setIsSavingSettings(true);
+                          try {
+                             await setDoc(doc(db, "settings", "general"), { ...localSettings }, { merge: true });
+                             setLocalSettings({}); // Clear local settings so it falls back to DB settings
+                          } catch (error) {
+                             handleFirestoreError(error, OperationType.UPDATE, "settings/general");
+                          } finally {
+                             setIsSavingSettings(false);
+                          }
+                        }}
+                        className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-10 px-6 font-bold"
+                      >
+                        {isSavingSettings ? (
+                          <>Salvando...</>
+                        ) : (
+                          <><Save className="w-4 h-4 mr-2" /> Salvar</>
+                        )}
+                      </Button>
+                    </div>
                     
                     <div className="space-y-4">
                       <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
@@ -4000,14 +4025,9 @@ export default function Admin() {
                           <Input 
                             className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
                             placeholder="Ex: UCILgaItnqDH3plhRXD54QUg"
-                            value={settings.youtubeChannelId ?? "UCILgaItnqDH3plhRXD54QUg"}
-                            onChange={async (e) => {
-                              const newValue = e.target.value;
-                              try {
-                                await setDoc(doc(db, "settings", "general"), { youtubeChannelId: newValue }, { merge: true });
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
-                              }
+                            value={localSettings.youtubeChannelId ?? settings.youtubeChannelId ?? "UCILgaItnqDH3plhRXD54QUg"}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, youtubeChannelId: e.target.value}));
                             }}
                           />
                         </div>
@@ -4016,14 +4036,9 @@ export default function Admin() {
                           <Input 
                             className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
                             placeholder="Ex: @ministerio_profecia"
-                            value={settings.youtubeHandle ?? "@ministerio_profecia"}
-                            onChange={async (e) => {
-                              const newValue = e.target.value;
-                              try {
-                                await setDoc(doc(db, "settings", "general"), { youtubeHandle: newValue }, { merge: true });
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
-                              }
+                            value={localSettings.youtubeHandle ?? settings.youtubeHandle ?? "@ministerio_profecia"}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, youtubeHandle: e.target.value}));
                             }}
                           />
                         </div>
@@ -4038,14 +4053,9 @@ export default function Admin() {
                           <Input 
                             className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
                             placeholder="Ex: Domingo às 19:00"
-                            value={settings.nextService ?? "Domingo às 19:00"}
-                            onChange={async (e) => {
-                              const newValue = e.target.value;
-                              try {
-                                await setDoc(doc(db, "settings", "general"), { nextService: newValue }, { merge: true });
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
-                              }
+                            value={localSettings.nextService ?? settings.nextService ?? "Domingo às 19:00"}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, nextService: e.target.value}));
                             }}
                           />
                           <p className="text-[10px] text-gray-500 italic mt-1 pl-1">Esta frase aparece no topo da página inicial abaixo do título principal.</p>
@@ -4061,14 +4071,9 @@ export default function Admin() {
                           <input 
                             type="checkbox" 
                             className="sr-only peer" 
-                            checked={settings.enableHeaderVideos ?? true}
-                            onChange={async (e) => {
-                              const newValue = e.target.checked;
-                              try {
-                                await setDoc(doc(db, "settings", "general"), { enableHeaderVideos: newValue }, { merge: true });
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
-                              }
+                            checked={localSettings.enableHeaderVideos ?? settings.enableHeaderVideos ?? true}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, enableHeaderVideos: e.target.checked}));
                             }}
                           />
                           <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF]"></div>
