@@ -52,6 +52,23 @@ export default function Live() {
 
   const channelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
 
+  useEffect(() => {
+    const fetchLiveVideoId = async () => {
+      try {
+        const response = await fetch('/api/recent-lives');
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.length > 0 && data[0].id) {
+            setVideoId(data[0].id);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch live video id", error);
+      }
+    };
+    fetchLiveVideoId();
+  }, []);
+
   return (
     <div className="pt-24 pb-12 px-4 min-h-screen gradient-bg">
       <div className="max-w-7xl mx-auto grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -62,7 +79,7 @@ export default function Live() {
             <iframe
               width="100%"
               height="100%"
-              src={`https://www.youtube-nocookie.com/embed/live_stream?channel=${channelId}&origin=${window.location.origin}`}
+              src={videoId ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&origin=${window.location.origin}` : `https://www.youtube-nocookie.com/embed/live_stream?channel=${channelId}&origin=${window.location.origin}`}
               title="YouTube Live Stream"
               frameBorder="0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"

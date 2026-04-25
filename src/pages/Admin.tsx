@@ -33,6 +33,9 @@ import {
   MapPin,
   X,
   ShieldCheck,
+  Facebook,
+  Instagram,
+  Share2,
   TrendingUp,
   Heart,
   ArrowLeft,
@@ -987,11 +990,14 @@ export default function Admin() {
     posts.forEach(p => {
       const isMatch = p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query);
       if (isMatch) {
-        if (p.category === "Evento") {
-          results.push({ type: 'eventos', item: p, title: p.title, sub: `Evento • ${p.date || "Sem data"}`, icon: PartyPopper });
-        } else {
-          results.push({ type: 'noticias', item: p, title: p.title, sub: `Notícia • ${p.date || "Sem data"}`, icon: Newspaper });
-        }
+        results.push({ type: 'eventos', item: p, title: p.title, sub: `Evento • ${p.date || "Sem data"}`, icon: PartyPopper });
+      }
+    });
+
+    blog.forEach(b => {
+      const isMatch = b.title?.toLowerCase().includes(query) || b.content?.toLowerCase().includes(query);
+      if (isMatch) {
+        results.push({ type: 'noticias', item: b, title: b.title, sub: `Notícia • ${b.date || "Sem data"}`, icon: Newspaper });
       }
     });
 
@@ -2339,9 +2345,9 @@ export default function Admin() {
                               onClick={() => {
                                 if (res.type === 'membros') setViewingMember(res.item);
                                 setSelectedItem(res.item);
-                                setFormData(res.item);
+                                setFormData({ ...res.item });
                                 setActiveTab(res.type);
-                                setIsEditing(true);
+                                setIsEditing(!(res.type === 'membros' || res.type === 'agenda' || res.type === 'agenda-direcao'));
                                 setIsReadOnly(true);
                                 setSearchQuery("");
                               }}
@@ -2448,9 +2454,10 @@ export default function Admin() {
                             onClick={() => {
                               if (res.type === 'membros') setViewingMember(res.item);
                               setSelectedItem(res.item);
-                              setFormData(res.item);
-                              setActiveTab(res.type === 'posts' ? 'eventos' : res.type);
-                              setIsEditing(!(res.type === 'membros' || res.type === 'agenda'));
+                              setFormData({ ...res.item });
+                              setActiveTab(res.type);
+                              setIsEditing(!(res.type === 'membros' || res.type === 'agenda' || res.type === 'agenda-direcao'));
+                              setSearchQuery("");
                             }}
                             className={cn("w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors", isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5")}
                           >
@@ -3054,73 +3061,191 @@ export default function Admin() {
                           )}
 
                           {activeTab === "noticias" && (
-                            <>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem da Notícia</label>
-                                <Input 
-                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                  placeholder="https://exemplo.com/noticia.jpg"
-                                  value={formData.image || ""}
-                                  onChange={(e) => setFormData({...formData, image: e.target.value})}
-                                  readOnly={isReadOnly}
-                                />
-                                {formData.image && (
-                                  <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                              <div className="p-8 rounded-[32px] bg-primary/5 border border-primary/10">
+                                <h3 className="text-sm font-black uppercase tracking-widest text-[#BF76FF] mb-6 flex items-center gap-2">
+                                  <div className="w-2 h-2 rounded-full bg-[#BF76FF] animate-pulse" />
+                                  Estrutura Jornalística
+                                </h3>
+                                
+                                <div className="space-y-6">
+                                  {/* 1. Título */}
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Título da Matéria</label>
+                                    <Input 
+                                      className={cn("border-none h-16 rounded-2xl px-6 text-xl font-black transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                      placeholder="Título impactante da notícia..."
+                                      value={formData.title || ""}
+                                      onChange={(e) => setFormData({...formData, title: e.target.value})}
+                                    />
                                   </div>
-                                )}
+
+                                  {/* 2. Subtítulo */}
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Subtítulo / Gravata</label>
+                                    <Textarea 
+                                      className={cn("border-none min-h-[80px] rounded-2xl p-6 transition-colors font-medium", isDarkMode ? "bg-white/5 text-gray-300" : "bg-white text-gray-700 shadow-sm border-black/5")} 
+                                      placeholder="Um resumo breve que aparece logo abaixo do título"
+                                      value={formData.subtitle || ""}
+                                      onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
+                                    />
+                                  </div>
+
+                                  {/* 3. Fonte */}
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Fonte da Matéria</label>
+                                    <Input 
+                                      className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                      placeholder="Ex: Redação Ministério Profecia, G1, Gospel Prime..."
+                                      value={formData.source || ""}
+                                      onChange={(e) => setFormData({...formData, source: e.target.value})}
+                                    />
+                                  </div>
+
+                                  {/* 4. Social Sharing Preview */}
+                                  <div className="py-4 border-y border-white/5 space-y-4">
+                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Previsão de Compartilhamento</label>
+                                     <div className="flex gap-3">
+                                        <div className="p-3 rounded-2xl bg-[#25D366]/10 text-[#25D366] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                           <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center text-white">
+                                              <MessageSquare className="w-4 h-4 fill-current" />
+                                           </div>
+                                           WhatsApp
+                                        </div>
+                                        <div className="p-3 rounded-2xl bg-[#E1306C]/10 text-[#E1306C] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-white">
+                                              <Instagram className="w-4 h-4" />
+                                           </div>
+                                           Instagram
+                                        </div>
+                                        <div className="p-3 rounded-2xl bg-[#1877F2]/10 text-[#1877F2] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                           <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white">
+                                              <Facebook className="w-4 h-4 fill-current" />
+                                           </div>
+                                           Facebook
+                                        </div>
+                                        <div className="p-3 rounded-2xl bg-white/5 text-gray-400 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                           <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                                              <Share2 className="w-4 h-4" />
+                                           </div>
+                                           Geral
+                                        </div>
+                                     </div>
+                                  </div>
+
+                                  {/* 5. Video Script / URL */}
+                                  <div className="space-y-4">
+                                    <div className="flex items-center justify-between ml-2">
+                                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Vídeo de Destaque</label>
+                                      <div className="flex gap-2">
+                                        <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[8px] font-black uppercase tracking-widest border border-red-500/20">YouTube</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[8px] font-black uppercase tracking-widest border border-purple-500/20">Instagram</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">Shorts</span>
+                                      </div>
+                                    </div>
+                                    <Input 
+                                      className={cn("border-none h-12 rounded-2xl px-6 transition-colors italic", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                      placeholder="Cole o link (YouTube, Instagram ou Shorts)..."
+                                      value={formData.videoUrl || ""}
+                                      onChange={(e) => setFormData({...formData, videoUrl: e.target.value})}
+                                    />
+                                  </div>
+
+                                  {/* 6. Imagem Principal e Legenda */}
+                                  <div className="space-y-4 pt-4 border-t border-white/5">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">URL da Imagem Capa</label>
+                                        <Input 
+                                          className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                          placeholder="https://exemplo.com/cafe.jpg"
+                                          value={formData.image || ""}
+                                          onChange={(e) => setFormData({...formData, image: e.target.value})}
+                                        />
+                                      </div>
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Legenda da Imagem</label>
+                                        <Input 
+                                          className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                          placeholder="Descreva a foto (Ex: Fiel orando no monte)"
+                                          value={formData.imageCaption || ""}
+                                          onChange={(e) => setFormData({...formData, imageCaption: e.target.value})}
+                                        />
+                                      </div>
+                                    </div>
+                                    {formData.image && (
+                                      <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/10 group">
+                                        <img src={formData.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
+                                        <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md p-3 rounded-2xl border border-white/10">
+                                           <p className="text-[10px] text-white/80 italic">{formData.imageCaption || "Sem legenda"}</p>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* 7. Conteúdo da Matéria */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 mb-2 ml-2">
+                                      <div className="w-1 h-3 bg-[#BF76FF] rounded-full" />
+                                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Corpo da Matéria (Texto Principal)</label>
+                                    </div>
+                                    <Textarea 
+                                      className={cn("border-none min-h-[300px] rounded-[32px] p-8 transition-colors text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-white/5 text-gray-200" : "bg-white text-gray-800 shadow-xl border-black/5")} 
+                                      placeholder="Escreva aqui a reportagem completa. Use parágrafos para melhor leitura."
+                                      value={formData.content || ""}
+                                      onChange={(e) => setFormData({...formData, content: e.target.value})}
+                                    />
+                                  </div>
+
+                                  {/* 8. Galeria de Fotos */}
+                                  <div className="space-y-4 pt-6 border-t border-white/5">
+                                    <div className="flex items-center justify-between ml-2">
+                                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Galeria / Fotos Enviadas</label>
+                                      <span className="text-[10px] text-[#BF76FF] font-bold">1 URL por linha</span>
+                                    </div>
+                                    <Textarea 
+                                      className={cn("border-none min-h-[120px] rounded-2xl p-6 transition-colors font-mono text-xs", isDarkMode ? "bg-white/5 text-[#BF76FF]" : "bg-gray-50 text-[#BF76FF]")} 
+                                      placeholder="https://imagem1.jpg&#10;https://imagem2.jpg"
+                                      value={formData.gallery || ""}
+                                      onChange={(e) => setFormData({...formData, gallery: e.target.value})}
+                                    />
+                                    {formData.gallery && (
+                                       <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+                                          {formData.gallery.split('\n').filter((l: string) => l.trim()).map((url: string, i: number) => (
+                                             <div key={`form-gallery-${i}`} className="aspect-square rounded-xl overflow-hidden border border-white/5 bg-black/20">
+                                                <img src={url.trim()} className="w-full h-full object-cover" alt="" />
+                                             </div>
+                                          ))}
+                                       </div>
+                                    )}
+                                  </div>
+                                  
+                                  {/* 9. Tópicos e Configurações de exibição (Previews das seções finais) */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+                                     <div className="p-6 rounded-[24px] bg-white/5 border border-white/5">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Seção: Últimas Notícias</h4>
+                                        <div className="flex gap-3 opacity-40 grayscale">
+                                           <div className="w-12 h-12 rounded-lg bg-gray-500 shrink-0" />
+                                           <div className="space-y-1 flex-1">
+                                              <div className="h-2 w-full bg-gray-500 rounded" />
+                                              <div className="h-2 w-2/3 bg-gray-500 rounded" />
+                                           </div>
+                                        </div>
+                                        <p className="mt-4 text-[9px] text-gray-500 italic text-center">Ativado automaticamente para novos posts</p>
+                                     </div>
+                                     <div className="p-6 rounded-[24px] bg-white/5 border border-white/5">
+                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Seção: Matérias Relacionadas</h4>
+                                        <div className="grid grid-cols-3 gap-2 opacity-40 grayscale">
+                                           <div className="aspect-square bg-gray-500 rounded-lg" />
+                                           <div className="aspect-square bg-gray-500 rounded-lg" />
+                                           <div className="aspect-square bg-gray-500 rounded-lg" />
+                                        </div>
+                                        <p className="mt-4 text-[9px] text-gray-500 italic text-center">Calculado por similaridade de conteúdo</p>
+                                     </div>
+                                  </div>
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Legenda / Descrição da Imagem</label>
-                                <Input 
-                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                  placeholder="Ex: Foto por João Silva / Arquivo Ministério Profecia"
-                                  value={formData.imageCaption || ""}
-                                  onChange={(e) => setFormData({...formData, imageCaption: e.target.value})}
-                                  readOnly={isReadOnly}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Subtítulo / Gravata</label>
-                                <Input 
-                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                  placeholder="Um resumo impactante para aparecer abaixo do título"
-                                  value={formData.subtitle || ""}
-                                  onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
-                                  readOnly={isReadOnly}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Fonte da Matéria</label>
-                                <Input 
-                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                  placeholder="Ex: G1, Gospel Prime, Redação Interna"
-                                  value={formData.source || ""}
-                                  onChange={(e) => setFormData({...formData, source: e.target.value})}
-                                  readOnly={isReadOnly}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL do Vídeo (YouTube / Instagram / Shorts)</label>
-                                <Input 
-                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                  placeholder="Link do vídeo para incorporação"
-                                  value={formData.videoUrl || ""}
-                                  onChange={(e) => setFormData({...formData, videoUrl: e.target.value})}
-                                  readOnly={isReadOnly}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Galeria de Fotos (Dê Enter para cada URL)</label>
-                                <Textarea 
-                                  className={cn("border-none min-h-[100px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
-                                  placeholder="Cole aqui os links das fotos extras, um por linha"
-                                  value={formData.gallery || ""}
-                                  onChange={(e) => setFormData({...formData, gallery: e.target.value})}
-                                  readOnly={isReadOnly}
-                                />
-                              </div>
-                            </>
+                            </div>
                           )}
 
                           <div className="space-y-2">

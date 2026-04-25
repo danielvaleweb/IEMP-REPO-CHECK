@@ -126,19 +126,19 @@ service cloud.firestore {
     }
 
     match /musics/{musicId} {
-      allow read: if true;
+      allow read, list, get: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidMusic(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
     match /vignettes/{vignetteId} {
-      allow read: if true;
+      allow read, list, get: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidVignette(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
     match /agenda/{eventId} {
-      allow read: if true;
+      allow read, list, get: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidAgenda(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }

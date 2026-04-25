@@ -89,7 +89,11 @@ async function startServer() {
       if (channelId.startsWith('@')) {
         try {
           const handleUrl = `https://www.youtube.com/${channelId}`;
-          const hResponse = await fetch(handleUrl);
+          const hResponse = await fetch(handleUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
           if (hResponse.ok) {
             const hHtml = await hResponse.text();
             const cidMatch = hHtml.match(/"channelId":"(UC[a-zA-Z0-9_-]+)"/);
@@ -97,7 +101,7 @@ async function startServer() {
               channelId = cidMatch[1];
             }
           }
-        } catch (e) { console.warn("Failed to resolve handle to channelId"); }
+        } catch (e) { console.warn("Failed to resolve handle to channelId:", e); }
       }
 
       const videos: any[] = [];
@@ -117,65 +121,72 @@ async function startServer() {
           const html = await response.text();
           const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
           if (match) {
-            const data = JSON.parse(match[1]);
-            const findDeepVideos = (obj: any) => {
-              if (!obj || typeof obj !== 'object') return;
-              if (obj.videoRenderer || obj.gridVideoRenderer) {
-                const v = obj.videoRenderer || obj.gridVideoRenderer;
-                const id = v.videoId;
-                if (id && !seenIds.has(id)) {
-                  seenIds.add(id);
-                  videos.push({
-                    id,
-                    title: v.title?.runs?.[0]?.text || v.title?.simpleText,
-                    thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                    date: v.publishedTimeText?.simpleText || "Recente"
-                  });
+            try {
+              const data = JSON.parse(match[1]);
+              const findDeepVideos = (obj: any) => {
+                if (!obj || typeof obj !== 'object') return;
+                if (obj.videoRenderer || obj.gridVideoRenderer) {
+                  const v = obj.videoRenderer || obj.gridVideoRenderer;
+                  const id = v.videoId;
+                  if (id && !seenIds.has(id)) {
+                    seenIds.add(id);
+                    videos.push({
+                      id,
+                      title: v.title?.runs?.[0]?.text || v.title?.simpleText,
+                      thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                      date: v.publishedTimeText?.simpleText || "Recente"
+                    });
+                  }
+                } else {
+                  Object.values(obj).forEach(findDeepVideos);
                 }
-              } else {
-                Object.values(obj).forEach(findDeepVideos);
-              }
-            };
-            findDeepVideos(data);
+              };
+              findDeepVideos(data);
+            } catch (jsonErr) {
+              console.warn("JSON.parse of ytInitialData failed for videos");
+            }
           }
         }
-      } catch (e) { console.warn("Videos Scraping failed"); }
+      } catch (e) { console.warn("Videos Scraping failed:", e); }
 
       // 2. RSS Fallback/Enrichment
       if (videos.length < 5) {
         try {
-          const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId.startsWith('@') ? 'UCILgaItnqDH3plhRXD54QUg' : channelId}`;
-          const rssResponse = await fetch(rssUrl);
-          if (rssResponse.ok) {
-            const xmlData = await rssResponse.text();
-            const jsonObj = parser.parse(xmlData);
-            const entries = jsonObj.feed?.entry || [];
-            const entriesArray = Array.isArray(entries) ? entries : [entries];
-            
-            for (const entry of entriesArray) {
-              const id = entry["yt:videoId"];
-              if (id && !seenIds.has(id)) {
-                const title = entry.title || "";
-                const lowTitle = title.toLowerCase();
-                // Avoid clearly live content in the videos section if we have other things
-                const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
-                if (!isLive || videos.length < 5) {
-                  seenIds.add(id);
-                  videos.push({
-                    id,
-                    title,
-                    thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                    date: new Date(entry.published).toLocaleDateString('pt-BR')
-                  });
+          if (!channelId.startsWith('@')) {
+            const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+            const rssResponse = await fetch(rssUrl);
+            if (rssResponse.ok) {
+              const xmlData = await rssResponse.text();
+              const jsonObj = parser.parse(xmlData);
+              const entries = jsonObj.feed?.entry || [];
+              const entriesArray = Array.isArray(entries) ? entries : [entries];
+              
+              for (const entry of entriesArray) {
+                const id = entry["yt:videoId"];
+                if (id && !seenIds.has(id)) {
+                  const title = entry.title || "";
+                  const lowTitle = title.toLowerCase();
+                  // Avoid clearly live content in the videos section if we have other things
+                  const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
+                  if (!isLive || videos.length < 5) {
+                    seenIds.add(id);
+                    videos.push({
+                      id,
+                      title,
+                      thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                      date: new Date(entry.published).toLocaleDateString('pt-BR')
+                    });
+                  }
                 }
               }
             }
           }
-        } catch (e) { console.warn("RSS failed"); }
+        } catch (e) { console.warn("RSS failed:", e); }
       }
 
       res.json(videos.slice(0, 15));
     } catch (error) {
+      console.error("Critical error in /api/recent-videos:", error);
       res.status(500).json({ error: "Failed to fetch" });
     }
   });
@@ -191,7 +202,11 @@ async function startServer() {
       if (channelId.startsWith('@')) {
         try {
           const handleUrl = `https://www.youtube.com/${channelId}`;
-          const hResponse = await fetch(handleUrl);
+          const hResponse = await fetch(handleUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          });
           if (hResponse.ok) {
             const hHtml = await hResponse.text();
             const cidMatch = hHtml.match(/"channelId":"(UC[a-zA-Z0-9_-]+)"/);
@@ -199,7 +214,9 @@ async function startServer() {
               channelId = cidMatch[1];
             }
           }
-        } catch (e) { console.warn("Failed to resolve handle to channelId"); }
+        } catch (e) { 
+          console.warn("Failed to resolve handle to channelId:", e); 
+        }
       }
       
       const lives: any[] = [];
@@ -219,64 +236,77 @@ async function startServer() {
           const html = await response.text();
           const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
           if (match) {
-            const data = JSON.parse(match[1]);
-            const findDeepStreams = (obj: any) => {
-              if (!obj || typeof obj !== 'object') return;
-              if (obj.videoRenderer || obj.gridVideoRenderer) {
-                const v = obj.videoRenderer || obj.gridVideoRenderer;
-                const id = v.videoId;
-                if (id && !seenIds.has(id)) {
+            try {
+              const data = JSON.parse(match[1]);
+              const findDeepStreams = (obj: any) => {
+                if (!obj || typeof obj !== 'object') return;
+                if (obj.videoRenderer || obj.gridVideoRenderer) {
+                  const v = obj.videoRenderer || obj.gridVideoRenderer;
+                  const id = v.videoId;
+                  if (id && !seenIds.has(id)) {
+                    seenIds.add(id);
+                    lives.push({
+                      id,
+                      title: v.title?.runs?.[0]?.text || v.title?.simpleText,
+                      thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                      date: v.publishedTimeText?.simpleText || "Ao Vivo"
+                    });
+                  }
+                } else {
+                  Object.values(obj).forEach(findDeepStreams);
+                }
+              };
+              findDeepStreams(data);
+            } catch (jsonErr) {
+              console.warn("JSON.parse of ytInitialData failed for streams");
+            }
+          }
+        }
+      } catch (e) { 
+        console.warn("Streams scraping failed:", e); 
+      }
+
+      // 2. RSS Fallback with keyword filtering (only if we failed to get enough lives via scraping)
+      if (lives.length < 5) {
+        try {
+          // If channelId is still a handle here, it means resolution failed. 
+          // RSS requires a real channel ID.
+          if (!channelId.startsWith('@')) {
+            const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+            const rssResponse = await fetch(rssUrl);
+            if (rssResponse.ok) {
+              const xmlData = await rssResponse.text();
+              const jsonObj = parser.parse(xmlData);
+              const entries = jsonObj.feed?.entry || [];
+              const entriesArray = Array.isArray(entries) ? entries : [entries];
+              
+              for (const entry of entriesArray) {
+                const id = entry["yt:videoId"];
+                const title = entry.title || "";
+                const lowTitle = title.toLowerCase();
+                const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão') || lowTitle.includes('vigília');
+                
+                if (id && !seenIds.has(id) && isLive) {
                   seenIds.add(id);
                   lives.push({
                     id,
-                    title: v.title?.runs?.[0]?.text || v.title?.simpleText,
-                    thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                    date: v.publishedTimeText?.simpleText || "Ao Vivo"
+                    title,
+                    thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                    date: new Date(entry.published).toLocaleDateString('pt-BR')
                   });
                 }
-              } else {
-                Object.values(obj).forEach(findDeepStreams);
-              }
-            };
-            findDeepStreams(data);
-          }
-        }
-      } catch (e) { console.warn("Streams scraping failed"); }
-
-      // 2. RSS Fallback with keyword filtering
-      if (lives.length < 5) {
-        try {
-          const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId.startsWith('@') ? 'UCILgaItnqDH3plhRXD54QUg' : channelId}`;
-          const rssResponse = await fetch(rssUrl);
-          if (rssResponse.ok) {
-            const xmlData = await rssResponse.text();
-            const jsonObj = parser.parse(xmlData);
-            const entries = jsonObj.feed?.entry || [];
-            const entriesArray = Array.isArray(entries) ? entries : [entries];
-            
-            for (const entry of entriesArray) {
-              const id = entry["yt:videoId"];
-              const title = entry.title || "";
-              const lowTitle = title.toLowerCase();
-              const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
-              
-              if (id && !seenIds.has(id) && isLive) {
-                seenIds.add(id);
-                lives.push({
-                  id,
-                  title,
-                  thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                  date: new Date(entry.published).toLocaleDateString('pt-BR')
-                });
               }
             }
           }
-        } catch (e) { console.warn("RSS Live failed"); }
+        } catch (e) { 
+          console.warn("RSS Live fallback failed:", e); 
+        }
       }
 
       res.json(lives.slice(0, 15));
     } catch (error) {
-      res.status(500).json({ error: "Failed to fetch lives" });
+      console.error("Critical error in /api/recent-lives:", error);
+      res.status(500).json({ error: "Failed to fetch lives", details: error instanceof Error ? error.message : String(error) });
     }
   });
 

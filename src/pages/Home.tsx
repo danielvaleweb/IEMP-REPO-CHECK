@@ -252,7 +252,8 @@ export default function Home() {
         if (data && data.length > 0) {
           setLives(data);
         } else {
-          throw new Error("Empty lives array");
+          // If live array is empty, we don't throw, just set empty to avoid the "Failed" message
+          setLives([]);
         }
       } catch (error) {
         console.error("Error fetching lives:", error);
@@ -262,22 +263,14 @@ export default function Home() {
           if (fallbackData && fallbackData.length > 0) {
             setLives(fallbackData);
             return;
+          } else {
+            setLives([]);
+            return;
           }
         } catch (rssError) {
           console.error("RSS fallback also failed", rssError);
+          setLives([]);
         }
-        
-        // Fallback dummy data if endpoint completely fails
-        setLives([
-          {
-            id: "live_fallback_error",
-            isPlaceholder: true,
-            title: "Não foi possível carregar as lives",
-            thumbnail: "https://picsum.photos/seed/liveerror/1920/1080",
-            published: new Date().toISOString(),
-            link: `https://www.youtube.com/${configHandle}/live`
-          }
-        ]);
       }
     };
 
