@@ -54,7 +54,8 @@ import {
   Pause,
   PartyPopper,
   ExternalLink,
-  ClipboardList
+  ClipboardList,
+  Newspaper
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -982,7 +983,8 @@ export default function Admin() {
     
     posts.forEach(p => {
       if (p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query)) {
-        results.push({ type: 'eventos', item: p, title: p.title, sub: p.date || "Sem data", icon: LayoutDashboard });
+        const sub = p.category === "Evento" ? "Evento" : "Notícia";
+        results.push({ type: p.category === "Evento" ? 'eventos' : 'noticias', item: p, title: p.title, sub: `${sub} • ${p.date || "Sem data"}`, icon: p.category === "Evento" ? PartyPopper : Newspaper });
       }
     });
 
@@ -1384,7 +1386,8 @@ export default function Admin() {
   // Search Logic
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    if (activeTab === "eventos") return posts.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
+    if (activeTab === "eventos") return posts.filter(p => (p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query)) && p.category === "Evento");
+    if (activeTab === "noticias") return posts.filter(p => (p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query)) && p.category !== "Evento");
     if (activeTab === "radio") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
     if (activeTab === "membros") return members.filter(m => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
@@ -1396,7 +1399,7 @@ export default function Admin() {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      let collectionName = activeTab === "eventos" ? "posts" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
+      let collectionName = (activeTab === "eventos" || activeTab === "noticias") ? "posts" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
       
       // Override collection if editing an item that has a specific type (e.g. from merged agenda)
       if (selectedItem?.type) {
@@ -2220,7 +2223,8 @@ export default function Admin() {
           <nav className="flex md:flex-col flex-row justify-around md:justify-start gap-1 md:gap-1.5 w-full md:pb-6">
             <div className="hidden md:flex flex-col gap-1.5 w-full">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("eventos") && <SidebarItem icon={Calendar} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias"} onClick={() => setActiveTab("noticias")} label="Blog / Notícias" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
@@ -2253,6 +2257,7 @@ export default function Admin() {
             <div className="md:hidden flex flex-row justify-around w-full items-center px-2 py-1">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("eventos"); setRightSidebarView("hidden"); }} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Direção" collapsed={true} isDark={isDarkMode} mobile iconClassName="text-[#BF76FF]" />}
               <SidebarItem icon={MessageSquare} active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
@@ -3950,15 +3955,18 @@ export default function Admin() {
                   )}
                 </div>
               </div>
-            ) : activeTab === "eventos" && !isEditing ? (
+            ) : (activeTab === "eventos" || activeTab === "noticias") && !isEditing ? (
               <EventosView 
-                events={posts} 
+                events={filteredItems} 
                 isDark={isDarkMode}
                 canEdit={canEdit}
                 canDelete={canDelete}
                 onNewEvent={() => {
                   setSelectedItem(null);
-                  setFormData({ organization: profile?.role || "Membro" });
+                  setFormData({ 
+                    organization: profile?.role || "Membro",
+                    category: activeTab === "eventos" ? "Evento" : "Notícia"
+                  });
                   setIsReadOnly(false);
                   setIsEditing(true);
                 }}
@@ -4302,6 +4310,7 @@ export default function Admin() {
                                   {[
                                     { label: "Início", key: "visao-geral" },
                                     { label: "Eventos", key: "eventos" },
+                                    { label: "Notícias", key: "noticias" },
                                     { label: "Membros", key: "membros" },
                                     { label: "Agenda", key: "agenda" },
                                     { label: "Agen. Direção", key: "agenda-direcao" }
@@ -4310,6 +4319,7 @@ export default function Admin() {
                                     const defaultVals: any = {
                                       "visao-geral": true,
                                       "eventos": !["Membro", "Visitante"].includes(role),
+                                      "noticias": !["Membro", "Visitante"].includes(role),
                                       "membros": !["Membro", "Visitante"].includes(role),
                                       "agenda": !["Membro", "Visitante"].includes(role),
                                       "agenda-direcao": role === "Administradores" || role === "Desenvolvedor"

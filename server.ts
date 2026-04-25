@@ -82,9 +82,24 @@ async function startServer() {
   app.get("/api/recent-videos", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      channelId = channelId.trim();
+      let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      let channelId = queryChannelId.trim();
       
+      // Resolve Handle to Channel ID if needed
+      if (channelId.startsWith('@')) {
+        try {
+          const handleUrl = `https://www.youtube.com/${channelId}`;
+          const hResponse = await fetch(handleUrl);
+          if (hResponse.ok) {
+            const hHtml = await hResponse.text();
+            const cidMatch = hHtml.match(/"channelId":"(UC[a-zA-Z0-9_-]+)"/);
+            if (cidMatch) {
+              channelId = cidMatch[1];
+            }
+          }
+        } catch (e) { console.warn("Failed to resolve handle to channelId"); }
+      }
+
       const videos: any[] = [];
       const seenIds = new Set();
 
@@ -169,8 +184,23 @@ async function startServer() {
   app.get("/api/recent-lives", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      channelId = channelId.trim();
+      let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      let channelId = queryChannelId.trim();
+
+      // Resolve Handle to Channel ID if needed
+      if (channelId.startsWith('@')) {
+        try {
+          const handleUrl = `https://www.youtube.com/${channelId}`;
+          const hResponse = await fetch(handleUrl);
+          if (hResponse.ok) {
+            const hHtml = await hResponse.text();
+            const cidMatch = hHtml.match(/"channelId":"(UC[a-zA-Z0-9_-]+)"/);
+            if (cidMatch) {
+              channelId = cidMatch[1];
+            }
+          }
+        } catch (e) { console.warn("Failed to resolve handle to channelId"); }
+      }
       
       const lives: any[] = [];
       const seenIds = new Set();

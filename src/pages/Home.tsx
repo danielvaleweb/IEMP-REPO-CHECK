@@ -30,6 +30,7 @@ export default function Home() {
   const [lives, setLives] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [pastEvents, setPastEvents] = useState<any[]>([]);
+  const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
@@ -125,6 +126,7 @@ export default function Home() {
 
       setUpcomingEvents(upcoming);
       setPastEvents(past);
+      setBlogPosts(allEvents.filter(e => e.category !== "Evento").slice(0, 6));
     }, (err) => console.error("Error loading events:", err));
 
     return () => unsubscribe();
@@ -137,8 +139,14 @@ export default function Home() {
 
     const fetchFromRSS2JSON = async (chId: string, filterType?: 'videos' | 'lives') => {
       let cleanId = chId.trim();
-      if (cleanId.startsWith('@') || cleanId.includes('youtube.com/@')) {
-        cleanId = "UCILgaItnqDH3plhRXD54QUg"; // Default to known ID as RSS requires UC ID
+      if (cleanId.startsWith('@')) {
+        // We can't easily resolve handle to ID on client due to CORS, 
+        // so we hope the backend worked or the channel ID was provided.
+        // If it's the known handle, use the known UC ID
+        if (cleanId === "@ministerio_profecia") cleanId = "UCILgaItnqDH3plhRXD54QUg";
+      } else if (cleanId.includes('youtube.com/@')) {
+        const handle = '@' + cleanId.split('youtube.com/@')[1].split('/')[0].split('?')[0];
+        if (handle === "@ministerio_profecia") cleanId = "UCILgaItnqDH3plhRXD54QUg";
       } else if (cleanId.includes('youtube.com/channel/')) {
         cleanId = cleanId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
       }
@@ -497,7 +505,7 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: idx * 0.1 }}
-                className="group cursor-pointer min-w-[70%] sm:min-w-[45%] md:min-w-0 snap-start"
+                className="group cursor-pointer min-w-[65%] sm:min-w-[45%] md:min-w-0 snap-start"
                 onClick={() => handleWatchVideo(video)}
               >
                 <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
@@ -574,7 +582,7 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
-                  className="group cursor-pointer min-w-[70%] sm:min-w-[45%] md:min-w-0 snap-start"
+                  className="group cursor-pointer min-w-[65%] sm:min-w-[45%] md:min-w-0 snap-start"
                   onClick={() => handleWatchVideo(life)}
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
@@ -862,6 +870,99 @@ export default function Home() {
             </div>
           )}
 
+        </div>
+      </section>
+
+      {/* Blog/Notícias Section - Estilo Reportagem */}
+      <section className="py-24 px-4 md:px-12 bg-white text-black relative z-30">
+        <div className="max-w-[1400px] mx-auto">
+          <div className="flex items-center justify-between mb-12">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <div className="w-1.5 h-8 bg-[#BF76FF] rounded-full" />
+                <h2 className="text-4xl md:text-5xl font-black tracking-tighter uppercase font-['Inter',_sans-serif]">Blog & Notícias</h2>
+              </div>
+              <p className="text-gray-500 font-medium ml-4">Fique por dentro das últimas reportagens e acontecimentos.</p>
+            </div>
+            <Link to="/noticias" className="hidden md:flex items-center gap-2 text-sm font-black text-[#BF76FF] uppercase tracking-widest hover:underline decoration-2 underline-offset-8">
+              Ver todas <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+            {/* Feature News Item */}
+            {blogPosts.length > 0 && (
+              <div className="lg:col-span-7 group cursor-pointer" onClick={() => navigate(`/noticia/${blogPosts[0].id}`)}>
+                <div className="relative aspect-[16/9] rounded-[2.5rem] overflow-hidden mb-8 shadow-2xl">
+                  <img 
+                    src={blogPosts[0].image} 
+                    alt={blogPosts[0].title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  <div className="absolute top-8 left-8">
+                    <span className="bg-[#BF76FF] text-white text-[10px] font-black px-4 py-2 rounded-full uppercase tracking-widest shadow-xl">
+                      Reportagem Especial
+                    </span>
+                  </div>
+                </div>
+                <div className="space-y-4 px-2">
+                  <div className="flex items-center gap-3 text-[#BF76FF] font-bold text-xs uppercase tracking-widest">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {blogPosts[0].date}
+                  </div>
+                  <h3 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tighter uppercase leading-[0.9] group-hover:text-[#BF76FF] transition-colors">
+                    {blogPosts[0].title}
+                  </h3>
+                  <p className="text-gray-500 text-lg line-clamp-3 leading-relaxed">
+                    {blogPosts[0].description}
+                  </p>
+                  <Button variant="link" className="p-0 h-auto text-[#BF76FF] font-black uppercase tracking-widest text-xs gap-2 group-hover:gap-3 transition-all">
+                    Continuar lendo <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Side News List */}
+            <div className="lg:col-span-5 space-y-12">
+              {blogPosts.slice(1, 4).map((post, idx) => (
+                <motion.div
+                  key={`blog-side-${post.id}`}
+                  initial={{ opacity: 0, x: 20 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="flex gap-6 group cursor-pointer"
+                  onClick={() => navigate(`/noticia/${post.id}`)}
+                >
+                  <div className="w-32 h-32 md:w-40 md:h-40 shrink-0 rounded-[1.5rem] overflow-hidden shadow-lg border border-gray-100">
+                    <img 
+                      src={post.image} 
+                      alt={post.title}
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    />
+                  </div>
+                  <div className="flex flex-col justify-center gap-2">
+                    <div className="text-[10px] font-black text-[#BF76FF] uppercase tracking-widest flex items-center gap-2">
+                      <Clock className="w-3 h-3" />
+                      {post.date}
+                    </div>
+                    <h4 className="text-xl font-black text-gray-900 uppercase leading-none tracking-tighter line-clamp-2 group-hover:text-[#BF76FF] transition-colors">
+                      {post.title}
+                    </h4>
+                    <p className="text-gray-500 text-xs line-clamp-2 leading-relaxed">
+                      {post.description}
+                    </p>
+                  </div>
+                </motion.div>
+              ))}
+              
+              <Link to="/noticias" className="flex md:hidden items-center justify-center gap-2 w-full h-14 bg-gray-100 rounded-2xl text-sm font-black text-gray-900 uppercase tracking-widest">
+                Ver todas as notícias
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
 
