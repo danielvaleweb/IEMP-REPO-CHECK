@@ -63,7 +63,8 @@ export default function Home() {
   }, [videos.length]);
 
   const cleanTitle = (title: string) => {
-    return title.replace(/[0-9\/]/g, '').trim();
+    // Preserve dates and numbers for church services, just clean extra whitespace and common suffixes
+    return title.replace(/\s+/g, ' ').trim();
   };
 
   useEffect(() => {
