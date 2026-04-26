@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Mail, MapPin, Phone } from "lucide-react";
+import { Instagram, Facebook, Youtube, Mail, MapPin, Phone } from "lucide-react";
 
 export default function Footer() {
   const location = useLocation();

@@ -5,7 +5,8 @@ import { fileURLToPath } from "url";
 import { XMLParser } from "fast-xml-parser";
 import { Expo, ExpoPushMessage } from "expo-server-sdk";
 import cron from "node-cron";
-import * as admin from "firebase-admin";
+import { initializeApp, getApps } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -16,13 +17,13 @@ const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json
 
 // Use Application Default Credentials when running in Cloud Run
 // Or fallback to dummy for development if needed, but here we assume it works or uses env vars
-if (!admin.apps.length) {
-  admin.initializeApp({
+if (!getApps().length) {
+  initializeApp({
     projectId: firebaseConfig.projectId,
   });
 }
 
-const db = admin.firestore(firebaseConfig.firestoreDatabaseId);
+const db = getFirestore();
 const expo = new Expo();
 
 async function startServer() {
@@ -469,7 +470,9 @@ async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: { 
+        middlewareMode: true
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -490,8 +493,20 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+  });
+
+  server.on('error', (e: any) => {
+    if (e.code === 'EADDRINUSE') {
+      console.error(`Port ${PORT} is in use, retrying...`);
+      setTimeout(() => {
+        server.close();
+        server.listen(PORT, "0.0.0.0");
+      }, 1000);
+    } else {
+      console.error("Server error:", e);
+    }
   });
 }
 

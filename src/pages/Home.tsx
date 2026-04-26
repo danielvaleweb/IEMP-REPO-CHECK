@@ -12,7 +12,8 @@ import {
   MapPin,
   ExternalLink,
   X,
-  Tag
+  Tag,
+  Youtube
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";

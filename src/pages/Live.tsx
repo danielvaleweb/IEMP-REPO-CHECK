@@ -4,6 +4,7 @@ import {
   Heart, 
   Users, 
   Send, 
+  Youtube, 
   Share2,
   Trophy,
   Crown,

@@ -7,6 +7,8 @@ import {
   Share2, 
   ChevronLeft, 
   Clock, 
+  Facebook, 
+  Instagram,
   Twitter, 
   MessageCircle, 
   Eye,
