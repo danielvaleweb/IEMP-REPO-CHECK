@@ -717,7 +717,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
 }
 
 export default function Admin() {
-  const { user, profile, login, logout, isAdmin, setCustomLogin, loading, loginWithEmail, signupWithEmail } = useAuth();
+  const { user, profile, login, logout, isAdmin, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
   const navigate = useNavigate();
   
   const [rightSidebarSearch, setRightSidebarSearch] = useState("");
@@ -947,6 +947,10 @@ export default function Admin() {
 
   const [authError, setAuthError] = useState("");
 
+  useEffect(() => {
+    setAuthError(contextAuthError || "");
+  }, [contextAuthError]);
+
   const userStatus = profile?.status_presence || "online";
 
   const getStatusColor = (status: string) => {
@@ -1011,48 +1015,7 @@ export default function Admin() {
     return results.slice(0, 8);
   }, [searchQuery, members, posts, agenda]);
 
-  useEffect(() => {
-    const seedNotifs = async () => {
-      if (user && notifications.length === 0 && !loading) {
-        try {
-          // Check if there are truly no notifications in DB for this user
-          const q = query(collection(db, "notifications"), where("userId", "==", user.uid));
-          const snap = await getDocs(q);
-          if (snap.empty) {
-            const samples = [
-              { 
-                userId: user.uid, 
-                title: "Nova Mensagem", 
-                message: "Daniel te enviou uma nova mensagem", 
-                createdAt: serverTimestamp(), 
-                read: false 
-              },
-              { 
-                userId: user.uid, 
-                title: "Aniversário", 
-                message: "Hoje é aniversário de Josy Pereira", 
-                createdAt: serverTimestamp(), 
-                read: false 
-              },
-              { 
-                userId: user.uid, 
-                title: "Evento Alterado", 
-                message: "O evento Juiz de fora em Gerezim mudou para dia 10 de maio", 
-                createdAt: serverTimestamp(), 
-                read: false 
-              }
-            ];
-            for (const n of samples) {
-              await addDoc(collection(db, "notifications"), n);
-            }
-          }
-        } catch (error) {
-          console.error("Error seeding notifications:", error);
-        }
-      }
-    };
-    seedNotifs();
-  }, [user, notifications.length, loading]);
+  // Removed seedNotifs logic as it causes permission errors for normal users
 
   const allRoles = useMemo(() => [
     "Administradores", 
@@ -1170,12 +1133,40 @@ export default function Admin() {
   // Sign Up States
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [showSignUpSuccessModal, setShowSignUpSuccessModal] = useState(false);
+  const [signUpSuccessMessage, setSignUpSuccessMessage] = useState("");
+  const [needsLogoutOnModalClose, setNeedsLogoutOnModalClose] = useState(false);
+
+  useEffect(() => {
+    if (showSignUpSuccessModal) {
+      const duration = 3 * 1000;
+      const animationEnd = Date.now() + duration;
+      const defaults = { startVelocity: 30, spread: 360, ticks: 100, zIndex: 9999 };
+
+      const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+      const interval: any = setInterval(function() {
+        const timeLeft = animationEnd - Date.now();
+
+        if (timeLeft <= 0) {
+          return clearInterval(interval);
+        }
+
+        const particleCount = 40 * (timeLeft / duration);
+        // since particles fall down, start a bit higher than random
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } });
+        confetti({ ...defaults, particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } });
+      }, 250);
+      
+      return () => clearInterval(interval);
+    }
+  }, [showSignUpSuccessModal]);
   const [signUpData, setSignUpData] = useState({ 
     firstName: "", 
     lastName: "", 
     email: "", 
     birthDate: "", 
-    churchRole: "", 
+    memberType: "Visitante",
+    churchRole: "Visitante", 
     phone: "",
     password: "",
     confirmPassword: ""
@@ -1679,18 +1670,24 @@ export default function Admin() {
     openWhatsApp(member);
   };
 
-  if (loading) {
+  if (loading || (user && !profile && !contextAuthError)) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-[#BF76FF]/20 border-t-[#BF76FF] rounded-full animate-spin" />
-          <p className="text-white/40 text-sm font-medium animate-pulse">Carregando painel...</p>
+          <p className="text-white/40 text-sm font-medium animate-pulse">Carregando perfil...</p>
         </div>
       </div>
     );
   }
 
-  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("membros") && !canViewTab("agenda") && !canViewTab("agenda-direcao")) || profile?.status === "pending" || profile?.status === "rejected" || profile?.status === "pending_approval") {
+  // Dashboard access logic: must have user, approved profile and some dashboard permissions
+  const hasDashboardAccess = user && 
+    profile && 
+    (profile.status === "approved" || profile.status === "active" || user.email === "iempministerioprofecia@gmail.com") && 
+    (isMasterAdmin || canViewTab("visao-geral") || canViewTab("eventos") || canViewTab("membros") || canViewTab("agenda") || canViewTab("agenda-direcao"));
+
+  if (!hasDashboardAccess) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col p-6">
         {/* Header / Back Button */}
@@ -1701,13 +1698,27 @@ export default function Admin() {
         </div>
 
         <div className="max-w-md w-full mx-auto flex-1 flex flex-col justify-center pb-20">
-          <h1 className="text-4xl font-bold mb-6">
-            {isSignUpMode ? (
-              <>Solicitar <span className="text-[#BF76FF]">Acesso</span></>
-            ) : (
-              <>Área de <span className="text-[#BF76FF]">Membros</span></>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-4xl font-bold">
+              {isSignUpMode ? (
+                <>Solicitar <span className="text-[#BF76FF]">Acesso</span></>
+              ) : (
+                <>Área de <span className="text-[#BF76FF]">Membros</span></>
+              )}
+            </h1>
+            {isSignUpMode && (
+              <button 
+                onClick={() => window.open('https://wa.me/5532998288650?text=Ol%C3%A1%20estou%20tendo%20dificuldades%20para%20logar%20no%20site%2C%20poderia%20me%20ajudar%3F', '_blank')}
+                className="flex items-center justify-center h-10 px-4 rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all cursor-pointer font-bold text-[10px] gap-2 uppercase tracking-widest"
+                title="Ajuda via WhatsApp"
+              >
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.878-.788-1.47-1.761-1.643-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
+                </svg>
+                Suporte
+              </button>
             )}
-          </h1>
+          </div>
 
           {authError && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-sm p-4 rounded-xl mb-6 flex items-center justify-between">
@@ -1907,7 +1918,7 @@ export default function Admin() {
               <div className="mt-4 text-center">
                 <button 
                   onClick={() => {
-                    setAuthError("Dica: Se a janela não abrir, verifique se o seu navegador não está bloqueando pop-ups ou tente usar uma aba anônima.");
+                    window.open('https://wa.me/5532998288650?text=Ol%C3%A1%20estou%20tendo%20dificuldades%20para%20logar%20com%20o%20Google%20no%20site%2C%20poderia%20me%20ajudar%3F', '_blank');
                   }}
                   className="text-xs text-gray-500 hover:text-[#BF76FF] transition-colors cursor-pointer"
                 >
@@ -1967,24 +1978,67 @@ export default function Admin() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Telefone/WhatsApp</label>
+                    <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1"><MessageSquare className="w-3 h-3 fill-current"/> Telefone/WhatsApp</label>
                     <Input 
                       className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
-                      placeholder="11999999999"
+                      placeholder="(ddd) 0 0000-0000"
                       value={signUpData.phone}
-                      onChange={(e) => setSignUpData({...signUpData, phone: e.target.value})}
+                      onChange={(e) => {
+                        let val = e.target.value.replace(/\D/g, "");
+                        if (val.length > 2 && val.length <= 6) val = `(${val.slice(0, 2)}) ${val.slice(2)}`;
+                        else if (val.length > 6 && val.length <= 10) val = `(${val.slice(0, 2)}) ${val.slice(2, 6)}-${val.slice(6)}`;
+                        else if (val.length > 10) val = `(${val.slice(0, 2)}) ${val.slice(2, 7)}-${val.slice(7, 11)}`;
+                        else if (val.length <= 2 && val.length > 0) val = `(${val}`;
+                        setSignUpData({...signUpData, phone: val});
+                      }}
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Qual sua função na igreja?</label>
-                  <Input 
-                    className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
-                    placeholder="Ex: Membro, Mídia, Louvor..."
-                    value={signUpData.churchRole}
-                    onChange={(e) => setSignUpData({...signUpData, churchRole: e.target.value})}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Você é?</label>
+                    <div className="flex bg-[#1a1a1a] rounded-2xl p-1 h-14">
+                      <button 
+                        type="button"
+                        onClick={() => setSignUpData({...signUpData, memberType: "Visitante", churchRole: "Visitante"})}
+                        className={cn("flex-1 rounded-xl text-sm font-bold transition-all cursor-pointer py-3", 
+                          signUpData.memberType === "Visitante" 
+                            ? "bg-[#7300FF] text-white shadow-[0_0_20px_rgba(115,0,255,0.5)] ring-2 ring-[#7300FF]/50" 
+                            : "text-gray-500 hover:text-gray-400"
+                        )}
+                      >
+                        Visitante
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => setSignUpData({...signUpData, memberType: "Membro", churchRole: ""})}
+                        className={cn("flex-1 rounded-xl text-sm font-bold transition-all cursor-pointer py-3", 
+                          signUpData.memberType === "Membro" 
+                            ? "bg-[#7300FF] text-white shadow-[0_0_20px_rgba(115,0,255,0.5)] ring-2 ring-[#7300FF]/50" 
+                            : "text-gray-500 hover:text-gray-400"
+                        )}
+                      >
+                        Membro
+                      </button>
+                    </div>
+                  </div>
+
+                  {signUpData.memberType === "Membro" && (
+                  <div className="space-y-2 animate-in fade-in zoom-in duration-300">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cargo na igreja</label>
+                    <select 
+                      className="w-full bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white focus:ring-0 appearance-none cursor-pointer" 
+                      value={signUpData.churchRole}
+                      onChange={(e) => setSignUpData({...signUpData, churchRole: e.target.value})}
+                    >
+                      <option value="">Selecione...</option>
+                      {allRoles.filter(r => r !== "Visitante" && r !== "Administradores").map(role => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </select>
+                  </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -2027,27 +2081,50 @@ export default function Admin() {
                   setIsSubmitting(true);
                   
                   try {
-                    await signupWithEmail(signUpData.email, signUpData.password, {
+                    setIsSubmitting(true);
+                    setAuthError(""); // Limpa erros antes de começar
+                    
+                    const signupPayload = {
                       name: `${signUpData.firstName} ${signUpData.lastName}`,
                       phone: signUpData.phone,
                       birthDate: signUpData.birthDate,
-                      churchRole: signUpData.churchRole
-                    });
+                      churchRole: signUpData.memberType === "Visitante" ? "Visitante" : signUpData.churchRole,
+                      role: signUpData.memberType === "Visitante" ? "Visitante" : "Membro",
+                      status: signUpData.memberType === "Visitante" ? "approved" : "pending"
+                    };
+
+                    await signupWithEmail(signUpData.email, signUpData.password, signupPayload);
                     
-                    setIsSignUpMode(false);
+                    const isVisitor = signUpData.memberType === "Visitante";
+                    const firstNameToUse = signUpData.firstName;
+                    
+                    if (isVisitor) {
+                      setSignUpSuccessMessage(`Seu cadastro foi realizado ${firstNameToUse}!\nAgora você pode Vizualizar as imagens da nossa galeria!\nSeja bem vindo! 🔥`);
+                      setNeedsLogoutOnModalClose(false);
+                    } else {
+                      setSignUpSuccessMessage("Cadastro solicitado com sucesso!\nNossa você será notificado em breve no seu App ou por Whatsapp");
+                      setNeedsLogoutOnModalClose(true);
+                    }
+
                     setShowSignUpSuccessModal(true);
-                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", churchRole: "", phone: "", password: "", confirmPassword: "" });
+                    setIsSignUpMode(false);
+                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Visitante", churchRole: "Visitante", phone: "", password: "", confirmPassword: "" });
+
                   } catch (error: any) {
-                    console.error("DEBUG: Erro capturado no catch:", error);
+                    console.error("DEBUG: Erro detalhado no cadastro:", error);
+                    setIsSubmitting(false);
+                    
                     let errorMessage = "Erro ao solicitar cadastro. ";
-                    if (error.code === 'auth/email-already-in-use') {
-                      errorMessage = "E-mail já está cadastrado. Faça login.";
+                    if (error.code === 'auth/network-request-failed') {
+                      errorMessage = "Falha na conexão. Verifique sua internet ou tente novamente em instantes.";
+                    } else if (error.code === 'auth/email-already-in-use') {
+                      errorMessage = "E-mail já está em uso ou pedido em andamento.";
                     } else if (error.code === 'auth/weak-password') {
                       errorMessage = "A senha deve ter pelo menos 6 caracteres.";
                     } else if (error.message && error.message.includes('offline')) {
-                      errorMessage += "Você parece estar offline ou a conexão foi recusada.";
+                      errorMessage = "Você parece estar offline.";
                     } else {
-                      errorMessage += error.message || "Tente novamente.";
+                      errorMessage = error.message || "Tente novamente.";
                     }
                     setAuthError(errorMessage);
                   } finally {
@@ -2069,21 +2146,29 @@ export default function Admin() {
 
         {/* Sign Up Success Modal */}
         <Dialog open={showSignUpSuccessModal} onOpenChange={setShowSignUpSuccessModal}>
-          <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-md text-center py-8">
-            <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8" />
+          <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-[425px] text-center p-8 rounded-[32px]">
+            <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle2 className="w-10 h-10" />
             </div>
-            <DialogHeader>
-              <DialogTitle className="text-2xl text-center mb-2">Cadastro Solicitado!</DialogTitle>
+            <DialogHeader className="mb-4">
+              <DialogTitle className="text-3xl font-black text-center uppercase tracking-tighter">
+                {signUpSuccessMessage.includes("galeria") ? "Bem Vindo!" : "Cadastro Solicitado!"}
+              </DialogTitle>
             </DialogHeader>
-            <p className="text-gray-400 mt-2">
-              Seu cadastro foi solicitado com sucesso. Retornaremos em breve com a confirmação de acesso ao painel.
+            <p className="text-gray-400 text-lg whitespace-pre-wrap leading-relaxed">
+              {signUpSuccessMessage || "Seu cadastro foi solicitado com sucesso. Retornaremos em breve com a confirmação de acesso ao painel."}
             </p>
             <Button 
-              className="w-full bg-white/10 hover:bg-white/20 text-white font-bold cursor-pointer mt-6 h-12 rounded-xl"
-              onClick={() => setShowSignUpSuccessModal(false)}
+              className="w-full bg-white/10 border border-white/5 hover:bg-white/20 text-white font-bold cursor-pointer mt-8 h-14 rounded-2xl text-lg transition-all active:scale-[0.98]"
+              onClick={async () => {
+                setShowSignUpSuccessModal(false);
+                if (needsLogoutOnModalClose) {
+                  await logout();
+                  navigate("/");
+                }
+              }}
             >
-              Fechar
+              OK
             </Button>
           </DialogContent>
         </Dialog>

@@ -120,7 +120,14 @@ service cloud.firestore {
     match /members/{memberId} {
       allow get: if isSignedIn();
       allow list: if isMasterAdmin() || isAdmin(); 
-      allow create: if isMasterAdmin() || isAdmin() || (isSignedIn() && request.auth.uid == memberId && (incoming().role == 'member' || incoming().role == 'Membro')) || ((incoming().status == 'pending' || incoming().status == 'pending_approval') && (incoming().role == 'member' || incoming().role == 'Membro'));
+      allow create: if isMasterAdmin() || isAdmin() || 
+                    (isSignedIn() && request.auth.uid == memberId && 
+                      (incoming().role == 'member' || incoming().role == 'Membro' || incoming().role == 'Visitante' || incoming().role == 'visitante')
+                    ) || 
+                    (
+                      (incoming().status == 'pending' || incoming().status == 'pending_approval' || incoming().status == 'approved') && 
+                      (incoming().role == 'member' || incoming().role == 'Membro' || incoming().role == 'Visitante')
+                    );
       allow update: if isMasterAdmin() || isAdmin() || (isOwner(memberId) && incoming().role == existing().role);
       allow delete: if isMasterAdmin() || isAdmin();
     }

@@ -78,35 +78,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userSnap.exists()) {
             const data = userSnap.data();
             console.log("DEBUG: Perfil encontrado no Firestore:", data);
-            setProfile({ id: userSnap.id, ...data });
-          } else {
-            console.log("DEBUG: Perfil não encontrado, criando novo...");
-            const newProfile = {
-              name: user.displayName,
-              email: user.email,
-              photoURL: user.photoURL,
-              role: user.email === "iempministerioprofecia@gmail.com" ? "Administradores" : "Membro",
-              status: user.email === "iempministerioprofecia@gmail.com" ? "approved" : "pending",
-              hasDashboardAccess: user.email === "iempministerioprofecia@gmail.com",
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(userRef, newProfile);
-            console.log("DEBUG: Novo perfil criado");
             
-            // Create notification for new Google sign up
-            if (user.email !== "iempministerioprofecia@gmail.com") {
-              const notifRef = doc(collection(db, "notifications"));
-              await setDoc(notifRef, {
-                title: "Novo Cadastro (Google)",
-                message: `${newProfile.name} solicitou acesso via Google.`,
-                type: "registration",
-                memberId: user.uid,
-                read: false,
-                createdAt: new Date().toISOString()
-              });
+            if (user.email === "iempministerioprofecia@gmail.com") {
+              setProfile({ id: userSnap.id, ...data });
+            } else if (data.status === "approved" || data.status === "active") {
+              setProfile({ id: userSnap.id, ...data });
+            } else {
+              // Se não estiver aprovado, apenas definimos o perfil como null para o Admin saber que é um acesso restrito
+              // O logout será feito pelo componente Admin quando necessário
+              setProfile(null);
             }
-            
-            setProfile({ id: user.uid, ...newProfile });
+          } else {
+            console.log("DEBUG: Perfil não encontrado, verificando permissões...");
+            if (user.email === "iempministerioprofecia@gmail.com") {
+              const newProfile = {
+                name: user.displayName,
+                email: user.email,
+                photoURL: user.photoURL,
+                role: "Administradores",
+                status: "approved",
+                hasDashboardAccess: true,
+                createdAt: new Date().toISOString()
+              };
+              await setDoc(userRef, newProfile);
+              setProfile({ id: user.uid, ...newProfile });
+            } else {
+              // Usuário autenticado mas sem perfil no Firestore (e não é admin master)
+              setProfile(null);
+            }
           }
         } catch (error) {
           console.error("DEBUG: Erro ao processar perfil no onAuthStateChanged:", error);
@@ -198,8 +197,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       phone: additionalData.phone || "",
       birthDate: additionalData.birthDate || "",
       churchRole: additionalData.churchRole || "Membro",
-      role: "member",
-      status: "pending",
+      role: additionalData.role || "Membro",
+      status: additionalData.status || "pending",
       hasDashboardAccess: false,
       createdAt: new Date().toISOString()
     };
