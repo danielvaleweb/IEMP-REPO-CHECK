@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx server.ts",
     "start": "node server.ts",
-    "build": "vite build && echo 'Production build finished successfully'",
+    "build": "vite build",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
