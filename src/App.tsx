@@ -24,22 +24,26 @@ import { cn } from "@/lib/utils";
 import EventDetails from "@/pages/EventDetails";
 import NoticiaDetalhe from "@/pages/NoticiaDetalhe";
 
+import Solicitacao from "@/pages/Solicitacao";
+
 function AppContent() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
   const isAdminPage = location.pathname.startsWith("/admin");
+  const isSolicitacaoPage = location.pathname.startsWith("/solicitacao");
   const isEventPage = location.pathname.startsWith("/evento/");
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary">
-      {!isAdminPage && !isEventPage && <Navbar />}
-      <main className={cn("flex-grow", !isHomePage && !isAdminPage && !isEventPage && "pt-20", !isAdminPage && !isEventPage && "pb-20")}>
+      {!isAdminPage && !isEventPage && !isSolicitacaoPage && <Navbar />}
+      <main className={cn("flex-grow", !isHomePage && !isAdminPage && !isEventPage && !isSolicitacaoPage && "pt-20", !isAdminPage && !isEventPage && !isSolicitacaoPage && "pb-20")}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/ao-vivo" element={<Live />} />
           <Route path="/galeria" element={<Gallery />} />
           <Route path="/favoritos" element={<Favorites />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/solicitacao" element={<Solicitacao />} />
           <Route path="/evento/:id" element={<EventDetails />} />
           <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
           <Route path="/quem-somos" element={<About />} />
@@ -50,7 +54,7 @@ function AppContent() {
           <Route path="/:page" element={<StaticPages />} />
         </Routes>
       </main>
-      {!isAdminPage && <Footer />}
+      {!isAdminPage && !isSolicitacaoPage && <Footer />}
     </div>
   );
 }

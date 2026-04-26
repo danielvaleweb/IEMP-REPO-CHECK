@@ -71,6 +71,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { AvisosView } from "@/components/admin/AvisosView";
 import { EventosView } from "@/components/admin/EventosView";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { 
@@ -719,7 +720,35 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
 export default function Admin() {
   const { user, profile, login, logout, isAdmin, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
   const navigate = useNavigate();
-  
+
+  // 4. Ponte para receber o Token do Expo via WebView
+  useEffect(() => {
+    const handleMessage = async (event: any) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data && data.type === 'REGISTER_TOKEN' && data.token && user) {
+          console.log("DEBUG: Recebido token do app:", data.token);
+          await fetch("/api/push/register", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.uid, token: data.token })
+          });
+        }
+      } catch (e) {
+        // Ignora mensagens que não são JSON ou não são para nós
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    // Para alguns sistemas Android
+    document.addEventListener('message', handleMessage as any);
+    
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      document.removeEventListener('message', handleMessage as any);
+    };
+  }, [user]);
+
   const [rightSidebarSearch, setRightSidebarSearch] = useState("");
   
   useEffect(() => {
@@ -1160,6 +1189,13 @@ export default function Admin() {
       return () => clearInterval(interval);
     }
   }, [showSignUpSuccessModal]);
+
+  // Redirecionamento automático para página de solicitação se pendente
+  useEffect(() => {
+    if (user && profile && (profile.status === "pending" || profile.status === "pending_approval") && !isMasterAdmin) {
+      navigate("/solicitacao");
+    }
+  }, [user, profile, isMasterAdmin, navigate]);
   const [signUpData, setSignUpData] = useState({ 
     firstName: "", 
     lastName: "", 
@@ -1252,6 +1288,7 @@ export default function Admin() {
       "noticias": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "radio": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "avisos": currentRole === "Administradores" || currentRole === "Desenvolvedor",
       "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção"
     };
@@ -1556,9 +1593,37 @@ export default function Admin() {
         }
       }
 
-      setIsEditing(false);
-      setSelectedItem(null);
-      setFormData({});
+        // Gatilho: Notificação de Novo Evento/Notícia se solicitado
+        if (formData.notifyAll) {
+          fetch("/api/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: activeTab === "eventos" ? "📅 Novo Evento!" : "📰 Nova Notícia!",
+              message: formData.title,
+              target: "all"
+            })
+          }).catch(e => console.error("Erro ao notificar geral:", e));
+        }
+
+        // Gatilho: Notificação para membros convidados/mencionados
+        if (activeTab === "eventos" && formData.invitedMembers?.length > 0) {
+          const invitedIds = formData.invitedMembers.map((m: any) => m.id);
+          fetch("/api/push/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              title: "Você foi mencionado!",
+              message: `Você foi convidado para o evento: ${formData.title}`,
+              target: "specific",
+              userIds: invitedIds
+            })
+          }).catch(e => console.error("Erro ao notificar convidados:", e));
+        }
+
+        setIsEditing(false);
+        setSelectedItem(null);
+        setFormData({});
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, activeTab);
     } finally {
@@ -1670,15 +1735,23 @@ export default function Admin() {
     openWhatsApp(member);
   };
 
-  if (loading || (user && !profile && !contextAuthError)) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-4 border-[#BF76FF]/20 border-t-[#BF76FF] rounded-full animate-spin" />
-          <p className="text-white/40 text-sm font-medium animate-pulse">Carregando perfil...</p>
+        <div className="flex flex-col items-center gap-6">
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-[#BF76FF]/10 rounded-full" />
+            <div className="w-16 h-16 border-4 border-[#BF76FF] border-t-transparent rounded-full animate-spin absolute inset-0" />
+          </div>
+          <p className="text-white/40 text-sm font-medium tracking-widest uppercase animate-pulse">Iniciando...</p>
         </div>
       </div>
     );
+  }
+
+  // Redirecionamento instantâneo se profile for pending
+  if (user && profile && (profile.status === "pending" || profile.status === "pending_approval") && !isMasterAdmin) {
+    return null; // O useEffect fará o navigate
   }
 
   // Dashboard access logic: must have user, approved profile and some dashboard permissions
@@ -1729,10 +1802,10 @@ export default function Admin() {
             </div>
           )}
 
-          {user && !isAdmin && (
+          {user && !isMasterAdmin && profile && (profile.status === "approved" || profile.status === "active") && !hasDashboardAccess && (
             <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm p-4 rounded-xl mb-6">
               <p className="font-bold mb-1">Acesso Restrito</p>
-              <p>Você está logado como <span className="underline">{user.email}</span>, mas esta conta não tem permissão de administrador.</p>
+              <p>Você está logado como <span className="underline">{user.email}</span>, mas esta conta não tem permissão para acessar este painel.</p>
               <div className="mt-3 flex gap-4">
                 <button onClick={logout} className="text-xs underline hover:text-amber-400">Sair e tentar outra conta</button>
                 <button onClick={() => window.location.reload()} className="text-xs underline hover:text-amber-400">Atualizar página</button>
@@ -1740,31 +1813,7 @@ export default function Admin() {
             </div>
           )}
 
-          {(user && (profile?.status === "pending" || profile?.status === "rejected" || profile?.status === "pending_approval")) ? (
-            <div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-500">
-              <div className={cn(
-                "w-20 h-20 rounded-full flex items-center justify-center",
-                profile?.status === "rejected" ? "bg-red-500/10 text-red-500" : "bg-orange-500/10 text-orange-500"
-              )}>
-                {profile?.status === "rejected" ? <XCircle className="w-10 h-10" /> : <Clock className="w-10 h-10" />}
-              </div>
-              <h2 className="text-2xl font-bold text-center">
-                {profile?.status === "rejected" ? "Cadastro Reprovado" : "Cadastro em Análise"}
-              </h2>
-              <p className="text-gray-400 text-center max-w-sm leading-relaxed">
-                {profile?.status === "rejected" 
-                  ? "Infelizmente seu cadastro foi reprovado. Entre em contato com a administração."
-                  : "Recebemos sua solicitação. O administrador irá analisar seus dados e liberar seu acesso em breve."}
-              </p>
-              <Button 
-                onClick={() => logout()}
-                variant="outline"
-                className="w-full sm:w-auto h-12 rounded-xl border-white/10 hover:bg-white/5 mt-4"
-              >
-                Sair
-              </Button>
-            </div>
-          ) : !isSignUpMode ? (
+          {!isSignUpMode ? (
             <>
               <div className="space-y-4 mb-8">
                 {/* Email Input */}
@@ -2093,36 +2142,34 @@ export default function Admin() {
                       status: signUpData.memberType === "Visitante" ? "approved" : "pending"
                     };
 
+                    console.log("DEBUG: Iniciando cadastro...");
                     await signupWithEmail(signUpData.email, signUpData.password, signupPayload);
                     
                     const isVisitor = signUpData.memberType === "Visitante";
                     const firstNameToUse = signUpData.firstName;
                     
                     if (isVisitor) {
-                      setSignUpSuccessMessage(`Seu cadastro foi realizado ${firstNameToUse}!\nAgora você pode Vizualizar as imagens da nossa galeria!\nSeja bem vindo! 🔥`);
+                      setSignUpSuccessMessage(`Seu cadastro foi realizado ${firstNameToUse}!\nAgora você pode visualizar as imagens da nossa galeria!\nSeja bem vindo! 🔥`);
                       setNeedsLogoutOnModalClose(false);
+                      setShowSignUpSuccessModal(true);
+                      setIsSubmitting(false);
                     } else {
-                      setSignUpSuccessMessage("Cadastro solicitado com sucesso!\nNossa você será notificado em breve no seu App ou por Whatsapp");
-                      setNeedsLogoutOnModalClose(true);
+                      console.log("DEBUG: Cadastro de membro, redirecionando...");
+                      navigate("/solicitacao");
+                      setIsSubmitting(false);
                     }
 
-                    setShowSignUpSuccessModal(true);
                     setIsSignUpMode(false);
                     setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Visitante", churchRole: "Visitante", phone: "", password: "", confirmPassword: "" });
 
                   } catch (error: any) {
-                    console.error("DEBUG: Erro detalhado no cadastro:", error);
                     setIsSubmitting(false);
-                    
-                    let errorMessage = "Erro ao solicitar cadastro. ";
+                    console.error("DEBUG: Erro no cadastro:", error);
+                    let errorMessage = "Erro ao cadastrar. ";
                     if (error.code === 'auth/network-request-failed') {
-                      errorMessage = "Falha na conexão. Verifique sua internet ou tente novamente em instantes.";
+                      errorMessage = "Falha de conexão. Tente novamente em alguns segundos.";
                     } else if (error.code === 'auth/email-already-in-use') {
-                      errorMessage = "E-mail já está em uso ou pedido em andamento.";
-                    } else if (error.code === 'auth/weak-password') {
-                      errorMessage = "A senha deve ter pelo menos 6 caracteres.";
-                    } else if (error.message && error.message.includes('offline')) {
-                      errorMessage = "Você parece estar offline.";
+                      errorMessage = "Este e-mail já está em uso.";
                     } else {
                       errorMessage = error.message || "Tente novamente.";
                     }
@@ -2296,6 +2343,7 @@ export default function Admin() {
               {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias"} onClick={() => setActiveTab("noticias")} label="Blog / Notícias" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
+              {canViewTab("avisos") && <SidebarItem icon={Bell} active={activeTab === "avisos"} onClick={() => setActiveTab("avisos")} label="Central de Avisos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewLogs && <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => setActiveTab("logs")} label="Audit Logs" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
@@ -2841,6 +2889,17 @@ export default function Admin() {
                           onClick={async () => {
                             try {
                               await updateDoc(doc(db, "members", selectedItem.id), { status: "approved" });
+                              // Gatilho: Notificação de aprovação
+                              fetch("/api/push/send", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  title: "🎉 Acesso Liberado!",
+                                  message: "Seu cadastro foi aprovado. Seja bem-vindo ao Ministério Profecia!",
+                                  target: "specific",
+                                  userIds: [selectedItem.id]
+                                })
+                              }).catch(e => console.error("Erro ao notificar aprovação:", e));
                               const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi APROVADO! Você já pode acessar usando seu e-mail e a senha padrão (admin).`;
                               if (selectedItem.phone) {
                                 window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -3104,6 +3163,19 @@ export default function Admin() {
                                 />
                                 <p className="text-[10px] text-gray-500 mt-1 ml-2">URL da imagem para a função "Criar Minha Foto" (Ex: imagem com fundo transparente)</p>
                               </div>
+
+                              <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10 mt-4" id="push-notification-eventos-toggle">
+                                <input 
+                                  type="checkbox" 
+                                  id="notifyAllEvento"
+                                  className="w-5 h-5 accent-[#BF76FF] rounded-lg"
+                                  checked={formData.notifyAll || false}
+                                  onChange={(e) => setFormData({...formData, notifyAll: e.target.checked})}
+                                />
+                                <label htmlFor="notifyAllEvento" className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest cursor-pointer select-none">
+                                  Notificar todos via Push (App)
+                                </label>
+                              </div>
                             </>
                           )}
 
@@ -3116,6 +3188,21 @@ export default function Admin() {
                                 </h3>
                                 
                                 <div className="space-y-6">
+                                  {formData.content && (
+                                      <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10 mt-4" id="push-notification-noticias-toggle">
+                                        <input 
+                                          type="checkbox" 
+                                          id="notifyAllNoticia"
+                                          className="w-5 h-5 accent-[#BF76FF] rounded-lg"
+                                          checked={formData.notifyAll || false}
+                                          onChange={(e) => setFormData({...formData, notifyAll: e.target.checked})}
+                                        />
+                                        <label htmlFor="notifyAllNoticia" className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest cursor-pointer select-none">
+                                          Disparar Notificação Push para este post
+                                        </label>
+                                      </div>
+                                    )}
+
                                   {/* 1. Título */}
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Título da Matéria</label>
@@ -4278,6 +4365,8 @@ export default function Admin() {
                   )}
                 </div>
               </div>
+            ) : activeTab === "avisos" ? (
+              <AvisosView isDark={isDarkMode} />
             ) : (activeTab === "eventos" || activeTab === "noticias") && !isEditing ? (
               <EventosView 
                 events={filteredItems} 

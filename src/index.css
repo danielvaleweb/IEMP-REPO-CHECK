@@ -57,7 +57,6 @@
   @apply bg-gradient-to-br from-[#BF76FF]/5 via-white to-white;
 }
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 
 @custom-variant dark (&:is(.dark *));

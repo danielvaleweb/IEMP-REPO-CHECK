@@ -50,9 +50,26 @@
         "phone": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "editor", "member"] },
         "photoURL": { "type": "string" },
-        "hasDashboardAccess": { "type": "boolean" }
+        "hasDashboardAccess": { "type": "boolean" },
+        "pushToken": { "type": "string", "description": "Token do Expo para notificações push" }
       },
       "required": ["name", "email", "role"]
+    },
+    "Announcement": {
+      "title": "Announcement",
+      "description": "Avisos e notificações disparadas pelo administrador",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "scheduledAt": { "type": "string", "format": "date-time", "description": "Data/Hora para envio (se agendado)" },
+        "sentAt": { "type": "string", "format": "date-time", "description": "Data/Hora em que foi enviado" },
+        "status": { "type": "string", "enum": ["pending", "sent", "failed"] },
+        "target": { "type": "string", "enum": ["all", "specific"], "description": "Público alvo" },
+        "userIds": { "type": "array", "items": { "type": "string" }, "description": "IDs dos usuários específicos" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "message", "status", "createdAt"]
     },
     "Agenda": {
       "title": "Agenda",
@@ -163,6 +180,10 @@
     "/vignettes/{vignetteId}": {
       "schema": "Vignette",
       "description": "Coleção de vinhetas da rádio"
+    },
+    "/announcements/{announcementId}": {
+      "schema": "Announcement",
+      "description": "Avisos e notificações disparadas pelo administrador"
     },
     "/settings/{settingId}": {
       "schema": "Settings",

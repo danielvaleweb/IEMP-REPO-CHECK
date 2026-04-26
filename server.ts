@@ -3,17 +3,173 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { XMLParser } from "fast-xml-parser";
+import { Expo, ExpoPushMessage } from "expo-server-sdk";
+import cron from "node-cron";
+import * as admin from "firebase-admin";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Initialize Firebase Admin
+const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
+
+// Use Application Default Credentials when running in Cloud Run
+// Or fallback to dummy for development if needed, but here we assume it works or uses env vars
+if (!admin.apps.length) {
+  admin.initializeApp({
+    projectId: firebaseConfig.projectId,
+  });
+}
+
+const db = admin.firestore(firebaseConfig.firestoreDatabaseId);
+const expo = new Expo();
+
 async function startServer() {
   const app = express();
+  app.use(express.json());
   const PORT = 3000;
 
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_"
+  });
+
+  // 1. Endpoint para receber o Expo Push Token
+  app.post("/api/push/register", async (req, res) => {
+    try {
+      const { userId, token } = req.body;
+      if (!userId || !token) {
+        return res.status(400).json({ error: "userId and token are required" });
+      }
+
+      if (!Expo.isExpoPushToken(token)) {
+        return res.status(400).json({ error: "Invalid Expo push token" });
+      }
+
+      // Salva o token no perfil do usuário
+      const userRef = db.collection("members").doc(userId);
+      await userRef.update({ pushToken: token });
+
+      console.log(`Token registrado para o usuário ${userId}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Erro ao registrar token:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // 2. Endpoint para disparo imediato (API Interna/Admin)
+  app.post("/api/push/send", async (req, res) => {
+    try {
+      const { title, message, target = "all", userIds = [] } = req.body;
+      
+      let tokens: string[] = [];
+      
+      if (target === "all") {
+        const snapshot = await db.collection("members").where("pushToken", "!=", null).get();
+        tokens = snapshot.docs.map(doc => doc.data().pushToken).filter(t => !!t);
+      } else if (userIds.length > 0) {
+        // Busca tokens de usuários específicos
+        const tokensPromises = userIds.map(async (uid: string) => {
+          const doc = await db.collection("members").doc(uid).get();
+          return doc.exists ? doc.data()?.pushToken : null;
+        });
+        const results = await Promise.all(tokensPromises);
+        tokens = results.filter(t => !!t);
+      }
+
+      if (tokens.length === 0) {
+        return res.json({ success: true, sent: 0, message: "Nenhum token encontrado" });
+      }
+
+      const tickets = await sendPushNotifications(tokens, title, message);
+      
+      // Salva no histórico (opcional)
+      await db.collection("announcements").add({
+        title,
+        message,
+        target,
+        status: "sent",
+        sentAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
+      });
+
+      res.json({ success: true, sent: tokens.length, tickets });
+    } catch (error: any) {
+      console.error("Erro ao enviar push:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Função auxiliar para enviar via Expo
+  async function sendPushNotifications(tokens: string[], title: string, body: string, data = {}) {
+    const messages: ExpoPushMessage[] = [];
+    for (const pushToken of tokens) {
+      if (!Expo.isExpoPushToken(pushToken)) continue;
+      messages.push({
+        to: pushToken,
+        sound: 'default',
+        title,
+        body,
+        data,
+      });
+    }
+
+    const chunks = expo.chunkPushNotifications(messages);
+    const tickets = [];
+    for (const chunk of chunks) {
+      try {
+        const ticketChunk = await expo.sendPushNotificationsAsync(chunk);
+        tickets.push(...ticketChunk);
+      } catch (error) {
+        console.error("Erro no chunk do Expo:", error);
+      }
+    }
+    return tickets;
+  }
+
+  // 3. Cron Job para Notificações Agendadas (roda a cada minuto)
+  cron.schedule("* * * * *", async () => {
+    try {
+      const now = new Date().toISOString();
+      const snapshot = await db.collection("announcements")
+        .where("status", "==", "pending")
+        .where("scheduledAt", "<=", now)
+        .get();
+
+      if (snapshot.empty) return;
+
+      console.log(`Processando ${snapshot.size} notificações agendadas...`);
+
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        let tokens: string[] = [];
+
+        if (data.target === "all") {
+          const membersSnap = await db.collection("members").where("pushToken", "!=", "").get();
+          tokens = membersSnap.docs.map(m => m.data().pushToken).filter(t => !!t);
+        } else if (data.userIds?.length > 0) {
+          const tokensPromises = data.userIds.map(async (uid: string) => {
+            const mDoc = await db.collection("members").doc(uid).get();
+            return mDoc.exists ? mDoc.data()?.pushToken : null;
+          });
+          const results = await Promise.all(tokensPromises);
+          tokens = results.filter(t => !!t);
+        }
+
+        if (tokens.length > 0) {
+          await sendPushNotifications(tokens, data.title, data.message);
+        }
+
+        await doc.ref.update({
+          status: "sent",
+          sentAt: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error("Erro no Cron Job de notificações:", error);
+    }
   });
 
   app.get("/api/live-status", async (req, res) => {
@@ -318,7 +474,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, "dist");
+    const distPath = path.join(process.cwd(), "dist");
     
     // Serve static files
     app.use(express.static(distPath));
@@ -326,12 +482,11 @@ async function startServer() {
     // SPA Fallback
     app.get("*", (req, res) => {
       const indexPath = path.join(distPath, "index.html");
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          console.error(`Error sending index.html at ${indexPath}:`, err);
-          res.status(500).send("Internal Server Error: Page not found on server.");
-        }
-      });
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        res.status(404).send("Build artifacts not found. Please run npm run build.");
+      }
     });
   }
 

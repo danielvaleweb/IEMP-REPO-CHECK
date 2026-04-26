@@ -78,32 +78,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userSnap.exists()) {
             const data = userSnap.data();
             console.log("DEBUG: Perfil encontrado no Firestore:", data);
-            
-            if (user.email === "iempministerioprofecia@gmail.com") {
-              setProfile({ id: userSnap.id, ...data });
-            } else if (data.status === "approved" || data.status === "active") {
-              setProfile({ id: userSnap.id, ...data });
-            } else {
-              // Se não estiver aprovado, apenas definimos o perfil como null para o Admin saber que é um acesso restrito
-              // O logout será feito pelo componente Admin quando necessário
-              setProfile(null);
-            }
+            setProfile({ id: userSnap.id, ...data });
           } else {
-            console.log("DEBUG: Perfil não encontrado, verificando permissões...");
+            console.log("DEBUG: Perfil não encontrado no Firestore.");
             if (user.email === "iempministerioprofecia@gmail.com") {
               const newProfile = {
-                name: user.displayName,
+                name: user.displayName || "Admin",
                 email: user.email,
-                photoURL: user.photoURL,
                 role: "Administradores",
-                status: "approved",
-                hasDashboardAccess: true,
+                status: "active",
                 createdAt: new Date().toISOString()
               };
               await setDoc(userRef, newProfile);
               setProfile({ id: user.uid, ...newProfile });
             } else {
-              // Usuário autenticado mas sem perfil no Firestore (e não é admin master)
               setProfile(null);
             }
           }
