@@ -6,28 +6,53 @@ import { XMLParser } from "fast-xml-parser";
 import { Expo, ExpoPushMessage } from "expo-server-sdk";
 import cron from "node-cron";
 import { initializeApp, getApps } from "firebase-admin/app";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
+import { initializeApp as initializeClientApp } from "firebase/app";
+import { 
+  getFirestore as getClientFirestore, 
+  collection, 
+  query, 
+  where, 
+  getDocs, 
+  doc as clientDoc, 
+  updateDoc,
+  getDoc as getClientDoc,
+  limit as clientLimit,
+  addDoc as clientAddDoc
+} from "firebase/firestore";
 import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Admin
+// Initialize Firebase Config
 const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
 
-// Log configuration for debugging
-console.log("[Firebase] Config:", { 
-  projectId: firebaseConfig.projectId, 
-  databaseId: firebaseConfig.firestoreDatabaseId 
-});
-
-const adminApp = getApps().length === 0 
-  ? initializeApp({
+// Initialize Firebase Admin
+let adminApp;
+try {
+  if (getApps().length === 0) {
+    adminApp = initializeApp({
       projectId: firebaseConfig.projectId,
-    }) 
-  : getApps()[0];
+    });
+  } else {
+    adminApp = getApps()[0];
+  }
+} catch (e: any) {
+  console.error("[Firebase Admin] Error:", e.message);
+  if (getApps().length === 0) adminApp = initializeApp();
+  else adminApp = getApps()[0];
+}
 
-const db = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+const adminDb = getAdminFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+
+// Initialize Firebase Client (Server-side)
+// We use this as fallback because Admin SDK often has permission issues in some environments
+const clientApp = initializeClientApp(firebaseConfig, "server-client");
+const clientDb = getClientFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
+
+// Compatibility alias - Use Admin DB for registration but Client DB for cron if needed
+const db = adminDb; 
 
 // Test Firestore connection on startup
 (async () => {
@@ -69,9 +94,9 @@ async function startServer() {
         return res.status(400).json({ error: "Invalid Expo push token" });
       }
 
-      // Salva o token no perfil do usuário
-      const userRef = db.collection("members").doc(userId);
-      await userRef.update({ pushToken: token });
+      // Salva o token no perfil do usuário usando Client SDK
+      const userRef = clientDoc(clientDb, "members", userId);
+      await updateDoc(userRef, { pushToken: token });
 
       console.log(`Token registrado para o usuário ${userId}`);
       res.json({ success: true });
@@ -89,13 +114,15 @@ async function startServer() {
       let tokens: string[] = [];
       
       if (target === "all") {
-        const snapshot = await db.collection("members").where("pushToken", "!=", null).get();
-        tokens = snapshot.docs.map(doc => doc.data().pushToken).filter(t => !!t);
+        const q = query(collection(clientDb, "members"), where("pushToken", "!=", ""));
+        const snapshot = await getDocs(q);
+        tokens = snapshot.docs.map(d => d.data().pushToken).filter(t => !!t);
       } else if (userIds.length > 0) {
         // Busca tokens de usuários específicos
         const tokensPromises = userIds.map(async (uid: string) => {
-          const doc = await db.collection("members").doc(uid).get();
-          return doc.exists ? doc.data()?.pushToken : null;
+          const docRef = clientDoc(clientDb, "members", uid);
+          const docSnap = await getClientDoc(docRef);
+          return docSnap.exists() ? docSnap.data()?.pushToken : null;
         });
         const results = await Promise.all(tokensPromises);
         tokens = results.filter(t => !!t);
@@ -107,8 +134,8 @@ async function startServer() {
 
       const tickets = await sendPushNotifications(tokens, title, message);
       
-      // Salva no histórico (opcional)
-      await db.collection("announcements").add({
+      // Salva no histórico
+      await clientAddDoc(collection(clientDb, "announcements"), {
         title,
         message,
         target,
@@ -157,26 +184,31 @@ async function startServer() {
       const now = new Date().toISOString();
       console.log(`[Cron] Checking for scheduled notifications at ${now}...`);
       
-      const snapshot = await db.collection("announcements")
-        .where("status", "==", "pending")
-        .where("scheduledAt", "<=", now)
-        .get();
+      const q = query(
+        collection(clientDb, "announcements"),
+        where("status", "==", "pending"),
+        where("scheduledAt", "<=", now)
+      );
+      
+      const snapshot = await getDocs(q);
 
       if (snapshot.empty) return;
 
       console.log(`[Cron] Processing ${snapshot.size} scheduled notifications...`);
 
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
+      for (const d of snapshot.docs) {
+        const data = d.data();
         let tokens: string[] = [];
 
         if (data.target === "all") {
-          const membersSnap = await db.collection("members").where("pushToken", "!=", "").get();
+          const membersQ = query(collection(clientDb, "members"), where("pushToken", "!=", ""));
+          const membersSnap = await getDocs(membersQ);
           tokens = membersSnap.docs.map(m => m.data().pushToken).filter(t => !!t);
         } else if (data.userIds?.length > 0) {
           const tokensPromises = data.userIds.map(async (uid: string) => {
-            const mDoc = await db.collection("members").doc(uid).get();
-            return mDoc.exists ? mDoc.data()?.pushToken : null;
+            const mRef = clientDoc(clientDb, "members", uid);
+            const mSnap = await getClientDoc(mRef);
+            return mSnap.exists() ? mSnap.data()?.pushToken : null;
           });
           const results = await Promise.all(tokensPromises);
           tokens = results.filter(t => !!t);
@@ -186,13 +218,14 @@ async function startServer() {
           await sendPushNotifications(tokens, data.title, data.message);
         }
 
-        await doc.ref.update({
+        const annRef = clientDoc(clientDb, "announcements", d.id);
+        await updateDoc(annRef, {
           status: "sent",
           sentAt: new Date().toISOString()
         });
       }
     } catch (error: any) {
-      console.error("[Cron] FATAL Error in notification job:");
+      console.error("[Cron] Error in notification job:");
       console.error(`Status: ${error.code}`);
       console.error(`Message: ${error.message}`);
     }

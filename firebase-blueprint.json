@@ -192,6 +192,10 @@
     "/audit-logs/{logId}": {
       "schema": "AuditLog",
       "description": "Logs de auditoria do dashboard"
+    },
+    "/agenda-direcao/{eventId}": {
+      "schema": "Agenda",
+      "description": "Agenda privada da direção"
     }
   }
 }

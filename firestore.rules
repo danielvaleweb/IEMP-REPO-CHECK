@@ -128,7 +128,9 @@ service cloud.firestore {
                       (incoming().status == 'pending' || incoming().status == 'pending_approval' || incoming().status == 'approved') && 
                       (incoming().role == 'member' || incoming().role == 'Membro' || incoming().role == 'Visitante')
                     );
-      allow update: if isMasterAdmin() || isAdmin() || (isOwner(memberId) && incoming().role == existing().role);
+      allow update: if isMasterAdmin() || isAdmin() || 
+                    (isSignedIn() && request.auth.uid == memberId && incoming().role == existing().role) ||
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['pushToken']));
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
@@ -182,6 +184,18 @@ service cloud.firestore {
       allow update, delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow create: if isMasterAdmin() || isEditor();
+      allow update: if isMasterAdmin() || isEditor() || (
+        // Allow cron job (even if unauthenticated) to update status and sentAt
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'sentAt']) &&
+        existing().status == 'pending' &&
+        incoming().status == 'sent'
+      );
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
     match /settings/{settingId} {
       allow read: if true;
       allow write: if isMasterAdmin() || isAdmin();
@@ -203,7 +217,7 @@ service cloud.firestore {
       }
     }
 
-    // Pillar 0: Safety Net
+    // Default deny for everything else
     match /{document=**} {
       allow read, write: if false;
     }
