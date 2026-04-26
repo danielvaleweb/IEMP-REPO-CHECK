@@ -58,7 +58,8 @@ import {
   PartyPopper,
   ExternalLink,
   ClipboardList,
-  Newspaper
+  Newspaper,
+  XCircle
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -716,7 +717,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
 }
 
 export default function Admin() {
-  const { user, profile, login, logout, isAdmin, setCustomLogin, loading } = useAuth();
+  const { user, profile, login, logout, isAdmin, setCustomLogin, loading, loginWithEmail, signupWithEmail } = useAuth();
   const navigate = useNavigate();
   
   const [rightSidebarSearch, setRightSidebarSearch] = useState("");
@@ -1154,7 +1155,9 @@ export default function Admin() {
 
   useEffect(() => {
     if (user && profile?.status === "pending") {
-      setAuthError("Seu cadastro via Google ainda está em análise. Aguarde a aprovação do administrador.");
+      setAuthError("Seu cadastro ainda está em análise. Aguarde a aprovação do administrador.");
+    } else if (user && profile?.status === "rejected") {
+      setAuthError("Seu cadastro foi reprovado.");
     }
   }, [user, profile]);
 
@@ -1687,7 +1690,7 @@ export default function Admin() {
     );
   }
 
-  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("membros") && !canViewTab("agenda") && !canViewTab("agenda-direcao"))) {
+  if (!user || (!isMasterAdmin && !canViewTab("visao-geral") && !canViewTab("eventos") && !canViewTab("membros") && !canViewTab("agenda") && !canViewTab("agenda-direcao")) || profile?.status === "pending" || profile?.status === "rejected" || profile?.status === "pending_approval") {
     return (
       <div className="min-h-screen bg-[#0a0a0a] text-white flex flex-col p-6">
         {/* Header / Back Button */}
@@ -1726,7 +1729,31 @@ export default function Admin() {
             </div>
           )}
 
-          {!isSignUpMode ? (
+          {(user && (profile?.status === "pending" || profile?.status === "rejected" || profile?.status === "pending_approval")) ? (
+            <div className="flex flex-col items-center justify-center space-y-6 animate-in fade-in zoom-in duration-500">
+              <div className={cn(
+                "w-20 h-20 rounded-full flex items-center justify-center",
+                profile?.status === "rejected" ? "bg-red-500/10 text-red-500" : "bg-orange-500/10 text-orange-500"
+              )}>
+                {profile?.status === "rejected" ? <XCircle className="w-10 h-10" /> : <Clock className="w-10 h-10" />}
+              </div>
+              <h2 className="text-2xl font-bold text-center">
+                {profile?.status === "rejected" ? "Cadastro Reprovado" : "Cadastro em Análise"}
+              </h2>
+              <p className="text-gray-400 text-center max-w-sm leading-relaxed">
+                {profile?.status === "rejected" 
+                  ? "Infelizmente seu cadastro foi reprovado. Entre em contato com a administração."
+                  : "Recebemos sua solicitação. O administrador irá analisar seus dados e liberar seu acesso em breve."}
+              </p>
+              <Button 
+                onClick={() => logout()}
+                variant="outline"
+                className="w-full sm:w-auto h-12 rounded-xl border-white/10 hover:bg-white/5 mt-4"
+              >
+                Sair
+              </Button>
+            </div>
+          ) : !isSignUpMode ? (
             <>
               <div className="space-y-4 mb-8">
                 {/* Email Input */}
@@ -1781,75 +1808,40 @@ export default function Admin() {
                   
                   setIsSubmitting(true);
                   
-                  if (email === "iempministerioprofecia@gmail.com" && password === "admin") {
-                    try {
-                      const q = query(collection(db, "members"), where("email", "==", email));
-                      const querySnapshot = await getDocs(q);
-                      const memberId = !querySnapshot.empty ? querySnapshot.docs[0].id : "admin_master";
-                      const memberData = !querySnapshot.empty ? querySnapshot.docs[0].data() : {};
-                      
-                      setCustomLogin(true, {
-                        id: memberId,
-                        name: memberData.name || "Administrador Master",
-                        email: email,
-                        role: "admin",
-                        ...memberData
-                      });
-                      
-                      window.alert("Login efetuado com sucesso!");
-                      setIsSubmitting(false);
-                      return;
-                    } catch (e) {
-                      console.error("Erro no login especial:", e);
-                    }
-                  }
-                  
                   try {
-                    const q = query(collection(db, "members"), where("email", "==", email));
-                    const querySnapshot = await getDocs(q);
-                    
-                    if (querySnapshot.empty) {
-                      setAuthError("Usuário não encontrado.");
-                      setIsSubmitting(false);
-                      return;
+                    await loginWithEmail(email, password);
+                  } catch (error: any) {
+                    // Fallback para login legado (só no Firestore)
+                    if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                       try {
+                         const q = query(collection(db, "members"), where("email", "==", email));
+                         const querySnapshot = await getDocs(q);
+                         
+                         if (!querySnapshot.empty) {
+                           const memberDoc = querySnapshot.docs[0];
+                           const memberData = memberDoc.data();
+                           
+                           if (memberData.password && memberData.password === password) {
+                             if (memberData.status === "pending") {
+                               setAuthError("Seu cadastro ainda está em análise.");
+                             } else if (memberData.status === "rejected") {
+                               setAuthError("Seu cadastro foi reprovado.");
+                             } else {
+                               setCustomLogin(true, { id: memberDoc.id, ...memberData });
+                             }
+                           } else {
+                             setAuthError("E-mail ou senha incorretos.");
+                           }
+                         } else {
+                           setAuthError("E-mail ou senha incorretos.");
+                         }
+                       } catch (fallbackError) {
+                         console.error("Erro no login legado:", fallbackError);
+                         setAuthError("Erro ao verificar conta antiga. Tente novamente.");
+                       }
+                    } else {
+                       setAuthError(error.message || "Erro ao fazer login. Tente novamente.");
                     }
-                    
-                    const memberDoc = querySnapshot.docs[0];
-                    const memberData = memberDoc.data();
-                    
-                    if (memberData.password && memberData.password !== password) {
-                      setAuthError("Senha incorreta.");
-                      setIsSubmitting(false);
-                      return;
-                    } else if (!memberData.password && password !== "admin") {
-                      // Fallback for old accounts without password
-                      setAuthError("Senha incorreta.");
-                      setIsSubmitting(false);
-                      return;
-                    }
-                    
-                    if (memberData.status === "pending") {
-                      setAuthError("Seu cadastro ainda está em análise.");
-                      setIsSubmitting(false);
-                      return;
-                    }
-                    
-                    if (memberData.status === "rejected") {
-                      setAuthError("Seu cadastro foi reprovado.");
-                      setIsSubmitting(false);
-                      return;
-                    }
-                    
-                    setCustomLogin(true, { id: memberDoc.id, ...memberData });
-                    
-                    window.alert("Login efetuado com sucesso!");
-                    
-                    if (memberData.role === "Visitante") {
-                      navigate("/");
-                    }
-                  } catch (error) {
-                    console.error("Erro ao fazer login:", error);
-                    setAuthError("Erro ao fazer login. Tente novamente.");
                   } finally {
                     setIsSubmitting(false);
                   }
@@ -1875,7 +1867,6 @@ export default function Admin() {
                     setAuthError("");
                     setIsSubmitting(true);
                     await login();
-                    window.alert("Login efetuado com sucesso!");
                   } catch (error: any) {
                     console.error("Erro no login Google:", error);
                     if (error.code === 'auth/unauthorized-domain') {
@@ -2035,64 +2026,31 @@ export default function Admin() {
                   
                   setIsSubmitting(true);
                   
-                  const newMember = {
-                    name: `${signUpData.firstName} ${signUpData.lastName}`,
-                    email: signUpData.email,
-                    phone: signUpData.phone,
-                    birthDate: signUpData.birthDate,
-                    churchRole: signUpData.churchRole,
-                    password: signUpData.password,
-                    role: "member",
-                    status: "pending",
-                    createdAt: new Date().toISOString()
-                  };
-                  
                   try {
-                    console.log("DEBUG: Iniciando processo de cadastro para:", newMember.email);
-                    
-                    // Add a safety timeout to prevent infinite "Solicitando..."
-                    const safetyTimeout = setTimeout(() => {
-                      if (isSubmitting) {
-                        console.error("DEBUG: Timeout de segurança atingido!");
-                        setAuthError("Tempo limite excedido. O banco de dados está demorando para responder. Tente atualizar a página.");
-                        setIsSubmitting(false);
-                      }
-                    }, 15000);
-
-                    console.log("DEBUG: Chamando addDoc para 'members'...");
-                    const newMemberRef = await addDoc(collection(db, "members"), newMember);
-                    console.log("DEBUG: Membro salvo com sucesso, ID:", newMemberRef.id);
-                    
-                    console.log("DEBUG: Chamando addDoc para 'notifications'...");
-                    await addDoc(collection(db, "notifications"), {
-                      title: "Novo Cadastro",
-                      message: `${newMember.name} solicitou acesso ao painel com cargo de ${newMember.churchRole || 'Membro'}.`,
-                      type: "registration",
-                      memberId: newMemberRef.id,
-                      read: false,
-                      createdAt: new Date().toISOString()
+                    await signupWithEmail(signUpData.email, signUpData.password, {
+                      name: `${signUpData.firstName} ${signUpData.lastName}`,
+                      phone: signUpData.phone,
+                      birthDate: signUpData.birthDate,
+                      churchRole: signUpData.churchRole
                     });
-                    console.log("DEBUG: Notificação salva com sucesso");
                     
-                    clearTimeout(safetyTimeout);
                     setIsSignUpMode(false);
                     setShowSignUpSuccessModal(true);
                     setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", churchRole: "", phone: "", password: "", confirmPassword: "" });
                   } catch (error: any) {
                     console.error("DEBUG: Erro capturado no catch:", error);
                     let errorMessage = "Erro ao solicitar cadastro. ";
-                    
-                    if (error.code === 'permission-denied') {
-                      errorMessage += "Permissão negada no banco de dados.";
+                    if (error.code === 'auth/email-already-in-use') {
+                      errorMessage = "E-mail já está cadastrado. Faça login.";
+                    } else if (error.code === 'auth/weak-password') {
+                      errorMessage = "A senha deve ter pelo menos 6 caracteres.";
                     } else if (error.message && error.message.includes('offline')) {
                       errorMessage += "Você parece estar offline ou a conexão foi recusada.";
                     } else {
                       errorMessage += error.message || "Tente novamente.";
                     }
-                    
                     setAuthError(errorMessage);
                   } finally {
-                    console.log("DEBUG: Finalizando bloco try-catch-finally");
                     setIsSubmitting(false);
                   }
                 }}
@@ -3202,26 +3160,82 @@ export default function Admin() {
                                   </div>
 
                                   {/* 8. Galeria de Fotos */}
-                                  <div className="space-y-4 pt-6 border-t border-white/5">
+                                  <div className="space-y-6 pt-6 border-t border-white/5">
                                     <div className="flex items-center justify-between ml-2">
                                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Galeria / Fotos Enviadas</label>
-                                      <span className="text-[10px] text-[#BF76FF] font-bold">1 URL por linha</span>
+                                      {!isReadOnly && (
+                                        <Button 
+                                          type="button"
+                                          onClick={() => {
+                                            const currentGallery = typeof formData.gallery === 'string' 
+                                              ? formData.gallery.split('\n').filter((l: string) => l.trim())
+                                              : (Array.isArray(formData.gallery) ? formData.gallery : []);
+                                            setFormData({ ...formData, gallery: [...currentGallery, ""].join('\n') });
+                                          }}
+                                          className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all text-[10px] font-black uppercase px-4"
+                                        >
+                                          <Plus className="w-3 h-3 mr-2" /> Adicionar Foto
+                                        </Button>
+                                      )}
                                     </div>
-                                    <Textarea 
-                                      className={cn("border-none min-h-[120px] rounded-2xl p-6 transition-colors font-mono text-xs", isDarkMode ? "bg-white/5 text-[#BF76FF]" : "bg-gray-50 text-[#BF76FF]")} 
-                                      placeholder="https://imagem1.jpg&#10;https://imagem2.jpg"
-                                      value={formData.gallery || ""}
-                                      onChange={(e) => setFormData({...formData, gallery: e.target.value})}
-                                    />
-                                    {formData.gallery && (
-                                       <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-                                          {formData.gallery.split('\n').filter((l: string) => l.trim()).map((url: string, i: number) => (
-                                             <div key={`form-gallery-${i}`} className="aspect-square rounded-xl overflow-hidden border border-white/5 bg-black/20">
-                                                <img src={url.trim()} className="w-full h-full object-cover" alt="" />
-                                             </div>
-                                          ))}
-                                       </div>
-                                    )}
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      {(() => {
+                                        const urls = typeof formData.gallery === 'string'
+                                          ? formData.gallery.split('\n')
+                                          : (Array.isArray(formData.gallery) ? formData.gallery : []);
+                                        
+                                        // Always show an empty array if empty but we want to map correctly
+                                        // Wait, the filter removes empty strings, but we need to keep empty inputs while editing
+                                        const displayUrls = typeof formData.gallery === 'string' ? formData.gallery.split('\n') : (Array.isArray(formData.gallery) ? formData.gallery : []);
+                                        
+                                        return displayUrls.map((url: string, i: number) => (
+                                          <div key={`form-gallery-noticia-${i}`} className={cn("p-4 rounded-3xl border transition-all space-y-3 relative group", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                                            <div className="flex gap-2">
+                                              <div className="relative flex-1">
+                                                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                                                <Input 
+                                                  className={cn("border-none h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                                                  placeholder="URL da imagem..."
+                                                  value={url.trim()}
+                                                  onChange={(e) => {
+                                                    const newGallery = [...displayUrls];
+                                                    newGallery[i] = e.target.value;
+                                                    setFormData({ ...formData, gallery: newGallery.join('\n') });
+                                                  }}
+                                                  readOnly={isReadOnly}
+                                                />
+                                              </div>
+                                              {!isReadOnly && (
+                                                <Button 
+                                                  type="button" 
+                                                  variant="ghost"
+                                                  className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shrink-0"
+                                                  onClick={() => {
+                                                    const newGallery = displayUrls.filter((_, idx) => idx !== i);
+                                                    setFormData({ ...formData, gallery: newGallery.join('\n') });
+                                                  }}
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                              )}
+                                            </div>
+                                            {url.trim() && (
+                                              <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20 group-hover:scale-[1.02] transition-transform duration-300">
+                                                <img src={url.trim()} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                              </div>
+                                            )}
+                                          </div>
+                                        ));
+                                      })()}
+                                      
+                                      {(!formData.gallery || (typeof formData.gallery === 'string' && formData.gallery.trim() === '') || (Array.isArray(formData.gallery) && formData.gallery.length === 0)) && (
+                                        <div className={cn("col-span-full py-12 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center text-gray-500 gap-3 opacity-50", isDarkMode ? "border-white/10" : "border-black/10")}>
+                                           <ImageIcon className="w-10 h-10 opacity-20" />
+                                           <p className="text-[10px] font-black uppercase tracking-widest text-center">Nenhuma foto enviada</p>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                   
                                   {/* 9. Tópicos e Configurações de exibição (Previews das seções finais) */}

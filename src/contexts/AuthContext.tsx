@@ -8,16 +8,20 @@ import {
   getRedirectResult, 
   signOut,
   setPersistence,
-  browserLocalPersistence
+  browserLocalPersistence,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc } from "firebase/firestore";
 
 interface AuthContextType {
   user: any | null;
   profile: any | null;
   loading: boolean;
   login: () => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  signupWithEmail: (email: string, password: string, additionalData: any) => Promise<any>;
   logout: () => Promise<void>;
   isAdmin: boolean;
   setCustomLogin: (status: boolean, userData?: any) => void;
@@ -170,6 +174,66 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithEmail = async (email: string, password: string) => {
+    setError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+    } catch (error: any) {
+      console.error("DEBUG: Erro fatal no login por email:", error);
+      let msg = error.message || "Erro desconhecido no login";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+         msg = "E-mail ou senha incorretos. Se você usava a versão antiga, pode ser necessário solicitar acesso novamente.";
+      }
+      setError(msg);
+      throw error;
+    }
+  };
+
+  const signupWithEmail = async (email: string, password: string, additionalData: any) => {
+    setError(null);
+
+    const newProfile = {
+      name: additionalData.name,
+      email: email,
+      phone: additionalData.phone || "",
+      birthDate: additionalData.birthDate || "",
+      churchRole: additionalData.churchRole || "Membro",
+      role: "member",
+      status: "pending",
+      hasDashboardAccess: false,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCred.user.uid;
+      const userRef = doc(db, "members", uid);
+      await setDoc(userRef, newProfile);
+      
+      const notifRef = doc(collection(db, "notifications"));
+      await setDoc(notifRef, {
+        title: "Novo Cadastro (Email)",
+        message: `${newProfile.name} solicitou acesso ao painel com cargo de ${newProfile.churchRole}.`,
+        type: "registration",
+        memberId: uid,
+        read: false,
+        createdAt: new Date().toISOString()
+      });
+      
+      return userCred.user;
+    } catch (error: any) {
+      console.error("Erro no cadastro Auth:", error);
+      let msg = error.message;
+      if (error.code === 'auth/email-already-in-use') {
+        msg = "E-mail já está em uso.";
+      } else if (error.code === 'auth/operation-not-allowed') {
+        msg = "O login por email/senha está desabilitado no Firebase. Verifique as configurações.";
+      }
+      setError(msg);
+      throw error;
+    }
+  };
+
   const clearError = () => setError(null);
 
   const logout = async () => {
@@ -227,7 +291,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   } : null);
 
   return (
-    <AuthContext.Provider value={{ user, profile: profile || customUserData, loading, login, logout, isAdmin, setCustomLogin, error, clearError }}>
+    <AuthContext.Provider value={{ user, profile: profile || customUserData, loading, login, loginWithEmail, signupWithEmail, logout, isAdmin, setCustomLogin, error, clearError }}>
       {children}
     </AuthContext.Provider>
   );
