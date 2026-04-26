@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import { XMLParser } from "fast-xml-parser";
-import { Expo, ExpoPushMessage } from "expo-server-sdk";
+import { Expo } from "expo-server-sdk";
 import cron from "node-cron";
 import { initializeApp, getApps } from "firebase-admin/app";
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
@@ -29,46 +29,49 @@ const __dirname = path.dirname(__filename);
 const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
 
 // Initialize Firebase Admin
-let adminApp;
+let adminApp: any;
 try {
-  if (getApps().length === 0) {
+  const apps = getApps();
+  if (apps.length === 0) {
     adminApp = initializeApp({
-      projectId: firebaseConfig.projectId,
+      projectId: firebaseConfig.projectId
     });
+    console.log("[Firebase Admin] Initialized with project:", firebaseConfig.projectId);
   } else {
-    adminApp = getApps()[0];
+    adminApp = apps[0];
   }
 } catch (e: any) {
-  console.error("[Firebase Admin] Error:", e.message);
-  if (getApps().length === 0) adminApp = initializeApp();
-  else adminApp = getApps()[0];
+  console.error("[Firebase Admin] Initialization error:", e.message);
+  // Fallback
+  try {
+    adminApp = initializeApp();
+  } catch (inner: any) {
+    console.error("[Firebase Admin] Critical fallback error:", inner.message);
+  }
 }
 
-const adminDb = getAdminFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+// In case adminApp is still null/undefined
+const adminDb = adminApp ? getAdminFirestore(adminApp, firebaseConfig.firestoreDatabaseId) : null;
 
 // Initialize Firebase Client (Server-side)
-// We use this as fallback because Admin SDK often has permission issues in some environments
+// We use this for some operations where Admin SDK might fail
 const clientApp = initializeClientApp(firebaseConfig, "server-client");
 const clientDb = getClientFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
 
-// Compatibility alias - Use Admin DB for registration but Client DB for cron if needed
+// Target DB for internal operations
 const db = adminDb; 
 
-// Test Firestore connection on startup
-(async () => {
-  try {
-    console.log("[Firebase] Testing internal connection...");
-    await db.collection("members").limit(1).get();
-    console.log("[Firebase] Internal connection SUCCESS");
-  } catch (error: any) {
-    console.error("[Firebase] Internal connection FAILURE:");
-    console.error(`Status: ${error.code}`);
-    console.error(`Message: ${error.message}`);
-    if (error.code === 7) {
-      console.error("ADVICE: This is a PERMISSION_DENIED error. Ensure the Service Account in Cloud Run has 'Cloud Datastore User' role.");
-    }
-  }
-})();
+// Initial connection check - Non-blocking
+if (db) {
+  db.collection("members").limit(1).get()
+    .then(() => console.log("[Firebase] Admin SDK connection test OK"))
+    .catch((err: any) => {
+      console.warn("[Firebase] Admin SDK connection test failed:", err.message);
+      if (err.message.includes("PERMISSION_DENIED")) {
+        console.warn("REASON: Permission denied. Some background tasks might fail.");
+      }
+    });
+}
 
 const expo = new Expo();
 
@@ -94,9 +97,9 @@ async function startServer() {
         return res.status(400).json({ error: "Invalid Expo push token" });
       }
 
-      // Salva o token no perfil do usuário usando Client SDK
-      const userRef = clientDoc(clientDb, "members", userId);
-      await updateDoc(userRef, { pushToken: token });
+      // Salva o token no perfil do usuário usando Admin SDK
+      if (!db) throw new Error("Database not initialized");
+      await db.collection("members").doc(userId).update({ pushToken: token });
 
       console.log(`Token registrado para o usuário ${userId}`);
       res.json({ success: true });
@@ -114,15 +117,15 @@ async function startServer() {
       let tokens: string[] = [];
       
       if (target === "all") {
-        const q = query(collection(clientDb, "members"), where("pushToken", "!=", ""));
-        const snapshot = await getDocs(q);
+        if (!db) throw new Error("Database not initialized");
+        const snapshot = await db.collection("members").where("pushToken", "!=", "").get();
         tokens = snapshot.docs.map(d => d.data().pushToken).filter(t => !!t);
       } else if (userIds.length > 0) {
+        if (!db) throw new Error("Database not initialized");
         // Busca tokens de usuários específicos
         const tokensPromises = userIds.map(async (uid: string) => {
-          const docRef = clientDoc(clientDb, "members", uid);
-          const docSnap = await getClientDoc(docRef);
-          return docSnap.exists() ? docSnap.data()?.pushToken : null;
+          const mDoc = await db.collection("members").doc(uid).get();
+          return mDoc.exists ? mDoc.data()?.pushToken : null;
         });
         const results = await Promise.all(tokensPromises);
         tokens = results.filter(t => !!t);
@@ -135,7 +138,8 @@ async function startServer() {
       const tickets = await sendPushNotifications(tokens, title, message);
       
       // Salva no histórico
-      await clientAddDoc(collection(clientDb, "announcements"), {
+      if (!db) throw new Error("Database not initialized");
+      await db.collection("announcements").add({
         title,
         message,
         target,
@@ -153,7 +157,7 @@ async function startServer() {
 
   // Função auxiliar para enviar via Expo
   async function sendPushNotifications(tokens: string[], title: string, body: string, data = {}) {
-    const messages: ExpoPushMessage[] = [];
+    const messages: any[] = [];
     for (const pushToken of tokens) {
       if (!Expo.isExpoPushToken(pushToken)) continue;
       messages.push({
@@ -181,34 +185,34 @@ async function startServer() {
   // 3. Cron Job para Notificações Agendadas (roda a cada minuto)
   cron.schedule("* * * * *", async () => {
     try {
+      if (!db) {
+        console.warn("[Cron] Admin SDK not available, skipping job.");
+        return;
+      }
+      
       const now = new Date().toISOString();
       console.log(`[Cron] Checking for scheduled notifications at ${now}...`);
       
-      const q = query(
-        collection(clientDb, "announcements"),
-        where("status", "==", "pending"),
-        where("scheduledAt", "<=", now)
-      );
-      
-      const snapshot = await getDocs(q);
+      const snapshot = await db.collection("announcements")
+        .where("status", "==", "pending")
+        .where("scheduledAt", "<=", now)
+        .get();
 
       if (snapshot.empty) return;
 
       console.log(`[Cron] Processing ${snapshot.size} scheduled notifications...`);
 
-      for (const d of snapshot.docs) {
-        const data = d.data();
+      for (const docSnap of snapshot.docs) {
+        const data = docSnap.data();
         let tokens: string[] = [];
 
         if (data.target === "all") {
-          const membersQ = query(collection(clientDb, "members"), where("pushToken", "!=", ""));
-          const membersSnap = await getDocs(membersQ);
+          const membersSnap = await db.collection("members").where("pushToken", "!=", "").get();
           tokens = membersSnap.docs.map(m => m.data().pushToken).filter(t => !!t);
         } else if (data.userIds?.length > 0) {
           const tokensPromises = data.userIds.map(async (uid: string) => {
-            const mRef = clientDoc(clientDb, "members", uid);
-            const mSnap = await getClientDoc(mRef);
-            return mSnap.exists() ? mSnap.data()?.pushToken : null;
+            const mDoc = await db.collection("members").doc(uid).get();
+            return mDoc.exists ? mDoc.data()?.pushToken : null;
           });
           const results = await Promise.all(tokensPromises);
           tokens = results.filter(t => !!t);
@@ -218,15 +222,14 @@ async function startServer() {
           await sendPushNotifications(tokens, data.title, data.message);
         }
 
-        const annRef = clientDoc(clientDb, "announcements", d.id);
-        await updateDoc(annRef, {
+        await docSnap.ref.update({
           status: "sent",
           sentAt: new Date().toISOString()
         });
       }
     } catch (error: any) {
       console.error("[Cron] Error in notification job:");
-      console.error(`Status: ${error.code}`);
+      console.error(`Status: ${error.code || 'unknown'}`);
       console.error(`Message: ${error.message}`);
     }
   });
