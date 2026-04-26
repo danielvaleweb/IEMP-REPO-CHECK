@@ -15,15 +15,36 @@ const __dirname = path.dirname(__filename);
 // Initialize Firebase Admin
 const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
 
-// Use Application Default Credentials when running in Cloud Run
-// Or fallback to dummy for development if needed, but here we assume it works or uses env vars
-if (!getApps().length) {
-  initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
-}
+// Log configuration for debugging
+console.log("[Firebase] Config:", { 
+  projectId: firebaseConfig.projectId, 
+  databaseId: firebaseConfig.firestoreDatabaseId 
+});
 
-const db = getFirestore();
+const adminApp = getApps().length === 0 
+  ? initializeApp({
+      projectId: firebaseConfig.projectId,
+    }) 
+  : getApps()[0];
+
+const db = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+
+// Test Firestore connection on startup
+(async () => {
+  try {
+    console.log("[Firebase] Testing internal connection...");
+    await db.collection("members").limit(1).get();
+    console.log("[Firebase] Internal connection SUCCESS");
+  } catch (error: any) {
+    console.error("[Firebase] Internal connection FAILURE:");
+    console.error(`Status: ${error.code}`);
+    console.error(`Message: ${error.message}`);
+    if (error.code === 7) {
+      console.error("ADVICE: This is a PERMISSION_DENIED error. Ensure the Service Account in Cloud Run has 'Cloud Datastore User' role.");
+    }
+  }
+})();
+
 const expo = new Expo();
 
 async function startServer() {
@@ -134,6 +155,8 @@ async function startServer() {
   cron.schedule("* * * * *", async () => {
     try {
       const now = new Date().toISOString();
+      console.log(`[Cron] Checking for scheduled notifications at ${now}...`);
+      
       const snapshot = await db.collection("announcements")
         .where("status", "==", "pending")
         .where("scheduledAt", "<=", now)
@@ -141,7 +164,7 @@ async function startServer() {
 
       if (snapshot.empty) return;
 
-      console.log(`Processando ${snapshot.size} notificações agendadas...`);
+      console.log(`[Cron] Processing ${snapshot.size} scheduled notifications...`);
 
       for (const doc of snapshot.docs) {
         const data = doc.data();
@@ -168,8 +191,10 @@ async function startServer() {
           sentAt: new Date().toISOString()
         });
       }
-    } catch (error) {
-      console.error("Erro no Cron Job de notificações:", error);
+    } catch (error: any) {
+      console.error("[Cron] FATAL Error in notification job:");
+      console.error(`Status: ${error.code}`);
+      console.error(`Message: ${error.message}`);
     }
   });
 
