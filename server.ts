@@ -115,6 +115,12 @@ async function startServer() {
     attributeNamePrefix: "@_"
   });
 
+  // Logging middleware for services
+  app.use("/services", (req, res, next) => {
+    console.log(`[Service Request] ${req.method} ${req.url}`);
+    next();
+  });
+
   // 1. Endpoint para receber o Expo Push Token
   app.post("/services/push/register", async (req, res) => {
     try {
@@ -146,8 +152,8 @@ async function startServer() {
   });
 
   // 2. Endpoint para disparo imediato (API Interna/Admin)
-  app.post("/services/push/send", async (req, res) => {
-    console.log("[API] /services/push/send called", req.body);
+  app.post("/services/push/broadcast", async (req, res) => {
+    console.log("[API] /services/push/broadcast called", req.body);
     try {
       const { title, message, target = "all", userIds = [] } = req.body;
       
@@ -220,8 +226,8 @@ async function startServer() {
     }
   });
 
-  app.get("/services/push/send", (req, res) => {
-    res.send("API Push Send endpoint is active. Use POST to send notifications.");
+  app.get("/services/push/broadcast", (req, res) => {
+    res.send("API Push Broadcast endpoint is active. Use POST to send notifications.");
   });
 
   // Função auxiliar para enviar via Expo
@@ -351,7 +357,7 @@ async function startServer() {
     }
   });
 
-  app.get("/api/live-status", async (req, res) => {
+  app.get("/services/live-status", async (req, res) => {
     try {
       let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       channelId = channelId.trim();
@@ -414,7 +420,7 @@ async function startServer() {
   });
 
   // API Route to get recent videos
-  app.get("/api/recent-videos", async (req, res) => {
+  app.get("/services/recent-videos", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
@@ -521,13 +527,13 @@ async function startServer() {
 
       res.json(videos.slice(0, 15));
     } catch (error) {
-      console.error("Critical error in /api/recent-videos:", error);
+      console.error("Critical error in /services/recent-videos:", error);
       res.status(500).json({ error: "Failed to fetch" });
     }
   });
 
   // API Route to get recent lives/streams
-  app.get("/api/recent-lives", async (req, res) => {
+  app.get("/services/recent-lives", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
@@ -640,7 +646,7 @@ async function startServer() {
 
       res.json(lives.slice(0, 15));
     } catch (error) {
-      console.error("Critical error in /api/recent-lives:", error);
+      console.error("Critical error in /services/recent-lives:", error);
       res.status(500).json({ error: "Failed to fetch lives", details: error instanceof Error ? error.message : String(error) });
     }
   });

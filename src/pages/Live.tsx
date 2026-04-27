@@ -55,7 +55,7 @@ export default function Live() {
   useEffect(() => {
     const fetchLiveVideoId = async () => {
       try {
-        const response = await fetch('/api/recent-lives');
+        const response = await fetch('/services/recent-lives');
         if (response.ok) {
           const data = await response.json();
           if (data && data.length > 0 && data[0].id) {

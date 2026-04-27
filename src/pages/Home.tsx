@@ -195,7 +195,7 @@ export default function Home() {
 
     const fetchVideos = async () => {
       try {
-        const response = await fetch(`/api/recent-videos?channelId=${configChannelId}`);
+        const response = await fetch(`/services/recent-videos?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch videos");
         
         const text = await response.text();
@@ -242,7 +242,7 @@ export default function Home() {
 
     const fetchLives = async () => {
       try {
-        const response = await fetch(`/api/recent-lives?channelId=${configChannelId}`);
+        const response = await fetch(`/services/recent-lives?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch lives");
         
         const text = await response.text();
@@ -280,7 +280,7 @@ export default function Home() {
     // Check if live
     const checkLive = async () => {
       try {
-        const response = await fetch(`/api/live-status?channelId=${configChannelId}&handle=${configHandle}`);
+        const response = await fetch(`/services/live-status?channelId=${configChannelId}&handle=${configHandle}`);
         if (response.ok) {
           const data = await response.json();
           setIsLive(data.isLive);

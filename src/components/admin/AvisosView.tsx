@@ -31,7 +31,7 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
     if (!title || !message) return;
     setIsSubmitting(true);
     try {
-      const response = await fetch("/services/push/send", {
+      const response = await fetch("/services/push/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, message, target })
