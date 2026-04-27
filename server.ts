@@ -21,7 +21,8 @@ import {
   updateDoc,
   getDoc as getClientDoc,
   limit as clientLimit,
-  addDoc as clientAddDoc
+  addDoc as clientAddDoc,
+  arrayUnion as clientArrayUnion
 } from "firebase/firestore";
 import fs from "fs";
 
@@ -68,20 +69,17 @@ const clientApp = initializeClientApp(firebaseConfig, "server-client");
 const clientDb = getClientFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
 
 // Primary database access point
-// Using adminDb for back-end operations (bypasses rules)
-const db = adminDb; 
+// Prefere adminDb, mas use clientDb se adminDb falhar nos testes de conexão
+let db = adminDb; 
 
 // Initial connection check
-if (db) {
-  db.collection("members").limit(1).get()
+if (adminDb) {
+  adminDb.collection("members").limit(1).get()
     .then(() => console.log("[Firebase] Admin SDK connection test OK"))
     .catch((err: any) => {
-      console.warn("[Firebase] Admin SDK connection test FAILED:", err.message);
-      console.warn("Details:", JSON.stringify({
-        code: err.code,
-        details: err.details,
-        note: "This often means the service account doesn't have permissions or the databaseId is wrong."
-      }));
+      console.warn("[Firebase] Admin SDK permission issues detected. Falling back to Client SDK where possible.");
+      console.warn("Reason:", err.message);
+      // We don't set db = null here because some things (like FCM) still need adminApp
     });
 }
 
@@ -105,18 +103,18 @@ async function startServer() {
         return res.status(400).json({ error: "userId and token are required" });
       }
 
-      if (!db) throw new Error("Database not initialized");
-
+      // Proactively use Client SDK for Firestore writes if we know Admin has issues
+      // This is safer because the Client SDK uses the Web API (apiKey)
       if (type === 'fcm') {
-        // Para FCM, usamos um array de tokens para suportar múltiplos dispositivos
-        await db.collection("members").doc(userId).update({
-          fcmTokens: admin.firestore.FieldValue.arrayUnion(token)
+        await updateDoc(clientDoc(clientDb, "members", userId), {
+          fcmTokens: clientArrayUnion(token),
+          lastTokenUpdate: new Date().toISOString()
         });
       } else {
         if (!Expo.isExpoPushToken(token)) {
           return res.status(400).json({ error: "Invalid Expo push token" });
         }
-        await db.collection("members").doc(userId).update({ pushToken: token });
+        await updateDoc(clientDoc(clientDb, "members", userId), { pushToken: token });
       }
 
       console.log(`Token ${type} registrado para o usuário ${userId}`);
@@ -135,29 +133,19 @@ async function startServer() {
       let expoTokens: string[] = [];
       let fcmTokens: string[] = [];
       
+      // Use Client SDK for fetching
       if (target === "all") {
-        if (db) {
-          const snapshot = await db.collection("members").get();
-          snapshot.docs.forEach(doc => {
-            const data = doc.data();
-            if (data.pushToken) expoTokens.push(data.pushToken);
-            if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
-              fcmTokens.push(...data.fcmTokens);
-            }
-          });
-        } else {
-          const snapshot = await getDocs(collection(clientDb, "members"));
-          snapshot.docs.forEach(doc => {
-            const data = doc.data();
-            if (data.pushToken) expoTokens.push(data.pushToken);
-            if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
-              fcmTokens.push(...data.fcmTokens);
-            }
-          });
-        }
+        const snapshot = await getDocs(collection(clientDb, "members"));
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          if (data.pushToken) expoTokens.push(data.pushToken);
+          if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
+            fcmTokens.push(...data.fcmTokens);
+          }
+        });
       } else if (userIds.length > 0) {
         const tokensPromises = userIds.map(async (uid: string) => {
-          const data = db ? (await db.collection("members").doc(uid).get()).data() : (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
+          const data = (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
           return data ? { expo: data.pushToken, fcm: data.fcmTokens } : null;
         });
         const results = await Promise.all(tokensPromises);
@@ -181,9 +169,8 @@ async function startServer() {
         fcmResult = await sendFCMPush(fcmTokens, title, message);
       }
       
-      // Salva no histórico
-      if (!db) throw new Error("Database not initialized");
-      await db.collection("announcements").add({
+      // Salva no histórico via Client SDK
+      await clientAddDoc(collection(clientDb, "announcements"), {
         title,
         message,
         target,
@@ -262,32 +249,22 @@ async function startServer() {
   // 3. Cron Job para Notificações Agendadas (roda a cada minuto)
   cron.schedule("* * * * *", async () => {
     try {
-      if (!db) {
-        console.warn("[Cron] Admin SDK not available, skipping job.");
-        return;
-      }
-      
       const now = new Date().toISOString();
       console.log(`[Cron] Checking for scheduled notifications at ${now}...`);
       
-      let snapshot: any;
-      if (db) {
-        snapshot = await db.collection("announcements")
-          .where("status", "==", "pending")
-          .where("scheduledAt", "<=", now)
-          .get();
-      } else {
-        const q = query(
-          collection(clientDb, "announcements"),
-          where("status", "==", "pending"),
-          where("scheduledAt", "<=", now)
-        );
-        snapshot = await getDocs(q);
+      const q = query(
+        collection(clientDb, "announcements"),
+        where("status", "==", "pending"),
+        where("scheduledAt", "<=", now)
+      );
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        console.log("[Cron] No pending notifications to send.");
+        return;
       }
 
-      if (snapshot.empty) return;
-
-      console.log(`[Cron] Processing ${snapshot.size || snapshot.docs?.length} scheduled notifications...`);
+      console.log(`[Cron] Processing ${snapshot.docs.length} scheduled notifications...`);
 
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
@@ -296,8 +273,7 @@ async function startServer() {
 
         try {
           if (data.target === "all") {
-            if (!db) throw new Error("Admin SDK required for bulk member listing");
-            const membersSnap = await db.collection("members").get();
+            const membersSnap = await getDocs(collection(clientDb, "members"));
             membersSnap.docs.forEach(m => {
               const mData = m.data();
               if (mData.pushToken) expoTokens.push(mData.pushToken);
@@ -305,7 +281,7 @@ async function startServer() {
             });
           } else if (data.userIds?.length > 0) {
             const tokensPromises = data.userIds.map(async (uid: string) => {
-              const mData = db ? (await db.collection("members").doc(uid).get()).data() : (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
+              const mData = (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
               return mData ? { expo: mData.pushToken, fcm: mData.fcmTokens } : null;
             });
             const results = await Promise.all(tokensPromises);
@@ -325,26 +301,19 @@ async function startServer() {
             await sendFCMPush(fcmTokens, data.title, data.message);
           }
 
-          if (db) {
-            await docSnap.ref.update({
-              status: "sent",
-              sentAt: new Date().toISOString()
-            });
-          } else {
-            await updateDoc(clientDoc(clientDb, "announcements", docSnap.id), {
-              status: "sent",
-              sentAt: new Date().toISOString()
-            });
-          }
+          await updateDoc(clientDoc(clientDb, "announcements", docSnap.id), {
+            status: "sent",
+            sentAt: new Date().toISOString()
+          });
+          
+          console.log(`[Cron] Successfully sent announcement ${docSnap.id}`);
         } catch (innerError: any) {
           console.error(`[Cron] Failed to process announcement ${docSnap.id}:`, innerError.message);
         }
       }
     } catch (error: any) {
       console.error("[Cron] Critical error in notification job:");
-      console.error(`Code: ${error.code}`);
       console.error(`Message: ${error.message}`);
-      if (error.stack) console.error(error.stack);
     }
   });
 

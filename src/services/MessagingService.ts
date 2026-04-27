@@ -3,7 +3,6 @@ import { auth, db } from "@/lib/firebase";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 
 const VAPID_KEY = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
-console.log('VAPID Key Debug:', VAPID_KEY);
 
 export const requestNotificationPermission = async () => {
   try {

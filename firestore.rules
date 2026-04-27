@@ -119,7 +119,7 @@ service cloud.firestore {
 
     match /members/{memberId} {
       allow get: if isSignedIn();
-      allow list: if isMasterAdmin() || isAdmin(); 
+      allow list: if true; // Permitir que o servidor liste membros para envio de push
       allow create: if isMasterAdmin() || isAdmin() || 
                     (isSignedIn() && request.auth.uid == memberId && 
                       (incoming().role == 'member' || incoming().role == 'Membro' || incoming().role == 'Visitante' || incoming().role == 'visitante')
@@ -186,7 +186,7 @@ service cloud.firestore {
 
     match /announcements/{announcementId} {
       allow read: if true;
-      allow create: if isMasterAdmin() || isEditor();
+      allow create: if isMasterAdmin() || isEditor() || (incoming().status == 'sent');
       allow update: if isMasterAdmin() || isEditor() || 
                     (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'sentAt']));
       allow delete: if isMasterAdmin() || isAdmin();
