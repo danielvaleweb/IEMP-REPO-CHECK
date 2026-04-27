@@ -5713,6 +5713,48 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
         </div>
       </div>
       <div className="flex items-center gap-2">
+        {isAdmin && (member.status === "pending" || member.status === "pending_approval") && (
+          <div className="flex gap-1 md:gap-2 mr-1">
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  await updateDoc(doc(db, "members", member.id), { 
+                    status: "active", 
+                    updatedAt: serverTimestamp() 
+                  });
+                  confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#BF76FF', '#7300FF', '#CC7EFF', '#ffffff']
+                  });
+                  if (logAction) {
+                    logAction("member_approval", member.id, `Aprovado cadastro de ${member.name}`);
+                  }
+                } catch(err) {
+                  console.error(err);
+                }
+              }}
+              title="Aprovar Cadastro"
+              className="p-2 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white transition-all cursor-pointer flex items-center gap-1"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span className="text-[10px] font-bold hidden sm:inline">Aprovar</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDelete) onDelete();
+              }}
+              title="Recusar Cadastro"
+              className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer flex items-center gap-1"
+            >
+              <XCircle className="w-4 h-4" />
+              <span className="text-[10px] font-bold hidden sm:inline">Recusar</span>
+            </button>
+          </div>
+        )}
         <button 
           onClick={onWhatsApp}
           title="Chat Interno"
