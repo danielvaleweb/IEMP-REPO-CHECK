@@ -90,7 +90,15 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
         </div>
         <div>
           <h2 className={cn("text-2xl font-bold", isDark ? "text-white" : "text-black")}>Central de Avisos</h2>
-          <p className="text-sm text-gray-500">Envie notificações push para o aplicativo móvel</p>
+          <p className="text-sm text-gray-500">Envie notificações push para o aplicativo móvel e Web</p>
+          <div className="flex gap-2 mt-2">
+            <span className={cn("text-[10px] px-2 py-0.5 rounded-full border", isDark ? "border-white/10 text-white/40" : "border-black/5 text-gray-400")}>
+              Web Push: {('serviceWorker' in navigator) ? 'Suportado' : 'Não Suportado'}
+            </span>
+            <span className={cn("text-[10px] px-2 py-0.5 rounded-full border", isDark ? "border-white/10 text-white/40" : "border-black/5 text-gray-400")}>
+              VAPID: {(import.meta as any).env.VITE_FIREBASE_VAPID_KEY ? 'Configurado' : 'Pendente'}
+            </span>
+          </div>
         </div>
       </div>
 

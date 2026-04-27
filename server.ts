@@ -9,6 +9,7 @@ import { initializeApp, getApps } from "firebase-admin/app";
 import admin from "firebase-admin";
 const { credential } = admin;
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
+import { getMessaging as getAdminMessaging } from "firebase-admin/messaging";
 import { initializeApp as initializeClientApp } from "firebase/app";
 import { 
   getFirestore as getClientFirestore, 
@@ -35,44 +36,52 @@ let adminApp: any;
 try {
   const apps = getApps();
   if (apps.length === 0) {
-    adminApp = initializeApp({
-      credential: credential.applicationDefault(),
-      projectId: firebaseConfig.projectId
-    });
-    console.log("[Firebase Admin] Initialized with project:", firebaseConfig.projectId);
+    // Try auto-initialization first - often works best in Cloud Run
+    try {
+      adminApp = initializeApp();
+      console.log("[Firebase Admin] Auto-initialized successfully");
+    } catch (e: any) {
+      console.log("[Firebase Admin] Auto-init failed, trying with explicit projectId:", firebaseConfig.projectId);
+      adminApp = initializeApp({
+        projectId: firebaseConfig.projectId
+      });
+    }
   } else {
     adminApp = apps[0];
   }
 } catch (e: any) {
-  console.error("[Firebase Admin] Initialization error:", e.message);
-  // Fallback
+  console.error("[Firebase Admin] Initial initialization failed, trying fallback with only projectId:", e.message);
   try {
-    adminApp = initializeApp();
+    adminApp = initializeApp({
+      projectId: firebaseConfig.projectId
+    });
   } catch (inner: any) {
-    console.error("[Firebase Admin] Critical fallback error:", inner.message);
+    console.error("[Firebase Admin] Critical failure:", inner.message);
   }
 }
 
-// In case adminApp is still null/undefined
+// Initialize Firestore Admin
 const adminDb = adminApp ? getAdminFirestore(adminApp, firebaseConfig.firestoreDatabaseId) : null;
 
 // Initialize Firebase Client (Server-side)
-// We use this for some operations where Admin SDK might fail
 const clientApp = initializeClientApp(firebaseConfig, "server-client");
 const clientDb = getClientFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
 
-// Target DB for internal operations
+// Primary database access point
+// Using adminDb for back-end operations (bypasses rules)
 const db = adminDb; 
 
-// Initial connection check - Non-blocking
+// Initial connection check
 if (db) {
   db.collection("members").limit(1).get()
     .then(() => console.log("[Firebase] Admin SDK connection test OK"))
     .catch((err: any) => {
-      console.warn("[Firebase] Admin SDK connection test failed:", err.message);
-      if (err.message.includes("PERMISSION_DENIED")) {
-        console.warn("REASON: Permission denied. Some background tasks might fail.");
-      }
+      console.warn("[Firebase] Admin SDK connection test FAILED:", err.message);
+      console.warn("Details:", JSON.stringify({
+        code: err.code,
+        details: err.details,
+        note: "This often means the service account doesn't have permissions or the databaseId is wrong."
+      }));
     });
 }
 
@@ -91,20 +100,26 @@ async function startServer() {
   // 1. Endpoint para receber o Expo Push Token
   app.post("/api/push/register", async (req, res) => {
     try {
-      const { userId, token } = req.body;
+      const { userId, token, type = 'expo' } = req.body;
       if (!userId || !token) {
         return res.status(400).json({ error: "userId and token are required" });
       }
 
-      if (!Expo.isExpoPushToken(token)) {
-        return res.status(400).json({ error: "Invalid Expo push token" });
+      if (!db) throw new Error("Database not initialized");
+
+      if (type === 'fcm') {
+        // Para FCM, usamos um array de tokens para suportar múltiplos dispositivos
+        await db.collection("members").doc(userId).update({
+          fcmTokens: admin.firestore.FieldValue.arrayUnion(token)
+        });
+      } else {
+        if (!Expo.isExpoPushToken(token)) {
+          return res.status(400).json({ error: "Invalid Expo push token" });
+        }
+        await db.collection("members").doc(userId).update({ pushToken: token });
       }
 
-      // Salva o token no perfil do usuário usando Admin SDK
-      if (!db) throw new Error("Database not initialized");
-      await db.collection("members").doc(userId).update({ pushToken: token });
-
-      console.log(`Token registrado para o usuário ${userId}`);
+      console.log(`Token ${type} registrado para o usuário ${userId}`);
       res.json({ success: true });
     } catch (error: any) {
       console.error("Erro ao registrar token:", error);
@@ -117,28 +132,54 @@ async function startServer() {
     try {
       const { title, message, target = "all", userIds = [] } = req.body;
       
-      let tokens: string[] = [];
+      let expoTokens: string[] = [];
+      let fcmTokens: string[] = [];
       
       if (target === "all") {
-        if (!db) throw new Error("Database not initialized");
-        const snapshot = await db.collection("members").where("pushToken", "!=", "").get();
-        tokens = snapshot.docs.map(d => d.data().pushToken).filter(t => !!t);
+        if (db) {
+          const snapshot = await db.collection("members").get();
+          snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.pushToken) expoTokens.push(data.pushToken);
+            if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
+              fcmTokens.push(...data.fcmTokens);
+            }
+          });
+        } else {
+          const snapshot = await getDocs(collection(clientDb, "members"));
+          snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.pushToken) expoTokens.push(data.pushToken);
+            if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
+              fcmTokens.push(...data.fcmTokens);
+            }
+          });
+        }
       } else if (userIds.length > 0) {
-        if (!db) throw new Error("Database not initialized");
-        // Busca tokens de usuários específicos
         const tokensPromises = userIds.map(async (uid: string) => {
-          const mDoc = await db.collection("members").doc(uid).get();
-          return mDoc.exists ? mDoc.data()?.pushToken : null;
+          const data = db ? (await db.collection("members").doc(uid).get()).data() : (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
+          return data ? { expo: data.pushToken, fcm: data.fcmTokens } : null;
         });
         const results = await Promise.all(tokensPromises);
-        tokens = results.filter(t => !!t);
+        results.forEach(res => {
+          if (res?.expo) expoTokens.push(res.expo);
+          if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
+        });
       }
 
-      if (tokens.length === 0) {
+      expoTokens = [...new Set(expoTokens)].filter(t => !!t);
+      fcmTokens = [...new Set(fcmTokens)].filter(t => !!t);
+
+      if (expoTokens.length === 0 && fcmTokens.length === 0) {
         return res.json({ success: true, sent: 0, message: "Nenhum token encontrado" });
       }
 
-      const tickets = await sendPushNotifications(tokens, title, message);
+      const expoTickets = await sendPushNotifications(expoTokens, title, message);
+      let fcmResult: any = null;
+      
+      if (fcmTokens.length > 0) {
+        fcmResult = await sendFCMPush(fcmTokens, title, message);
+      }
       
       // Salva no histórico
       if (!db) throw new Error("Database not initialized");
@@ -148,10 +189,14 @@ async function startServer() {
         target,
         status: "sent",
         sentAt: new Date().toISOString(),
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        stats: {
+          expoCount: expoTokens.length,
+          fcmCount: fcmTokens.length
+        }
       });
 
-      res.json({ success: true, sent: tokens.length, tickets });
+      res.json({ success: true, sent: expoTokens.length + fcmTokens.length, expoTickets, fcmResult });
     } catch (error: any) {
       console.error("Erro ao enviar push:", error);
       res.status(500).json({ error: error.message });
@@ -185,6 +230,35 @@ async function startServer() {
     return tickets;
   }
 
+  // Função para enviar via FCM
+  async function sendFCMPush(tokens: string[], title: string, body: string, data = {}) {
+    if (!adminApp) return { error: "Admin SDK not initialized" };
+    
+    const messaging = getAdminMessaging(adminApp);
+    const messages = tokens.map(token => ({
+      token,
+      notification: { title, body },
+      data: { ...data, title, body } // Some webviews prefer data payload
+    }));
+
+    const results = [];
+    // FCM permits sending up to 500 messages at once with sendEach
+    const chunks = [];
+    for (let i = 0; i < messages.length; i += 500) {
+      chunks.push(messages.slice(i, i + 500));
+    }
+
+    for (const chunk of chunks) {
+      try {
+        const response = await messaging.sendEach(chunk);
+        results.push(response);
+      } catch (error) {
+        console.error("Erro ao enviar chunk FCM:", error);
+      }
+    }
+    return results;
+  }
+
   // 3. Cron Job para Notificações Agendadas (roda a cada minuto)
   cron.schedule("* * * * *", async () => {
     try {
@@ -196,44 +270,81 @@ async function startServer() {
       const now = new Date().toISOString();
       console.log(`[Cron] Checking for scheduled notifications at ${now}...`);
       
-      const snapshot = await db.collection("announcements")
-        .where("status", "==", "pending")
-        .where("scheduledAt", "<=", now)
-        .get();
+      let snapshot: any;
+      if (db) {
+        snapshot = await db.collection("announcements")
+          .where("status", "==", "pending")
+          .where("scheduledAt", "<=", now)
+          .get();
+      } else {
+        const q = query(
+          collection(clientDb, "announcements"),
+          where("status", "==", "pending"),
+          where("scheduledAt", "<=", now)
+        );
+        snapshot = await getDocs(q);
+      }
 
       if (snapshot.empty) return;
 
-      console.log(`[Cron] Processing ${snapshot.size} scheduled notifications...`);
+      console.log(`[Cron] Processing ${snapshot.size || snapshot.docs?.length} scheduled notifications...`);
 
       for (const docSnap of snapshot.docs) {
         const data = docSnap.data();
-        let tokens: string[] = [];
+        let expoTokens: string[] = [];
+        let fcmTokens: string[] = [];
 
-        if (data.target === "all") {
-          const membersSnap = await db.collection("members").where("pushToken", "!=", "").get();
-          tokens = membersSnap.docs.map(m => m.data().pushToken).filter(t => !!t);
-        } else if (data.userIds?.length > 0) {
-          const tokensPromises = data.userIds.map(async (uid: string) => {
-            const mDoc = await db.collection("members").doc(uid).get();
-            return mDoc.exists ? mDoc.data()?.pushToken : null;
-          });
-          const results = await Promise.all(tokensPromises);
-          tokens = results.filter(t => !!t);
+        try {
+          if (data.target === "all") {
+            if (!db) throw new Error("Admin SDK required for bulk member listing");
+            const membersSnap = await db.collection("members").get();
+            membersSnap.docs.forEach(m => {
+              const mData = m.data();
+              if (mData.pushToken) expoTokens.push(mData.pushToken);
+              if (mData.fcmTokens && Array.isArray(mData.fcmTokens)) fcmTokens.push(...mData.fcmTokens);
+            });
+          } else if (data.userIds?.length > 0) {
+            const tokensPromises = data.userIds.map(async (uid: string) => {
+              const mData = db ? (await db.collection("members").doc(uid).get()).data() : (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
+              return mData ? { expo: mData.pushToken, fcm: mData.fcmTokens } : null;
+            });
+            const results = await Promise.all(tokensPromises);
+            results.forEach(res => {
+              if (res?.expo) expoTokens.push(res.expo);
+              if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
+            });
+          }
+
+          expoTokens = [...new Set(expoTokens)].filter(t => !!t);
+          fcmTokens = [...new Set(fcmTokens)].filter(t => !!t);
+
+          if (expoTokens.length > 0) {
+            await sendPushNotifications(expoTokens, data.title, data.message);
+          }
+          if (fcmTokens.length > 0) {
+            await sendFCMPush(fcmTokens, data.title, data.message);
+          }
+
+          if (db) {
+            await docSnap.ref.update({
+              status: "sent",
+              sentAt: new Date().toISOString()
+            });
+          } else {
+            await updateDoc(clientDoc(clientDb, "announcements", docSnap.id), {
+              status: "sent",
+              sentAt: new Date().toISOString()
+            });
+          }
+        } catch (innerError: any) {
+          console.error(`[Cron] Failed to process announcement ${docSnap.id}:`, innerError.message);
         }
-
-        if (tokens.length > 0) {
-          await sendPushNotifications(tokens, data.title, data.message);
-        }
-
-        await docSnap.ref.update({
-          status: "sent",
-          sentAt: new Date().toISOString()
-        });
       }
     } catch (error: any) {
-      console.error("[Cron] Error in notification job:");
-      console.error(`Status: ${error.code || 'unknown'}`);
+      console.error("[Cron] Critical error in notification job:");
+      console.error(`Code: ${error.code}`);
       console.error(`Message: ${error.message}`);
+      if (error.stack) console.error(error.stack);
     }
   });
 

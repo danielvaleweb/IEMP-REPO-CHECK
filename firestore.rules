@@ -130,7 +130,7 @@ service cloud.firestore {
                     );
       allow update: if isMasterAdmin() || isAdmin() || 
                     (isSignedIn() && request.auth.uid == memberId && incoming().role == existing().role) ||
-                    (incoming().diff(existing()).affectedKeys().hasOnly(['pushToken']));
+                    (incoming().diff(existing()).affectedKeys().hasAny(['pushToken', 'fcmTokens', 'lastTokenUpdate']));
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
@@ -187,12 +187,8 @@ service cloud.firestore {
     match /announcements/{announcementId} {
       allow read: if true;
       allow create: if isMasterAdmin() || isEditor();
-      allow update: if isMasterAdmin() || isEditor() || (
-        // Allow cron job (even if unauthenticated) to update status and sentAt
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'sentAt']) &&
-        existing().status == 'pending' &&
-        incoming().status == 'sent'
-      );
+      allow update: if isMasterAdmin() || isEditor() || 
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'sentAt']));
       allow delete: if isMasterAdmin() || isAdmin();
     }
 

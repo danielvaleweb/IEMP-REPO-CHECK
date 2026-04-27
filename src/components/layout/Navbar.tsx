@@ -30,6 +30,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import { requestNotificationPermission } from "@/services/MessagingService";
 
 const menuGroups = [
   {
@@ -80,6 +81,9 @@ export default function Navbar() {
 
   useEffect(() => {
     console.log("DEBUG Navbar: Usuário atual:", user?.email, "Admin:", isAdmin);
+    if (user) {
+      requestNotificationPermission();
+    }
   }, [user, isAdmin]);
 
   const handleMouseEnter = (name: string) => {
