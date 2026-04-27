@@ -165,23 +165,32 @@ async function startServer() {
       const expoTickets = await sendPushNotifications(expoTokens, title, message);
       let fcmResult: any = null;
       
-      if (fcmTokens.length > 0) {
-        fcmResult = await sendFCMPush(fcmTokens, title, message);
+      try {
+        if (fcmTokens.length > 0) {
+          fcmResult = await sendFCMPush(fcmTokens, title, message);
+        }
+      } catch (fcmErr: any) {
+        console.error("Erro específico no envio FCM:", fcmErr);
+        fcmResult = { error: fcmErr.message };
       }
       
       // Salva no histórico via Client SDK
-      await clientAddDoc(collection(clientDb, "announcements"), {
-        title,
-        message,
-        target,
-        status: "sent",
-        sentAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        stats: {
-          expoCount: expoTokens.length,
-          fcmCount: fcmTokens.length
-        }
-      });
+      try {
+        await clientAddDoc(collection(clientDb, "announcements"), {
+          title,
+          message,
+          target,
+          status: "sent",
+          sentAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          stats: {
+            expoCount: expoTokens.length,
+            fcmCount: fcmTokens.length
+          }
+        });
+      } catch (historyErr: any) {
+        console.error("Erro ao salvar histórico de anúncio:", historyErr);
+      }
 
       res.json({ success: true, sent: expoTokens.length + fcmTokens.length, expoTickets, fcmResult });
     } catch (error: any) {
