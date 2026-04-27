@@ -6,6 +6,8 @@ import { XMLParser } from "fast-xml-parser";
 import { Expo } from "expo-server-sdk";
 import cron from "node-cron";
 import { initializeApp, getApps } from "firebase-admin/app";
+import admin from "firebase-admin";
+const { credential } = admin;
 import { getFirestore as getAdminFirestore } from "firebase-admin/firestore";
 import { initializeApp as initializeClientApp } from "firebase/app";
 import { 
@@ -34,6 +36,7 @@ try {
   const apps = getApps();
   if (apps.length === 0) {
     adminApp = initializeApp({
+      credential: credential.applicationDefault(),
       projectId: firebaseConfig.projectId
     });
     console.log("[Firebase Admin] Initialized with project:", firebaseConfig.projectId);

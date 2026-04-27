@@ -4303,7 +4303,8 @@ export default function Admin() {
                             } : undefined}
                             onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member.id, "members") : undefined}
                             isDark={isDarkMode}
-                            isAdmin={isMasterAdmin || profile?.role === "Desenvolvedor"}
+                            isAdmin={isAdmin}
+                            logAction={logAction}
                           />
                         </div>
                       ))}
@@ -4948,6 +4949,8 @@ export default function Admin() {
                                 }}
                                 onDelete={() => handleDelete(member.id, "members")}
                                 isDark={isDarkMode}
+                                isAdmin={isAdmin}
+                                logAction={logAction}
                               />
                             ))
                           ) : (
@@ -4985,6 +4988,8 @@ export default function Admin() {
                               }}
                               onDelete={() => handleDelete(member.id, "members")}
                               isDark={isDarkMode}
+                              isAdmin={isAdmin}
+                              logAction={logAction}
                             />
                           ))}
                         </div>
@@ -5018,6 +5023,8 @@ export default function Admin() {
                               }}
                               onDelete={() => handleDelete(member.id, "members")}
                               isDark={isDarkMode}
+                              isAdmin={isAdmin}
+                              logAction={logAction}
                             />
                           ))}
                         </div>
@@ -5497,7 +5504,7 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
         active ? "text-[#BF76FF]" : isDark ? "text-gray-400 group-hover:text-gray-300" : "text-gray-500 group-hover:text-gray-700"
       )}>
         <Icon className="w-5 h-5" />
-        {notificationCount ? (
+        {notificationCount && collapsed ? (
            <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-[#0a0a0a] shadow-md font-black">
              {notificationCount > 9 ? '9+' : notificationCount}
            </span>
@@ -5684,6 +5691,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
   const [showTooltip, setShowTooltip] = useState(false);
   const name = member.name || "Membro";
   const status = member.status_presence || "offline";
+  const isPending = member.status === "pending" || member.status === "pending_approval";
 
   const getStatusColor = (s: string) => {
     switch (s) {
@@ -5695,8 +5703,9 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
   };
 
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-3">
+    <div className={cn("flex flex-col", isPending ? "gap-4" : "gap-0")}>
+      <div className="flex items-center justify-between w-full">
+        <div className="flex items-center gap-3">
         <div className="relative">
           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors overflow-hidden", isDark ? "bg-gradient-to-tr from-gray-700 to-gray-800 text-white" : "bg-gray-200 text-black")}>
             {member.photoURL ? (
@@ -5712,49 +5721,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
           <p className="text-[10px] text-gray-500">{formatRoles(member)}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2">
-        {isAdmin && (member.status === "pending" || member.status === "pending_approval") && (
-          <div className="flex gap-1 md:gap-2 mr-1">
-            <button
-              onClick={async (e) => {
-                e.stopPropagation();
-                try {
-                  await updateDoc(doc(db, "members", member.id), { 
-                    status: "active", 
-                    updatedAt: serverTimestamp() 
-                  });
-                  confetti({
-                    particleCount: 150,
-                    spread: 70,
-                    origin: { y: 0.6 },
-                    colors: ['#BF76FF', '#7300FF', '#CC7EFF', '#ffffff']
-                  });
-                  if (logAction) {
-                    logAction("member_approval", member.id, `Aprovado cadastro de ${member.name}`);
-                  }
-                } catch(err) {
-                  console.error(err);
-                }
-              }}
-              title="Aprovar Cadastro"
-              className="p-2 rounded-lg bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white transition-all cursor-pointer flex items-center gap-1"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span className="text-[10px] font-bold hidden sm:inline">Aprovar</span>
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onDelete) onDelete();
-              }}
-              title="Recusar Cadastro"
-              className="p-2 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer flex items-center gap-1"
-            >
-              <XCircle className="w-4 h-4" />
-              <span className="text-[10px] font-bold hidden sm:inline">Recusar</span>
-            </button>
-          </div>
-        )}
+      <div className="flex items-center gap-1.5 md:gap-2 mr-1">
         <button 
           onClick={onWhatsApp}
           title="Chat Interno"
@@ -5891,6 +5858,50 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
           </AnimatePresence>
         </div>
       </div>
+    </div>
+
+      {isAdmin && isPending && (
+        <div className="flex items-center gap-2 pt-4 border-t border-white/5 w-full">
+            <button
+              onClick={async (e) => {
+                e.stopPropagation();
+                try {
+                  await updateDoc(doc(db, "members", member.id), { 
+                    status: "active", 
+                    updatedAt: serverTimestamp() 
+                  });
+                  confetti({
+                    particleCount: 150,
+                    spread: 70,
+                    origin: { y: 0.6 },
+                    colors: ['#BF76FF', '#7300FF', '#CC7EFF', '#ffffff']
+                  });
+                  if (logAction) {
+                    logAction("member_approval", member.id, `Aprovado cadastro de ${member.name}`);
+                  }
+                } catch(err) {
+                  console.error(err);
+                }
+              }}
+              title="Aprovar Cadastro"
+              className="flex-1 px-4 py-2.5 rounded-xl bg-green-500 text-white hover:bg-green-600 transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm font-bold text-xs uppercase tracking-tight"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Aprovar Cadastro</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (onDelete) onDelete();
+              }}
+              title="Recusar Cadastro"
+              className="px-4 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-tight"
+            >
+              <XCircle className="w-4 h-4" />
+              <span>Recusar</span>
+            </button>
+        </div>
+      )}
     </div>
   );
 }
