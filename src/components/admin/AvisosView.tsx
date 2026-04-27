@@ -31,11 +31,18 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
     if (!title || !message) return;
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/push/send", {
+      const response = await fetch("/services/push/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, message, target })
       });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Erro ${response.status}: ${errorText}`);
+        throw new Error(`Servidor retornou ${response.status}: ${errorText || response.statusText}`);
+      }
+
       const data = await response.json();
       if (data.success) {
         setTitle("");
@@ -44,9 +51,9 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
       } else {
         alert("Erro ao enviar: " + data.message);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert("Erro na conexão com o servidor.");
+      alert("Erro na conexão: " + (error.message || "Verifique o console"));
     } finally {
       setIsSubmitting(false);
     }

@@ -90,13 +90,37 @@ async function startServer() {
   app.use(express.json());
   const PORT = 3000;
 
+  // Logging middleware
+  app.use((req, res, next) => {
+    console.log(`[Request] ${req.method} ${req.url}`);
+    next();
+  });
+
+  app.get("/services/_routes", (req, res) => {
+    const routes = app._router.stack
+      .filter((r: any) => r.route)
+      .map((r: any) => ({
+        path: r.route.path,
+        methods: Object.keys(r.route.methods)
+      }));
+    res.json(routes);
+  });
+
+  app.get("/services/test", (req, res) => {
+    res.json({ status: "ok", env: process.env.NODE_ENV, time: new Date().toISOString() });
+  });
+
+  app.get("/services/push/send", (req, res) => {
+    res.send("API Push Send endpoint is active. Use POST to send notifications.");
+  });
+
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_"
   });
 
   // 1. Endpoint para receber o Expo Push Token
-  app.post("/api/push/register", async (req, res) => {
+  app.post("/services/push/register", async (req, res) => {
     try {
       const { userId, token, type = 'expo' } = req.body;
       if (!userId || !token) {
@@ -126,7 +150,8 @@ async function startServer() {
   });
 
   // 2. Endpoint para disparo imediato (API Interna/Admin)
-  app.post("/api/push/send", async (req, res) => {
+  app.post("/services/push/send", async (req, res) => {
+    console.log("[API] /services/push/send called", req.body);
     try {
       const { title, message, target = "all", userIds = [] } = req.body;
       

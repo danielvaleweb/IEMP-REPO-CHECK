@@ -728,7 +728,7 @@ export default function Admin() {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data && data.type === 'REGISTER_TOKEN' && data.token && user) {
           console.log("DEBUG: Recebido token do app:", data.token);
-          await fetch("/api/push/register", {
+          await fetch("/services/push/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId: user.uid, token: data.token })
@@ -1595,10 +1595,10 @@ export default function Admin() {
 
         // Gatilho: Notificação de Novo Evento/Notícia se solicitado
         if (formData.notifyAll) {
-          fetch("/api/push/send", {
+          fetch("/services/push/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
+            body: JSON.stringify({ 
               title: activeTab === "eventos" ? "📅 Novo Evento!" : "📰 Nova Notícia!",
               message: formData.title,
               target: "all"
