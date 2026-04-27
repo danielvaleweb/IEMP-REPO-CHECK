@@ -41,7 +41,7 @@ try {
     try {
       adminApp = initializeApp();
       console.log("[Firebase Admin] Auto-initialized successfully");
-    } catch (e: any) {
+    } catch (e) {
       console.log("[Firebase Admin] Auto-init failed, trying with explicit projectId:", firebaseConfig.projectId);
       adminApp = initializeApp({
         projectId: firebaseConfig.projectId
@@ -50,14 +50,14 @@ try {
   } else {
     adminApp = apps[0];
   }
-} catch (e: any) {
-  console.error("[Firebase Admin] Initial initialization failed, trying fallback with only projectId:", e.message);
+} catch (e) {
+  console.error("[Firebase Admin] Initial initialization failed, trying fallback with only projectId:", (e as Error).message);
   try {
     adminApp = initializeApp({
       projectId: firebaseConfig.projectId
     });
-  } catch (inner: any) {
-    console.error("[Firebase Admin] Critical failure:", inner.message);
+  } catch (inner) {
+    console.error("[Firebase Admin] Critical failure:", (inner as Error).message);
   }
 }
 
@@ -119,9 +119,9 @@ async function startServer() {
 
       console.log(`Token ${type} registrado para o usuário ${userId}`);
       res.json({ success: true });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro ao registrar token:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: (error as Error).message });
     }
   });
 
@@ -169,9 +169,9 @@ async function startServer() {
         if (fcmTokens.length > 0) {
           fcmResult = await sendFCMPush(fcmTokens, title, message);
         }
-      } catch (fcmErr: any) {
+      } catch (fcmErr) {
         console.error("Erro específico no envio FCM:", fcmErr);
-        fcmResult = { error: fcmErr.message };
+        fcmResult = { error: (fcmErr as Error).message };
       }
       
       // Salva no histórico via Client SDK
@@ -188,14 +188,14 @@ async function startServer() {
             fcmCount: fcmTokens.length
           }
         });
-      } catch (historyErr: any) {
+      } catch (historyErr) {
         console.error("Erro ao salvar histórico de anúncio:", historyErr);
       }
 
       res.json({ success: true, sent: expoTokens.length + fcmTokens.length, expoTickets, fcmResult });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Erro ao enviar push:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: (error as Error).message });
     }
   });
 
@@ -316,13 +316,13 @@ async function startServer() {
           });
           
           console.log(`[Cron] Successfully sent announcement ${docSnap.id}`);
-        } catch (innerError: any) {
-          console.error(`[Cron] Failed to process announcement ${docSnap.id}:`, innerError.message);
+        } catch (innerError) {
+          console.error(`[Cron] Failed to process announcement ${docSnap.id}:`, (innerError as Error).message);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("[Cron] Critical error in notification job:");
-      console.error(`Message: ${error.message}`);
+      console.error(`Message: ${(error as Error).message}`);
     }
   });
 
