@@ -11,11 +11,13 @@ fetch('/firebase-applet-config.json')
     messaging.onBackgroundMessage((payload) => {
       console.log('[firebase-messaging-sw.js] Received background message ', payload);
       
-      const notificationTitle = payload.notification.title;
+      const notificationTitle = payload.notification?.title || payload.data?.title || 'Nova Mensagem';
       const notificationOptions = {
-        body: payload.notification.body,
-        icon: '/logo192.png', // Fallback icon
-        data: payload.data
+        body: payload.notification?.body || payload.data?.body || 'Você recebeu um novo aviso da igreja.',
+        icon: '/logo192.png',
+        badge: '/logo192.png',
+        data: payload.data,
+        vibrate: [200, 100, 200]
       };
 
       self.registration.showNotification(notificationTitle, notificationOptions);

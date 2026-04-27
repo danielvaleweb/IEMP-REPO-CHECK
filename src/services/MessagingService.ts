@@ -62,7 +62,11 @@ export const onMessageListener = () =>
   new Promise((resolve) => {
     const messaging = getMessaging();
     onMessage(messaging, (payload) => {
-      console.log("Message received. ", payload);
+      console.log("Message received in foreground: ", payload);
+      // Opcional: mostrar um alerta customizado ou toast aqui
+      if (payload.notification) {
+        alert(`${payload.notification.title}\n\n${payload.notification.body}`);
+      }
       resolve(payload);
     });
   });

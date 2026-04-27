@@ -30,7 +30,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { requestNotificationPermission } from "@/services/MessagingService";
+import { requestNotificationPermission, onMessageListener } from "@/services/MessagingService";
 
 const menuGroups = [
   {
@@ -83,6 +83,9 @@ export default function Navbar() {
     console.log("DEBUG Navbar: Usuário atual:", user?.email, "Admin:", isAdmin);
     if (user) {
       requestNotificationPermission();
+      onMessageListener().then(payload => {
+        console.log("Foreground notification handled in Navbar:", payload);
+      }).catch(err => console.error(err));
     }
   }, [user, isAdmin]);
 
