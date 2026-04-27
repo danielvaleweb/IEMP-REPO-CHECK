@@ -110,10 +110,6 @@ async function startServer() {
     res.json({ status: "ok", env: process.env.NODE_ENV, time: new Date().toISOString() });
   });
 
-  app.get("/services/push/send", (req, res) => {
-    res.send("API Push Send endpoint is active. Use POST to send notifications.");
-  });
-
   const parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: "@_"
@@ -222,6 +218,10 @@ async function startServer() {
       console.error("Erro ao enviar push:", error);
       res.status(500).json({ error: (error as Error).message });
     }
+  });
+
+  app.get("/services/push/send", (req, res) => {
+    res.send("API Push Send endpoint is active. Use POST to send notifications.");
   });
 
   // Função auxiliar para enviar via Expo
