@@ -44,7 +44,7 @@ export const saveMessagingToken = async () => {
         });
         
         // Also register with the server for backward compatibility or direct push
-        await fetch('/api/push/register', {
+        await fetch('/services/push/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ userId: user.uid, token: currentToken, type: 'fcm' })

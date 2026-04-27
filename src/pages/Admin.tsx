@@ -1609,7 +1609,7 @@ export default function Admin() {
         // Gatilho: Notificação para membros convidados/mencionados
         if (activeTab === "eventos" && formData.invitedMembers?.length > 0) {
           const invitedIds = formData.invitedMembers.map((m: any) => m.id);
-          fetch("/api/push/send", {
+          fetch("/services/push/send", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -2890,7 +2890,7 @@ export default function Admin() {
                             try {
                               await updateDoc(doc(db, "members", selectedItem.id), { status: "approved" });
                               // Gatilho: Notificação de aprovação
-                              fetch("/api/push/send", {
+                              fetch("/services/push/send", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
