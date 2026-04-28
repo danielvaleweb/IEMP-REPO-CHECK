@@ -188,63 +188,68 @@ export default function Home() {
 
   useEffect(() => {
     // Only attempt to fetch when settings are available
-    const configChannelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
     const configHandle = settings.youtubeHandle || "@ministerio_profecia";
 
     const fetchAllVideos = async () => {
       try {
-        const cacheKey = `ytVideos_${configChannelId}`;
-        const cacheTimeKey = `ytTime_${configChannelId}`;
-        const cache = localStorage.getItem(cacheKey);
-        const time = localStorage.getItem(cacheTimeKey);
-
-        let allVideos: any[] = [];
-
-        console.log("USANDO API CORRETA");
+        console.log("Fetching videos natively via React...");
         const response = await fetch("/api/youtube");
         if (!response.ok) throw new Error("Failed to fetch from /api/youtube");
         
         const data = await response.json();
-        allVideos = data.items || [];
+        const allItems = data.items || [];
 
         const isLive = (video: any) => {
-          return video?.snippet?.thumbnails?.high?.url?.includes("_live");
+          return video?.snippet?.liveBroadcastContent === "live" || 
+                 video?.snippet?.thumbnails?.high?.url?.includes("_live");
         };
 
         const getThumb = (video: any) => {
-          const id = video.id.videoId;
-          return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+          const id = video.id?.videoId || (video.id?.playlistId ? null : video.id); 
+          // Note: search results use id.videoId, but we want to be safe
+          const actualId = typeof video.id === 'string' ? video.id : video.id?.videoId;
+          return `https://img.youtube.com/vi/${actualId}/hqdefault.jpg`;
         };
 
         const formatVideo = (v: any) => {
           let title = v.snippet?.title || "";
           try {
-            title = decodeURIComponent(escape(title)).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+            // Basic sanitization of common HTML entities
+            title = title.replace(/&quot;/g, '"')
+                         .replace(/&#39;/g, "'")
+                         .replace(/&amp;/g, "&")
+                         .replace(/&lt;/g, "<")
+                         .replace(/&gt;/g, ">");
           } catch (e) {}
           
+          const videoId = typeof v.id === 'string' ? v.id : v.id?.videoId;
+          
           return {
-            id: v.id?.videoId,
+            id: videoId,
             title,
-            thumbnail: getThumb(v),
+            thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
             published: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'),
-            link: `https://www.youtube.com/watch?v=${v.id?.videoId}`
+            link: `https://www.youtube.com/watch?v=${videoId}`
           };
         };
 
-        const rawVideos = allVideos.filter(v => v.snippet?.liveBroadcastContent === "none" && !isLive(v));
-        const rawLives = allVideos.filter(v => isLive(v));
+        const validItems = allItems.filter((v: any) => (v.id?.videoId || (v.id && typeof v.id === 'string')));
+        const formattedItems = validItems.map(formatVideo);
 
-        if (rawVideos.length > 0) {
-          setVideos(rawVideos.slice(0, 15).map(formatVideo));
-        } else {
-          setVideos(allVideos.slice(0, 15).map(formatVideo));
-        }
+        const videoList = formattedItems.filter((v: any, index: number) => {
+            const raw = allItems[index];
+            return !isLive(raw);
+        });
 
-        if (rawLives.length > 0) {
-          setLives(rawLives.slice(0, 15).map(formatVideo));
-        } else {
-          setLives([]);
-        }
+        const liveList = formattedItems.filter((v: any, index: number) => {
+            const raw = allItems[index];
+            return isLive(raw);
+        });
+
+        setVideos(videoList);
+        setLives(liveList);
+        setIsLive(liveList.length > 0);
+
       } catch (error) {
         console.error("Video fetch failed", error);
         
@@ -252,26 +257,18 @@ export default function Home() {
         const fallbackVideo = {
           id: "channel_fallback_1",
           isPlaceholder: true,
-          title: "Configure seu Canal no Painel Admin",
+          title: "Configuração Pendente",
           thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
           published: new Date().toISOString(),
           link: `https://www.youtube.com/${configHandle}/videos`
         };
         setVideos([fallbackVideo]);
         setLives([]);
+        setIsLive(false);
       }
     };
 
     fetchAllVideos();
-    
-    // Check if live
-    const checkLive = async () => {
-      // Temporarily disabled to avoid legacy fetch errors
-      setIsLive(false);
-    };
-    checkLive();
-    const interval = setInterval(checkLive, 60000);
-    return () => clearInterval(interval);
   }, [settings.youtubeChannelId, settings.youtubeHandle]);
 
   // Auto-play carousel every 30 seconds for videos
@@ -504,13 +501,39 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="video-grid-target">
-            {/* O conteúdo será injetado pelo script ou pelo fallback do React abaixo */}
-            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6">
-              {videos.length === 0 && Array.from({ length: 5 }).map((_, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-8">
+            {videos.length === 0 ? (
+              Array.from({ length: 5 }).map((_, i) => (
                 <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
-              ))}
-            </div>
+              ))
+            ) : (
+              videos.slice(0, 5).map((video, idx) => (
+                <motion.div
+                  key={`home-video-${idx}-${video.id || 'no-id'}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="group cursor-pointer"
+                  onClick={() => handleWatchVideo(video)}
+                >
+                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
+                    <img 
+                      src={video.thumbnail} 
+                      alt={video.title} 
+                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Play className="w-12 h-12 text-white fill-current" />
+                    </div>
+                  </div>
+                  <h3 className="text-white font-bold text-sm line-clamp-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                    {cleanTitle(video.title)}
+                  </h3>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -525,13 +548,40 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="video-grid-target">
-            {/* O conteúdo será injetado pelo script ou pelo fallback do React abaixo */}
-            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6">
-              {lives.length === 0 && (
-                <div className="text-white/40 text-sm">Nenhuma live ativa no momento.</div>
-              )}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-8">
+            {lives.length === 0 ? (
+              <div className="text-white/40 text-sm col-span-full py-8 text-center bg-white/5 rounded-2xl border border-white/5">
+                Nenhuma live ativa no momento. Confira nossos vídeos recentes acima.
+              </div>
+            ) : (
+              lives.slice(0, 5).map((live, idx) => (
+                <motion.div
+                  key={`home-live-${idx}-${live.id || 'no-id'}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: idx * 0.1 }}
+                  className="group cursor-pointer"
+                  onClick={() => handleWatchVideo(live)}
+                >
+                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-red-500/30 shadow-lg">
+                    <img 
+                      src={live.thumbnail} 
+                      alt={live.title} 
+                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="absolute top-3 left-3 bg-red-600 text-[10px] font-bold px-2 py-0.5 rounded text-white flex items-center gap-1 shadow-xl">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
+                      LIVE
+                    </div>
+                  </div>
+                  <h3 className="text-white font-bold text-sm line-clamp-2 opacity-80 group-hover:opacity-100 transition-opacity">
+                    {cleanTitle(live.title)}
+                  </h3>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </div>
