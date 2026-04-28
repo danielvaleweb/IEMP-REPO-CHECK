@@ -421,12 +421,12 @@ async function startServer() {
   });
 
   // YouTube API Integration for both Videos and Lives
-  const API_KEY = process.env.YOUTUBE_API_KEY;
+  const API_KEY = process.env.VITE_YOUTUBE_API_KEY;
   const REFERER = "https://ministerioprofecia.com.br/";
 
   const fetchYouTubeAPI = async (channelId: string) => {
     if (!API_KEY) {
-      console.error("YOUTUBE_API_KEY is not defined in environment variables");
+      console.error("VITE_YOUTUBE_API_KEY is not defined in environment variables");
       throw new Error("YouTube API configuration missing");
     }
     // Avoid caching in memory here for simplicity (can add if needed, but the original scraper didn't cache long)
