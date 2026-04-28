@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, collection, getDocs, setDoc, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, setDoc, deleteDoc, addDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { handleFirestoreError, OperationType } from "@/lib/firebase";
@@ -47,9 +47,25 @@ export default function EventDetails() {
   const [confirming, setConfirming] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+  const [visiblePhotosCount, setVisiblePhotosCount] = useState(4);
+  const [isPastEvent, setIsPastEvent] = useState(false);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
   useEffect(() => {
-    window.scrollTo(0, 0);
+    const hash = window.location.hash;
+    if (hash) {
+      setTimeout(() => {
+        const el = document.getElementById(hash.substring(1));
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 500); // Give it time to load and render photo gallery
+    } else {
+      window.scrollTo(0, 0);
+    }
 
     const fetchEvent = async () => {
       try {
@@ -57,7 +73,38 @@ export default function EventDetails() {
         const docRef = doc(db, "posts", id);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setEvent({ id: docSnap.id, ...docSnap.data() });
+          const data = docSnap.data();
+          setEvent({ id: docSnap.id, ...data });
+
+          let eventDate = new Date(0);
+          let displayDate = data.date || "";
+          if (displayDate.includes(' - ')) displayDate = displayDate.split(' - ')[0];
+          if (displayDate) {
+            const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
+            const dateParts = dateString.split(/[-/]/);
+            if (dateParts.length >= 2) {
+              let year, month, day;
+              if (dateParts[0].length === 4) {
+                year = parseInt(dateParts[0]);
+                month = parseInt(dateParts[1]) - 1;
+                day = parseInt(dateParts[2] || "1");
+              } else {
+                day = parseInt(dateParts[0]);
+                month = parseInt(dateParts[1]) - 1;
+                year = new Date().getFullYear();
+                if (dateParts.length >= 3) {
+                  year = parseInt(dateParts[2]);
+                  if (year < 100) year += 2000;
+                }
+              }
+              if (!isNaN(day) && !isNaN(month)) {
+                eventDate = new Date(year, month, day);
+              }
+            }
+          }
+          const now = new Date();
+          now.setHours(0,0,0,0);
+          setIsPastEvent(eventDate < now);
         }
         
         if (user) {
@@ -65,6 +112,25 @@ export default function EventDetails() {
           const attendeeSnap = await getDoc(attendeeRef);
           setIsConfirmed(attendeeSnap.exists());
         }
+
+        // Fetch feedbacks
+        try {
+          const q = query(collection(db, "event_feedbacks"), orderBy("createdAt", "desc"));
+          const snap = await getDocs(q);
+          const eventFeedbacks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter((f: any) => f.eventId === id);
+          setFeedbacks(eventFeedbacks);
+          
+          let localHasGiven = localStorage.getItem(`feedback_${id}`) === 'true';
+          if (user) {
+            if (eventFeedbacks.find(f => f.userId === user.uid)) {
+              localHasGiven = true;
+            }
+          }
+          setHasGivenFeedback(localHasGiven);
+        } catch(e) {
+          console.error("Error fetching feedbacks", e);
+        }
+
       } catch (error) {
         console.error("Error fetching event:", error);
       } finally {
@@ -75,6 +141,12 @@ export default function EventDetails() {
   }, [id, user]);
 
   const toggleConfirmation = async () => {
+    if (isPastEvent) {
+      if (hasGivenFeedback) return;
+      setIsFeedbackModalOpen(true);
+      return;
+    }
+
     if (!user) {
       navigate("/admin"); // Redirect to login
       return;
@@ -106,6 +178,42 @@ export default function EventDetails() {
       handleFirestoreError(error, OperationType.WRITE, `posts/${id}/attendees`);
     } finally {
       setConfirming(false);
+    }
+  };
+
+  const submitFeedback = async () => {
+    if (!id || feedbackRating === 0) return;
+    setSubmittingFeedback(true);
+    try {
+      const feedbackData = {
+        eventId: id,
+        rating: feedbackRating,
+        comment: feedbackComment,
+        userId: user?.uid || "anonymous",
+        userName: profile?.name || user?.displayName || "Anônimo",
+        userPhoto: profile?.photoURL || user?.photoURL || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
+        createdAt: serverTimestamp(),
+        date: new Date().toISOString()
+      };
+
+      await addDoc(collection(db, "event_feedbacks"), feedbackData);
+      
+      setFeedbacks([{ id: Date.now().toString(), ...feedbackData, createdAt: { toDate: () => new Date() } }, ...feedbacks]);
+      setHasGivenFeedback(true);
+      localStorage.setItem(`feedback_${id}`, 'true');
+      setIsFeedbackModalOpen(false);
+      playSuccessSound();
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#BF76FF', '#EC4899', '#ffffff']
+      });
+    } catch(err) {
+      console.error(err);
+      alert("Erro ao enviar feedback");
+    } finally {
+      setSubmittingFeedback(false);
     }
   };
 
@@ -354,17 +462,25 @@ export default function EventDetails() {
         >
            <Button 
              onClick={toggleConfirmation}
-             disabled={confirming}
+             disabled={confirming || (isPastEvent && hasGivenFeedback)}
              className={cn(
                "w-full md:w-auto h-16 px-10 rounded-2xl font-black text-xl transition-all duration-300 uppercase tracking-tight relative overflow-hidden shrink-0 z-10 cursor-pointer",
-               isConfirmed 
-                 ? "bg-green-500 hover:bg-green-600 text-white" 
+               (isConfirmed || (isPastEvent && hasGivenFeedback)) 
+                 ? (isPastEvent && hasGivenFeedback ? "bg-white text-black hover:bg-gray-100" : "bg-green-500 hover:bg-green-600 text-white") 
                  : "bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white shadow-[0_10px_40px_rgba(191,118,255,0.4)]"
              )}
            >
              <span className="relative z-10 flex items-center gap-3">
                {confirming ? (
                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+               ) : isPastEvent ? (
+                 hasGivenFeedback ? (
+                   <>
+                     <CheckCircle2 className="w-8 h-8 text-green-500" /> Eu fui!
+                   </>
+                 ) : (
+                   <><CheckCircle2 className="w-8 h-8" /> Eu fui!</>
+                 )
                ) : isConfirmed ? (
                  <>
                    <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", bounce: 0.6 }}>
@@ -380,7 +496,11 @@ export default function EventDetails() {
 
            <Button 
              onClick={() => setIsPhotoModalOpen(true)}
-             className="w-full md:w-auto h-16 px-10 rounded-2xl font-black text-lg transition-all duration-300 uppercase tracking-tight bg-white hover:bg-gray-100 text-[#10001D] shadow-[0_10px_40px_rgba(255,255,255,0.2)] cursor-pointer"
+             disabled={isPastEvent}
+             className={cn(
+               "w-full md:w-auto h-16 px-10 rounded-2xl font-black text-lg transition-all duration-300 uppercase tracking-tight shadow-[0_10px_40px_rgba(255,255,255,0.2)] cursor-pointer",
+               isPastEvent ? "bg-gray-600/50 text-gray-400 cursor-not-allowed shadow-none border border-white/5" : "bg-white hover:bg-gray-100 text-[#10001D]"
+             )}
            >
              <span className="relative z-10 flex items-center gap-3">
                <Eye className="w-6 h-6" />
@@ -389,8 +509,30 @@ export default function EventDetails() {
            </Button>
         </motion.div>
 
-        {/* Contact Buttons Space */}
-        {/* Contact buttons moved below gallery */}
+        {/* Feedbacks Display Area */}
+        {isPastEvent && feedbacks.length > 0 && (
+          <div className="w-full flex justify-center w-full max-w-4xl mx-auto mt-12 mb-4 px-4">
+             <div className="w-full bg-white/5 backdrop-blur-sm rounded-[2rem] p-6 max-h-[800px] overflow-y-auto border border-white/10">
+                <h4 className="text-xl font-bold text-white uppercase tracking-widest text-center mb-6">O que a galera achou</h4>
+                <div className="space-y-4">
+                  {feedbacks.map((f, idx) => (
+                    <div key={idx} className="bg-black/40 rounded-2xl p-4 flex gap-4 items-start border border-white/5">
+                      <img src={f.userPhoto || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"} alt={f.userName} className="w-12 h-12 rounded-full object-cover shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white font-bold text-sm truncate">{f.userName}</p>
+                        <div className="flex text-yellow-400 mb-2 mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className={cn("w-3 h-3", i < f.rating ? "fill-current" : "text-gray-600")} />
+                          ))}
+                        </div>
+                        {f.comment && <p className="text-gray-300 text-sm whitespace-pre-wrap">{f.comment}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+             </div>
+          </div>
+        )}
 
         {/* Video Area */}
         {youtubeId && (
@@ -414,7 +556,7 @@ export default function EventDetails() {
 
         {/* Photo Gallery Area */}
         {event.gallery && Array.isArray(event.gallery) && event.gallery.length > 0 && (
-           <div className="w-full mt-24 animate-in fade-in slide-in-from-bottom-8 duration-500 delay-300">
+           <div id="galeria" className="w-full mt-24 animate-in fade-in slide-in-from-bottom-8 duration-500 delay-300">
             <div className="flex flex-col items-start w-full mb-12">
               <div className="flex items-center gap-4 mb-2">
                 <div className="w-8 h-[2px] bg-[#BF76FF]" />
@@ -457,7 +599,7 @@ export default function EventDetails() {
                 </motion.div>
               )}
 
-              {event.gallery.map((url: string, index: number) => {
+              {event.gallery.slice(0, visiblePhotosCount).map((url: string, index: number) => {
                 let spanClasses = "col-span-1 row-span-1";
                 if (index % 7 === 0) spanClasses = "col-span-2 row-span-2"; // Big Focus
                 else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1"; // Wide
@@ -507,6 +649,17 @@ export default function EventDetails() {
                 );
               })}
             </div>
+
+            {visiblePhotosCount < event.gallery.length && (
+              <div className="w-full flex justify-center mt-8 relative z-20">
+                <Button
+                  onClick={() => setVisiblePhotosCount((prev) => prev + 12)}
+                  className="bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full px-8 py-3 h-auto uppercase tracking-widest text-xs font-bold transition-all hover:scale-105 cursor-pointer"
+                >
+                  Exibir mais
+                </Button>
+              </div>
+            )}
            </div>
         )}
 
@@ -619,6 +772,52 @@ export default function EventDetails() {
         eventTitle={event.title} 
         frameUrl={event.frameUrl}
       />
+
+      <AnimatePresence>
+        {isFeedbackModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-black/95 backdrop-blur-xl flex flex-col items-center justify-center p-4"
+          >
+             <div className="w-full max-w-md bg-white/10 backdrop-blur-md border border-white/20 p-8 rounded-[40px] shadow-2xl relative">
+                <Button 
+                  onClick={() => setIsFeedbackModalOpen(false)}
+                  className="absolute top-4 right-4 bg-white/5 hover:bg-white/20 text-white w-10 h-10 rounded-full p-0 flex items-center justify-center"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
+                <h3 className="text-2xl font-black text-white text-center tracking-tighter uppercase mb-2">Avalie o Evento</h3>
+                <p className="text-gray-400 text-center text-sm mb-6">Como foi sua experiência?</p>
+                <div className="flex items-center justify-center gap-2 mb-6">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      onClick={() => setFeedbackRating(star)}
+                      className="transition-transform hover:scale-110 focus:outline-none"
+                    >
+                      <Star className={cn("w-10 h-10", feedbackRating >= star ? "fill-yellow-400 text-yellow-400" : "text-gray-600")} />
+                    </button>
+                  ))}
+                </div>
+                <textarea 
+                  value={feedbackComment}
+                  onChange={(e) => setFeedbackComment(e.target.value)}
+                  placeholder="Deixe um comentário (opcional)"
+                  className="w-full bg-black/50 border border-white/10 rounded-2xl p-4 text-white resize-none h-28 focus:outline-none focus:border-[#BF76FF] transition-colors mb-6"
+                />
+                <Button 
+                  onClick={submitFeedback}
+                  disabled={submittingFeedback || feedbackRating === 0}
+                  className="w-full bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white font-black uppercase tracking-widest h-14 rounded-2xl transition-all shadow-xl disabled:opacity-50"
+                >
+                  {submittingFeedback ? "Enviando..." : "Enviar Avaliação"}
+                </Button>
+             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

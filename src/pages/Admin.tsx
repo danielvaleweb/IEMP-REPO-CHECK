@@ -59,7 +59,8 @@ import {
   ExternalLink,
   ClipboardList,
   Newspaper,
-  XCircle
+  XCircle,
+  Star
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { AvisosView } from "@/components/admin/AvisosView";
 import { EventosView } from "@/components/admin/EventosView";
+import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { 
   collection, 
@@ -4144,6 +4146,10 @@ export default function Admin() {
                         </div>
                       </div>
                     </>
+                  )}
+
+                  {activeTab === "eventos" && selectedItem?.id && (
+                    <EventFeedbacksAdmin eventId={selectedItem.id} isDark={isDarkMode} />
                   )}
 
                   <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-white/5 items-stretch sm:items-center">
