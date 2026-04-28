@@ -10,25 +10,28 @@ async function render() {
     return false;
   }
 
+  console.log("USANDO API CORRETA");
+
+  async function fetchVideos() {
+    console.log("Chamando API correta");
+    const res = await fetch("/api/youtube");
+    if (!res.ok) throw new Error("Erro ao buscar vídeos: " + res.statusText);
+    const data = await res.json();
+    return data;
+  }
+
   try {
-    const response = await fetch('/api/youtube');
-    if (!response.ok) {
-      // Fallback to /backend/youtube-all if /api/youtube fails
-      console.warn("Sistema de vídeos: /api/youtube falhou, tentando fallback...");
-      const fallback = await fetch('/backend/youtube-all');
-      if (!fallback.ok) throw new Error("Erro em ambos endpoints de vídeo.");
-      
-      const allVideos = await fallback.json();
-      renderItems(allVideos, videosContainer, livesContainer);
-    } else {
-      const data = await response.json();
-      const allVideos = data.items || [];
-      renderItems(allVideos, videosContainer, livesContainer);
-    }
+    const data = await fetchVideos();
+    const allVideos = data.items || [];
+    
+    console.log("VIDEOS:", allVideos);
+    if (!allVideos || allVideos.length === 0) return;
+
+    renderItems(allVideos, videosContainer, livesContainer);
     return true; 
   } catch (error) {
     console.error("Erro no sistema de vídeos:", error);
-    return true; // Stop trying if there's a fatal error
+    return true;
   }
 }
 

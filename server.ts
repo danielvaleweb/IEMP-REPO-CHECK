@@ -357,106 +357,22 @@ async function startServer() {
     }
   });
 
-  app.get("/backend/live-status", async (req, res) => {
-    console.log("[Backend] Checking live status");
-    try {
-      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      channelId = channelId.trim();
-      if (channelId.includes('youtube.com/channel/')) {
-        channelId = channelId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
-      } else if (channelId.includes('youtube.com/@')) {
-         channelId = '@' + channelId.split('youtube.com/@')[1].split('/')[0].split('?')[0];
-      }
-      let handle = (req.query.handle as string) || "@ministerio_profecia";
-      handle = handle.trim();
-      if (handle.includes('youtube.com/')) {
-         handle = handle.split('youtube.com/')[1].split('/')[0].split('?')[0];
-         if(!handle.startsWith('@')) handle = '@' + handle;
-      }
-      
-      // Try both handle and channel ID for live status
-      const urls = [
-        `https://www.youtube.com/${handle}/live`,
-        `https://www.youtube.com/channel/${channelId}/live`
-      ];
-      
-      let isLive = false;
-      
-      for (const youtubeUrl of urls) {
-        try {
-          const response = await fetch(youtubeUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Accept': 'text/html',
-              'Accept-Language': 'pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7'
-            },
-            signal: AbortSignal.timeout(4000)
-          });
-          
-          if (!response.ok) continue;
+  // Legacy live-status removed as requested.
 
-          const html = await response.text();
-          
-          if (html.includes('{"text":" ao vivo"}') || 
-              html.includes('{"text":" ao vivo "}') || 
-              html.includes('{"text":" watching"}') || 
-              html.includes('isLive":true') ||
-              html.includes('"isLive":true') ||
-              html.includes('style":"LIVE"') ||
-              html.includes('LIVE') && html.includes('watching') ||
-              html.includes('canonical" href="https://www.youtube.com/watch?v=')) {
-            isLive = true;
-            break;
-          }
-        } catch (e) {
-          console.warn(`Failed checking live status for ${youtubeUrl}:`, e);
-        }
-      }
-
-      res.json({ isLive });
-    } catch (error) {
-      console.error("Server error checking live status:", error);
-      res.status(500).json({ isLive: false });
-    }
-  });
-
-  // YouTube API Integration for both Videos and Lives
+  // YouTube API Integration
   const API_KEY = "AIzaSyA_nzF9lNrNZnE67_lum2D9HsO5OBrwx8o";
   const REFERER = "https://ministerioprofecia.com.br/";
 
-  const fetchYouTubeAPI = async (channelId: string) => {
-    // Avoid caching in memory here for simplicity (can add if needed, but the original scraper didn't cache long)
-    const url = `https://www.googleapis.com/youtube/v3/search?key=${API_KEY}&channelId=${channelId}&part=snippet,id&order=date&maxResults=25`;
-    const res = await fetch(url, { headers: { 'Referer': REFERER } });
-    if (!res.ok) {
-      throw new Error(`YouTube API Error: ${res.statusText}`);
-    }
-    const data = await res.json();
-    return data.items.filter((v: any) => v.id && v.id.videoId);
-  };
-
-  // API Route to get all youtube videos for client-side processing
-  app.get("/backend/youtube-all", async (req, res) => {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    try {
-      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      channelId = channelId.trim();
-
-      const allVideos = await fetchYouTubeAPI(channelId);
-      res.json(allVideos);
-    } catch (error) {
-      console.error("Critical error in /backend/youtube-all:", error);
-      res.status(500).json({ error: "Failed to fetch" });
-    }
-  });
-
-  // Alias /api/youtube as requested by user
+  // API Route for YouTube videos (Consolidated)
   app.get("/api/youtube", async (req, res) => {
     try {
       const channelId = "UCILgaItnqDH3plhRXD54QUg";
       const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=10&order=date&key=${API_KEY}`;
+      
       const response = await fetch(url, { headers: { 'Referer': REFERER } });
       const data = await response.json();
+      
+      console.log("USANDO API CORRETA (Backend)");
       res.status(200).json(data);
     } catch (error) {
       console.error("Error in /api/youtube:", error);

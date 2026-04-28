@@ -200,16 +200,12 @@ export default function Home() {
 
         let allVideos: any[] = [];
 
-        if (cache && time && (Date.now() - parseInt(time) < 21600000)) {
-          allVideos = JSON.parse(cache);
-        } else {
-          const response = await fetch(`/backend/youtube-all?channelId=${configChannelId}`);
-          if (!response.ok) throw new Error("Failed to fetch from backend");
-          
-          allVideos = await response.json();
-          localStorage.setItem(cacheKey, JSON.stringify(allVideos));
-          localStorage.setItem(cacheTimeKey, Date.now().toString());
-        }
+        console.log("USANDO API CORRETA");
+        const response = await fetch("/api/youtube");
+        if (!response.ok) throw new Error("Failed to fetch from /api/youtube");
+        
+        const data = await response.json();
+        allVideos = data.items || [];
 
         const isLive = (video: any) => {
           return video?.snippet?.thumbnails?.high?.url?.includes("_live");
@@ -270,18 +266,8 @@ export default function Home() {
     
     // Check if live
     const checkLive = async () => {
-      try {
-        const response = await fetch(`/backend/live-status?channelId=${configChannelId}&handle=${configHandle}`);
-        if (response.ok) {
-          const data = await response.json();
-          setIsLive(data.isLive);
-        } else {
-          setIsLive(false);
-        }
-      } catch (error) {
-        // Silent fail for live status checking
-        setIsLive(false);
-      }
+      // Temporarily disabled to avoid legacy fetch errors
+      setIsLive(false);
     };
     checkLive();
     const interval = setInterval(checkLive, 60000);

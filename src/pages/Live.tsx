@@ -55,11 +55,13 @@ export default function Live() {
   useEffect(() => {
     const fetchLiveVideoId = async () => {
       try {
-        const response = await fetch('/backend/recent-lives');
+        console.log("USANDO API CORRETA");
+        const response = await fetch('/api/youtube');
         if (response.ok) {
           const data = await response.json();
-          if (data && data.length > 0 && data[0].id) {
-            setVideoId(data[0].id);
+          const items = data.items || [];
+          if (items.length > 0 && items[0].id && items[0].id.videoId) {
+            setVideoId(items[0].id.videoId);
           }
         }
       } catch (error) {
