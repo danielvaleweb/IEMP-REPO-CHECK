@@ -106,7 +106,7 @@ async function startServer() {
     res.json(routes);
   });
 
-  app.get("/services/test", (req, res) => {
+  app.get("/backend/test", (req, res) => {
     res.json({ status: "ok", env: process.env.NODE_ENV, time: new Date().toISOString() });
   });
 
@@ -115,14 +115,14 @@ async function startServer() {
     attributeNamePrefix: "@_"
   });
 
-  // Logging middleware for services
-  app.use("/services", (req, res, next) => {
-    console.log(`[Service Request] ${req.method} ${req.url}`);
+  // Logging middleware for backend
+  app.use("/backend", (req, res, next) => {
+    console.log(`[Backend Request] ${req.method} ${req.url}`);
     next();
   });
 
   // 1. Endpoint para receber o Expo Push Token
-  app.post("/services/push/register", async (req, res) => {
+  app.post("/backend/push/register", async (req, res) => {
     try {
       const { userId, token, type = 'expo' } = req.body;
       if (!userId || !token) {
@@ -152,8 +152,8 @@ async function startServer() {
   });
 
   // 2. Endpoint para disparo imediato (API Interna/Admin)
-  app.post("/services/push/broadcast", async (req, res) => {
-    console.log("[API] /services/push/broadcast called", req.body);
+  app.post("/backend/push/broadcast", async (req, res) => {
+    console.log("[Backend] /push/broadcast called", req.body);
     try {
       const { title, message, target = "all", userIds = [] } = req.body;
       
@@ -226,7 +226,7 @@ async function startServer() {
     }
   });
 
-  app.get("/services/push/broadcast", (req, res) => {
+  app.get("/backend/push/broadcast", (req, res) => {
     res.send("API Push Broadcast endpoint is active. Use POST to send notifications.");
   });
 
@@ -357,7 +357,8 @@ async function startServer() {
     }
   });
 
-  app.get("/services/live-status", async (req, res) => {
+  app.get("/backend/live-status", async (req, res) => {
+    console.log("[Backend] Checking live status");
     try {
       let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       channelId = channelId.trim();
@@ -420,7 +421,8 @@ async function startServer() {
   });
 
   // API Route to get recent videos
-  app.get("/services/recent-videos", async (req, res) => {
+  app.get("/backend/recent-videos", async (req, res) => {
+    console.log("[Backend] Fetching recent videos");
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
@@ -466,21 +468,22 @@ async function startServer() {
               const data = JSON.parse(match[1]);
               const findDeepVideos = (obj: any) => {
                 if (!obj || typeof obj !== 'object') return;
-                if (obj.videoRenderer || obj.gridVideoRenderer) {
-                  const v = obj.videoRenderer || obj.gridVideoRenderer;
-                  const id = v.videoId;
-                  if (id && !seenIds.has(id)) {
+                
+                // If it has videoId and title, it's probably a video
+                if (obj.videoId && obj.title && (obj.title.runs || obj.title.simpleText)) {
+                  const id = obj.videoId;
+                  if (!seenIds.has(id)) {
                     seenIds.add(id);
                     videos.push({
                       id,
-                      title: v.title?.runs?.[0]?.text || v.title?.simpleText,
-                      thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                      date: v.publishedTimeText?.simpleText || "Recente"
+                      title: obj.title?.runs?.[0]?.text || obj.title?.simpleText || "",
+                      thumbnail: obj.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                      date: obj.publishedTimeText?.simpleText || "Recente"
                     });
                   }
-                } else {
-                  Object.values(obj).forEach(findDeepVideos);
                 }
+                
+                Object.values(obj).forEach(findDeepVideos);
               };
               findDeepVideos(data);
             } catch (jsonErr) {
@@ -533,7 +536,8 @@ async function startServer() {
   });
 
   // API Route to get recent lives/streams
-  app.get("/services/recent-lives", async (req, res) => {
+  app.get("/backend/recent-lives", async (req, res) => {
+    console.log("[Backend] Fetching recent lives");
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
@@ -581,21 +585,21 @@ async function startServer() {
               const data = JSON.parse(match[1]);
               const findDeepStreams = (obj: any) => {
                 if (!obj || typeof obj !== 'object') return;
-                if (obj.videoRenderer || obj.gridVideoRenderer) {
-                  const v = obj.videoRenderer || obj.gridVideoRenderer;
-                  const id = v.videoId;
-                  if (id && !seenIds.has(id)) {
+                
+                if (obj.videoId && obj.title && (obj.title.runs || obj.title.simpleText)) {
+                  const id = obj.videoId;
+                  if (!seenIds.has(id)) {
                     seenIds.add(id);
                     lives.push({
                       id,
-                      title: v.title?.runs?.[0]?.text || v.title?.simpleText,
-                      thumbnail: v.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                      date: v.publishedTimeText?.simpleText || "Ao Vivo"
+                      title: obj.title?.runs?.[0]?.text || obj.title?.simpleText || "",
+                      thumbnail: obj.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+                      date: obj.publishedTimeText?.simpleText || "Ao Vivo"
                     });
                   }
-                } else {
-                  Object.values(obj).forEach(findDeepStreams);
                 }
+                
+                Object.values(obj).forEach(findDeepStreams);
               };
               findDeepStreams(data);
             } catch (jsonErr) {

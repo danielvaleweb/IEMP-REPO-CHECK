@@ -33,6 +33,7 @@ export default function Home() {
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentEventIndex, setCurrentEventIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
   const [isWatching, setIsWatching] = useState(false);
   const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
@@ -69,7 +70,7 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(20));
+    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(100));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const allEvents = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -84,17 +85,33 @@ export default function Home() {
         }
 
         // Try to parse the date for sorting/filtering
-        let eventDate = new Date();
+        let eventDate = new Date(0); // Default for unparseable dates
+        let formattedDate = displayDate;
         if (displayDate) {
-          const dateParts = displayDate.split('/');
+          const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
+          const dateParts = dateString.split(/[-/]/);
           if (dateParts.length >= 2) {
-            const day = parseInt(dateParts[0]);
-            const month = parseInt(dateParts[1]) - 1;
-            const year = dateParts.length === 3 ? parseInt(dateParts[2]) : new Date().getFullYear();
-            eventDate = new Date(year, month, day);
-            
-            // If it's a past year and it's DD/MM, it might be for next year if the month has passed
-            // But for church events, usually we just use the current year if not specified.
+            let year, month, day;
+            if (dateParts[0].length === 4) { // YYYY-MM-DD
+              year = parseInt(dateParts[0]);
+              month = parseInt(dateParts[1]) - 1;
+              day = parseInt(dateParts[2] || "1");
+            } else { // DD/MM/YYYY
+              day = parseInt(dateParts[0]);
+              month = parseInt(dateParts[1]) - 1;
+              year = new Date().getFullYear();
+              if (dateParts.length >= 3) {
+                year = parseInt(dateParts[2]);
+                if (year < 100) year += 2000;
+              }
+            }
+            if (!isNaN(day) && !isNaN(month)) {
+              eventDate = new Date(year, month, day);
+              const yy = year.toString().slice(-2);
+              const dd = day.toString().padStart(2, '0');
+              const mm = (month + 1).toString().padStart(2, '0');
+              formattedDate = `${dd}-${mm}-${yy}`;
+            }
           }
         }
 
@@ -102,16 +119,16 @@ export default function Home() {
           id: doc.id,
           title: data.title,
           description: data.content,
-          date: displayDate,
+          date: formattedDate,
           time: displayTime,
           category: data.organization || "Evento",
-          image: data.image || `https://picsum.photos/seed/${doc.id}/1200/600`,
+          image: data.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1200",
           fullDate: eventDate,
           invitedMembers: data.invitedMembers || [],
           neighborhood: data.neighborhood || "",
           rating: "5.0" // Fixed rating instead of random to look more professional
         };
-      });
+      }).filter(e => e.title && e.title.trim() !== "");
 
       const now = new Date();
       now.setHours(0, 0, 0, 0); // Start of today
@@ -195,7 +212,7 @@ export default function Home() {
 
     const fetchVideos = async () => {
       try {
-        const response = await fetch(`/services/recent-videos?channelId=${configChannelId}`);
+        const response = await fetch(`/backend/recent-videos?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch videos");
         
         const text = await response.text();
@@ -205,19 +222,22 @@ export default function Home() {
         if (data && data.length > 0) {
           setVideos(data);
         } else {
-          throw new Error("Empty videos array");
+          // If the backend API explicitly returns an empty array, we can try RSS2JSON as a fallback gently 
+          // or just show placeholders without throwing generic errors.
+          console.warn("Backend returned empty videos array. Checking fallback.");
+          try {
+            const fallbackData = await fetchFromRSS2JSON(configChannelId, 'videos');
+            if (fallbackData && fallbackData.length > 0) {
+              setVideos(fallbackData);
+              return;
+            }
+          } catch (e) {
+            // ignore
+          }
+          throw new Error("No videos found");
         }
       } catch (error) {
-        console.error("Local API failed, trying RSS2JSON fallback", error);
-        try {
-          const fallbackData = await fetchFromRSS2JSON(configChannelId, 'videos');
-          if (fallbackData && fallbackData.length > 0) {
-            setVideos(fallbackData);
-            return;
-          }
-        } catch (rssError) {
-          console.error("RSS fallback also failed", rssError);
-        }
+        console.warn("Using placeholder videos because no YouTube content was found or configured.");
         
         setVideos([
           {
@@ -242,7 +262,7 @@ export default function Home() {
 
     const fetchLives = async () => {
       try {
-        const response = await fetch(`/services/recent-lives?channelId=${configChannelId}`);
+        const response = await fetch(`/backend/recent-lives?channelId=${configChannelId}`);
         if (!response.ok) throw new Error("Failed to fetch lives");
         
         const text = await response.text();
@@ -256,7 +276,7 @@ export default function Home() {
           setLives([]);
         }
       } catch (error) {
-        console.error("Error fetching lives:", error);
+        console.warn("Could not fetch YouTube lives. Checking fallback.");
         try {
           // Fallback to RSS data for lives too if backend is missing
           const fallbackData = await fetchFromRSS2JSON(configChannelId, 'lives');
@@ -268,7 +288,6 @@ export default function Home() {
             return;
           }
         } catch (rssError) {
-          console.error("RSS fallback also failed", rssError);
           setLives([]);
         }
       }
@@ -280,7 +299,7 @@ export default function Home() {
     // Check if live
     const checkLive = async () => {
       try {
-        const response = await fetch(`/services/live-status?channelId=${configChannelId}&handle=${configHandle}`);
+        const response = await fetch(`/backend/live-status?channelId=${configChannelId}&handle=${configHandle}`);
         if (response.ok) {
           const data = await response.json();
           setIsLive(data.isLive);
@@ -297,7 +316,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [settings.youtubeChannelId, settings.youtubeHandle]);
 
-  // Auto-play carousel every 30 seconds
+  // Auto-play carousel every 30 seconds for videos
   useEffect(() => {
     if (videos.length === 0) return;
     const timer = setInterval(() => {
@@ -305,6 +324,16 @@ export default function Home() {
     }, 30000);
     return () => clearInterval(timer);
   }, [nextVideo, videos.length]);
+
+  // Auto-play event carousel every 10 seconds
+  useEffect(() => {
+    const totalEvents = upcomingEvents.length + pastEvents.length;
+    if (totalEvents <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentEventIndex((prev) => (prev + 1) % totalEvents);
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [upcomingEvents.length, pastEvents.length]);
 
   // Show video after 3 seconds of slide change
   useEffect(() => {
@@ -645,103 +674,110 @@ export default function Home() {
       <section className="py-24 px-4 md:px-12 bg-[#F8F9FB] rounded-t-[3.5rem] text-black relative z-30 -mt-10">
         <div className="max-w-[1400px] mx-auto">
           
-          {/* Upcoming Event (Large Banner) */}
-          {upcomingEvents.length > 0 && (
+          {/* Upcoming Events Carousel/Banner */}
+          {(upcomingEvents.length > 0 || pastEvents.length > 0) && (
             <div className="mb-20">
               <div className="flex items-center gap-3 mb-8">
                 <div className="w-1 h-8 bg-primary rounded-full" />
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tighter uppercase font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">Próximos Eventos</h2>
+                <h2 className="text-3xl md:text-4xl tracking-tighter text-gray-900 font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">
+                   <span className="font-light">Eventos</span>
+                </h2>
               </div>
               
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                className="relative h-[450px] md:h-[550px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl group cursor-pointer"
-                onClick={() => navigate(`/evento/${upcomingEvents[0].id}`)}
-              >
-                <img 
-                  src={upcomingEvents[0].image} 
-                  alt={upcomingEvents[0].title}
-                  className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent" />
-                
-                <div className="absolute top-8 left-8 flex flex-wrap gap-3">
-                  <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">
-                    {upcomingEvents[0].category}
-                  </span>
-                  <span className="bg-primary/90 px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
-                    DESTAQUE
-                  </span>
-                </div>
-                
-                {upcomingEvents[0].neighborhood && (
-                  <div className="absolute top-8 right-8 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 border border-white/10 transition-all hover:bg-black/30 group/pin">
-                    <MapPin className="w-3 h-3 text-white/60 group-hover/pin:text-primary transition-colors" />
-                    <span className="text-[9px] font-black text-white/70 uppercase tracking-[0.2em]">{upcomingEvents[0].neighborhood}</span>
-                  </div>
-                )}
+              <div className="relative h-[450px] md:h-[550px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl bg-gray-100">
+                <AnimatePresence mode="wait">
+                  {(() => {
+                    const allEventsSorted = [...upcomingEvents, ...pastEvents];
+                    const currentEvent = allEventsSorted[currentEventIndex % allEventsSorted.length];
+                    if (!currentEvent) return null;
+                    const isPast = currentEvent.fullDate < new Date().setHours(0,0,0,0);
 
-                <div className="absolute bottom-12 left-12 right-12 max-w-2xl">
-                  <h3 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tighter uppercase leading-tight drop-shadow-lg">
-                    {upcomingEvents[0].title}
-                  </h3>
-                  <p className="text-white/70 text-lg md:text-xl font-medium mb-8 line-clamp-2 drop-shadow-md">
-                    {upcomingEvents[0].description}
-                  </p>
-                  
-                  <div className="flex items-center gap-4">
-                    <Button 
-                      className="bg-white text-black hover:bg-gray-100 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 group shadow-xl"
-                    >
-                      <Play className="w-4 h-4 fill-current" /> Ver Detalhes
-                    </Button>
-                    <button 
-                      className={cn(
-                        "w-14 h-14 rounded-2xl backdrop-blur-md border border-white/20 flex items-center justify-center transition-all",
-                        isFavorite(upcomingEvents[0].id) ? "bg-red-500 text-white border-red-500" : "bg-white/10 text-white hover:bg-white/20"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite({
-                          id: upcomingEvents[0].id,
-                          title: upcomingEvents[0].title,
-                          thumbnail: upcomingEvents[0].image,
-                          published: upcomingEvents[0].date,
-                          link: `/evento/${upcomingEvents[0].id}`,
-                          category: "event"
-                        });
-                      }}
-                    >
-                      <Heart className={cn("w-5 h-5", isFavorite(upcomingEvents[0].id) && "fill-current")} />
-                    </button>
-                    
-                    <div className="hidden md:flex ml-auto items-center gap-2">
-                       <div className="flex -space-x-3">
-                          {(upcomingEvents[0].invitedMembers || []).slice(0, 4).map((member: any, i: number) => (
-                            <img 
-                              key={`hero-event-member-${member.id || `idx-${i}`}`} 
-                              src={member.photo || member.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(member.name || "Membro")}&background=random`} 
-                              className="w-10 h-10 rounded-full border-2 border-black object-cover" 
-                              alt={member.name}
-                            />
-                          ))}
-                          {(upcomingEvents[0].invitedMembers?.length > 4) && (
-                            <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md border border-white/10 flex items-center justify-center text-[10px] font-black text-white">
-                              +{upcomingEvents[0].invitedMembers.length - 4}
+                    return (
+                      <motion.div
+                        key={`hero-event-${currentEvent.id}`}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 1 }}
+                        className="absolute inset-0 cursor-pointer group"
+                        onClick={() => navigate(`/evento/${currentEvent.id}`)}
+                      >
+                        <img 
+                          src={currentEvent.image} 
+                          alt={currentEvent.title}
+                          className="w-full h-full object-cover opacity-100 transition-transform duration-[10s] ease-linear group-hover:scale-110"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+                        
+                        <div className="absolute top-8 left-8 flex flex-wrap gap-3">
+                          <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">
+                            {currentEvent.category}
+                          </span>
+                        </div>
+                        
+                        {currentEvent.neighborhood && (
+                          <div className="absolute top-8 right-8 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 border border-white/10 transition-all hover:bg-black/30 group/pin">
+                            <MapPin className="w-3 h-3 text-white/60 group-hover/pin:text-primary transition-colors" />
+                            <span className="text-[9px] font-black text-white/70 uppercase tracking-[0.2em]">{currentEvent.neighborhood}</span>
+                          </div>
+                        )}
+
+                        <div className="absolute bottom-12 left-12 right-12 max-w-2xl">
+                          <motion.div
+                            initial={{ y: 20, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            transition={{ delay: 0.3 }}
+                          >
+                            <h3 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tighter uppercase leading-tight drop-shadow-lg">
+                              {currentEvent.title}
+                            </h3>
+                            
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <Button 
+                                className="bg-white text-black hover:bg-gray-100 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 group shadow-xl"
+                              >
+                                <Play className="w-4 h-4 fill-current" /> Ver Detalhes
+                              </Button>
+
+                              {isPast && (
+                                <Button 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate(`/evento/${currentEvent.id}#galeria`);
+                                  }}
+                                  className="bg-primary text-white hover:bg-primary/90 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-xl"
+                                >
+                                  Ver galeria de fotos
+                                </Button>
+                              )}
+
+                              <button 
+                                className={cn(
+                                  "w-14 h-14 rounded-2xl backdrop-blur-md border border-white/20 flex items-center justify-center transition-all",
+                                  isFavorite(currentEvent.id) ? "bg-red-500 text-white border-red-500" : "bg-white/10 text-white hover:bg-white/20"
+                                )}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite({
+                                    id: currentEvent.id,
+                                    title: currentEvent.title,
+                                    thumbnail: currentEvent.image,
+                                    published: currentEvent.date,
+                                    link: `/evento/${currentEvent.id}`,
+                                    category: "event"
+                                  });
+                                }}
+                              >
+                                <Heart className={cn("w-5 h-5", isFavorite(currentEvent.id) && "fill-current")} />
+                              </button>
                             </div>
-                          )}
-                          {(upcomingEvents[0].invitedMembers?.length === 0) && (
-                            <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black text-white/40">
-                              <Calendar className="w-4 h-4" />
-                            </div>
-                          )}
-                       </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+                          </motion.div>
+                        </div>
+                      </motion.div>
+                    );
+                  })()}
+                </AnimatePresence>
+              </div>
             </div>
           )}
 
@@ -749,18 +785,20 @@ export default function Home() {
           <div className="mb-20">
             <div className="flex items-center justify-between mb-10">
               <div className="flex items-center gap-3">
-                <div className="w-1 h-8 bg-gray-300 rounded-full" />
-                <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase italic text-gray-400">O que já vivemos</h2>
+                <div className="w-1 h-8 bg-primary rounded-full" />
+                <h2 className="text-2xl md:text-3xl tracking-tighter text-gray-900 font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">
+                  <span className="font-light">Últimos</span> <span className="font-bold">eventos</span>
+                </h2>
               </div>
               <Link to="/eventos" className="text-xs font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4 transition-all">
                 Ver Galeria Completa
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {(pastEvents.length > 0 ? pastEvents : []).slice(0, 6).map((event, idx) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {(pastEvents.length > 0 ? pastEvents : []).slice(0, 4).map((event, idx) => (
                 <motion.div
-                  key={`past-event-${idx}-${event.id || 'no-id'}`}
+                  key={`past-event-${event.id}-${idx}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
@@ -768,106 +806,51 @@ export default function Home() {
                   className="group cursor-pointer"
                   onClick={() => navigate(`/evento/${event.id}`)}
                 >
-                  <div className="relative aspect-square rounded-[2rem] overflow-hidden mb-6 shadow-lg border border-gray-100">
+                  <div className="relative aspect-video rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 bg-white">
                     <img 
-                      src={event.image} 
+                      src={event.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"} 
                       alt={event.title} 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"; }}
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    
-                    <div className="absolute top-6 left-6 bg-white/95 backdrop-blur-md px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg border border-black/5">
-                      <MapPin className="w-3.5 h-3.5 text-primary" />
-                      <span className="text-xs font-black text-black uppercase tracking-tighter">{event.neighborhood || "Local"}</span>
-                    </div>
-
-                    <button 
-                      className={cn(
-                        "absolute top-6 right-6 w-10 h-10 rounded-xl backdrop-blur-md border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300",
-                        isFavorite(event.id) ? "bg-red-500 text-white border-red-500 opacity-100" : "bg-white/20 text-white border-white/20 hover:bg-primary hover:border-primary"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFavorite({
-                          id: event.id,
-                          title: event.title,
-                          thumbnail: event.image,
-                          published: event.date,
-                          link: `/evento/${event.id}`,
-                          category: "event"
-                        });
-                      }}
-                    >
-                      <Heart className={cn("w-4 h-4", isFavorite(event.id) && "fill-current")} />
-                    </button>
-                    
-                    <div className="absolute bottom-6 left-6 right-6 translate-y-4 group-hover:translate-y-0 opacity-0 group-hover:opacity-100 transition-all duration-500">
-                      <h4 className="text-xl font-black text-white leading-tight uppercase">{event.title}</h4>
-                    </div>
-                  </div>
-                  
-                  <div className="px-2">
-                    <h4 className="text-lg font-black text-gray-900 group-hover:text-primary transition-colors uppercase truncate mb-1">{event.title}</h4>
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">{event.date}</p>
+                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
                   </div>
                 </motion.div>
               ))}
             </div>
           </div>
 
-          {/* More Upcoming list */}
-          {upcomingEvents.length > 1 && (
-            <div>
+          {/* Vem aí Section */}
+          {upcomingEvents.length > 0 && (
+            <div className="mb-20">
               <div className="flex items-center gap-3 mb-10">
-                <div className="w-1 h-8 bg-black rounded-full" />
-                <h2 className="text-2xl md:text-3xl font-black tracking-tighter uppercase italic">Brevemente</h2>
+                <div className="w-1 h-8 bg-primary rounded-full" />
+                <h2 className="text-2xl md:text-3xl tracking-tighter text-gray-900 font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">
+                  <span className="font-light">Vem</span> <span className="font-bold">aí!</span>
+                </h2>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {upcomingEvents.slice(1, 5).map((event, idx) => (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                {upcomingEvents.slice(0, 4).map((event, idx) => (
                   <motion.div
                     key={`upcoming-event-${event.id}-${idx}`}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    whileInView={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: idx * 0.1 }}
                     className="group cursor-pointer"
                     onClick={() => navigate(`/evento/${event.id}`)}
                   >
-                    <div className="relative aspect-[3/4] rounded-[1.5rem] overflow-hidden mb-4 shadow-md border border-gray-100">
+                    <div className="relative aspect-video rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 bg-white">
                       <img 
-                        src={event.image} 
+                        src={event.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"} 
                         alt={event.title} 
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"; }}
                         referrerPolicy="no-referrer"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                      <button 
-                        className={cn(
-                          "absolute top-4 right-4 w-8 h-8 rounded-lg backdrop-blur-md border flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300",
-                          isFavorite(event.id) ? "bg-red-500 text-white border-red-500 opacity-100" : "bg-white/20 text-white border-white/20 hover:bg-white/40"
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite({
-                            id: event.id,
-                            title: event.title,
-                            thumbnail: event.image,
-                            published: event.date,
-                            link: `/evento/${event.id}`,
-                            category: "event"
-                          });
-                        }}
-                      >
-                        <Heart className={cn("w-3.5 h-3.5", isFavorite(event.id) && "fill-current")} />
-                      </button>
-                      <div className="absolute top-4 left-4 bg-primary px-3 py-1 rounded-lg text-white text-[10px] font-black uppercase tracking-widest">
-                        FIXO
-                      </div>
-                      <div className="absolute bottom-4 left-4 right-4">
-                        <h4 className="text-sm font-black text-white leading-tight uppercase line-clamp-2">{event.title}</h4>
-                      </div>
+                      <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
                     </div>
                   </motion.div>
                 ))}
@@ -1020,7 +1003,7 @@ export default function Home() {
               className="relative aspect-square rounded-3xl overflow-hidden border border-white/10 shadow-2xl"
             >
               <img 
-                src="https://picsum.photos/seed/church-interior/1000/1000" 
+                src="https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1000" 
                 alt="Igreja" 
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"

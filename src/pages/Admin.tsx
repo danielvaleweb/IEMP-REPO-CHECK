@@ -728,7 +728,7 @@ export default function Admin() {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data && data.type === 'REGISTER_TOKEN' && data.token && user) {
           console.log("DEBUG: Recebido token do app:", data.token);
-          await fetch("/services/push/register", {
+          await fetch("/backend/push/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId: user.uid, token: data.token })

@@ -338,12 +338,11 @@ export default function CreatePhotoModal({ isOpen, onClose, eventTitle, frameUrl
               onChange={handleImageUpload} 
               className="hidden" 
             />
+            {/* Hidden canvas for high-res generation */}
+            <canvas ref={canvasRef} className="hidden" />
           </motion.div>
         </motion.div>
       )}
-      
-      {/* Hidden canvas for high-res generation */}
-      <canvas ref={canvasRef} className="hidden" />
     </AnimatePresence>
   );
 }

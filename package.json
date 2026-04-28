@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "node server.ts",
-    "build": "vite build",
+    "start": "node dist/server.cjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --external:express --external:firebase-admin --outfile=dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit"
   },
@@ -46,8 +46,9 @@
     "@types/node": "^22.14.0",
     "@types/react": "^18.3.1",
     "@types/react-dom": "^18.3.1",
+    "esbuild": "^0.28.0",
+    "tsx": "^4.19.1",
     "typescript": "^5.6.2",
-    "vite": "^6.0.0",
-    "tsx": "^4.19.1"
+    "vite": "^6.0.0"
   }
 }
