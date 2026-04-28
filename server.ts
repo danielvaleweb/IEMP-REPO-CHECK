@@ -450,6 +450,20 @@ async function startServer() {
     }
   });
 
+  // Alias /api/youtube as requested by user
+  app.get("/api/youtube", async (req, res) => {
+    try {
+      const channelId = "UCILgaItnqDH3plhRXD54QUg";
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=10&order=date&key=${API_KEY}`;
+      const response = await fetch(url, { headers: { 'Referer': REFERER } });
+      const data = await response.json();
+      res.status(200).json(data);
+    } catch (error) {
+      console.error("Error in /api/youtube:", error);
+      res.status(500).json({ error: "Ocorreu um erro ao buscar os vídeos do YouTube" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
