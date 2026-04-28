@@ -13,7 +13,8 @@ import {
   ExternalLink,
   X,
   Tag,
-  Youtube
+  Youtube,
+  Camera
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -38,6 +39,7 @@ export default function Home() {
   const [isWatching, setIsWatching] = useState(false);
   const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
   const { toggleFavorite, isFavorite } = useFavorites();
+  const [isFlashing, setIsFlashing] = useState(false);
 
   useEffect(() => {
     const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
@@ -394,6 +396,10 @@ export default function Home() {
 
   return (
     <div className="flex flex-col bg-black">
+      <div className={cn(
+        "fixed inset-0 bg-white z-[9999] pointer-events-none transition-opacity duration-300",
+        isFlashing ? "opacity-100" : "opacity-0"
+      )} />
       {/* Hero Section - Netflix Style */}
       <section id="hero" className="relative min-h-[80vh] md:h-screen w-full bg-black text-white overflow-visible"> {/** Removido overflow-hidden para permitir scroll mais natural */}
         <AnimatePresence mode="wait">
@@ -743,11 +749,17 @@ export default function Home() {
                                 <Button 
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    navigate(`/evento/${currentEvent.id}#galeria`);
+                                    e.preventDefault();
+                                    setIsFlashing(true);
+                                    // Flash effect before navigating
+                                    setTimeout(() => {
+                                      setIsFlashing(false);
+                                      navigate(`/evento/${currentEvent.id}#galeria`);
+                                    }, 300);
                                   }}
-                                  className="bg-primary text-white hover:bg-primary/90 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-xl"
+                                  className="bg-black text-white hover:bg-neutral-900 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-xl border border-white/10"
                                 >
-                                  Ver galeria de fotos
+                                  <Camera className="w-4 h-4 animate-bounce" /> Ver galeria de fotos
                                 </Button>
                               )}
 
