@@ -420,237 +420,79 @@ async function startServer() {
     }
   });
 
+  // YouTube API Integration for both Videos and Lives
+  const YOUTUBE_API_KEY = "AIzaSyA_nzF9lNrNZnE67_lum2D9HsO5OBrwx8o";
+  const REFERER = "https://ministerioprofecia.com.br/";
+
+  const fetchYouTubeAPI = async (channelId: string) => {
+    // Avoid caching in memory here for simplicity (can add if needed, but the original scraper didn't cache long)
+    const url = `https://www.googleapis.com/youtube/v3/search?key=${YOUTUBE_API_KEY}&channelId=${channelId}&part=snippet,id&order=date&maxResults=25`;
+    const res = await fetch(url, { headers: { 'Referer': REFERER } });
+    if (!res.ok) {
+      throw new Error(`YouTube API Error: ${res.statusText}`);
+    }
+    const data = await res.json();
+    return data.items.filter((v: any) => v.id && v.id.videoId).map((v: any) => {
+      let title = v.snippet.title;
+      try {
+        title = decodeURIComponent(escape(title)).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+      } catch (e) {
+        // use raw if decoding fails
+      }
+      return {
+        id: v.id.videoId,
+        title,
+        thumbnail: `https://img.youtube.com/vi/${v.id.videoId}/maxresdefault.jpg`,
+        published: new Date(v.snippet.publishedAt).toLocaleDateString('pt-BR'),
+        link: `https://www.youtube.com/watch?v=${v.id.videoId}`
+      };
+    });
+  };
+
   // API Route to get recent videos
   app.get("/backend/recent-videos", async (req, res) => {
-    console.log("[Backend] Fetching recent videos");
+    console.log("[Backend] Fetching recent videos from YouTube API");
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      let channelId = queryChannelId.trim();
+      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      channelId = channelId.trim();
+
+      const allVideos = await fetchYouTubeAPI(channelId);
       
-      // Resolve Handle to Channel ID if needed
-      if (channelId.startsWith('@')) {
-        try {
-          const handleUrl = `https://www.youtube.com/${channelId}`;
-          const hResponse = await fetch(handleUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          });
-          if (hResponse.ok) {
-            const hHtml = await hResponse.text();
-            const cidMatch = hHtml.match(/"channelId":"(UC[a-zA-Z0-9_-]+)"/);
-            if (cidMatch) {
-              channelId = cidMatch[1];
-            }
-          }
-        } catch (e) { console.warn("Failed to resolve handle to channelId:", e); }
-      }
+      const isLiveOrCulto = (title: string) => {
+        const t = title.toLowerCase();
+        return t.includes('culto') || t.includes('ao vivo') || t.includes('podcast') || t.includes('live') || t.includes('transmissão') || t.includes('vigília');
+      };
 
-      const videos: any[] = [];
-      const seenIds = new Set();
-
-      // 1. Try Scraping first (Full tab data is often better than RSS for categorization)
-      try {
-        let videosUrl = channelId.startsWith('@') ? `https://www.youtube.com/${channelId}/videos` : `https://www.youtube.com/channel/${channelId}/videos`;
-        const response = await fetch(videosUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'pt-BR,pt;q=0.9',
-            'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en'
-          }
-        });
-        if (response.ok) {
-          const html = await response.text();
-          const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-          if (match) {
-            try {
-              const data = JSON.parse(match[1]);
-              const findDeepVideos = (obj: any) => {
-                if (!obj || typeof obj !== 'object') return;
-                
-                // If it has videoId and title, it's probably a video
-                if (obj.videoId && obj.title && (obj.title.runs || obj.title.simpleText)) {
-                  const id = obj.videoId;
-                  if (!seenIds.has(id)) {
-                    seenIds.add(id);
-                    videos.push({
-                      id,
-                      title: obj.title?.runs?.[0]?.text || obj.title?.simpleText || "",
-                      thumbnail: obj.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                      date: obj.publishedTimeText?.simpleText || "Recente"
-                    });
-                  }
-                }
-                
-                Object.values(obj).forEach(findDeepVideos);
-              };
-              findDeepVideos(data);
-            } catch (jsonErr) {
-              console.warn("JSON.parse of ytInitialData failed for videos");
-            }
-          }
-        }
-      } catch (e) { console.warn("Videos Scraping failed:", e); }
-
-      // 2. RSS Fallback/Enrichment
-      if (videos.length < 5) {
-        try {
-          if (!channelId.startsWith('@')) {
-            const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-            const rssResponse = await fetch(rssUrl);
-            if (rssResponse.ok) {
-              const xmlData = await rssResponse.text();
-              const jsonObj = parser.parse(xmlData);
-              const entries = jsonObj.feed?.entry || [];
-              const entriesArray = Array.isArray(entries) ? entries : [entries];
-              
-              for (const entry of entriesArray) {
-                const id = entry["yt:videoId"];
-                if (id && !seenIds.has(id)) {
-                  const title = entry.title || "";
-                  const lowTitle = title.toLowerCase();
-                  // Avoid clearly live content in the videos section if we have other things
-                  const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão');
-                  if (!isLive || videos.length < 5) {
-                    seenIds.add(id);
-                    videos.push({
-                      id,
-                      title,
-                      thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                      date: new Date(entry.published).toLocaleDateString('pt-BR')
-                    });
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) { console.warn("RSS failed:", e); }
-      }
-
-      res.json(videos.slice(0, 15));
+      const videosList = allVideos.filter((v: any) => !isLiveOrCulto(v.title));
+      
+      res.json((videosList.length > 0 ? videosList : allVideos).slice(0, 15));
     } catch (error) {
-      console.error("Critical error in /services/recent-videos:", error);
+      console.error("Critical error in /backend/recent-videos:", error);
       res.status(500).json({ error: "Failed to fetch" });
     }
   });
 
   // API Route to get recent lives/streams
   app.get("/backend/recent-lives", async (req, res) => {
-    console.log("[Backend] Fetching recent lives");
+    console.log("[Backend] Fetching recent lives from YouTube API");
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
-      let queryChannelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      let channelId = queryChannelId.trim();
-
-      // Resolve Handle to Channel ID if needed
-      if (channelId.startsWith('@')) {
-        try {
-          const handleUrl = `https://www.youtube.com/${channelId}`;
-          const hResponse = await fetch(handleUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          });
-          if (hResponse.ok) {
-            const hHtml = await hResponse.text();
-            const cidMatch = hHtml.match(/"channelId":"(UC[a-zA-Z0-9_-]+)"/);
-            if (cidMatch) {
-              channelId = cidMatch[1];
-            }
-          }
-        } catch (e) { 
-          console.warn("Failed to resolve handle to channelId:", e); 
-        }
-      }
+      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
+      channelId = channelId.trim();
       
-      const lives: any[] = [];
-      const seenIds = new Set();
+      const allVideos = await fetchYouTubeAPI(channelId);
+      
+      const isLiveOrCulto = (title: string) => {
+        const t = title.toLowerCase();
+        return t.includes('culto') || t.includes('ao vivo') || t.includes('podcast') || t.includes('live') || t.includes('transmissão') || t.includes('vigília');
+      };
 
-      // 1. Try Scraping the specific Streams tab first
-      try {
-        let streamsUrl = channelId.startsWith('@') ? `https://www.youtube.com/${channelId}/streams` : `https://www.youtube.com/channel/${channelId}/streams`;
-        const response = await fetch(streamsUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'pt-BR,pt;q=0.9',
-            'Cookie': 'CONSENT=YES+cb.20230531-17-p0.en'
-          }
-        });
-        if (response.ok) {
-          const html = await response.text();
-          const match = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-          if (match) {
-            try {
-              const data = JSON.parse(match[1]);
-              const findDeepStreams = (obj: any) => {
-                if (!obj || typeof obj !== 'object') return;
-                
-                if (obj.videoId && obj.title && (obj.title.runs || obj.title.simpleText)) {
-                  const id = obj.videoId;
-                  if (!seenIds.has(id)) {
-                    seenIds.add(id);
-                    lives.push({
-                      id,
-                      title: obj.title?.runs?.[0]?.text || obj.title?.simpleText || "",
-                      thumbnail: obj.thumbnail?.thumbnails?.sort((a: any, b: any) => b.width - a.width)[0]?.url || `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                      date: obj.publishedTimeText?.simpleText || "Ao Vivo"
-                    });
-                  }
-                }
-                
-                Object.values(obj).forEach(findDeepStreams);
-              };
-              findDeepStreams(data);
-            } catch (jsonErr) {
-              console.warn("JSON.parse of ytInitialData failed for streams");
-            }
-          }
-        }
-      } catch (e) { 
-        console.warn("Streams scraping failed:", e); 
-      }
+      const livesList = allVideos.filter((v: any) => isLiveOrCulto(v.title));
 
-      // 2. RSS Fallback with keyword filtering (only if we failed to get enough lives via scraping)
-      if (lives.length < 5) {
-        try {
-          // If channelId is still a handle here, it means resolution failed. 
-          // RSS requires a real channel ID.
-          if (!channelId.startsWith('@')) {
-            const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
-            const rssResponse = await fetch(rssUrl);
-            if (rssResponse.ok) {
-              const xmlData = await rssResponse.text();
-              const jsonObj = parser.parse(xmlData);
-              const entries = jsonObj.feed?.entry || [];
-              const entriesArray = Array.isArray(entries) ? entries : [entries];
-              
-              for (const entry of entriesArray) {
-                const id = entry["yt:videoId"];
-                const title = entry.title || "";
-                const lowTitle = title.toLowerCase();
-                const isLive = lowTitle.includes('culto') || lowTitle.includes('ao vivo') || lowTitle.includes('live') || lowTitle.includes('transmissão') || lowTitle.includes('vigília');
-                
-                if (id && !seenIds.has(id) && isLive) {
-                  seenIds.add(id);
-                  lives.push({
-                    id,
-                    title,
-                    thumbnail: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
-                    date: new Date(entry.published).toLocaleDateString('pt-BR')
-                  });
-                }
-              }
-            }
-          }
-        } catch (e) { 
-          console.warn("RSS Live fallback failed:", e); 
-        }
-      }
-
-      res.json(lives.slice(0, 15));
+      res.json((livesList.length > 0 ? livesList : allVideos.slice(0, 4)).slice(0, 15));
     } catch (error) {
-      console.error("Critical error in /services/recent-lives:", error);
+      console.error("Critical error in /backend/recent-lives:", error);
       res.status(500).json({ error: "Failed to fetch lives", details: error instanceof Error ? error.message : String(error) });
     }
   });

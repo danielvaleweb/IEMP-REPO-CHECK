@@ -162,141 +162,47 @@ export default function Home() {
     const configChannelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
     const configHandle = settings.youtubeHandle || "@ministerio_profecia";
 
-    const fetchFromRSS2JSON = async (chId: string, filterType?: 'videos' | 'lives') => {
-      let cleanId = chId.trim();
-      if (cleanId.startsWith('@')) {
-        // We can't easily resolve handle to ID on client due to CORS, 
-        // so we hope the backend worked or the channel ID was provided.
-        // If it's the known handle, use the known UC ID
-        if (cleanId === "@ministerio_profecia") cleanId = "UCILgaItnqDH3plhRXD54QUg";
-      } else if (cleanId.includes('youtube.com/@')) {
-        const handle = '@' + cleanId.split('youtube.com/@')[1].split('/')[0].split('?')[0];
-        if (handle === "@ministerio_profecia") cleanId = "UCILgaItnqDH3plhRXD54QUg";
-      } else if (cleanId.includes('youtube.com/channel/')) {
-        cleanId = cleanId.split('youtube.com/channel/')[1].split('/')[0].split('?')[0];
-      }
-      const rssUrl = `https://www.youtube.com/feeds/videos.xml?channel_id=${cleanId}`;
-      const response = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`);
-      const data = await response.json();
-      if (data.status === "ok" && data.items) {
-        let filteredItems = data.items;
-        
-        if (filterType) {
-          filteredItems = data.items.filter((item: any) => {
-            const t = (item.title || "").toLowerCase();
-            const isLive = t.includes('culto') || t.includes('ao vivo') || t.includes('podcast') || t.includes('live') || t.includes('transmissão') || t.includes('vigília');
-            if (filterType === 'videos') return !isLive;
-            if (filterType === 'lives') return isLive;
-            return true;
-          });
-        }
-        
-        // If strict filtering didn't return anything (maybe naming convention changed), fallback to unfiltered
-        if (filteredItems.length === 0) {
-           filteredItems = data.items;
-        }
-
-        const mappedItems = filteredItems.map((item: any) => {
-          const videoId = item.guid.replace('yt:video:', '');
-          return {
-            id: videoId,
-            title: item.title,
-            thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-            published: new Date(item.pubDate).toLocaleDateString('pt-BR'),
-            link: item.link
-          };
-        });
-        
-        return mappedItems.slice(0, 10);
-      }
-      throw new Error("RSS2JSON failed");
-    };
-
-    const fetchVideos = async () => {
+    const fetchAllVideos = async () => {
       try {
-        const response = await fetch(`/backend/recent-videos?channelId=${configChannelId}`);
-        if (!response.ok) throw new Error("Failed to fetch videos");
+        const [videosRes, livesRes] = await Promise.all([
+          fetch(`/backend/recent-videos?channelId=${configChannelId}`),
+          fetch(`/backend/recent-lives?channelId=${configChannelId}`)
+        ]);
         
-        const text = await response.text();
-        if (text.trim().startsWith('<')) throw new Error("Backend not available, returned HTML");
-        const data = JSON.parse(text);
+        if (!videosRes.ok || !livesRes.ok) throw new Error("Failed to fetch from backend");
         
-        if (data && data.length > 0) {
-          setVideos(data);
+        const videosData = await videosRes.json();
+        const livesData = await livesRes.json();
+        
+        if (videosData && videosData.length > 0) {
+          setVideos(videosData);
         } else {
-          // If the backend API explicitly returns an empty array, we can try RSS2JSON as a fallback gently 
-          // or just show placeholders without throwing generic errors.
-          console.warn("Backend returned empty videos array. Checking fallback.");
-          try {
-            const fallbackData = await fetchFromRSS2JSON(configChannelId, 'videos');
-            if (fallbackData && fallbackData.length > 0) {
-              setVideos(fallbackData);
-              return;
-            }
-          } catch (e) {
-            // ignore
-          }
           throw new Error("No videos found");
         }
-      } catch (error) {
-        console.warn("Using placeholder videos because no YouTube content was found or configured.");
-        
-        setVideos([
-          {
-            id: "channel_fallback_1",
-            isPlaceholder: true,
-            title: "Configure seu Canal no Painel Admin",
-            thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
-            published: new Date().toISOString(),
-            link: `https://www.youtube.com/${configHandle}/videos`
-          },
-          {
-            id: "channel_fallback_2",
-            isPlaceholder: true,
-            title: "Acesse o Dashboard para carregar seus vídeos",
-            thumbnail: "https://images.unsplash.com/photo-1510590337019-5ef8d3d32116?auto=format&fit=crop&q=80&w=1920",
-            published: new Date().toISOString(),
-            link: `https://www.youtube.com/${configHandle}/videos`
-          }
-        ]);
-      }
-    };
 
-    const fetchLives = async () => {
-      try {
-        const response = await fetch(`/backend/recent-lives?channelId=${configChannelId}`);
-        if (!response.ok) throw new Error("Failed to fetch lives");
-        
-        const text = await response.text();
-        if (text.trim().startsWith('<')) throw new Error("Backend not available, returned HTML");
-        const data = JSON.parse(text);
-        
-        if (data && data.length > 0) {
-          setLives(data);
+        if (livesData && livesData.length > 0) {
+          setLives(livesData);
         } else {
-          // If live array is empty, we don't throw, just set empty to avoid the "Failed" message
           setLives([]);
         }
       } catch (error) {
-        console.warn("Could not fetch YouTube lives. Checking fallback.");
-        try {
-          // Fallback to RSS data for lives too if backend is missing
-          const fallbackData = await fetchFromRSS2JSON(configChannelId, 'lives');
-          if (fallbackData && fallbackData.length > 0) {
-            setLives(fallbackData);
-            return;
-          } else {
-            setLives([]);
-            return;
-          }
-        } catch (rssError) {
-          setLives([]);
-        }
+        console.error("Backend fetch failed", error);
+        
+        // Fallbacks
+        const fallbackVideo = {
+          id: "channel_fallback_1",
+          isPlaceholder: true,
+          title: "Configure seu Canal no Painel Admin",
+          thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
+          published: new Date().toISOString(),
+          link: `https://www.youtube.com/${configHandle}/videos`
+        };
+        setVideos([fallbackVideo]);
+        setLives([]);
       }
     };
 
-    fetchVideos();
-    fetchLives();
+    fetchAllVideos();
     
     // Check if live
     const checkLive = async () => {
@@ -423,12 +329,23 @@ export default function Home() {
                     />
                   </div>
                 ) : (
-                  <img
-                    src={videos[currentIndex].thumbnail}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
+                    <img
+                      src={videos[currentIndex].thumbnail}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        const videoId = videos[currentIndex].id;
+                        if (target.src.includes('maxresdefault')) {
+                          target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                        } else if (target.src.includes('hqdefault')) {
+                          target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+                        } else {
+                          target.src = '/thumb-padrao.jpg';
+                        }
+                      }}
+                    />
                 )}
                 {/* Gradient Overlays */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
@@ -560,6 +477,16 @@ export default function Home() {
                       alt={video.title} 
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src.includes('maxresdefault')) {
+                          target.src = `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`;
+                        } else if (target.src.includes('hqdefault')) {
+                          target.src = `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`;
+                        } else {
+                          target.src = '/thumb-padrao.jpg';
+                        }
+                      }}
                     />
                   )}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
@@ -637,6 +564,16 @@ export default function Home() {
                         alt={life.title} 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (target.src.includes('maxresdefault')) {
+                            target.src = `https://img.youtube.com/vi/${life.id}/hqdefault.jpg`;
+                          } else if (target.src.includes('hqdefault')) {
+                            target.src = `https://img.youtube.com/vi/${life.id}/mqdefault.jpg`;
+                          } else {
+                            target.src = '/thumb-padrao.jpg';
+                          }
+                        }}
                       />
                     )}
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
