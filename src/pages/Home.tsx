@@ -21,7 +21,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
-import { collection, query, orderBy, limit, onSnapshot, doc } from "firebase/firestore";
+import { collection, query, orderBy, limit, onSnapshot, doc, getDocs } from "firebase/firestore";
 
 export default function Home() {
   const navigate = useNavigate();
@@ -72,87 +72,116 @@ export default function Home() {
   };
 
   useEffect(() => {
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(100));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const allEvents = snapshot.docs.map(doc => {
-        const data = doc.data();
-        let displayDate = data.date || "";
-        let displayTime = "";
-        
-        // Handle the new format: DD/MM/YYYY - HH:mm - HH:mm
-        if (displayDate.includes(' - ')) {
-          const parts = displayDate.split(' - ');
-          displayDate = parts[0];
-          displayTime = parts[1]; // Start time
-        }
+    const fetchEvents = async () => {
+      try {
+        const cacheKey = "cachedEvents";
+        const cacheTimeKey = "cachedEventsTime";
+        const cached = localStorage.getItem(cacheKey);
+        const cacheTime = localStorage.getItem(cacheTimeKey);
 
-        // Try to parse the date for sorting/filtering
-        let eventDate = new Date(0); // Default for unparseable dates
-        let formattedDate = displayDate;
-        if (displayDate) {
-          const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
-          const dateParts = dateString.split(/[-/]/);
-          if (dateParts.length >= 2) {
-            let year, month, day;
-            if (dateParts[0].length === 4) { // YYYY-MM-DD
-              year = parseInt(dateParts[0]);
-              month = parseInt(dateParts[1]) - 1;
-              day = parseInt(dateParts[2] || "1");
-            } else { // DD/MM/YYYY
-              day = parseInt(dateParts[0]);
-              month = parseInt(dateParts[1]) - 1;
-              year = new Date().getFullYear();
-              if (dateParts.length >= 3) {
-                year = parseInt(dateParts[2]);
-                if (year < 100) year += 2000;
+        let allEvents = [];
+
+        // 24 hours in milliseconds = 86400000
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 86400000)) {
+          console.log("Using cached events");
+          const parsed = JSON.parse(cached);
+          allEvents = parsed.map((e: any) => ({
+             ...e, 
+             fullDate: new Date(e.fullDate)
+          }));
+        } else {
+          console.log("Fetching all events from Firebase");
+          const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+          const snapshot = await getDocs(q);
+          
+          allEvents = snapshot.docs.map(doc => {
+            const data = doc.data();
+            let displayDate = data.date || "";
+            let displayTime = "";
+            
+            // Handle the new format: DD/MM/YYYY - HH:mm - HH:mm
+            if (displayDate.includes(' - ')) {
+              const parts = displayDate.split(' - ');
+              displayDate = parts[0];
+              displayTime = parts[1]; // Start time
+            }
+
+            // Try to parse the date for sorting/filtering
+            let eventDate = new Date(0); // Default for unparseable dates
+            let formattedDate = displayDate;
+            if (displayDate) {
+              const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
+              const dateParts = dateString.split(/[-/]/);
+              if (dateParts.length >= 2) {
+                let year, month, day;
+                if (dateParts[0].length === 4) { // YYYY-MM-DD
+                  year = parseInt(dateParts[0]);
+                  month = parseInt(dateParts[1]) - 1;
+                  day = parseInt(dateParts[2] || "1");
+                } else { // DD/MM/YYYY
+                  day = parseInt(dateParts[0]);
+                  month = parseInt(dateParts[1]) - 1;
+                  year = new Date().getFullYear();
+                  if (dateParts.length >= 3) {
+                    year = parseInt(dateParts[2]);
+                    if (year < 100) year += 2000;
+                  }
+                }
+                if (!isNaN(day) && !isNaN(month)) {
+                   eventDate = new Date(year, month, day);
+                   const yy = year.toString().slice(-2);
+                   const dd = day.toString().padStart(2, '0');
+                   const mm = (month + 1).toString().padStart(2, '0');
+                   formattedDate = `${dd}-${mm}-${yy}`;
+                }
               }
             }
-            if (!isNaN(day) && !isNaN(month)) {
-              eventDate = new Date(year, month, day);
-              const yy = year.toString().slice(-2);
-              const dd = day.toString().padStart(2, '0');
-              const mm = (month + 1).toString().padStart(2, '0');
-              formattedDate = `${dd}-${mm}-${yy}`;
-            }
-          }
+
+            return {
+              id: doc.id,
+              title: data.title,
+              description: data.content,
+              date: formattedDate,
+              time: displayTime,
+              category: data.organization || "Evento",
+              image: data.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1200",
+              fullDate: eventDate,
+              invitedMembers: data.invitedMembers || [],
+              neighborhood: data.neighborhood || "",
+              rating: "5.0", // Fixed rating instead of random to look more professional
+              gallery: data.gallery || []
+            };
+          }).filter(e => e.title && e.title.trim() !== "");
+
+          localStorage.setItem(cacheKey, JSON.stringify(allEvents));
+          localStorage.setItem(cacheTimeKey, Date.now().toString());
         }
 
-        return {
-          id: doc.id,
-          title: data.title,
-          description: data.content,
-          date: formattedDate,
-          time: displayTime,
-          category: data.organization || "Evento",
-          image: data.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1200",
-          fullDate: eventDate,
-          invitedMembers: data.invitedMembers || [],
-          neighborhood: data.neighborhood || "",
-          rating: "5.0" // Fixed rating instead of random to look more professional
-        };
-      }).filter(e => e.title && e.title.trim() !== "");
+        const now = new Date();
+        now.setHours(0, 0, 0, 0); // Start of today
 
-      const now = new Date();
-      now.setHours(0, 0, 0, 0); // Start of today
+        const upcoming = allEvents
+          .filter((e: any) => e.fullDate >= now)
+          .sort((a: any, b: any) => a.fullDate.getTime() - b.fullDate.getTime());
+        
+        const past = allEvents
+          .filter((e: any) => e.fullDate < now)
+          .sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
-      const upcoming = allEvents
-        .filter(e => e.fullDate >= now)
-        .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
-      
-      const past = allEvents
-        .filter(e => e.fullDate < now)
-        .sort((a, b) => b.fullDate.getTime() - a.fullDate.getTime());
+        setUpcomingEvents(upcoming);
+        setPastEvents(past);
+      } catch (err) {
+        console.error("Error loading events:", err);
+      }
+    };
 
-      setUpcomingEvents(upcoming);
-      setPastEvents(past);
-    }, (err) => console.error("Error loading events:", err));
+    fetchEvents();
 
     const unsubscribeBlog = onSnapshot(query(collection(db, "blog"), limit(6)), (snap) => {
       setBlogPosts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => console.error("Error loading blog posts:", err));
 
     return () => {
-      unsubscribe();
       unsubscribeBlog();
     };
   }, []);
@@ -564,83 +593,48 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Lives Recentes Section */}
+      {/* Clicks Recentes Section */}
       <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 bg-black">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-1 h-8 bg-red-500 rounded-full" />
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Lives Recentes</h2>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Clicks recentes</h2>
             </div>
           </div>
 
-          {lives.length === 0 ? (
-            <div className="text-white/40 text-sm">Nenhuma live recente encontrada.</div>
+          {pastEvents.filter(e => e.gallery && Array.isArray(e.gallery) && e.gallery.length > 0).length === 0 ? (
+            <div className="text-white/40 text-sm">Nenhum evento com fotos recente encontrado.</div>
           ) : (
             <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {lives.slice(0, 5).map((life, idx) => (
+              {pastEvents.filter(e => e.gallery && Array.isArray(e.gallery) && e.gallery.length > 0).slice(0, 5).map((event, idx) => (
                 <motion.div
-                  key={`home-life-${idx}-${life.id || 'no-id'}`}
+                  key={`home-gallery-${idx}-${event.id || 'no-id'}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
                   className="group cursor-pointer min-w-[65%] sm:min-w-[45%] md:min-w-0 snap-start"
-                  onClick={() => handleWatchVideo(life)}
+                  onClick={() => navigate(`/evento/${event.id}#galeria`)}
                 >
                   <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
-                    {life.isPlaceholder ? (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-6 text-center gap-2">
-                        <Youtube className="w-8 h-8 text-white/20" />
-                        <span className="text-[10px] text-white/40 uppercase tracking-widest leading-tight">Configuração Pendente</span>
-                      </div>
-                    ) : (
-                      <img 
-                        src={life.thumbnail} 
-                        alt={life.title} 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          if (target.src.includes('maxresdefault')) {
-                            target.src = `https://img.youtube.com/vi/${life.id}/hqdefault.jpg`;
-                          } else if (target.src.includes('hqdefault')) {
-                            target.src = `https://img.youtube.com/vi/${life.id}/mqdefault.jpg`;
-                          } else {
-                            target.src = '/thumb-padrao.jpg';
-                          }
-                        }}
-                      />
-                    )}
+                    <img 
+                      src={event.gallery[0] || event.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"} 
+                      alt={event.title} 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      referrerPolicy="no-referrer"
+                    />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
                       <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-                        {life.isPlaceholder ? <ExternalLink className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-white fill-current" />}
+                        <Camera className="w-6 h-6 text-white" />
                       </div>
-                      <button 
-                        className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                          isFavorite(life.id) ? "bg-red-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleFavorite({
-                            ...life,
-                            category: "video"
-                          });
-                        }}
-                      >
-                        <Heart className={cn("w-5 h-5", isFavorite(life.id) && "fill-current")} />
-                      </button>
                     </div>
                   </div>
-                  <h3 className={cn(
-                    "text-sm font-bold line-clamp-2 transition-colors",
-                    life.isPlaceholder ? "text-white/60 italic" : "text-white group-hover:text-red-500"
-                  )}>
-                    {cleanTitle(life.title)}
+                  <h3 className="text-sm font-bold line-clamp-2 transition-colors text-white group-hover:text-red-500">
+                    {cleanTitle(event.title)}
                   </h3>
                   <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">
-                    {formatVideoDate(life.published)}
+                    {event.date || ""}
                   </p>
                 </motion.div>
               ))}
