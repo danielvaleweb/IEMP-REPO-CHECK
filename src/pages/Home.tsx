@@ -164,29 +164,64 @@ export default function Home() {
 
     const fetchAllVideos = async () => {
       try {
-        const [videosRes, livesRes] = await Promise.all([
-          fetch(`/backend/recent-videos?channelId=${configChannelId}`),
-          fetch(`/backend/recent-lives?channelId=${configChannelId}`)
-        ]);
-        
-        if (!videosRes.ok || !livesRes.ok) throw new Error("Failed to fetch from backend");
-        
-        const videosData = await videosRes.json();
-        const livesData = await livesRes.json();
-        
-        if (videosData && videosData.length > 0) {
-          setVideos(videosData);
+        const cacheKey = `ytVideos_${configChannelId}`;
+        const cacheTimeKey = `ytTime_${configChannelId}`;
+        const cache = localStorage.getItem(cacheKey);
+        const time = localStorage.getItem(cacheTimeKey);
+
+        let allVideos: any[] = [];
+
+        if (cache && time && (Date.now() - parseInt(time) < 21600000)) {
+          allVideos = JSON.parse(cache);
         } else {
-          throw new Error("No videos found");
+          const response = await fetch(`/backend/youtube-all?channelId=${configChannelId}`);
+          if (!response.ok) throw new Error("Failed to fetch from backend");
+          
+          allVideos = await response.json();
+          localStorage.setItem(cacheKey, JSON.stringify(allVideos));
+          localStorage.setItem(cacheTimeKey, Date.now().toString());
         }
 
-        if (livesData && livesData.length > 0) {
-          setLives(livesData);
+        const isLive = (video: any) => {
+          return video?.snippet?.thumbnails?.high?.url?.includes("_live");
+        };
+
+        const getThumb = (video: any) => {
+          const id = video.id.videoId;
+          return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+        };
+
+        const formatVideo = (v: any) => {
+          let title = v.snippet?.title || "";
+          try {
+            title = decodeURIComponent(escape(title)).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+          } catch (e) {}
+          
+          return {
+            id: v.id?.videoId,
+            title,
+            thumbnail: getThumb(v),
+            published: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'),
+            link: `https://www.youtube.com/watch?v=${v.id?.videoId}`
+          };
+        };
+
+        const rawVideos = allVideos.filter(v => v.snippet?.liveBroadcastContent === "none" && !isLive(v));
+        const rawLives = allVideos.filter(v => isLive(v));
+
+        if (rawVideos.length > 0) {
+          setVideos(rawVideos.slice(0, 15).map(formatVideo));
+        } else {
+          setVideos(allVideos.slice(0, 15).map(formatVideo));
+        }
+
+        if (rawLives.length > 0) {
+          setLives(rawLives.slice(0, 15).map(formatVideo));
         } else {
           setLives([]);
         }
       } catch (error) {
-        console.error("Backend fetch failed", error);
+        console.error("Video fetch failed", error);
         
         // Fallbacks
         const fallbackVideo = {
@@ -442,7 +477,7 @@ export default function Home() {
       </section>
 
       {/* Vídeos Recentes Section */}
-      <div className="relative z-20 pb-20 px-4 md:px-12 bg-black">
+      <div id="videos" className="relative z-20 pb-20 px-4 md:px-12 bg-black">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
@@ -479,6 +514,7 @@ export default function Home() {
                       referrerPolicy="no-referrer"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
+                        // For videos we only try hqdefault or mqdefault as fallback, but getThumb already uses hqdefault
                         if (target.src.includes('maxresdefault')) {
                           target.src = `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`;
                         } else if (target.src.includes('hqdefault')) {
@@ -529,7 +565,7 @@ export default function Home() {
       </div>
 
       {/* Lives Recentes Section */}
-      <div className="relative z-20 pb-20 px-4 md:px-12 bg-black">
+      <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 bg-black">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">

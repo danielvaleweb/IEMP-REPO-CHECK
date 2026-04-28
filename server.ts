@@ -432,68 +432,21 @@ async function startServer() {
       throw new Error(`YouTube API Error: ${res.statusText}`);
     }
     const data = await res.json();
-    return data.items.filter((v: any) => v.id && v.id.videoId).map((v: any) => {
-      let title = v.snippet.title;
-      try {
-        title = decodeURIComponent(escape(title)).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
-      } catch (e) {
-        // use raw if decoding fails
-      }
-      return {
-        id: v.id.videoId,
-        title,
-        thumbnail: `https://img.youtube.com/vi/${v.id.videoId}/maxresdefault.jpg`,
-        published: new Date(v.snippet.publishedAt).toLocaleDateString('pt-BR'),
-        link: `https://www.youtube.com/watch?v=${v.id.videoId}`
-      };
-    });
+    return data.items.filter((v: any) => v.id && v.id.videoId);
   };
 
-  // API Route to get recent videos
-  app.get("/backend/recent-videos", async (req, res) => {
-    console.log("[Backend] Fetching recent videos from YouTube API");
+  // API Route to get all youtube videos for client-side processing
+  app.get("/backend/youtube-all", async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       channelId = channelId.trim();
 
       const allVideos = await fetchYouTubeAPI(channelId);
-      
-      const isLiveOrCulto = (title: string) => {
-        const t = title.toLowerCase();
-        return t.includes('culto') || t.includes('ao vivo') || t.includes('podcast') || t.includes('live') || t.includes('transmissão') || t.includes('vigília');
-      };
-
-      const videosList = allVideos.filter((v: any) => !isLiveOrCulto(v.title));
-      
-      res.json((videosList.length > 0 ? videosList : allVideos).slice(0, 15));
+      res.json(allVideos);
     } catch (error) {
-      console.error("Critical error in /backend/recent-videos:", error);
+      console.error("Critical error in /backend/youtube-all:", error);
       res.status(500).json({ error: "Failed to fetch" });
-    }
-  });
-
-  // API Route to get recent lives/streams
-  app.get("/backend/recent-lives", async (req, res) => {
-    console.log("[Backend] Fetching recent lives from YouTube API");
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    try {
-      let channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
-      channelId = channelId.trim();
-      
-      const allVideos = await fetchYouTubeAPI(channelId);
-      
-      const isLiveOrCulto = (title: string) => {
-        const t = title.toLowerCase();
-        return t.includes('culto') || t.includes('ao vivo') || t.includes('podcast') || t.includes('live') || t.includes('transmissão') || t.includes('vigília');
-      };
-
-      const livesList = allVideos.filter((v: any) => isLiveOrCulto(v.title));
-
-      res.json((livesList.length > 0 ? livesList : allVideos.slice(0, 4)).slice(0, 15));
-    } catch (error) {
-      console.error("Critical error in /backend/recent-lives:", error);
-      res.status(500).json({ error: "Failed to fetch lives", details: error instanceof Error ? error.message : String(error) });
     }
   });
 
