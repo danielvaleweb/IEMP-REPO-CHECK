@@ -33,32 +33,27 @@ async function render() {
 }
 
 function renderItems(allVideos, videosContainer, livesContainer) {
+  console.log("VIDEOS:", allVideos);
   if (!allVideos || allVideos.length === 0) return;
 
-  const isLiveItem = (v) => v?.snippet?.liveBroadcastContent === "live" || v?.snippet?.thumbnails?.high?.url?.includes("_live");
+  const validItems = allVideos.filter(item => item.id && item.id.videoId);
   
-  const videoItems = allVideos.filter(v => !isLiveItem(v)).slice(0, 5);
-  const liveItems = allVideos.filter(v => isLiveItem(v)).slice(0, 5);
+  const isLiveItem = (v) => v?.snippet?.liveBroadcastContent === "live" || v?.snippet?.thumbnails?.medium?.url?.includes("_live");
+  
+  const videoItems = validItems.filter(v => !isLiveItem(v)).slice(0, 5);
+  const liveItems = validItems.filter(v => isLiveItem(v)).slice(0, 5);
 
-  const createCard = (v) => {
-    const id = v.id?.videoId || v.id;
-    if (typeof id === 'object' || !id) return "";
-    const title = v.snippet?.title || "Sem título";
-    const thumb = v.snippet?.thumbnails?.high?.url || `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-    const date = v.snippet?.publishedAt ? new Date(v.snippet.publishedAt).toLocaleDateString('pt-BR') : "";
+  const createCard = (item) => {
+    const videoId = item.id.videoId;
+    const thumb = item.snippet.thumbnails.medium.url;
+    const title = item.snippet.title;
 
     return `
-      <div class="video-card group cursor-pointer" onclick="window.open('https://youtube.com/watch?v=${id}', '_blank')">
-        <div class="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5 bg-gray-900">
-          <img src="${thumb}" alt="${title}" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-          <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-white"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-            </div>
-          </div>
+      <div class="video group cursor-pointer" onclick="window.open('https://youtube.com/watch?v=${videoId}', '_blank')">
+        <div class="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-white/10">
+          <img src="${thumb}" alt="${title}" class="w-full h-full object-cover transition-transform group-hover:scale-110" />
         </div>
-        <h3 class="text-white text-sm font-bold line-clamp-2 group-hover:text-[#BF76FF] transition-colors">${title}</h3>
-        <p class="text-[10px] text-white/40 mt-1 uppercase tracking-widest">${date}</p>
+        <p class="text-white font-bold text-sm line-clamp-2">${title}</p>
       </div>
     `;
   };
@@ -67,11 +62,10 @@ function renderItems(allVideos, videosContainer, livesContainer) {
     if (items.length === 0) return;
     const targetArea = container.querySelector('.max-w-\\[1600px\\] > div:last-child') || container;
     
-    // Check if it's actually empty or has placeholder
     if (targetArea.children.length <= 1 || targetArea.innerText.includes("Nenhum") || targetArea.innerText.includes("Carregando")) {
-      console.log(`Sistema de vídeos: Injetando ${items.length} itens em #${container.id}`);
+      console.log(`Renderizando ${items.length} itens no container #${container.id}`);
       targetArea.innerHTML = items.map(createCard).join('');
-      targetArea.className = "flex overflow-x-auto pb-4 md:grid md:grid-cols-5 gap-4 md:gap-6";
+      targetArea.className = "grid grid-cols-1 md:grid-cols-5 gap-6";
     }
   };
 
