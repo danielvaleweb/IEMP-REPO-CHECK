@@ -187,18 +187,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    // Integração direta com o sistema de vídeos (Vanilla JS)
-    // Chamamos após uma pequena pausa para garantir que o React montou o DOM
-    const timer = setTimeout(() => {
-      if (typeof (window as any).initVideos === 'function') {
-        (window as any).initVideos();
-      }
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
     // Only attempt to fetch when settings are available
     const configChannelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
     const configHandle = settings.youtubeHandle || "@ministerio_profecia";
@@ -527,53 +515,24 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Clicks Recentes Section */}
+      {/* Lives Section */}
       <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 bg-black">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-1 h-8 bg-red-500 rounded-full" />
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Clicks recentes</h2>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Transmissões ao Vivo</h2>
             </div>
           </div>
 
-          {pastEvents.filter(e => e.gallery && Array.isArray(e.gallery) && e.gallery.length > 0).length === 0 ? (
-            <div className="text-white/40 text-sm">Nenhum evento com fotos recente encontrado.</div>
-          ) : (
-            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-              {pastEvents.filter(e => e.gallery && Array.isArray(e.gallery) && e.gallery.length > 0).slice(0, 5).map((event, idx) => (
-                <motion.div
-                  key={`home-gallery-${idx}-${event.id || 'no-id'}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="group cursor-pointer min-w-[65%] sm:min-w-[45%] md:min-w-0 snap-start"
-                  onClick={() => navigate(`/evento/${event.id}#galeria`)}
-                >
-                  <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
-                    <img 
-                      src={event.gallery[0] || event.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"} 
-                      alt={event.title} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-                        <Camera className="w-6 h-6 text-white" />
-                      </div>
-                    </div>
-                  </div>
-                  <h3 className="text-sm font-bold line-clamp-2 transition-colors text-white group-hover:text-red-500">
-                    {cleanTitle(event.title)}
-                  </h3>
-                  <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">
-                    {event.date || ""}
-                  </p>
-                </motion.div>
-              ))}
+          <div className="video-grid-target">
+            {/* O conteúdo será injetado pelo script ou pelo fallback do React abaixo */}
+            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6">
+              {lives.length === 0 && (
+                <div className="text-white/40 text-sm">Nenhuma live ativa no momento.</div>
+              )}
             </div>
-          )}
+          </div>
         </div>
       </div>
 
