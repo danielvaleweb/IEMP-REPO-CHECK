@@ -187,6 +187,18 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // Integração direta com o sistema de vídeos (Vanilla JS)
+    // Chamamos após uma pequena pausa para garantir que o React montou o DOM
+    const timer = setTimeout(() => {
+      if (typeof (window as any).initVideos === 'function') {
+        (window as any).initVideos();
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     // Only attempt to fetch when settings are available
     const configChannelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
     const configHandle = settings.youtubeHandle || "@ministerio_profecia";
@@ -504,77 +516,13 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {videos.slice(0, 5).map((video, idx) => (
-              <motion.div
-                key={`home-video-${idx}-${video.id || 'no-id'}`}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: idx * 0.1 }}
-                className="group cursor-pointer min-w-[65%] sm:min-w-[45%] md:min-w-0 snap-start"
-                onClick={() => handleWatchVideo(video)}
-              >
-                <div className="relative aspect-video rounded-lg overflow-hidden mb-3 border border-white/5">
-                  {video.isPlaceholder ? (
-                    <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex flex-col items-center justify-center p-6 text-center gap-2">
-                      <Youtube className="w-8 h-8 text-white/20" />
-                      <span className="text-[10px] text-white/40 uppercase tracking-widest leading-tight">Configuração Pendente</span>
-                    </div>
-                  ) : (
-                    <img 
-                      src={video.thumbnail} 
-                      alt={video.title} 
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        // For videos we only try hqdefault or mqdefault as fallback, but getThumb already uses hqdefault
-                        if (target.src.includes('maxresdefault')) {
-                          target.src = `https://img.youtube.com/vi/${video.id}/hqdefault.jpg`;
-                        } else if (target.src.includes('hqdefault')) {
-                          target.src = `https://img.youtube.com/vi/${video.id}/mqdefault.jpg`;
-                        } else {
-                          target.src = '/thumb-padrao.jpg';
-                        }
-                      }}
-                    />
-                  )}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center">
-                      {video.isPlaceholder ? <ExternalLink className="w-6 h-6 text-white" /> : <Play className="w-6 h-6 text-white fill-current" />}
-                    </div>
-                    <button 
-                      className={cn(
-                        "w-10 h-10 rounded-full flex items-center justify-center transition-all",
-                        isFavorite(video.id) ? "bg-red-500 text-white" : "bg-white/10 text-white hover:bg-white/20"
-                      )}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const isMusic = video.title.toLowerCase().includes("louvor") || 
-                                       video.title.toLowerCase().includes("música") || 
-                                       video.title.toLowerCase().includes("hino");
-                        toggleFavorite({
-                          ...video,
-                          category: isMusic ? "music" : "video"
-                        });
-                      }}
-                    >
-                      <Heart className={cn("w-5 h-5", isFavorite(video.id) && "fill-current")} />
-                    </button>
-                  </div>
-                </div>
-                <h3 className={cn(
-                  "text-sm font-bold line-clamp-2 transition-colors",
-                  video.isPlaceholder ? "text-white/60 italic" : "text-white group-hover:text-[#BF76FF]"
-                )}>
-                  {cleanTitle(video.title)}
-                </h3>
-                <p className="text-[10px] text-white/40 mt-1 uppercase tracking-widest">
-                  {formatVideoDate(video.published)}
-                </p>
-              </motion.div>
-            ))}
+          <div className="video-grid-target">
+            {/* O conteúdo será injetado pelo script ou pelo fallback do React abaixo */}
+            <div className="flex overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide md:grid md:grid-cols-5 gap-4 md:gap-6">
+              {videos.length === 0 && Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
+              ))}
+            </div>
           </div>
         </div>
       </div>
