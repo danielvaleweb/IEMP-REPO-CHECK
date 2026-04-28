@@ -59,8 +59,7 @@ import {
   ExternalLink,
   ClipboardList,
   Newspaper,
-  XCircle,
-  Star
+  XCircle
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";

@@ -122,7 +122,7 @@ export default function EventDetails() {
           
           let localHasGiven = localStorage.getItem(`feedback_${id}`) === 'true';
           if (user) {
-            if (eventFeedbacks.find(f => f.userId === user.uid)) {
+            if (eventFeedbacks.find((f: any) => f.userId === user.uid)) {
               localHasGiven = true;
             }
           }
