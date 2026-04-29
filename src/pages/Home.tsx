@@ -25,6 +25,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { collection, query, orderBy, limit, onSnapshot, doc, getDocs, setDoc, deleteDoc } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { MovieCard } from "@/components/movies/MovieCard";
 
@@ -32,6 +33,7 @@ import { MovieCard } from "@/components/movies/MovieCard";
 
 export default function Home() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [isLive, setIsLive] = useState(false);
   const [nextService, setNextService] = useState("Domingo às 19:00");
   const [videos, setVideos] = useState<any[]>([]);
@@ -54,31 +56,19 @@ export default function Home() {
       }
     }, (err) => console.error("Error loading settings:", err));
 
-    // Load User Data (My List)
-    const currentUser = auth.currentUser;
-    let unsubscribeList = () => {};
-
-    if (currentUser) {
-      unsubscribeList = onSnapshot(collection(db, "users", currentUser.uid, "myList"), (snapshot) => {
-        setMyList(snapshot.docs.map(d => d.id));
-      });
-    }
-
     return () => {
       unsubscribeConfig();
-      unsubscribeList();
     };
   }, []);
 
   const handleToggleMyList = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    if (!user) {
       navigate('/login');
       return;
     }
 
-    const docRef = doc(db, "users", currentUser.uid, "myList", video.id);
+    const docRef = doc(db, "users", user.uid, "myList", video.id);
     if (myList.includes(video.id)) {
       await deleteDoc(docRef);
     } else {
@@ -88,7 +78,7 @@ export default function Home() {
 
   const handleToggleFavorite = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
-    if (!auth.currentUser) {
+    if (!user) {
       navigate('/login');
       return;
     }
@@ -290,6 +280,18 @@ export default function Home() {
     };
   }, []);
 
+  useEffect(() => {
+    let unsubscribeList = () => {};
+    if (user) {
+      unsubscribeList = onSnapshot(collection(db, "users", user.uid, "myList"), (snapshot) => {
+        setMyList(snapshot.docs.map(d => d.id));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/myList`));
+    } else {
+      setMyList([]);
+    }
+    return () => unsubscribeList();
+  }, [user]);
+
   // Removed automated YouTube fetch logic
   useEffect(() => {
     // Only attempt to fetch when settings are available
@@ -464,11 +466,16 @@ export default function Home() {
                     <Button
                       size="lg"
                       variant="outline"
-                      className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/20 rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2"
+                      className={cn(
+                        "rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2 transition-all duration-300 border",
+                        myList.includes(videos[currentIndex].id)
+                          ? "bg-gradient-to-r from-[#BF76FF] to-purple-800 text-white border-transparent hover:opacity-90 shadow-[0_0_20px_rgba(191,118,255,0.4)]"
+                          : "bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/20"
+                      )}
                       onClick={(e) => handleToggleMyList(e, videos[currentIndex])}
                     >
-                      {myList.includes(videos[currentIndex].id) ? <Check className="w-6 h-6 text-green-500" /> : <Plus className="w-6 h-6" />}
-                      {myList.includes(videos[currentIndex].id) ? "Na Minha Lista" : "Minha Lista"}
+                      {myList.includes(videos[currentIndex].id) ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+                      {myList.includes(videos[currentIndex].id) ? "Adicionado!" : "Assistir Depois"}
                     </Button>
                   </div>
                 </motion.div>
@@ -484,7 +491,7 @@ export default function Home() {
               initial={{ opacity: 0, scale: 1.1 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 1.1 }}
-              className="fixed inset-0 z-[100] bg-black"
+              className="fixed inset-0 z-[9999] bg-black"
             >
               <iframe
                 src={`https://www.youtube-nocookie.com/embed/${selectedVideo.id}?autoplay=1&controls=1&modestbranding=1&rel=0&origin=${window.location.origin}`}
@@ -495,7 +502,7 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-8 right-8 text-white hover:bg-white/10 rounded-full z-[110]"
+                className="absolute top-[80px] right-8 text-white hover:bg-white/10 rounded-full z-[10000]"
                 onClick={() => setIsWatching(false)}
               >
                 <X className="w-8 h-8" />
@@ -506,7 +513,7 @@ export default function Home() {
       </section>
 
       {/* Vídeos Recentes Section */}
-      <div id="videos" className="relative hover:z-[70] pb-20 px-4 md:px-12 bg-black transition-[z-index] duration-0 overflow-visible">
+      <div id="videos" className="relative z-30 pb-20 px-4 md:px-12 overflow-visible">
         <div className="max-w-[1600px] mx-auto overflow-visible">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
@@ -548,7 +555,7 @@ export default function Home() {
       </div>
 
       {/* Clicks Recentes Section */}
-      <div id="lives" className="relative hover:z-[70] pb-20 px-4 md:px-12 bg-black transition-[z-index] duration-0 overflow-visible">
+      <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 overflow-visible">
         <div className="max-w-[1600px] mx-auto overflow-visible">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
@@ -578,6 +585,7 @@ export default function Home() {
                   onShowSimilar={handleShowSimilar}
                   isInList={myList.includes(event.id)}
                   isFavorited={isFavorite(event.id)}
+                  useGalleryImage={true}
                 />
               ))
             )}
@@ -586,7 +594,7 @@ export default function Home() {
       </div>
 
       {/* Eventos Section - Movie Style */}
-      <section className="py-24 px-4 md:px-12 bg-[#F8F9FB] rounded-t-[3.5rem] text-black relative hover:z-[70] -mt-10 transition-[z-index] duration-0">
+      <section className="py-24 px-4 md:px-12 bg-[#F8F9FB] rounded-t-[3.5rem] text-black relative z-10 -mt-10">
         <div className="max-w-[1400px] mx-auto">
           
           {/* Upcoming Events Carousel/Banner */}
@@ -960,7 +968,7 @@ export default function Home() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-md"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-md"
             onClick={() => setShowSimilarModal(false)}
           >
             <motion.div

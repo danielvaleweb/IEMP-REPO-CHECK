@@ -10,12 +10,14 @@ import {
 import { useNavigate } from "react-router-dom";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot, doc, deleteDoc, setDoc } from "firebase/firestore";
+import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { MovieCard } from "@/components/movies/MovieCard";
 import { cn } from "@/lib/utils";
 
 export default function Videos() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [videos, setVideos] = useState<any[]>([]);
   const [myList, setMyList] = useState<any[]>([]);
   const [myListIds, setMyListIds] = useState<string[]>([]);
@@ -54,35 +56,37 @@ export default function Videos() {
       }));
     }, (err) => handleFirestoreError(err, OperationType.LIST, "videos"));
 
-    // Load User Data
-    const currentUser = auth.currentUser;
-    let unsubMyList = () => {};
-    let unsubFavs = () => {};
-
-    if (currentUser) {
-      unsubMyList = onSnapshot(collection(db, "users", currentUser.uid, "myList"), (snapshot) => {
-        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setMyList(list);
-        setMyListIds(list.map(v => v.id));
-      }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${currentUser.uid}/myList`));
-    }
-
     return () => {
       unsubConfig();
       unsubVideos();
-      unsubMyList();
     };
   }, []);
 
+  useEffect(() => {
+    let unsubMyList = () => {};
+
+    if (user) {
+      unsubMyList = onSnapshot(collection(db, "users", user.uid, "myList"), (snapshot) => {
+        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        setMyList(list);
+        setMyListIds(list.map(v => v.id));
+      }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/myList`));
+    } else {
+      setMyList([]);
+      setMyListIds([]);
+    }
+
+    return () => unsubMyList();
+  }, [user]);
+
   const handleToggleMyList = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    if (!user) {
       navigate('/login');
       return;
     }
 
-    const docRef = doc(db, "users", currentUser.uid, "myList", video.id);
+    const docRef = doc(db, "users", user.uid, "myList", video.id);
     if (myListIds.includes(video.id)) {
       await deleteDoc(docRef);
     } else {
@@ -92,7 +96,7 @@ export default function Videos() {
 
   const handleToggleFavorite = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
-    if (!auth.currentUser) {
+    if (!user) {
       navigate('/login');
       return;
     }
@@ -171,8 +175,8 @@ export default function Videos() {
         {/* My List Section */}
         {myList.length > 0 && (
           <section className="space-y-6">
-            <h2 className="text-xl font-bold text-gray-400 uppercase tracking-widest pl-1">Minha Lista</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 relative z-10 overflow-visible"> {/** Minha Lista Grid */}
+            <h2 className="text-xl font-bold text-gray-400 uppercase tracking-widest pl-1">Assistir Mais Tarde</h2>
+            <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 relative z-10 overflow-visible"> {/** Assistir Mais Tarde Grid */}
               {myList.map((video, idx) => (
                 <MovieCard 
                   key={`mylist-${video.id}`}
@@ -231,7 +235,7 @@ export default function Videos() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
           >
             <motion.div 
               initial={{ scale: 0.9, opacity: 0 }}
@@ -263,14 +267,14 @@ export default function Videos() {
                     <button 
                       onClick={(e) => handleToggleMyList(e, selectedVideo)}
                       className={cn(
-                        "flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all",
+                        "flex items-center gap-2 px-6 py-3 rounded-full font-bold transition-all border",
                         myListIds.includes(selectedVideo.id) 
-                          ? "bg-white text-black hover:bg-gray-200" 
-                          : "bg-white/10 text-white hover:bg-white/20"
+                          ? "bg-gradient-to-r from-[#BF76FF] to-purple-800 text-white border-transparent hover:opacity-90 shadow-[0_0_20px_rgba(191,118,255,0.4)]" 
+                          : "bg-white/10 text-white hover:bg-white/20 border-white/20"
                       )}
                     >
-                      {myListIds.includes(selectedVideo.id) ? <Plus className="w-5 h-5 rotate-45" /> : <Plus className="w-5 h-5" />}
-                      {myListIds.includes(selectedVideo.id) ? "Remover da Lista" : "Minha Lista"}
+                      {myListIds.includes(selectedVideo.id) ? <Check className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                      {myListIds.includes(selectedVideo.id) ? "Adicionado!" : "Assistir Depois"}
                     </button>
                   </div>
                 </div>
@@ -300,7 +304,7 @@ export default function Videos() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-md"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-md"
             onClick={() => setShowSimilarModal(false)}
           >
             <motion.div

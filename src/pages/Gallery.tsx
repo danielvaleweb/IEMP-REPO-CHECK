@@ -143,7 +143,7 @@ export default function Gallery() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 md:p-12 cursor-pointer"
+            className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 md:p-12 cursor-pointer"
             onClick={() => setSelectedPhoto(null)}
           >
             <Button 

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { db } from "@/lib/firebase";
+import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 
@@ -39,7 +39,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       const items = snapshot.docs.map(doc => doc.data() as FavoriteItem);
       setFavorites(items);
       setFavoriteIds(items.map(item => item.id));
-    });
+    }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/favorites`));
 
     return () => unsub();
   }, [user]);

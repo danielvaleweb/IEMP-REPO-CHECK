@@ -126,7 +126,7 @@ export default function Navbar() {
           <motion.div 
             initial={{ y: -100 }}
             animate={{ y: 0 }}
-            className="absolute top-full left-1/2 -translate-x-1/2 mt-4 bg-red-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-2xl z-[110]"
+            className="absolute top-full left-1/2 -translate-x-1/2 mt-4 bg-red-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-2xl z-[1010]"
           >
             {authError}
           </motion.div>

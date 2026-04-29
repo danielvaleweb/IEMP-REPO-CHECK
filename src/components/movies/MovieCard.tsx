@@ -22,6 +22,7 @@ interface MovieCardProps {
   isInList?: boolean;
   isFavorited?: boolean;
   showEffects?: boolean;
+  useGalleryImage?: boolean;
 }
 
 export const MovieCard = ({ 
@@ -34,7 +35,8 @@ export const MovieCard = ({
   onShowSimilar,
   isInList, 
   isFavorited,
-  showEffects = true
+  showEffects = true,
+  useGalleryImage = false
 }: MovieCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -63,9 +65,15 @@ export const MovieCard = ({
   }, []);
 
   const isVideo = type === 'video';
-  const displayImage = type === 'event' 
-    ? ((item.gallery && item.gallery.length > 0) ? item.gallery[0] : item.image) 
-    : item.thumbnail;
+  let displayImage = item.thumbnail;
+  
+  if (type === 'event') {
+    if (useGalleryImage && item.gallery && item.gallery.length > 0) {
+      displayImage = typeof item.gallery[0] === 'string' ? item.gallery[0] : item.gallery[0].url;
+    } else {
+      displayImage = item.image;
+    }
+  }
 
   const getYoutubeId = (url: string) => {
     if (!url) return null;
