@@ -196,30 +196,29 @@ export default function Home() {
       const cacheTimeKey = `yt_videos_time_${channelId}`;
       
       try {
-        // 1. Tentar carregar do Cache primeiro (6 horas de validade)
+        // 1. Tentar carregar do Cache primeiro (12 horas de validade no cliente)
         const cached = localStorage.getItem(cacheKey);
         const cacheTime = localStorage.getItem(cacheTimeKey);
         const now = Date.now();
         
-        if (cached && cacheTime && (now - parseInt(cacheTime) < 21600000)) { // 6 horas
-          console.log("[Home] Usando vídeos em cache");
+        // Se temos cache e ele tem menos de 12 horas, usamos ele
+        if (cached && cacheTime && (now - parseInt(cacheTime) < 43200000)) {
           const data = JSON.parse(cached);
-          setVideos(data.videos || []);
-          setLives(data.lives || []);
-          setIsLive(data.lives?.length > 0);
-          return;
+          if (data.videos?.length > 0) {
+            setVideos(data.videos);
+            setLives(data.lives || []);
+            setIsLive(data.lives?.length > 0);
+            return;
+          }
         }
 
-        console.log(`[Home] Buscando vídeos via API para: ${channelId}`);
         const response = await fetch(`/api/youtube?channelId=${channelId}`);
-        
-        // Obter o texto puramente primeiro para evitar erros de parse
         const responseText = await response.text();
         let data: any;
+        
         try {
           data = JSON.parse(responseText);
         } catch (e) {
-          console.warn("[Home] Resposta da API não é JSON, tentando cache...");
           throw new Error("INVALID_JSON");
         }
 
@@ -232,7 +231,6 @@ export default function Home() {
         const items = data.items || [];
 
         const isLive = (video: any) => {
-          // PlaylistItems não tem liveBroadcastContent da mesma forma que Search
           return video?.snippet?.liveBroadcastContent === "live" || 
                  video?.snippet?.thumbnails?.high?.url?.includes("_live") ||
                  video?.snippet?.title?.toLowerCase().includes("ao vivo");
@@ -274,22 +272,22 @@ export default function Home() {
           }
         });
 
-        // 2. Salvar no Cache
-        localStorage.setItem(cacheKey, JSON.stringify({ videos: videoList, lives: liveList }));
-        localStorage.setItem(cacheTimeKey, now.toString());
+        // 2. Salvar no Cache se tivemos sucesso
+        if (videoList.length > 0) {
+          localStorage.setItem(cacheKey, JSON.stringify({ videos: videoList, lives: liveList }));
+          localStorage.setItem(cacheTimeKey, now.toString());
+        }
 
-        console.log(`[Home] Sucesso: ${videoList.length} vídeos salvos no cache`);
         setVideos(videoList);
         setLives(liveList);
         setIsLive(liveList.length > 0);
 
       } catch (error: any) {
-        console.error("[Home] Falha no YouTube fetch", error);
+        console.error("[Home] YouTube fetch failed", error);
         
-        // 3. Se falhar, tentar usar o cache mesmo que expirado (como última alternativa)
+        // 3. Fallback para cache mesmo que antigo em caso de erro na API
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
-          console.log("[Home] Usando cache expirado devido a falha na API");
           try {
             const data = JSON.parse(cached);
             setVideos(data.videos || []);
@@ -299,21 +297,20 @@ export default function Home() {
           } catch (e) {}
         }
 
-        // Se não houver cache nenhum, mostrar o fallback decorado
         if (error.message === "QUOTA_EXCEEDED") {
           setVideos([{
             id: "quota-error",
             isPlaceholder: true,
-            title: "Limite diário do YouTube atingido. Acesse nosso canal diretamente.",
+            title: "Limite diário atingido. Assista direto no YouTube.",
             thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
-            published: "Tente novamente amanhã",
+            published: "Tente amanhã",
             link: `https://www.youtube.com/${configHandle}/videos`
           }]);
         } else {
           setVideos([{
             id: "fallback",
             isPlaceholder: true,
-            title: "Erro ao carregar vídeos",
+            title: "Vídeos temporariamente indisponíveis",
             thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
             published: "",
             link: `https://www.youtube.com/${configHandle}/videos`

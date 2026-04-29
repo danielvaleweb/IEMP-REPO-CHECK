@@ -360,69 +360,60 @@ async function startServer() {
   // Legacy live-status removed as requested.
 
   // YouTube API Integration
-  const API_KEY = "AIzaSyA_nzF9lNrNZnE67_lum2D9HsO5OBrwx8o";
-  const REFERER = "https://ministerioprofecia.com.br/";
+  const YT_API_KEY = "AIzaSyA_nzF9lNrNZnE67_lum2D9HsO5OBrwx8o";
+  const YT_REFERER = "https://ministerioprofecia.com.br/";
 
-  // Cache simples em memória no servidor
+  // Cache em memória no servidor para economizar cota global (reseta se o servidor reiniciar)
   const ytCache = new Map<string, { data: any, timestamp: number }>();
-  const CACHE_DURATION = 1800000; // 30 minutos
+  const CACHE_DURATION = 7200000; // 2 horas de cache no servidor
 
   app.get("/api/youtube", async (req, res) => {
     try {
       const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       
-      // Verificar cache
       const cached = ytCache.get(channelId);
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-        console.log(`[YouTube API] Usando cache do servidor para: ${channelId}`);
         return res.json(cached.data);
       }
 
-      console.log(`[YouTube API] Buscando novos dados para: ${channelId}`);
+      // Convertemos Canal (UC...) para Playlist de Uploads (UU...) para economizar 100x em cota
+      let playlistId = channelId;
+      if (channelId.startsWith('UC')) {
+        playlistId = 'UU' + channelId.substring(2);
+      }
+
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=20&key=${YT_API_KEY}`;
       
-      // Otimização: Pegar a playlist de "Uploads" (UC -> UU)
-      // O endpoint playlistItems custa 1 unidade, search custa 100.
-      const playlistId = channelId.startsWith('UC') ? 'UU' + channelId.substring(2) : channelId;
-      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=20&key=${API_KEY}`;
-      
-      let response = await fetch(url, { headers: { 'Referer': REFERER } });
+      let response = await fetch(url, { headers: { 'Referer': YT_REFERER } });
       let text = await response.text();
       let data: any;
       
       try {
         data = JSON.parse(text);
       } catch (e) {
-        console.error("[YouTube API] Erro ao parsear JSON:", text.substring(0, 200));
-        return res.status(502).json({ error: { message: "Resposta inválida do Google" } });
+        return res.status(502).json({ error: { message: "Resposta inválida do YouTube" } });
       }
 
-      // Se falhar a playlist (canal não padrão), tenta o search como fallback (caro)
-      if (data.error && data.error.code !== 403) {
-        const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=10&order=date&type=video&key=${API_KEY}`;
-        response = await fetch(searchUrl, { headers: { 'Referer': REFERER } });
-        data = await response.json();
-      }
-
+      // Se der erro (ex: cota), retornamos o erro para o frontend lidar/usar cache local
       if (data.error) {
-        console.error("[YouTube API] Erro do Google:", JSON.stringify(data.error));
+        console.error("[YouTube API Error]", data.error);
         return res.status(data.error.code || 500).json(data);
       }
 
-      // Normalizar resposta do playlistItems para o formato de vídeos
+      // Normalizar resposta para garantir compatibilidade com o frontend
       if (data.items) {
         data.items = data.items.map((item: any) => ({
           ...item,
-          id: item.contentDetails?.videoId || item.id?.videoId || item.id
+          // Garante que o frontend encontre o ID do vídeo
+          id: { videoId: item.contentDetails?.videoId || item.id?.videoId || item.id }
         }));
       }
 
-      // Salvar no cache
       ytCache.set(channelId, { data, timestamp: Date.now() });
-
       res.status(200).json(data);
     } catch (error) {
       console.error("Erro em /api/youtube:", error);
-      res.status(500).json({ error: { message: "Erro interno no servidor" } });
+      res.status(500).json({ error: { message: "Erro interno no servidor de vídeos" } });
     }
   });
 
