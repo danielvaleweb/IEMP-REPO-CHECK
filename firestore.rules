@@ -114,7 +114,8 @@ service cloud.firestore {
     function isValidVideo(data) {
       return data.keys().hasAll(['title', 'url']) &&
              data.title is string && data.title.size() <= 200 &&
-             data.url is string;
+             data.url is string &&
+             (!data.keys().hasAny(['badge']) || (data.badge is string && data.badge.size() <= 100));
     }
 
     // --- Collection Rules ---
@@ -229,6 +230,15 @@ service cloud.firestore {
       allow read, list, get: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidVideo(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+      
+      match /{subcollection=**} {
+        allow read, write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     // Default deny for everything else

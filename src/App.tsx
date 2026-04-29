@@ -25,6 +25,7 @@ import EventDetails from "@/pages/EventDetails";
 import NoticiaDetalhe from "@/pages/NoticiaDetalhe";
 
 import Solicitacao from "@/pages/Solicitacao";
+import Videos from "@/pages/Videos";
 
 function AppContent() {
   const location = useLocation();
@@ -40,6 +41,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/ao-vivo" element={<Live />} />
+          <Route path="/videos" element={<Videos />} />
           <Route path="/galeria" element={<Gallery />} />
           <Route path="/favoritos" element={<Favorites />} />
           <Route path="/admin" element={<Admin />} />

@@ -14,20 +14,117 @@ import {
   X,
   Tag,
   Youtube,
-  Camera
+  Camera,
+  Plus,
+  Check,
+  ThumbsUp,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { collection, query, orderBy, limit, onSnapshot, doc, getDocs, setDoc, deleteDoc } from "firebase/firestore";
 import { useFavorites } from "@/contexts/FavoritesContext";
-import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
-import { collection, query, orderBy, limit, onSnapshot, doc, getDocs } from "firebase/firestore";
+import { MovieCard } from "@/components/movies/MovieCard";
+
+// Reusable Netflix Style Card Component removed and extracted to its own file.
 
 export default function Home() {
   const navigate = useNavigate();
   const [isLive, setIsLive] = useState(false);
   const [nextService, setNextService] = useState("Domingo às 19:00");
   const [videos, setVideos] = useState<any[]>([]);
+  const [myList, setMyList] = useState<string[]>([]);
+  const { favorites, favoriteIds, toggleFavorite: toggleFavoriteCtx, isFavorite } = useFavorites();
+  const [config, setConfig] = useState<any>({ videoCardsEnabled: true, enableHeaderVideos: true });
+  const [similarVideos, setSimilarVideos] = useState<any[]>([]);
+  const [showSimilarModal, setShowSimilarModal] = useState(false);
+  const [activeSimilarVideo, setActiveSimilarVideo] = useState<any | null>(null);
+
+  useEffect(() => {
+    // Load config
+    const unsubscribeConfig = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setConfig(prev => ({ ...prev, ...data }));
+        if (data.nextService) {
+          setNextService(data.nextService);
+        }
+      }
+    }, (err) => console.error("Error loading settings:", err));
+
+    // Load User Data (My List)
+    const currentUser = auth.currentUser;
+    let unsubscribeList = () => {};
+
+    if (currentUser) {
+      unsubscribeList = onSnapshot(collection(db, "users", currentUser.uid, "myList"), (snapshot) => {
+        setMyList(snapshot.docs.map(d => d.id));
+      });
+    }
+
+    return () => {
+      unsubscribeConfig();
+      unsubscribeList();
+    };
+  }, []);
+
+  const handleToggleMyList = async (e: React.MouseEvent, video: any) => {
+    e.stopPropagation();
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      navigate('/login');
+      return;
+    }
+
+    const docRef = doc(db, "users", currentUser.uid, "myList", video.id);
+    if (myList.includes(video.id)) {
+      await deleteDoc(docRef);
+    } else {
+      await setDoc(docRef, video);
+    }
+  };
+
+  const handleToggleFavorite = async (e: React.MouseEvent, video: any) => {
+    e.stopPropagation();
+    if (!auth.currentUser) {
+      navigate('/login');
+      return;
+    }
+    await toggleFavoriteCtx({
+      id: video.id,
+      title: video.title,
+      thumbnail: video.thumbnail || video.image,
+      published: video.published || video.date,
+      link: video.link || `/evento/${video.id}`,
+      category: video.category === "event" ? "event" : "video"
+    });
+  };
+
+  const handleShowSimilar = (video: any) => {
+    setActiveSimilarVideo(video);
+    
+    const similar = videos.filter(v => {
+      if (v.id === video.id) return false;
+      
+      // If the current video has tags, find videos with ANY matching tag
+      if (video.tags && video.tags.length > 0) {
+        return v.tags?.some((t: string) => video.tags.includes(t)) || 
+               video.tags.some((t: string) => v.title?.toLowerCase().includes(t.toLowerCase()));
+      }
+      
+      // Fallback logic for legacy/untagged videos
+      const tagToMatch = video.title?.toLowerCase().includes("pregação") ? "pregação" : 
+                       video.category === "event" ? "event" : "video";
+                       
+      return v.category === tagToMatch || 
+             v.title?.toLowerCase().includes(tagToMatch.toLowerCase());
+    }).slice(0, 9);
+    
+    setSimilarVideos(similar);
+    setShowSimilarModal(true);
+  };
   const [showAllVideos, setShowAllVideos] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [pastEvents, setPastEvents] = useState<any[]>([]);
@@ -37,23 +134,10 @@ export default function Home() {
   const [currentEventIndex, setCurrentEventIndex] = useState(0);
   const [showVideo, setShowVideo] = useState(false);
   const [isWatching, setIsWatching] = useState(false);
-  const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
-  const { toggleFavorite, isFavorite } = useFavorites();
   const [isFlashing, setIsFlashing] = useState(false);
 
-  useEffect(() => {
-    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setSettings(data);
-        if (data.nextService) {
-          setNextService(data.nextService);
-        }
-      }
-    }, (err) => console.error("Error loading settings:", err));
-    return () => unsubSettings();
-  }, []);
-
+  // Consolidated with the primary config effect above
+  
   const nextVideo = useCallback(() => {
     if (videos.length === 0) return;
     setCurrentIndex((prev) => (prev + 1) % Math.min(videos.length, 6));
@@ -189,9 +273,13 @@ export default function Home() {
         return {
           id: videoId,
           title: data.title,
+          badge: data.badge,
+          description: data.description || "",
           thumbnail: data.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
           published: data.published || (data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : ""),
-          link: `https://www.youtube.com/watch?v=${videoId}`
+          link: `https://www.youtube.com/watch?v=${videoId}`,
+          tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
+          category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
         };
       }));
     }, (err) => console.error("Error loading videos:", err));
@@ -205,8 +293,8 @@ export default function Home() {
   // Removed automated YouTube fetch logic
   useEffect(() => {
     // Only attempt to fetch when settings are available
-    // const configHandle = settings.youtubeHandle || "@ministerio_profecia";
-  }, [settings.youtubeChannelId, settings.youtubeHandle]);
+    // const configHandle = config.youtubeHandle || "@ministerio_profecia";
+  }, [config.youtubeChannelId, config.youtubeHandle]);
 
   // Auto-play carousel every 30 seconds for videos
   useEffect(() => {
@@ -229,21 +317,14 @@ export default function Home() {
 
   // Show video after 3 seconds of slide change
   useEffect(() => {
-    // Avoid autoplaying background iframe on mobile devices to prevent YouTube bot verification prompt
-    if (window.innerWidth <= 768) {
-      setShowVideo(false);
-      return;
-    }
-
-    if (settings.enableHeaderVideos === false) {
-      setShowVideo(false);
-      return;
-    }
+    setShowVideo(false);
+    if (!config.enableHeaderVideos) return;
+    
     const timer = setTimeout(() => {
       setShowVideo(true);
     }, 3000);
     return () => clearTimeout(timer);
-  }, [currentIndex, settings.enableHeaderVideos]);
+  }, [currentIndex, config.enableHeaderVideos]);
 
   useEffect(() => {
     const handleOpenLive = () => {
@@ -307,7 +388,7 @@ export default function Home() {
                 {showVideo && !isWatching ? (
                   <div className="absolute inset-0 w-full h-full pointer-events-none">
                     <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0&origin=${window.location.origin}`}
+                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=0&modestbranding=1&rel=0&origin=${window.location.origin}`}
                       className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 border-none scale-105"
                       allow="autoplay; encrypted-media"
                     />
@@ -344,9 +425,17 @@ export default function Home() {
                   className="max-w-3xl"
                 >
                   <div className="flex items-center gap-3 mb-4">
-                    <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded uppercase tracking-wider shadow-lg">
-                      {isLive && currentIndex === 0 ? "Ao Vivo" : "Gravado"}
-                    </span>
+                    {videos[currentIndex].tags && videos[currentIndex].tags.length > 0 ? (
+                      videos[currentIndex].tags.slice(0, 2).map((tag: string, i: number) => (
+                        <span key={i} className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-sm uppercase tracking-widest shadow-lg">
+                          {tag}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-sm uppercase tracking-widest shadow-lg">
+                        {videos[currentIndex].badge || (isLive && currentIndex === 0 ? "Ao Vivo" : "Gravado")}
+                      </span>
+                    )}
                     <span className="text-white/90 text-sm font-medium drop-shadow-md">
                       {(() => {
                         const dateStr = videos[currentIndex].published;
@@ -375,20 +464,11 @@ export default function Home() {
                     <Button
                       size="lg"
                       variant="outline"
-                      className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/20 rounded-md px-8 h-12 text-lg font-bold"
-                      onClick={() => {
-                        const video = videos[currentIndex];
-                        const isMusic = video.title.toLowerCase().includes("louvor") || 
-                                       video.title.toLowerCase().includes("música") || 
-                                       video.title.toLowerCase().includes("hino");
-                        toggleFavorite({
-                          ...video,
-                          category: isMusic ? "music" : "video"
-                        });
-                      }}
+                      className="bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/20 rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2"
+                      onClick={(e) => handleToggleMyList(e, videos[currentIndex])}
                     >
-                      {isFavorite(videos[currentIndex].id) ? <Heart className="w-6 h-6 fill-red-500 stroke-red-500" /> : <Heart className="w-6 h-6" />}
-                      {isFavorite(videos[currentIndex].id) ? "Favoritado" : "Minha Lista"}
+                      {myList.includes(videos[currentIndex].id) ? <Check className="w-6 h-6 text-green-500" /> : <Plus className="w-6 h-6" />}
+                      {myList.includes(videos[currentIndex].id) ? "Na Minha Lista" : "Minha Lista"}
                     </Button>
                   </div>
                 </motion.div>
@@ -426,102 +506,79 @@ export default function Home() {
       </section>
 
       {/* Vídeos Recentes Section */}
-      <div id="videos" className="relative z-20 pb-20 px-4 md:px-12 bg-black">
-        <div className="max-w-[1600px] mx-auto">
+      <div id="videos" className="relative hover:z-[70] pb-20 px-4 md:px-12 bg-black transition-[z-index] duration-0 overflow-visible">
+        <div className="max-w-[1600px] mx-auto overflow-visible">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-1 h-8 bg-[#BF76FF] rounded-full" />
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Vídeos Recentes</h2>
             </div>
             <button 
-               onClick={() => setShowAllVideos(!showAllVideos)}
+               onClick={() => navigate('/videos')}
                className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group"
             >
-              {showAllVideos ? "Ver Menos" : "Ver Tudo"} <ArrowRight className={cn("w-4 h-4 transition-transform", showAllVideos ? "rotate-90" : "group-hover:translate-x-1")} />
+              Ver Tudo <ArrowRight className={cn("w-4 h-4 transition-transform group-hover:translate-x-1")} />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8 relative z-10 overflow-visible"> {/** Grid de Vídeos */}
             {videos.length === 0 ? (
                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
+                  <div key={i} className="aspect-video bg-white/5 rounded-md animate-pulse" />
                ))
             ) : (
               (showAllVideos ? videos : videos.slice(0, 5)).map((video, idx) => (
-                <motion.div
+                <MovieCard 
                   key={`home-video-${idx}-${video.id || 'no-id'}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="group cursor-pointer"
+                  item={video}
+                  type="video"
+                  idx={idx}
                   onClick={() => handleWatchVideo(video)}
-                >
-                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
-                    <img 
-                      src={video.thumbnail} 
-                      alt={video.title} 
-                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Play className="w-12 h-12 text-white fill-current" />
-                    </div>
-                  </div>
-                  <h3 className="text-white font-bold text-sm line-clamp-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                    {cleanTitle(video.title)}
-                  </h3>
-                </motion.div>
+                  onAddToList={handleToggleMyList}
+                  onFavorite={handleToggleFavorite}
+                  onShowSimilar={handleShowSimilar}
+                  isInList={myList.includes(video.id)}
+                  isFavorited={isFavorite(video.id)}
+                  showEffects={config.videoCardsEnabled}
+                />
               ))
             )}
           </div>
         </div>
       </div>
 
-      {/* Últimos Cliques Section */}
-      <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 bg-black">
-        <div className="max-w-[1600px] mx-auto">
+      {/* Clicks Recentes Section */}
+      <div id="lives" className="relative hover:z-[70] pb-20 px-4 md:px-12 bg-black transition-[z-index] duration-0 overflow-visible">
+        <div className="max-w-[1600px] mx-auto overflow-visible">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-1 h-8 bg-red-500 rounded-full" />
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Últimos Cliques</h2>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Clicks Recentes</h2>
             </div>
             <Link to="/eventos" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
               Ver Galeria <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8 relative z-10 overflow-visible"> {/** Grid de Cliques */}
             {pastEvents.length === 0 ? (
                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
+                  <div key={i} className="aspect-video bg-white/5 rounded-md animate-pulse" />
                ))
             ) : (
               pastEvents.slice(0, 5).map((event, idx) => (
-                <motion.div
+                <MovieCard 
                   key={`home-clique-${idx}-${event.id}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="group cursor-pointer"
+                  item={event}
+                  type="event"
+                  idx={idx}
                   onClick={() => navigate(`/evento/${event.id}#galeria`)}
-                >
-                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
-                    <img 
-                      src={event.image} 
-                      alt={event.title} 
-                      className="w-full h-full object-cover transition-transform group-hover:scale-110"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <Camera className="w-12 h-12 text-white" />
-                    </div>
-                  </div>
-                  <h3 className="text-white font-bold text-sm line-clamp-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                    {event.title}
-                  </h3>
-                </motion.div>
+                  onAddToList={handleToggleMyList}
+                  onFavorite={handleToggleFavorite}
+                  onShowSimilar={handleShowSimilar}
+                  isInList={myList.includes(event.id)}
+                  isFavorited={isFavorite(event.id)}
+                />
               ))
             )}
           </div>
@@ -529,7 +586,7 @@ export default function Home() {
       </div>
 
       {/* Eventos Section - Movie Style */}
-      <section className="py-24 px-4 md:px-12 bg-[#F8F9FB] rounded-t-[3.5rem] text-black relative z-30 -mt-10">
+      <section className="py-24 px-4 md:px-12 bg-[#F8F9FB] rounded-t-[3.5rem] text-black relative hover:z-[70] -mt-10 transition-[z-index] duration-0">
         <div className="max-w-[1400px] mx-auto">
           
           {/* Upcoming Events Carousel/Banner */}
@@ -622,7 +679,7 @@ export default function Home() {
                                 )}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  toggleFavorite({
+                                  handleToggleFavorite(e, {
                                     id: currentEvent.id,
                                     title: currentEvent.title,
                                     thumbnail: currentEvent.image,
@@ -659,28 +716,20 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 overflow-visible">
               {(pastEvents.length > 0 ? pastEvents : []).slice(0, 4).map((event, idx) => (
-                <motion.div
+                <MovieCard 
                   key={`past-event-${event.id}-${idx}`}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: idx * 0.1 }}
-                  className="group cursor-pointer"
+                  item={event}
+                  type="event"
+                  idx={idx}
                   onClick={() => navigate(`/evento/${event.id}`)}
-                >
-                  <div className="relative aspect-video rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 bg-white">
-                    <img 
-                      src={event.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"} 
-                      alt={event.title} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                      onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"; }}
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
-                  </div>
-                </motion.div>
+                  onAddToList={handleToggleMyList}
+                  onFavorite={handleToggleFavorite}
+                  onShowSimilar={handleShowSimilar}
+                  isInList={myList.includes(event.id)}
+                  isFavorited={isFavorite(event.id)}
+                />
               ))}
             </div>
           </div>
@@ -695,28 +744,20 @@ export default function Home() {
                 </h2>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 overflow-visible">
                 {upcomingEvents.slice(0, 4).map((event, idx) => (
-                  <motion.div
+                  <MovieCard 
                     key={`upcoming-event-${event.id}-${idx}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: idx * 0.1 }}
-                    className="group cursor-pointer"
+                    item={event}
+                    type="event"
+                    idx={idx}
                     onClick={() => navigate(`/evento/${event.id}`)}
-                  >
-                    <div className="relative aspect-video rounded-[2rem] overflow-hidden shadow-lg border border-gray-100 bg-white">
-                      <img 
-                        src={event.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"} 
-                        alt={event.title} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=800"; }}
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
-                    </div>
-                  </motion.div>
+                    onAddToList={handleToggleMyList}
+                    onFavorite={handleToggleFavorite}
+                    onShowSimilar={handleShowSimilar}
+                    isInList={myList.includes(event.id)}
+                    isFavorited={isFavorite(event.id)}
+                  />
                 ))}
               </div>
             </div>
@@ -726,7 +767,7 @@ export default function Home() {
       </section>
 
       {/* Blog/Notícias Section - Estilo Portal de Notícias (Mosaico) */}
-      <section className="py-24 px-4 md:px-12 bg-white text-black relative z-30">
+      <section className="py-24 px-4 md:px-12 bg-white text-black relative hover:z-[70] transition-[z-index] duration-0">
         <div className="max-w-[1400px] mx-auto">
           <div className="flex items-center justify-between mb-12">
             <div className="flex flex-col gap-2">
@@ -911,6 +952,91 @@ export default function Home() {
           </motion.div>
         </div>
       </section>
+
+      {/* Similar Videos Modal */}
+      <AnimatePresence>
+        {showSimilarModal && activeSimilarVideo && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8 bg-black/95 backdrop-blur-md"
+            onClick={() => setShowSimilarModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 30 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 30 }}
+              className="bg-[#181818] w-full max-w-6xl max-h-[90vh] rounded-2xl overflow-hidden shadow-[0_0_50px_rgba(0,0,0,1)] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="relative p-6 md:p-8 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-primary/20 to-transparent">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-1.5 h-6 bg-primary rounded-full" />
+                    <h3 className="text-xl md:text-3xl font-black text-white uppercase tracking-tighter">
+                      Vídeos Semelhantes
+                    </h3>
+                  </div>
+                  <p className="text-gray-400 text-sm font-medium">
+                    Explorando conteúdos relacionados a: <span className="text-white font-bold">{activeSimilarVideo.title}</span>
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setShowSimilarModal(false)}
+                  className="w-12 h-12 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white transition-all hover:rotate-90"
+                >
+                  <X className="w-8 h-8" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-6 md:p-12 custom-scrollbar bg-[#141414]">
+                {similarVideos.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {similarVideos.map((item, idx) => (
+                      <div key={`similar-${item.id}-${idx}`} className="group/item">
+                        <MovieCard
+                          item={item}
+                          type="video"
+                          idx={idx}
+                          onClick={() => {
+                            setShowSimilarModal(false);
+                            handleWatchVideo(item);
+                          }}
+                          onAddToList={handleToggleMyList}
+                          onFavorite={handleToggleFavorite}
+                          onShowSimilar={handleShowSimilar}
+                          isInList={myList.includes(item.id)}
+                          isFavorited={isFavorite(item.id)}
+                          showEffects={true}
+                        />
+                        <div className="mt-4 opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity">
+                           <h4 className="text-white font-bold text-sm line-clamp-1">{item.title}</h4>
+                           <p className="text-gray-500 text-xs mt-1 line-clamp-2">{item.description}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-32 text-center flex flex-col items-center gap-4">
+                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center">
+                       <Youtube className="w-10 h-10 text-white/20" />
+                    </div>
+                    <p className="text-gray-400 font-medium text-lg">Nenhum vídeo semelhante encontrado com esta tag.</p>
+                    <Button 
+                      variant="outline" 
+                      className="mt-4 border-white/10 text-white hover:bg-white/5"
+                      onClick={() => setShowSimilarModal(false)}
+                    >
+                      Voltar ao Início
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

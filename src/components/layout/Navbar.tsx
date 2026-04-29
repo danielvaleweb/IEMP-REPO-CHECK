@@ -47,7 +47,7 @@ const menuGroups = [
     items: [
       { name: "Bíblia Online", path: "/biblia" },
       { name: "Galeria de fotos", path: "/galeria" },
-      { name: "Galeria de Vídeos", path: "/#videos" },
+      { name: "Galeria de Vídeos", path: "/videos" },
     ]
   },
   {
@@ -118,7 +118,7 @@ export default function Navbar() {
   return (
     <>
       <nav className={cn(
-        "fixed top-0 left-0 right-0 z-[100] w-full py-4",
+        "fixed top-0 left-0 right-0 z-[1000] w-full py-4",
         isHomePage ? "transition-all duration-700" : "",
         isScrolled ? "bg-black/90 backdrop-blur-md shadow-lg" : "bg-transparent"
       )}>
@@ -218,21 +218,6 @@ export default function Navbar() {
             {favorites.length > 0 && (
               <Link to="/favoritos" className="relative p-2 text-white/90 hover:text-white transition-all group cursor-pointer outline-none">
                 <Heart className="w-6 h-6 fill-white stroke-white" />
-                <div className="absolute -top-0.5 -right-0.5 w-[18px] h-[18px]">
-                  <motion.span
-                    animate={{ scale: [1, 2.5], opacity: [0.8, 0] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut" }}
-                    className="absolute inset-0 bg-[#BF76FF] rounded-full"
-                  />
-                  <motion.span 
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                    className="relative w-full h-full bg-[#BF76FF] text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg border border-white/20"
-                  >
-                    {favorites.length}
-                  </motion.span>
-                </div>
               </Link>
             )}
 

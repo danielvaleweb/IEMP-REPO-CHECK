@@ -1,4 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { db } from "@/lib/firebase";
+import { collection, onSnapshot, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { useAuth } from "./AuthContext";
 
 export type FavoriteCategory = "music" | "event" | "video";
 
@@ -13,46 +16,57 @@ export interface FavoriteItem {
 
 interface FavoritesContextType {
   favorites: FavoriteItem[];
-  toggleFavorite: (item: FavoriteItem) => void;
+  favoriteIds: string[];
+  toggleFavorite: (item: FavoriteItem) => Promise<void>;
   isFavorite: (itemId: string) => boolean;
 }
 
 const FavoritesContext = createContext<FavoritesContextType | undefined>(undefined);
 
 export function FavoritesProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("church_favorites");
-    if (saved) {
-      try {
-        setFavorites(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse favorites", e);
-      }
+    if (!user) {
+      setFavorites([]);
+      setFavoriteIds([]);
+      return;
     }
-  }, []);
 
-  const toggleFavorite = (item: FavoriteItem) => {
-    setFavorites(prev => {
-      const isFav = prev.some(v => v.id === item.id);
-      let newFavs;
-      if (isFav) {
-        newFavs = prev.filter(v => v.id !== item.id);
-      } else {
-        newFavs = [...prev, item];
-      }
-      localStorage.setItem("church_favorites", JSON.stringify(newFavs));
-      return newFavs;
+    const unsub = onSnapshot(collection(db, "users", user.uid, "favorites"), (snapshot) => {
+      const items = snapshot.docs.map(doc => doc.data() as FavoriteItem);
+      setFavorites(items);
+      setFavoriteIds(items.map(item => item.id));
     });
+
+    return () => unsub();
+  }, [user]);
+
+  const toggleFavorite = async (item: FavoriteItem) => {
+    if (!user) return;
+
+    const docRef = doc(db, "users", user.uid, "favorites", item.id);
+    const exists = favoriteIds.includes(item.id);
+
+    try {
+      if (exists) {
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, item);
+      }
+    } catch (e) {
+      console.error("Failed to toggle favorite", e);
+    }
   };
 
   const isFavorite = (itemId: string) => {
-    return favorites.some(v => v.id === itemId);
+    return favoriteIds.includes(itemId);
   };
 
   return (
-    <FavoritesContext.Provider value={{ favorites, toggleFavorite, isFavorite }}>
+    <FavoritesContext.Provider value={{ favorites, favoriteIds, toggleFavorite, isFavorite }}>
       {children}
     </FavoritesContext.Provider>
   );

@@ -217,18 +217,18 @@ function CalendarView({
   return (
     <>
       <div className={cn(
-        "border rounded-3xl p-4 md:p-8 transition-colors duration-500",
-        isDark ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl"
+        "border rounded-[32px] p-4 md:p-8 transition-colors duration-500",
+        isDark ? "bg-[#1A1A1A] border-white/5 shadow-2xl" : "bg-white border-black/5 shadow-xl"
       )}>
         <div className="flex justify-between items-center mb-4 md:mb-6">
-          <h2 className={cn("text-lg md:text-2xl font-bold capitalize transition-colors", isDark ? "text-white" : "text-black")}>
+          <h2 className={cn("text-lg md:text-2xl font-black transition-colors uppercase tracking-tight", isDark ? "text-white" : "text-black")}>
             {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
           </h2>
           <div className="flex gap-2">
-            <Button variant="ghost" size="icon" className={cn("w-8 h-8 md:w-10 md:h-10 rounded-full cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
+            <Button variant="ghost" size="icon" className={cn("w-8 h-8 md:w-10 md:h-10 rounded-xl cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}>
               <ChevronLeft className={cn("w-4 h-4 md:w-5 h-5", isDark ? "text-white" : "text-black")} />
             </Button>
-            <Button variant="ghost" size="icon" className={cn("w-8 h-8 md:w-10 md:h-10 rounded-full cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
+            <Button variant="ghost" size="icon" className={cn("w-8 h-8 md:w-10 md:h-10 rounded-xl cursor-pointer transition-colors", isDark ? "hover:bg-white/10" : "hover:bg-black/5")} onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}>
               <ChevronRight className={cn("w-4 h-4 md:w-5 h-5", isDark ? "text-white" : "text-black")} />
             </Button>
           </div>
@@ -236,7 +236,7 @@ function CalendarView({
         
         <div className="grid grid-cols-7 gap-1 md:gap-2 mb-1 md:mb-2">
           {weekDays.map(day => (
-            <div key={day} className="text-center text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-widest py-1 md:py-2">
+            <div key={day} className={cn("text-center text-[10px] md:text-xs font-black uppercase tracking-widest py-1 md:py-2", isDark ? "text-white/40" : "text-gray-500")}>
               {day}
             </div>
           ))}
@@ -252,49 +252,47 @@ function CalendarView({
                 key={`calendar-day-${day.toISOString()}`} 
                 onClick={() => setSelectedDay(day)}
                 className={cn(
-                  "min-h-[50px] md:min-h-[100px] p-1 md:p-2 rounded-lg md:rounded-xl border transition-all cursor-pointer relative group",
+                  "min-h-[50px] md:min-h-[100px] p-1 md:p-2 rounded-xl md:rounded-2xl border transition-all cursor-pointer relative group",
                   isCurrentMonth 
-                    ? isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5" 
-                    : isDark ? "bg-[#1a1a1a]/30 border-white/5 opacity-50" : "bg-gray-50/30 border-black/5 opacity-50",
+                    ? isDark ? "bg-[#222] border-white/5" : "bg-gray-50 border-black/5" 
+                    : isDark ? "bg-[#111]/30 border-white/5 opacity-30" : "bg-gray-50/30 border-black/5 opacity-50",
                   "hover:border-[#BF76FF]/50",
                   isSameDay(day, new Date()) && "ring-2 ring-[#BF76FF]",
-                  day.getDay() === 6 && "md:border-black/5 border-green-500/50 dark:border-green-500/30 md:dark:border-white/5"
                 )}
               >
                 <div className={cn(
-                  "text-right text-[8px] md:text-xs font-bold mb-1 md:mb-2 transition-colors",
-                  day.getDay() === 6 ? "text-green-500 md:text-gray-400" : "text-gray-400"
+                  "text-right text-[8px] md:text-xs font-black mb-1 md:mb-2 transition-colors",
+                  day.getDay() === 6 ? "text-green-500" : isDark ? "text-white/20" : "text-gray-400"
                 )}>{format(day, dateFormat)}</div>
                 <div className="space-y-0.5 md:space-y-1">
                   {dayEvents.slice(0, 3).map((event, j) => (
                     <div 
                       key={`calendar-event-${day.toISOString()}-${j}-${event.id || 'no-id'}`}
                       className={cn(
-                        "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded truncate transition-colors relative group/event",
+                        "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded-lg truncate transition-colors relative group/event font-bold",
                         day.getDay() === 6 
-                          ? "bg-green-500/20 text-green-500 md:bg-[#BF76FF]/20 md:text-[#BF76FF]" 
-                          : "bg-[#BF76FF]/20 text-[#BF76FF]"
+                          ? "bg-green-500/10 text-green-500" 
+                          : "bg-[#BF76FF]/10 text-[#BF76FF]"
                       )}
                     >
-                      <span className="md:inline hidden">{event.title}</span>
+                      <span className="md:inline hidden tracking-tight leading-none">{event.title}</span>
                       <span className="md:hidden">●</span>
                       
-                      {/* Tooltip Desktop Only */}
                       <div className={cn(
-                        "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden md:group-hover/event:block w-56 border p-4 rounded-2xl shadow-2xl z-50 transition-all duration-300 backdrop-blur-md",
-                        isDark ? "bg-black/90 border-white/10 text-white" : "bg-white/95 border-black/10 text-black"
+                        "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden md:group-hover/event:block w-56 border p-4 rounded-3xl shadow-2xl z-50 transition-all duration-300 backdrop-blur-md",
+                        isDark ? "bg-[#111]/95 border-white/10 text-white" : "bg-white/95 border-black/10 text-black"
                       )}>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-[#BF76FF]" />
-                          <p className={cn("font-black text-sm whitespace-normal tracking-tight", isDark ? "text-white" : "text-black")}>{event.title}</p>
+                          <div className={cn("w-1.5 h-1.5 rounded-full", day.getDay() === 6 ? "bg-green-500" : "bg-[#BF76FF]")} />
+                          <p className={cn("font-black text-sm whitespace-normal tracking-tight leading-tight", isDark ? "text-white" : "text-black")}>{event.title}</p>
                         </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                            <Clock className="w-3 h-3" />
+                        <div className="space-y-1.5 pt-2 border-t border-white/5">
+                          <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold">
+                            <Clock className="w-3 h-3 text-[#BF76FF]" />
                             <span>{safeFormatTime(event.date)}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-[10px] text-gray-400">
-                            <MapPin className="w-3 h-3" />
+                          <div className="flex items-center gap-2 text-[10px] text-gray-400 font-bold">
+                            <MapPin className="w-3 h-3 text-[#BF76FF]" />
                             <span className="line-clamp-1">{event.location || "Sem local definido"}</span>
                           </div>
                         </div>
@@ -302,8 +300,8 @@ function CalendarView({
                     </div>
                   ))}
                   {dayEvents.length > 3 && (
-                    <div className="text-[7px] text-gray-500 text-center font-bold">
-                      +{dayEvents.length - 3}
+                    <div className={cn("text-[8px] text-center font-black uppercase tracking-tighter mt-1", isDark ? "text-white/20" : "text-gray-400")}>
+                      +{dayEvents.length - 3} itens
                     </div>
                   )}
                 </div>
@@ -314,29 +312,39 @@ function CalendarView({
       </div>
 
       <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
-        <DialogContent className={cn("border sm:max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col transition-colors rounded-[32px]", isDark ? "bg-[#111] border-white/10 text-white" : "bg-white border-black/10 text-black")}>
-          <div className="flex-1 overflow-y-auto scrollbar-hide p-6">
+        <DialogContent className={cn("border sm:max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col transition-colors rounded-[32px] border-none shadow-2xl", isDark ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
+          <div className="flex-1 overflow-y-auto scrollbar-hide p-8">
             <DialogHeader>
-              <DialogTitle className="text-xl">
-                {modalTitle} ({selectedDay ? format(selectedDay, "dd/MM/yyyy") : ""})
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight">
+                {modalTitle} 
+                <span className="block text-sm text-[#BF76FF] mt-1">
+                  {selectedDay ? format(selectedDay, "EEEE, dd 'de' MMMM", { locale: ptBR }) : ""}
+                </span>
               </DialogTitle>
             </DialogHeader>
             
-            <div className="space-y-4 mt-6">
+            <div className="space-y-4 mt-8">
               {selectedDayEvents.length > 0 ? (
                 selectedDayEvents.map((event, idx) => {
                   return (
-                    <div key={`day-event-detail-${selectedDay?.toISOString()}-${idx}-${event.id || 'no-id'}`} className={cn("p-4 rounded-2xl border space-y-3 transition-colors", isDark ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                    <div key={`day-event-detail-${selectedDay?.toISOString()}-${idx}-${event.id || 'no-id'}`} className={cn("p-5 rounded-[24px] border space-y-4 transition-all hover:scale-[1.02]", isDark ? "bg-[#222] border-white/5" : "bg-gray-50 border-black/5")}>
                       <div>
-                        <h4 className="font-bold text-lg">{event.title}</h4>
-                        <p className="text-sm text-gray-400">{safeFormatTime(event.date)} • {event.location || "Sem local"}</p>
-                        <p className="text-xs text-[#BF76FF] mt-1">Adicionado por: {event.authorName || "Admin"}</p>
+                        <h4 className="font-black text-xl leading-tight uppercase tracking-tight">{event.title}</h4>
+                        <div className="flex items-center gap-3 mt-2">
+                           <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
+                             <Clock className="w-3.5 h-3.5 text-[#BF76FF]" /> {safeFormatTime(event.date)}
+                           </span>
+                           <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
+                             <MapPin className="w-3.5 h-3.5 text-[#BF76FF]" /> {event.location || "Sem local"}
+                           </span>
+                        </div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]/60 mt-3">Por: {event.authorName || "Equipe"}</p>
                       </div>
-                      <div className={cn("flex gap-2 pt-2 border-t", isDark ? "border-white/5" : "border-black/5")}>
+                      <div className={cn("flex gap-2 pt-4 border-t", isDark ? "border-white/5" : "border-black/5")}>
                         <Button 
                           variant="ghost" 
                           size="sm" 
-                          className={cn("flex-1 cursor-pointer transition-colors", isDark ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
+                          className={cn("flex-1 h-10 rounded-xl font-bold transition-all", isDark ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
                           onClick={(e) => {
                             e.stopPropagation();
                             setSelectedDay(null);
@@ -349,7 +357,7 @@ function CalendarView({
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="flex-1 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 cursor-pointer"
+                            className="flex-1 h-10 rounded-xl bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20 font-bold"
                             onClick={(e) => {
                               e.stopPropagation();
                               setSelectedDay(null);
@@ -359,34 +367,20 @@ function CalendarView({
                             <Edit className="w-4 h-4 mr-2" /> Editar
                           </Button>
                         )}
-                        {(canDelete || (event.authorId === user?.uid)) && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="flex-1 bg-red-500/10 text-red-400 hover:bg-red-500/20 cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedDay(null);
-                              onDeleteEvent(event);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" /> {deleteButtonLabel}
-                          </Button>
-                        )}
                       </div>
                     </div>
                   );
                 })
               ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <Calendar className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  <p>{emptyMessage}</p>
+                <div className="text-center py-12 opacity-20">
+                  <Calendar className="w-16 h-16 mx-auto mb-4" />
+                  <p className="font-bold">{emptyMessage}</p>
                 </div>
               )}
               
               {canEdit && (
                 <Button 
-                  className="w-full bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white font-bold cursor-pointer mt-4"
+                  className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white font-black uppercase tracking-widest shadow-xl mt-6"
                   onClick={() => {
                     if (selectedDay) {
                       onNewEvent(selectedDay);
@@ -394,7 +388,7 @@ function CalendarView({
                     }
                   }}
                 >
-                  <Plus className="w-4 h-4 mr-2" /> {newEventButtonLabel}
+                  <Plus className="w-5 h-5 mr-2" /> {newEventButtonLabel}
                 </Button>
               )}
             </div>
@@ -945,6 +939,14 @@ export default function Admin() {
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
   const [activeTab, setActiveTab] = useState("visao-geral");
   
   // Close right sidebar when changing tabs
@@ -1247,7 +1249,7 @@ export default function Admin() {
   const [tempStartTime, setTempStartTime] = useState("");
   const [tempEndTime, setTempEndTime] = useState("");
 
-  const [settings, setSettings] = useState<any>({ enableHeaderVideos: true });
+  const [settings, setSettings] = useState<any>({ enableHeaderVideos: true, videoCardsEnabled: true });
   const [localSettings, setLocalSettings] = useState<any>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
@@ -1824,7 +1826,7 @@ export default function Admin() {
                   <Input 
                     type="email" 
                     placeholder="membro@ministerioprofecia.com.br" 
-                    className="h-16 bg-[#1a1a1a] border-none rounded-2xl px-6 text-lg focus-visible:ring-1 focus-visible:ring-[#BF76FF]/50 transition-all text-white"
+                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -1838,7 +1840,7 @@ export default function Admin() {
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    className="h-16 bg-[#1a1a1a] border-none rounded-2xl px-6 text-lg focus-visible:ring-1 focus-visible:ring-[#BF76FF]/50 transition-all text-white"
+                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -1994,7 +1996,7 @@ export default function Admin() {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome</label>
                     <Input 
-                      className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.firstName}
                       onChange={(e) => setSignUpData({...signUpData, firstName: e.target.value})}
                     />
@@ -2002,7 +2004,7 @@ export default function Admin() {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sobrenome</label>
                     <Input 
-                      className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.lastName}
                       onChange={(e) => setSignUpData({...signUpData, lastName: e.target.value})}
                     />
@@ -2013,7 +2015,7 @@ export default function Admin() {
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">E-mail</label>
                   <Input 
                     type="email"
-                    className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
+                    className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                     value={signUpData.email}
                     onChange={(e) => setSignUpData({...signUpData, email: e.target.value})}
                   />
@@ -2024,7 +2026,7 @@ export default function Admin() {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data de Nascimento</label>
                     <Input 
                       type="date"
-                      className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white [color-scheme:dark]" 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white [color-scheme:dark]" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.birthDate}
                       onChange={(e) => setSignUpData({...signUpData, birthDate: e.target.value})}
                     />
@@ -2032,7 +2034,7 @@ export default function Admin() {
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1"><MessageSquare className="w-3 h-3 fill-current"/> Telefone/WhatsApp</label>
                     <Input 
-                      className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       placeholder="(ddd) 0 0000-0000"
                       value={signUpData.phone}
                       onChange={(e) => {
@@ -2050,7 +2052,7 @@ export default function Admin() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Você é?</label>
-                    <div className="flex bg-[#1a1a1a] rounded-2xl p-1 h-14">
+                    <div className="flex bg-[#000] rounded-2xl p-1 h-14">
                       <button 
                         type="button"
                         onClick={() => setSignUpData({...signUpData, memberType: "Visitante", churchRole: "Visitante"})}
@@ -2080,7 +2082,7 @@ export default function Admin() {
                   <div className="space-y-2 animate-in fade-in zoom-in duration-300">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cargo na igreja</label>
                     <select 
-                      className="w-full bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white focus:ring-0 appearance-none cursor-pointer" 
+                      className="w-full bg-[#000] border-none h-14 rounded-2xl px-4 text-white focus:ring-0 appearance-none cursor-pointer" 
                       value={signUpData.churchRole}
                       onChange={(e) => setSignUpData({...signUpData, churchRole: e.target.value})}
                     >
@@ -2098,7 +2100,7 @@ export default function Admin() {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Senha</label>
                     <Input 
                       type="password"
-                      className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.password}
                       onChange={(e) => setSignUpData({...signUpData, password: e.target.value})}
                     />
@@ -2107,7 +2109,7 @@ export default function Admin() {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Confirmar Senha</label>
                     <Input 
                       type="password"
-                      className="bg-[#1a1a1a] border-none h-14 rounded-2xl px-4 text-white" 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.confirmPassword}
                       onChange={(e) => setSignUpData({...signUpData, confirmPassword: e.target.value})}
                     />
@@ -2345,7 +2347,7 @@ export default function Admin() {
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("videos") && <SidebarItem icon={Video} active={activeTab === "videos"} onClick={() => setActiveTab("videos")} label="Vídeos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias"} onClick={() => setActiveTab("noticias")} label="Blog / Notícias" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias"} onClick={() => setActiveTab("noticias")} label="Notícias" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               {canViewTab("avisos") && <SidebarItem icon={Bell} active={activeTab === "avisos"} onClick={() => setActiveTab("avisos")} label="Central de Avisos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
@@ -2426,7 +2428,7 @@ export default function Admin() {
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className={cn(
                             "w-full rounded-2xl py-4 pl-12 pr-4 text-sm outline-none border transition-all", 
-                            isDarkMode ? "bg-white/5 border-white/10 text-white focus:border-[#BF76FF]/50" : "bg-gray-100 border-black/5 text-black focus:border-[#BF76FF]/50"
+                            isDarkMode ? "bg-black border-white/10 text-white focus:border-[#BF76FF]/50" : "bg-white border-black/5 text-black focus:border-[#BF76FF]/50"
                           )}
                         />
                       </div>
@@ -2539,7 +2541,7 @@ export default function Admin() {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Buscar membros, eventos, músicas..."
-                            className={cn("h-14 pl-12 rounded-2xl border-none", isDarkMode ? "bg-white/5" : "bg-black/5")}
+                            className={cn("h-14 pl-12 rounded-2xl border transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                          />
                       </div>
                       <div className="mt-4 max-h-[300px] overflow-y-auto">
@@ -2602,8 +2604,8 @@ export default function Admin() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className={cn(
-                  "border-none rounded-full h-10 pl-11 pr-4 text-sm w-full outline-none transition-colors", 
-                  isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50 shadow-inner"
+                  "border rounded-full h-10 pl-11 pr-4 text-sm w-full outline-none transition-all", 
+                  isDarkMode ? "bg-[#000] border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/10 text-black shadow-inner"
                 )}
               />
               
@@ -3144,7 +3146,7 @@ export default function Admin() {
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem de Capa (Evento)</label>
                                 <Input 
-                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="https://exemplo.com/banner.jpg"
                                   value={formData.image || ""}
                                   onChange={(e) => setFormData({...formData, image: e.target.value})}
@@ -3159,7 +3161,7 @@ export default function Admin() {
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Moldura (Criar Foto)</label>
                                 <Input 
-                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="https://exemplo.com/moldura.png"
                                   value={formData.frameUrl || ""}
                                   onChange={(e) => setFormData({...formData, frameUrl: e.target.value})}
@@ -3211,7 +3213,7 @@ export default function Admin() {
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Título da Matéria</label>
                                     <Input 
-                                      className={cn("border-none h-16 rounded-2xl px-6 text-xl font-black transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                      className={cn("border h-16 rounded-2xl px-6 text-xl font-black transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Título impactante da notícia..."
                                       value={formData.title || ""}
                                       onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -3222,7 +3224,7 @@ export default function Admin() {
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Subtítulo / Gravata</label>
                                     <Textarea 
-                                      className={cn("border-none min-h-[80px] rounded-2xl p-6 transition-colors font-medium", isDarkMode ? "bg-white/5 text-gray-300" : "bg-white text-gray-700 shadow-sm border-black/5")} 
+                                      className={cn("border min-h-[80px] rounded-2xl p-6 transition-all font-medium", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Um resumo breve que aparece logo abaixo do título"
                                       value={formData.subtitle || ""}
                                       onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
@@ -3233,7 +3235,7 @@ export default function Admin() {
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Fonte da Matéria</label>
                                     <Input 
-                                      className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                      className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Ex: Redação Ministério Profecia, G1, Gospel Prime..."
                                       value={formData.source || ""}
                                       onChange={(e) => setFormData({...formData, source: e.target.value})}
@@ -3282,7 +3284,7 @@ export default function Admin() {
                                       </div>
                                     </div>
                                     <Input 
-                                      className={cn("border-none h-12 rounded-2xl px-6 transition-colors italic", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                      className={cn("border h-12 rounded-2xl px-6 transition-all italic", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Cole o link (YouTube, Instagram ou Shorts)..."
                                       value={formData.videoUrl || ""}
                                       onChange={(e) => setFormData({...formData, videoUrl: e.target.value})}
@@ -3295,7 +3297,7 @@ export default function Admin() {
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">URL da Imagem Capa</label>
                                         <Input 
-                                          className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
+                                          className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                           placeholder="https://exemplo.com/cafe.jpg"
                                           value={formData.image || ""}
                                           onChange={(e) => setFormData({...formData, image: e.target.value})}
@@ -3304,8 +3306,8 @@ export default function Admin() {
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Legenda da Imagem</label>
                                         <Input 
-                                          className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-white text-black shadow-sm border-black/5")} 
-                                          placeholder="Descreva a foto (Ex: Fiel orando no monte)"
+                                          className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                          placeholder="Fiel orando no monte"
                                           value={formData.imageCaption || ""}
                                           onChange={(e) => setFormData({...formData, imageCaption: e.target.value})}
                                         />
@@ -3328,7 +3330,7 @@ export default function Admin() {
                                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Corpo da Matéria (Texto Principal)</label>
                                     </div>
                                     <Textarea 
-                                      className={cn("border-none min-h-[300px] rounded-[32px] p-8 transition-colors text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-white/5 text-gray-200" : "bg-white text-gray-800 shadow-xl border-black/5")} 
+                                      className={cn("border min-h-[300px] rounded-[32px] p-8 transition-all text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Escreva aqui a reportagem completa. Use parágrafos para melhor leitura."
                                       value={formData.content || ""}
                                       onChange={(e) => setFormData({...formData, content: e.target.value})}
@@ -3371,7 +3373,7 @@ export default function Admin() {
                                               <div className="relative flex-1">
                                                 <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                                                 <Input 
-                                                  className={cn("border-none h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                                                  className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                                   placeholder="URL da imagem..."
                                                   value={url.trim()}
                                                   onChange={(e) => {
@@ -3447,7 +3449,7 @@ export default function Admin() {
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{activeTab === 'eventos' ? 'Título da Postagem' : 'Título do Compromisso'}</label>
                                 <Input 
-                                  className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder={activeTab === 'eventos' ? "Ex: Conferência de Jovens 2024" : "Ex: Visitar igreja no Grama"}
                                   value={formData.title || ""}
                                   onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -3459,7 +3461,7 @@ export default function Admin() {
                                 <div className="space-y-2">
                                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio/Descrição do Evento</label>
                                   <Textarea 
-                                    className={cn("border-none min-h-[150px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                    className={cn("border min-h-[150px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                     placeholder="Conte mais sobre o evento..."
                                     value={formData.content || ""}
                                     onChange={(e) => setFormData({...formData, content: e.target.value})}
@@ -3476,7 +3478,7 @@ export default function Admin() {
                                   <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Data</p>
                                   <Input 
                                     type="date"
-                                    className={cn("border-none h-14 rounded-2xl px-6 transition-colors w-full", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")}
+                                    className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                     value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
                                     onChange={(e) => {
                                       const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "";
@@ -3491,7 +3493,7 @@ export default function Admin() {
                                     <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF] z-10" />
                                     <Input 
                                       type="time"
-                                      className={cn("border-none h-14 rounded-2xl pl-10 pr-4 transition-colors w-full", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")}
+                                      className={cn("border h-14 rounded-2xl pl-10 pr-4 transition-all w-full", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                       value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
                                       onChange={(e) => {
                                         const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
@@ -3505,7 +3507,7 @@ export default function Admin() {
                                   <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Término</p>
                                   <Input 
                                     type="time"
-                                    className={cn("border-none h-14 rounded-2xl px-6 transition-colors w-full", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")}
+                                    className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                     value={formData.endTime || ""}
                                     onChange={(e) => setFormData({...formData, endTime: e.target.value})}
                                     readOnly={isReadOnly}
@@ -3517,7 +3519,7 @@ export default function Admin() {
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Nome do Organizador / Igreja Local</label>
                               <Input 
-                                className={cn("border-none h-14 rounded-2xl px-6 transition-colors shadow-sm", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                className={cn("border h-14 rounded-2xl px-6 transition-all shadow-sm", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                 placeholder="Ex: Pr. Fernando ou Igreja Batista..."
                                 value={formData.organizer || formData.organization || ""}
                                 onChange={(e) => setFormData({...formData, organizer: e.target.value, organization: e.target.value})}
@@ -3527,7 +3529,7 @@ export default function Admin() {
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Foto do Organizador (URL)</label>
                               <Input 
-                                className={cn("border-none h-14 rounded-2xl px-6 transition-colors shadow-sm", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                className={cn("border h-14 rounded-2xl px-6 transition-all shadow-sm", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                 placeholder="URL da foto do organizador (Convener)"
                                 value={formData.organizerImage || ""}
                                 onChange={(e) => setFormData({...formData, organizerImage: e.target.value})}
@@ -3623,7 +3625,7 @@ export default function Admin() {
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Rua / Logradouro</label>
                                 <div className="relative group">
                                   <Input 
-                                    className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                    className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                     placeholder="Ex: Rua das Flores"
                                     value={formData.street || ""}
                                     onChange={(e) => setFormData({...formData, street: e.target.value})}
@@ -3634,7 +3636,7 @@ export default function Admin() {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Número</label>
                                 <Input 
-                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="123 ou S/N"
                                   value={formData.streetNumber || ""}
                                   onChange={(e) => setFormData({...formData, streetNumber: e.target.value})}
@@ -3647,7 +3649,7 @@ export default function Admin() {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Bairro</label>
                                 <Input 
-                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="Bairro"
                                   value={formData.neighborhood || ""}
                                   onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
@@ -3657,7 +3659,7 @@ export default function Admin() {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cidade</label>
                                 <Input 
-                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="Cidade"
                                   value={formData.city || ""}
                                   onChange={(e) => setFormData({...formData, city: e.target.value})}
@@ -3667,7 +3669,7 @@ export default function Admin() {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Estado (UF)</label>
                                 <Input 
-                                  className={cn("border-none h-12 rounded-2xl px-6 transition-colors uppercase", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all uppercase", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="UF"
                                   maxLength={2}
                                   value={formData.state || ""}
@@ -3692,7 +3694,7 @@ export default function Admin() {
                                 Contatos & Informações
                               </label>
                               <Textarea 
-                                className={cn("border-none min-h-[120px] rounded-2xl p-6 transition-all shadow-inner", isDarkMode ? "bg-black/40 text-white focus:bg-black/60" : "bg-white text-black")} 
+                                className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")} 
                                 placeholder="Informações de contato e detalhes adicionais..."
                                 value={formData.additionalInfo || ""}
                                 onChange={(e) => setFormData({...formData, additionalInfo: e.target.value})}
@@ -3705,7 +3707,7 @@ export default function Admin() {
                                 Observações Importantes
                               </label>
                               <Textarea 
-                                className={cn("border-none min-h-[120px] rounded-2xl p-6 transition-all shadow-inner", isDarkMode ? "bg-amber-500/5 text-amber-200 focus:bg-amber-500/10" : "bg-amber-50 text-amber-900")} 
+                                className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")} 
                                 placeholder="Observações importantes para a equipe..."
                                 value={formData.observations || ""}
                                 onChange={(e) => setFormData({...formData, observations: e.target.value})}
@@ -3740,7 +3742,7 @@ export default function Admin() {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                           <div className="space-y-2">
                                             <Input 
-                                              className={cn("border-none h-12 rounded-xl px-4 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-white text-black")} 
+                                              className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                               placeholder="Nome (Ex: Pr. Fernando)"
                                               value={guest.name || ""}
                                               onChange={(e) => {
@@ -3753,7 +3755,7 @@ export default function Admin() {
                                           </div>
                                           <div className="space-y-2">
                                             <Input 
-                                              className={cn("border-none h-12 rounded-xl px-4 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-white text-black")} 
+                                              className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                               placeholder="Função (Ex: Convener)"
                                               value={guest.role || ""}
                                               onChange={(e) => {
@@ -3767,7 +3769,7 @@ export default function Admin() {
                                         </div>
                                         <div className="space-y-2">
                                           <Input 
-                                            className={cn("border-none h-12 rounded-xl px-4 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-white text-black")} 
+                                            className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                             placeholder="URL da Foto do Convidado"
                                             value={guest.image || ""}
                                             onChange={(e) => {
@@ -3811,7 +3813,7 @@ export default function Admin() {
                                 <div className="relative">
                                   <Youtube className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500" />
                                   <Input 
-                                    className={cn("border-none h-14 rounded-full pl-14 pr-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                                    className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                     placeholder="https://www.youtube.com/watch?v=..."
                                     value={formData.youtubeLink || ""}
                                     onChange={(e) => setFormData({...formData, youtubeLink: e.target.value})}
@@ -3844,7 +3846,7 @@ export default function Admin() {
                                         <div className="relative flex-1">
                                           <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                                           <Input 
-                                            className={cn("border-none h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                                            className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-[#000] border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
                                             placeholder="URL da imagem..."
                                             value={url}
                                             onChange={(e) => {
@@ -3900,7 +3902,7 @@ export default function Admin() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Perfil (URL)</label>
                           <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="https://exemplo.com/foto.jpg"
                             value={formData.photoURL || ""}
                             onChange={(e) => setFormData({...formData, photoURL: e.target.value})}
@@ -3910,7 +3912,7 @@ export default function Admin() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Capa (URL)</label>
                           <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="https://exemplo.com/capa.jpg"
                             value={formData.coverImage || ""}
                             onChange={(e) => setFormData({...formData, coverImage: e.target.value})}
@@ -3923,7 +3925,7 @@ export default function Admin() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome</label>
                           <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.name || ""}
                             onChange={(e) => setFormData({...formData, name: e.target.value})}
                             readOnly={isReadOnly}
@@ -3932,7 +3934,7 @@ export default function Admin() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">E-mail</label>
                           <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.email || ""}
                             onChange={(e) => setFormData({...formData, email: e.target.value})}
                             readOnly={isReadOnly}
@@ -3944,7 +3946,7 @@ export default function Admin() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp (com DDD)</label>
                           <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="11999999999"
                             value={formData.phone || ""}
                             onChange={(e) => setFormData({...formData, phone: e.target.value})}
@@ -3955,7 +3957,7 @@ export default function Admin() {
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data de Nascimento</label>
                           <Input 
                             type="date"
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.birthDate || ""}
                             onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
                             readOnly={isReadOnly}
@@ -3965,7 +3967,7 @@ export default function Admin() {
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data que se tornou membro</label>
                           <Input 
                             type="date"
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.joinedDate || ""}
                             onChange={(e) => setFormData({...formData, joinedDate: e.target.value})}
                             readOnly={isReadOnly}
@@ -4066,12 +4068,12 @@ export default function Admin() {
                         </div>
                         {isMasterAdmin && !isReadOnly && (
                           <div className="flex gap-2 mt-4 max-w-xs">
-                            <Input 
-                              placeholder="Nova habilidade..."
-                              className={cn("border-none h-10 rounded-xl px-4 text-xs transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
-                              value={newSkillName}
-                              onChange={(e) => setNewSkillName(e.target.value)}
-                            />
+                              <Input 
+                                placeholder="Nova habilidade..."
+                                className={cn("border h-10 rounded-xl px-4 text-xs transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                value={newSkillName}
+                                onChange={(e) => setNewSkillName(e.target.value)}
+                              />
                             <Button 
                               size="sm"
                               onClick={async () => {
@@ -4102,7 +4104,7 @@ export default function Admin() {
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sobre o Membro (Bio)</label>
                         <Textarea 
-                          className={cn("border-none min-h-[120px] rounded-2xl p-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                          className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                           placeholder="Fale um pouco sobre a jornada, dons e ministérios do membro..."
                           value={formData.bio || ""}
                           onChange={(e) => setFormData({...formData, bio: e.target.value})}
@@ -4118,7 +4120,7 @@ export default function Admin() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título da Vinheta</label>
                           <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: Identidade Profecia, Chamada de Culto..."
                             value={formData.title || ""}
                             onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -4128,7 +4130,7 @@ export default function Admin() {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do YouTube (Vinheta)</label>
                           <Input 
-                            className={cn("border-none h-14 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white" : "bg-gray-100 text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Cole o link do YouTube aqui..."
                             value={formData.youtubeUrl || ""}
                             onChange={(e) => {
@@ -4384,7 +4386,7 @@ export default function Admin() {
                 isDark={isDarkMode}
                 canEdit={canEdit}
                 canDelete={canDelete}
-                title={activeTab === "eventos" ? "Eventos do Mês" : "Blog & Notícias"}
+                title={activeTab === "eventos" ? "Eventos do Mês" : "Notícias"}
                 buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}
                 buttonIcon={activeTab === "eventos" ? Plus : Newspaper}
                 emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
@@ -4449,7 +4451,7 @@ export default function Admin() {
                     <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Próximos Eventos</h4>
                   </div>
                   
-                  <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#111]/50 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                  <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                     <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
                     <div className="mt-8 flex justify-center md:hidden">
                       <Button 
@@ -4470,30 +4472,30 @@ export default function Admin() {
 
                 {/* Section: Summary Cards (Moved Down on Mobile) */}
                 <div className="order-2 md:order-1 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6 mt-4">
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
                     <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
                       <Users className="w-6 h-6 text-blue-500" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Membros</p>
+                      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Membros</p>
                       <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.members}</h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
                     <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
                       <Calendar className="w-6 h-6 text-orange-500" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Agendados</p>
+                      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Agendados</p>
                       <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.agenda}</h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-colors flex flex-col items-center justify-center text-center gap-3", isDarkMode ? "bg-[#111]" : "bg-white shadow-lg border-black/5")}>
+                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
                     <div className="w-12 h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
                       <MessageSquare className="w-6 h-6 text-[#BF76FF]" />
                     </div>
                     <div>
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Mensagens</p>
+                      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Mensagens</p>
                       <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
                     </div>
                   </Card>
@@ -4550,7 +4552,7 @@ export default function Admin() {
                 <div className="flex justify-between items-center mb-8">
                   <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Conversas</h2>
                 </div>
-                <Card className={cn("border rounded-[32px] p-8 md:p-12 transition-colors min-h-[500px] flex flex-col items-center justify-center text-center", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                <Card className={cn("border rounded-[32px] p-8 md:p-12 transition-colors min-h-[500px] flex flex-col items-center justify-center text-center", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                    <div className="w-20 h-20 rounded-[28px] bg-[#BF76FF]/10 flex items-center justify-center mb-6 transition-transform hover:rotate-12">
                      <MessageSquare className="w-10 h-10 text-[#BF76FF]" />
                    </div>
@@ -4564,7 +4566,7 @@ export default function Admin() {
               </div>
             ) : activeTab === "config" ? (
               <div className="p-4 md:p-8">
-                <Card className={cn("border rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                <Card className={cn("border rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                   <div className="space-y-6">
                     <div className="flex items-center justify-between">
                       <h4 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
@@ -4607,7 +4609,7 @@ export default function Admin() {
                             </a>
                           </div>
                           <Input 
-                            className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: UCILgaItnqDH3plhRXD54QUg"
                             value={localSettings.youtubeChannelId ?? settings.youtubeChannelId ?? "UCILgaItnqDH3plhRXD54QUg"}
                             onChange={(e) => {
@@ -4618,7 +4620,7 @@ export default function Admin() {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>YouTube Handle</label>
                           <Input 
-                            className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: @ministerio_profecia"
                             value={localSettings.youtubeHandle ?? settings.youtubeHandle ?? "@ministerio_profecia"}
                             onChange={(e) => {
@@ -4635,7 +4637,7 @@ export default function Admin() {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Próximo Culto (Frase no início)</label>
                           <Input 
-                            className={cn("border-none h-12 rounded-2xl px-6 transition-colors", isDarkMode ? "bg-black/20 text-white" : "bg-white text-black shadow-sm")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: Domingo às 19:00"
                             value={localSettings.nextService ?? settings.nextService ?? "Domingo às 19:00"}
                             onChange={(e) => {
@@ -4658,6 +4660,24 @@ export default function Admin() {
                             checked={localSettings.enableHeaderVideos ?? settings.enableHeaderVideos ?? true}
                             onChange={(e) => {
                               setLocalSettings((prev: any) => ({...prev, enableHeaderVideos: e.target.checked}));
+                            }}
+                          />
+                          <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                        </label>
+                      </div>
+
+                      <div className={cn("flex items-center justify-between p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                        <div>
+                          <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Efeito Hover nos Vídeos</h5>
+                          <p className="text-sm text-gray-400">Ativa ou desativa o efeito de escala (Netflix style) ao passar o mouse nos cards de vídeo.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={localSettings.videoCardsEnabled ?? settings.videoCardsEnabled ?? true}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, videoCardsEnabled: e.target.checked}));
                             }}
                           />
                           <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF]"></div>
@@ -4927,7 +4947,7 @@ export default function Admin() {
                     placeholder="Pesquisar membro..." 
                     value={rightSidebarSearch}
                     onChange={(e) => setRightSidebarSearch(e.target.value)}
-                    className={cn("w-full border-none rounded-2xl py-3 pl-10 pr-4 text-sm outline-none transition-colors", isDarkMode ? "bg-[#1a1a1a] text-white focus:ring-1 focus:ring-[#BF76FF]/30" : "bg-gray-100 text-black focus:ring-1 focus:ring-[#BF76FF]/50")}
+                    className={cn("w-full border rounded-2xl py-3 pl-10 pr-4 text-sm outline-none transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                   />
                 </div>
                 
@@ -5210,7 +5230,7 @@ export default function Admin() {
                 </div>
               )}
 
-              <div className={cn("flex items-end gap-2 p-1.5 pl-3 rounded-3xl transition-transform focus-within:-translate-y-1", isDarkMode ? "bg-white/5 focus-within:bg-white/10" : "bg-gray-100 focus-within:bg-gray-200")}>
+              <div className={cn("flex items-end gap-2 p-1.5 pl-3 rounded-3xl transition-transform focus-within:-translate-y-1", isDarkMode ? "bg-black border border-white/10 focus-within:bg-black" : "bg-gray-100 focus-within:bg-gray-200")}>
                 <textarea 
                   rows={1}
                   placeholder="Mensagem..." 
@@ -5303,7 +5323,7 @@ export default function Admin() {
                 placeholder="Pesquisar em eventos e agenda comum..."
                 value={importSearch}
                 onChange={(e) => setImportSearch(e.target.value)}
-                className={cn("pl-12 h-14 rounded-2xl border-none transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                className={cn("pl-12 h-14 rounded-2xl border transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
               />
             </div>
           </div>
@@ -5371,7 +5391,7 @@ export default function Admin() {
                 placeholder="Pesquisar por nome ou cargo..."
                 value={memberSearch}
                 onChange={(e) => setMemberSearch(e.target.value)}
-                className={cn("pl-12 h-14 rounded-2xl border-none transition-colors", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                className={cn("pl-12 h-14 rounded-2xl border transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
               />
             </div>
           </div>
@@ -5603,10 +5623,10 @@ function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) 
     return (
       <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
         <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", isDark ? "bg-white/5" : "bg-gray-100")}>
-          <CalendarDays className="w-8 h-8 text-gray-500" />
+          <CalendarDays className={cn("w-8 h-8", isDark ? "text-white/20" : "text-gray-500")} />
         </div>
-        <p className="text-gray-500 font-bold">Nenhum evento próximo agendado.</p>
-        <p className="text-xs text-gray-600 mt-1">Fique atento às novidades da nossa congregação.</p>
+        <p className={cn("font-bold", isDark ? "text-white/40" : "text-gray-500")}>Nenhum evento próximo agendado.</p>
+        <p className={cn("text-xs mt-1", isDark ? "text-white/20" : "text-gray-600")}>Fique atento às novidades da nossa congregação.</p>
       </div>
     );
   }
@@ -5644,10 +5664,10 @@ function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) 
               
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
-                  <h5 className={cn("text-sm md:text-xl font-bold transition-colors line-clamp-1", isDark ? "text-white" : "text-black")}>
+                  <h5 className={cn("text-sm md:text-xl font-bold transition-colors line-clamp-1", isDark ? "text-white/90" : "text-black")}>
                     {event.title}
                   </h5>
-                  <p className="text-[10px] md:text-sm text-gray-500 flex items-center gap-2">
+                  <p className={cn("text-[10px] md:text-sm flex items-center gap-2", isDark ? "text-white/40" : "text-gray-500")}>
                     <MapPin className="w-3 h-3 md:w-4 h-4" />
                     <span className="truncate">{event.location || "Local em breve"}</span>
                   </p>
@@ -5675,11 +5695,11 @@ function ActivityItem({ user, action, time, isDark }: { user: string, action: st
         <div className="w-8 h-8 rounded-full bg-[#BF76FF]/20 flex items-center justify-center text-[#BF76FF] text-[10px] font-bold">
           {user ? user[0] : "A"}
         </div>
-        <p className={cn("text-sm transition-colors", isDark ? "text-white" : "text-black")}>
-          <span className="font-bold">{user || "Sistema"}</span> <span className="text-gray-500">{action}</span>
+        <p className={cn("text-sm transition-colors", isDark ? "text-white/90" : "text-black")}>
+          <span className="font-bold">{user || "Sistema"}</span> <span className={isDark ? "text-white/40" : "text-gray-500"}>{action}</span>
         </p>
       </div>
-      <span className="text-[10px] text-gray-600 font-medium">{time}</span>
+      <span className={cn("text-[10px] font-medium", isDark ? "text-white/30" : "text-gray-600")}>{time}</span>
     </div>
   );
 }

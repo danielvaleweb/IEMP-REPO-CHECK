@@ -160,6 +160,7 @@
         "url": { "type": "string", "description": "URL ou ID do YouTube" },
         "thumbnail": { "type": "string" },
         "published": { "type": "string" },
+        "badge": { "type": "string", "description": "Texto em destaque (ex: Gravado em..., Destaque)" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "url"]
