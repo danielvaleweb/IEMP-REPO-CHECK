@@ -191,30 +191,56 @@ export default function Home() {
     const configHandle = settings.youtubeHandle || "@ministerio_profecia";
 
     const fetchAllVideos = async () => {
+      const channelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
+      const cacheKey = `yt_videos_${channelId}`;
+      const cacheTimeKey = `yt_videos_time_${channelId}`;
+      
       try {
-        console.log("Fetching videos natively via React...");
-        const response = await fetch("/api/youtube");
-        if (!response.ok) throw new Error("Failed to fetch from /api/youtube");
+        // 1. Tentar carregar do Cache primeiro (6 horas de validade)
+        const cached = localStorage.getItem(cacheKey);
+        const cacheTime = localStorage.getItem(cacheTimeKey);
+        const now = Date.now();
         
-        const data = await response.json();
-        const allItems = data.items || [];
+        if (cached && cacheTime && (now - parseInt(cacheTime) < 21600000)) { // 6 horas
+          console.log("[Home] Usando vídeos em cache");
+          const data = JSON.parse(cached);
+          setVideos(data.videos || []);
+          setLives(data.lives || []);
+          setIsLive(data.lives?.length > 0);
+          return;
+        }
+
+        console.log(`[Home] Buscando vídeos via API para: ${channelId}`);
+        const response = await fetch(`/api/youtube?channelId=${channelId}`);
+        
+        // Obter o texto puramente primeiro para evitar erros de parse
+        const responseText = await response.text();
+        let data: any;
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          console.warn("[Home] Resposta da API não é JSON, tentando cache...");
+          throw new Error("INVALID_JSON");
+        }
+
+        if (!response.ok) {
+          const isQuotaError = data?.error?.message?.toLowerCase().includes("quota") || data?.code === 403;
+          if (isQuotaError) throw new Error("QUOTA_EXCEEDED");
+          throw new Error(data?.error?.message || `Erro HTTP: ${response.status}`);
+        }
+        
+        const items = data.items || [];
 
         const isLive = (video: any) => {
+          // PlaylistItems não tem liveBroadcastContent da mesma forma que Search
           return video?.snippet?.liveBroadcastContent === "live" || 
-                 video?.snippet?.thumbnails?.high?.url?.includes("_live");
-        };
-
-        const getThumb = (video: any) => {
-          const id = video.id?.videoId || (video.id?.playlistId ? null : video.id); 
-          // Note: search results use id.videoId, but we want to be safe
-          const actualId = typeof video.id === 'string' ? video.id : video.id?.videoId;
-          return `https://img.youtube.com/vi/${actualId}/hqdefault.jpg`;
+                 video?.snippet?.thumbnails?.high?.url?.includes("_live") ||
+                 video?.snippet?.title?.toLowerCase().includes("ao vivo");
         };
 
         const formatVideo = (v: any) => {
           let title = v.snippet?.title || "";
           try {
-            // Basic sanitization of common HTML entities
             title = title.replace(/&quot;/g, '"')
                          .replace(/&#39;/g, "'")
                          .replace(/&amp;/g, "&")
@@ -222,7 +248,7 @@ export default function Home() {
                          .replace(/&gt;/g, ">");
           } catch (e) {}
           
-          const videoId = typeof v.id === 'string' ? v.id : v.id?.videoId;
+          const videoId = typeof v.id === 'string' ? v.id : (v.id?.videoId || v.contentDetails?.videoId);
           
           return {
             id: videoId,
@@ -232,37 +258,67 @@ export default function Home() {
             link: `https://www.youtube.com/watch?v=${videoId}`
           };
         };
+        
+        const videoList: any[] = [];
+        const liveList: any[] = [];
 
-        const validItems = allItems.filter((v: any) => (v.id?.videoId || (v.id && typeof v.id === 'string')));
-        const formattedItems = validItems.map(formatVideo);
+        items.forEach((item: any) => {
+          const videoId = typeof item.id === 'string' ? item.id : item.id?.videoId;
+          if (!videoId) return;
 
-        const videoList = formattedItems.filter((v: any, index: number) => {
-            const raw = allItems[index];
-            return !isLive(raw);
+          const formatted = formatVideo(item);
+          if (isLive(item)) {
+            liveList.push(formatted);
+          } else {
+            videoList.push(formatted);
+          }
         });
 
-        const liveList = formattedItems.filter((v: any, index: number) => {
-            const raw = allItems[index];
-            return isLive(raw);
-        });
+        // 2. Salvar no Cache
+        localStorage.setItem(cacheKey, JSON.stringify({ videos: videoList, lives: liveList }));
+        localStorage.setItem(cacheTimeKey, now.toString());
 
+        console.log(`[Home] Sucesso: ${videoList.length} vídeos salvos no cache`);
         setVideos(videoList);
         setLives(liveList);
         setIsLive(liveList.length > 0);
 
-      } catch (error) {
-        console.error("Video fetch failed", error);
+      } catch (error: any) {
+        console.error("[Home] Falha no YouTube fetch", error);
         
-        // Fallbacks
-        const fallbackVideo = {
-          id: "channel_fallback_1",
-          isPlaceholder: true,
-          title: "Configuração Pendente",
-          thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
-          published: new Date().toISOString(),
-          link: `https://www.youtube.com/${configHandle}/videos`
-        };
-        setVideos([fallbackVideo]);
+        // 3. Se falhar, tentar usar o cache mesmo que expirado (como última alternativa)
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          console.log("[Home] Usando cache expirado devido a falha na API");
+          try {
+            const data = JSON.parse(cached);
+            setVideos(data.videos || []);
+            setLives(data.lives || []);
+            setIsLive(data.lives?.length > 0);
+            return;
+          } catch (e) {}
+        }
+
+        // Se não houver cache nenhum, mostrar o fallback decorado
+        if (error.message === "QUOTA_EXCEEDED") {
+          setVideos([{
+            id: "quota-error",
+            isPlaceholder: true,
+            title: "Limite diário do YouTube atingido. Acesse nosso canal diretamente.",
+            thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
+            published: "Tente novamente amanhã",
+            link: `https://www.youtube.com/${configHandle}/videos`
+          }]);
+        } else {
+          setVideos([{
+            id: "fallback",
+            isPlaceholder: true,
+            title: "Erro ao carregar vídeos",
+            thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
+            published: "",
+            link: `https://www.youtube.com/${configHandle}/videos`
+          }]);
+        }
         setLives([]);
         setIsLive(false);
       }
@@ -503,9 +559,17 @@ export default function Home() {
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-8">
             {videos.length === 0 ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
-              ))
+              // Se ainda carregando (inicialmente null ou []) e não temos liveList
+              // Vamos mostrar os esqueletos apenas se lives também estiver vazio e não carregou nada
+              lives.length === 0 && videos.length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
+                ))
+              ) : (
+                <div className="text-white/40 text-sm col-span-full py-8 text-center bg-white/5 rounded-2xl border border-white/5">
+                  Nenhum vídeo recente encontrado.
+                </div>
+              )
             ) : (
               videos.slice(0, 5).map((video, idx) => (
                 <motion.div

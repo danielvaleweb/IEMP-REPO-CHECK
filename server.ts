@@ -363,20 +363,66 @@ async function startServer() {
   const API_KEY = "AIzaSyA_nzF9lNrNZnE67_lum2D9HsO5OBrwx8o";
   const REFERER = "https://ministerioprofecia.com.br/";
 
-  // API Route for YouTube videos (Consolidated)
+  // Cache simples em memória no servidor
+  const ytCache = new Map<string, { data: any, timestamp: number }>();
+  const CACHE_DURATION = 1800000; // 30 minutos
+
   app.get("/api/youtube", async (req, res) => {
     try {
-      const channelId = "UCILgaItnqDH3plhRXD54QUg";
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=10&order=date&key=${API_KEY}`;
+      const channelId = (req.query.channelId as string) || "UCILgaItnqDH3plhRXD54QUg";
       
-      const response = await fetch(url, { headers: { 'Referer': REFERER } });
-      const data = await response.json();
+      // Verificar cache
+      const cached = ytCache.get(channelId);
+      if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+        console.log(`[YouTube API] Usando cache do servidor para: ${channelId}`);
+        return res.json(cached.data);
+      }
+
+      console.log(`[YouTube API] Buscando novos dados para: ${channelId}`);
       
-      console.log("USANDO API CORRETA (Backend)");
+      // Otimização: Pegar a playlist de "Uploads" (UC -> UU)
+      // O endpoint playlistItems custa 1 unidade, search custa 100.
+      const playlistId = channelId.startsWith('UC') ? 'UU' + channelId.substring(2) : channelId;
+      const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet,contentDetails&playlistId=${playlistId}&maxResults=20&key=${API_KEY}`;
+      
+      let response = await fetch(url, { headers: { 'Referer': REFERER } });
+      let text = await response.text();
+      let data: any;
+      
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.error("[YouTube API] Erro ao parsear JSON:", text.substring(0, 200));
+        return res.status(502).json({ error: { message: "Resposta inválida do Google" } });
+      }
+
+      // Se falhar a playlist (canal não padrão), tenta o search como fallback (caro)
+      if (data.error && data.error.code !== 403) {
+        const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&channelId=${channelId}&maxResults=10&order=date&type=video&key=${API_KEY}`;
+        response = await fetch(searchUrl, { headers: { 'Referer': REFERER } });
+        data = await response.json();
+      }
+
+      if (data.error) {
+        console.error("[YouTube API] Erro do Google:", JSON.stringify(data.error));
+        return res.status(data.error.code || 500).json(data);
+      }
+
+      // Normalizar resposta do playlistItems para o formato de vídeos
+      if (data.items) {
+        data.items = data.items.map((item: any) => ({
+          ...item,
+          id: item.contentDetails?.videoId || item.id?.videoId || item.id
+        }));
+      }
+
+      // Salvar no cache
+      ytCache.set(channelId, { data, timestamp: Date.now() });
+
       res.status(200).json(data);
     } catch (error) {
-      console.error("Error in /api/youtube:", error);
-      res.status(500).json({ error: "Ocorreu um erro ao buscar os vídeos do YouTube" });
+      console.error("Erro em /api/youtube:", error);
+      res.status(500).json({ error: { message: "Erro interno no servidor" } });
     }
   });
 
