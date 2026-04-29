@@ -28,7 +28,7 @@ export default function Home() {
   const [isLive, setIsLive] = useState(false);
   const [nextService, setNextService] = useState("Domingo às 19:00");
   const [videos, setVideos] = useState<any[]>([]);
-  const [lives, setLives] = useState<any[]>([]);
+  const [showAllVideos, setShowAllVideos] = useState(false);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [pastEvents, setPastEvents] = useState<any[]>([]);
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
@@ -181,147 +181,31 @@ export default function Home() {
       setBlogPosts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (err) => console.error("Error loading blog posts:", err));
 
+    const unsubscribeVideos = onSnapshot(query(collection(db, "videos"), orderBy("createdAt", "desc")), (snap) => {
+      setVideos(snap.docs.map(doc => {
+        const data = doc.data();
+        const videoId = data.url?.includes('v=') ? data.url.split('v=')[1].split('&')[0] : 
+                        data.url?.includes('youtu.be/') ? data.url.split('youtu.be/')[1] : data.url;
+        return {
+          id: videoId,
+          title: data.title,
+          thumbnail: data.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          published: data.published || (data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : ""),
+          link: `https://www.youtube.com/watch?v=${videoId}`
+        };
+      }));
+    }, (err) => console.error("Error loading videos:", err));
+
     return () => {
       unsubscribeBlog();
+      unsubscribeVideos();
     };
   }, []);
 
+  // Removed automated YouTube fetch logic
   useEffect(() => {
     // Only attempt to fetch when settings are available
-    const configHandle = settings.youtubeHandle || "@ministerio_profecia";
-
-    const fetchAllVideos = async () => {
-      const channelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
-      const cacheKey = `yt_videos_${channelId}`;
-      const cacheTimeKey = `yt_videos_time_${channelId}`;
-      
-      try {
-        // 1. Tentar carregar do Cache primeiro (12 horas de validade no cliente)
-        const cached = localStorage.getItem(cacheKey);
-        const cacheTime = localStorage.getItem(cacheTimeKey);
-        const now = Date.now();
-        
-        // Se temos cache e ele tem menos de 12 horas, usamos ele
-        if (cached && cacheTime && (now - parseInt(cacheTime) < 43200000)) {
-          const data = JSON.parse(cached);
-          if (data.videos?.length > 0) {
-            setVideos(data.videos);
-            setLives(data.lives || []);
-            setIsLive(data.lives?.length > 0);
-            return;
-          }
-        }
-
-        const response = await fetch(`/api/youtube?channelId=${channelId}`);
-        const responseText = await response.text();
-        let data: any;
-        
-        try {
-          data = JSON.parse(responseText);
-        } catch (e) {
-          throw new Error("INVALID_JSON");
-        }
-
-        if (!response.ok) {
-          const isQuotaError = data?.error?.message?.toLowerCase().includes("quota") || data?.code === 403;
-          if (isQuotaError) throw new Error("QUOTA_EXCEEDED");
-          throw new Error(data?.error?.message || `Erro HTTP: ${response.status}`);
-        }
-        
-        const items = data.items || [];
-
-        const isLive = (video: any) => {
-          return video?.snippet?.liveBroadcastContent === "live" || 
-                 video?.snippet?.thumbnails?.high?.url?.includes("_live") ||
-                 video?.snippet?.title?.toLowerCase().includes("ao vivo");
-        };
-
-        const formatVideo = (v: any) => {
-          let title = v.snippet?.title || "";
-          try {
-            title = title.replace(/&quot;/g, '"')
-                         .replace(/&#39;/g, "'")
-                         .replace(/&amp;/g, "&")
-                         .replace(/&lt;/g, "<")
-                         .replace(/&gt;/g, ">");
-          } catch (e) {}
-          
-          const videoId = typeof v.id === 'string' ? v.id : (v.id?.videoId || v.contentDetails?.videoId);
-          
-          return {
-            id: videoId,
-            title,
-            thumbnail: `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`,
-            published: v.snippet?.publishedAt ? new Date(v.snippet.publishedAt).toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR'),
-            link: `https://www.youtube.com/watch?v=${videoId}`
-          };
-        };
-        
-        const videoList: any[] = [];
-        const liveList: any[] = [];
-
-        items.forEach((item: any) => {
-          const videoId = typeof item.id === 'string' ? item.id : item.id?.videoId;
-          if (!videoId) return;
-
-          const formatted = formatVideo(item);
-          if (isLive(item)) {
-            liveList.push(formatted);
-          } else {
-            videoList.push(formatted);
-          }
-        });
-
-        // 2. Salvar no Cache se tivemos sucesso
-        if (videoList.length > 0) {
-          localStorage.setItem(cacheKey, JSON.stringify({ videos: videoList, lives: liveList }));
-          localStorage.setItem(cacheTimeKey, now.toString());
-        }
-
-        setVideos(videoList);
-        setLives(liveList);
-        setIsLive(liveList.length > 0);
-
-      } catch (error: any) {
-        console.error("[Home] YouTube fetch failed", error);
-        
-        // 3. Fallback para cache mesmo que antigo em caso de erro na API
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          try {
-            const data = JSON.parse(cached);
-            setVideos(data.videos || []);
-            setLives(data.lives || []);
-            setIsLive(data.lives?.length > 0);
-            return;
-          } catch (e) {}
-        }
-
-        if (error.message === "QUOTA_EXCEEDED") {
-          setVideos([{
-            id: "quota-error",
-            isPlaceholder: true,
-            title: "Limite diário atingido. Assista direto no YouTube.",
-            thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
-            published: "Tente amanhã",
-            link: `https://www.youtube.com/${configHandle}/videos`
-          }]);
-        } else {
-          setVideos([{
-            id: "fallback",
-            isPlaceholder: true,
-            title: "Vídeos temporariamente indisponíveis",
-            thumbnail: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1920",
-            published: "",
-            link: `https://www.youtube.com/${configHandle}/videos`
-          }]);
-        }
-        setLives([]);
-        setIsLive(false);
-      }
-    };
-
-    fetchAllVideos();
+    // const configHandle = settings.youtubeHandle || "@ministerio_profecia";
   }, [settings.youtubeChannelId, settings.youtubeHandle]);
 
   // Auto-play carousel every 30 seconds for videos
@@ -549,26 +433,21 @@ export default function Home() {
               <div className="w-1 h-8 bg-[#BF76FF] rounded-full" />
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Vídeos Recentes</h2>
             </div>
-            <Link to="/galeria" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
-              Ver Tudo <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
+            <button 
+               onClick={() => setShowAllVideos(!showAllVideos)}
+               className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group"
+            >
+              {showAllVideos ? "Ver Menos" : "Ver Tudo"} <ArrowRight className={cn("w-4 h-4 transition-transform", showAllVideos ? "rotate-90" : "group-hover:translate-x-1")} />
+            </button>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-8">
             {videos.length === 0 ? (
-              // Se ainda carregando (inicialmente null ou []) e não temos liveList
-              // Vamos mostrar os esqueletos apenas se lives também estiver vazio e não carregou nada
-              lives.length === 0 && videos.length === 0 ? (
-                Array.from({ length: 5 }).map((_, i) => (
+               Array.from({ length: 5 }).map((_, i) => (
                   <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
-                ))
-              ) : (
-                <div className="text-white/40 text-sm col-span-full py-8 text-center bg-white/5 rounded-2xl border border-white/5">
-                  Nenhum vídeo recente encontrado.
-                </div>
-              )
+               ))
             ) : (
-              videos.slice(0, 5).map((video, idx) => (
+              (showAllVideos ? videos : videos.slice(0, 5)).map((video, idx) => (
                 <motion.div
                   key={`home-video-${idx}-${video.id || 'no-id'}`}
                   initial={{ opacity: 0, y: 20 }}
@@ -599,46 +478,48 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Lives Section */}
+      {/* Últimos Cliques Section */}
       <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 bg-black">
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center gap-3">
               <div className="w-1 h-8 bg-red-500 rounded-full" />
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Transmissões ao Vivo</h2>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Últimos Cliques</h2>
             </div>
+            <Link to="/eventos" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
+              Ver Galeria <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </Link>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mt-8">
-            {lives.length === 0 ? (
-              <div className="text-white/40 text-sm col-span-full py-8 text-center bg-white/5 rounded-2xl border border-white/5">
-                Nenhuma live ativa no momento. Confira nossos vídeos recentes acima.
-              </div>
+            {pastEvents.length === 0 ? (
+               Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="aspect-video bg-white/5 rounded-xl animate-pulse" />
+               ))
             ) : (
-              lives.slice(0, 5).map((live, idx) => (
+              pastEvents.slice(0, 5).map((event, idx) => (
                 <motion.div
-                  key={`home-live-${idx}-${live.id || 'no-id'}`}
+                  key={`home-clique-${idx}-${event.id}`}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: idx * 0.1 }}
                   className="group cursor-pointer"
-                  onClick={() => handleWatchVideo(live)}
+                  onClick={() => navigate(`/evento/${event.id}#galeria`)}
                 >
-                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-red-500/30 shadow-lg">
+                  <div className="relative aspect-video rounded-2xl overflow-hidden mb-4 border border-white/10 shadow-lg">
                     <img 
-                      src={live.thumbnail} 
-                      alt={live.title} 
+                      src={event.image} 
+                      alt={event.title} 
                       className="w-full h-full object-cover transition-transform group-hover:scale-110"
                       referrerPolicy="no-referrer"
                     />
-                    <div className="absolute top-3 left-3 bg-red-600 text-[10px] font-bold px-2 py-0.5 rounded text-white flex items-center gap-1 shadow-xl">
-                      <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
-                      LIVE
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <Camera className="w-12 h-12 text-white" />
                     </div>
                   </div>
                   <h3 className="text-white font-bold text-sm line-clamp-2 opacity-80 group-hover:opacity-100 transition-opacity">
-                    {cleanTitle(live.title)}
+                    {event.title}
                   </h3>
                 </motion.div>
               ))

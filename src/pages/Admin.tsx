@@ -72,6 +72,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { AvisosView } from "@/components/admin/AvisosView";
+import { VideosView } from "@/components/admin/VideosView";
 import { EventosView } from "@/components/admin/EventosView";
 import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
@@ -1286,6 +1287,7 @@ export default function Admin() {
     const defaultVals: any = {
       "visao-geral": true,
       "eventos": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "videos": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "noticias": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "radio": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
@@ -2342,6 +2344,7 @@ export default function Admin() {
             <div className="hidden md:flex flex-col gap-1.5 w-full">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              {canViewTab("videos") && <SidebarItem icon={Video} active={activeTab === "videos"} onClick={() => setActiveTab("videos")} label="Vídeos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias"} onClick={() => setActiveTab("noticias")} label="Blog / Notícias" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               {canViewTab("avisos") && <SidebarItem icon={Bell} active={activeTab === "avisos"} onClick={() => setActiveTab("avisos")} label="Central de Avisos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
@@ -4371,6 +4374,8 @@ export default function Admin() {
                   )}
                 </div>
               </div>
+            ) : activeTab === "videos" ? (
+              <VideosView isDark={isDarkMode} />
             ) : activeTab === "avisos" ? (
               <AvisosView isDark={isDarkMode} />
             ) : (activeTab === "eventos" || activeTab === "noticias") && !isEditing ? (

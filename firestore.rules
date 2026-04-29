@@ -111,6 +111,12 @@ service cloud.firestore {
              data.timestamp == request.time;
     }
 
+    function isValidVideo(data) {
+      return data.keys().hasAll(['title', 'url']) &&
+             data.title is string && data.title.size() <= 200 &&
+             data.url is string;
+    }
+
     // --- Collection Rules ---
 
     match /test/connection {
@@ -217,6 +223,12 @@ service cloud.firestore {
       allow read, list, get: if true;
       allow create: if true;
       allow update, delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /videos/{videoId} {
+      allow read, list, get: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidVideo(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
     }
 
     // Default deny for everything else

@@ -150,6 +150,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "content"]
+    },
+    "Video": {
+      "title": "Video",
+      "description": "Vídeos manuais para a galeria",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "url": { "type": "string", "description": "URL ou ID do YouTube" },
+        "thumbnail": { "type": "string" },
+        "published": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "url"]
     }
   },
   "firestore": {
@@ -196,6 +209,10 @@
     "/agenda-direcao/{eventId}": {
       "schema": "Agenda",
       "description": "Agenda privada da direção"
+    },
+    "/videos/{videoId}": {
+      "schema": "Video",
+      "description": "Coleção de vídeos manuais"
     }
   }
 }
