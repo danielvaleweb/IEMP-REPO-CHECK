@@ -1659,7 +1659,14 @@ const Admin = () => {
     if (!rolePerms) {
       return defaultVals[tab] ?? false;
     }
-    return rolePerms.tabs?.[tab] ?? (defaultVals[tab] ?? true);
+    
+    // If the role has defined permissions, strictly follow them
+    if (rolePerms.tabs && tab in rolePerms.tabs) {
+      return rolePerms.tabs[tab];
+    }
+    
+    // For specific roles, if tab is not defined in settings, use default
+    return defaultVals[tab] ?? false;
   };
 
   const defaultEditPerm = !["Membro", "Visitante"].includes(currentRole);
@@ -2946,6 +2953,29 @@ const Admin = () => {
                           ))}
                         </div>
                       )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Acesso Rápido</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {menuItems.map(item => (
+                          canViewTab(item.id) && (
+                            <SheetClose
+                              key={`mobile-menu-${item.id}`}
+                              onClick={() => { setActiveTab(item.id); setRightSidebarView("hidden"); }} 
+                              className={cn(
+                                "h-16 flex flex-col items-center justify-center gap-1.5 rounded-[20px] transition-all border outline-none",
+                                activeTab === item.id 
+                                  ? "bg-[#BF76FF] text-white border-transparent" 
+                                  : isDarkMode ? "bg-white/5 border-white/5 text-gray-400" : "bg-white border-black/5 text-gray-600 shadow-sm"
+                              )}
+                            >
+                              <item.icon className="w-5 h-5" /> 
+                              <span className="text-[8px] font-bold uppercase truncate w-full px-1">{item.label}</span>
+                            </SheetClose>
+                          )
+                        ))}
+                      </div>
                     </div>
 
                     <div className="space-y-3">
@@ -5434,16 +5464,24 @@ const Admin = () => {
                                     { label: "Notícias", key: "noticias" },
                                     { label: "Membros", key: "membros" },
                                     { label: "Agenda", key: "agenda" },
-                                    { label: "Agen. Direção", key: "agenda-direcao" }
+                                    { label: "Agen. Direção", key: "agenda-direcao" },
+                                    { label: "Vídeos", key: "videos" },
+                                    { label: "Visitantes", key: "visitantes" },
+                                    { label: "Avisos", key: "avisos" },
+                                    { label: "Rádio", key: "radio" }
                                   ].map(tab => {
                                     
                                     const defaultVals: any = {
                                       "visao-geral": true,
-                                      "eventos": !["Membro", "Visitante"].includes(role),
-                                      "noticias": !["Membro", "Visitante"].includes(role),
-                                      "membros": !["Membro", "Visitante"].includes(role),
-                                      "agenda": !["Membro", "Visitante"].includes(role),
-                                      "agenda-direcao": role === "Administradores" || role === "Desenvolvedor"
+                                      "eventos": !["Membro", "Visitante", "Direção"].includes(role),
+                                      "noticias": !["Membro", "Visitante", "Direção"].includes(role),
+                                      "membros": !["Membro", "Visitante", "Direção"].includes(role),
+                                      "agenda": !["Membro", "Visitante", "Direção"].includes(role),
+                                      "agenda-direcao": ["Administradores", "Desenvolvedor", "Direção"].includes(role),
+                                      "videos": !["Membro", "Visitante", "Direção"].includes(role),
+                                      "visitantes": !["Membro", "Visitante", "Direção"].includes(role),
+                                      "avisos": ["Administradores", "Desenvolvedor"].includes(role),
+                                      "radio": !["Membro", "Visitante", "Direção"].includes(role)
                                     };
                                     
                                     const isChecked = settings.permissions?.[role]?.tabs?.[tab.key] ?? defaultVals[tab.key];

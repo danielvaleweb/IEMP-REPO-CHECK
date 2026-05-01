@@ -66,7 +66,7 @@ export default function RadioPage() {
   };
 
   const currentVideoUrl = useMemo(() => {
-    if (!currentTrack?.youtubeId) return "";
+    if (!currentTrack?.youtubeId) return null;
     return `https://www.youtube.com/watch?v=${currentTrack.youtubeId}`;
   }, [currentTrack]);
 
@@ -106,30 +106,36 @@ export default function RadioPage() {
           >
             {/* Hidden Player Engine */}
             <div className="absolute opacity-0 pointer-events-none">
-              <Player
-                ref={playerRef}
-                url={currentVideoUrl}
-                playing={isPlaying}
-                volume={volume}
-                muted={isMuted}
-                onEnded={handleNext}
-                onProgress={(p: any) => setProgress(p.played * 100)}
-                onError={(e: any) => {
-                  console.error("Player Error:", e);
-                  handleNext();
-                }}
-                config={{
-                  youtube: {
-                    playerVars: { 
-                      autoplay: 1,
-                      controls: 0,
-                      showinfo: 0,
-                      rel: 0,
-                      modestbranding: 1
+              {currentVideoUrl && (
+                <Player
+                  ref={playerRef}
+                  url={currentVideoUrl}
+                  playing={isPlaying}
+                  volume={volume}
+                  muted={isMuted}
+                  onReady={() => console.log('Radio: Player Ready')}
+                  onStart={() => console.log('Radio: Player Started')}
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onEnded={handleNext}
+                  onProgress={(p: any) => setProgress(p.played * 100)}
+                  onError={(e: any) => {
+                    console.error("Radio: Player Error:", e);
+                    handleNext();
+                  }}
+                  config={{
+                    youtube: {
+                      playerVars: { 
+                        autoplay: 1,
+                        controls: 0,
+                        showinfo: 0,
+                        rel: 0,
+                        modestbranding: 1
+                      }
                     }
-                  }
-                } as any}
-              />
+                  } as any}
+                />
+              )}
             </div>
 
             {/* Album/Track Visualizer */}
@@ -179,10 +185,10 @@ export default function RadioPage() {
                  </div>
                  
                  <h1 className="text-3xl md:text-5xl font-black tracking-tighter uppercase mb-1 line-clamp-2 px-4 leading-tight">
-                   {currentTrack?.title || config?.radioTitle || "Rádio Profecia"}
+                   {currentTrack?.title || config?.radioTitle || "Rádio Indisponível"}
                  </h1>
                  <p className="text-white/40 text-xs md:text-sm font-bold uppercase tracking-[0.3em]">
-                   {currentTrack ? "Tocando agora • YouTube" : (config?.radioSubtitle || "Louvor e Adoração")}
+                   {currentTrack ? "Tocando agora • YouTube" : "Adicione músicas no painel administrativo"}
                  </p>
               </div>
             </div>

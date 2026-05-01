@@ -2,34 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    match /blog/{blogId} {
-      allow read, get, list: if true;
-      allow create, update: if (isMasterAdmin() || isEditor()) && isValidBlogPost(incoming());
-      allow delete: if isMasterAdmin() || isAdmin();
-    }
-
-    match /posts/{postId} {
-      allow read, get, list: if true;
-      allow create, update: if (isMasterAdmin() || isEditor()) && isValidPost(incoming());
-      allow delete: if isMasterAdmin() || isAdmin();
-      
-      match /attendees/{userId} {
-        allow read: if true;
-        allow write: if isSignedIn() && request.auth.uid == userId;
-      }
-    }
-
     // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Hardcoded admin for bootstrap and fallback
     function isMasterAdmin() {
       return isSignedIn() && request.auth.token.email == "iempministerioprofecia@gmail.com";
     }
 
-    // RBAC check from members collection
     function getRole() {
       return exists(/databases/$(database)/documents/members/$(request.auth.uid)) 
         ? get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role 
@@ -87,21 +68,16 @@ service cloud.firestore {
              data.title is string;
     }
 
-    function isValidVignette(data) {
-      return data.keys().hasAll(['title']) &&
-             data.title is string;
-    }
-
     function isValidRadioTrack(data) {
       return data.keys().hasAll(['title', 'youtubeId']) &&
              data.title is string &&
              data.youtubeId is string;
     }
 
-    function isValidPlaylist(data) {
-      return data.keys().hasAll(['title', 'authorId']) &&
+    function isValidVignette(data) {
+      return data.keys().hasAll(['title', 'youtubeUrl']) &&
              data.title is string &&
-             data.authorId is string;
+             data.youtubeUrl is string;
     }
 
     function isValidAgenda(data) {
@@ -123,11 +99,34 @@ service cloud.firestore {
              data.url is string &&
              (!data.keys().hasAny(['badge']) || (data.badge is string && data.badge.size() <= 100));
     }
+    
+    function isValidPlaylist(data) {
+      return data.keys().hasAll(['title', 'authorId']) &&
+             data.title is string &&
+             data.authorId is string;
+    }
 
     // --- Collection Rules ---
 
     match /test/connection {
       allow read: if true;
+    }
+
+    match /blog/{blogId} {
+      allow read, get, list: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidBlogPost(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /posts/{postId} {
+      allow read, get, list: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidPost(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+      
+      match /attendees/{userId} {
+        allow read: if true;
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
     }
 
     match /members/{memberId} {
@@ -178,18 +177,11 @@ service cloud.firestore {
     }
 
     match /notifications/{notifId} {
-      allow get: if isSignedIn() && (
+      allow get, list: if isSignedIn() && (
         resource.data.userId == request.auth.uid || 
         resource.data.userId == 'all' || 
         resource.data.userId == 'admin' || 
         isMasterAdmin() || 
-        isAdmin()
-      );
-      allow list: if isSignedIn() && (
-        resource.data.userId == request.auth.uid || 
-        resource.data.userId == 'all' || 
-        resource.data.userId == 'admin' || 
-        isMasterAdmin() ||
         isAdmin()
       );
       allow create: if isMasterAdmin() || isAdmin() || 
@@ -240,15 +232,14 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow write: if isSignedIn() && request.auth.uid == userId;
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
       
       match /{subcollection=**} {
         allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
     }
 
-    // Default deny for everything else
+    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }
