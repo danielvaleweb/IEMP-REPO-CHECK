@@ -811,7 +811,7 @@ function LogFilterSelect({ label, value, onChange, options, isDarkMode }: any) {
 }
 
 const Admin = () => {
-  const { user, profile, login, logout, isAdmin, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
+  const { user, profile, login, loginAsGuest, logout, isAdmin, isGuest, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const messageParam = searchParams.get('message');
@@ -844,39 +844,14 @@ const Admin = () => {
     }
     
     setIsSubmitting(true);
+    setGuestError("");
     try {
-      const guestId = `visitante_${phoneDigits}`;
-      const guestObj = {
-        name: guestData.name,
-        phone: guestData.phone,
-        role: "Visitante",
-        status: "visitor",
-        email: `${phoneDigits}@visitante.com`,
-        photoURL: "",
-        lastVisit: serverTimestamp(),
-        createdAt: serverTimestamp()
-      };
-
-      // Ensure the visitor exists in the members collection
-      await setDoc(doc(db, "membros", guestId), guestObj, { merge: true });
-
-      // Create a notification for admins
-      await addDoc(collection(db, "notifications"), {
-        title: "Novo Visitante",
-        message: `Um visitante ${guestData.name} acabou de entrar`,
-        type: "system",
-        read: false,
-        createdAt: serverTimestamp()
-      });
-
-      setCustomLogin(true, {
-        id: guestId,
-        ...guestObj
-      });
+      await loginAsGuest(guestData.name, guestData.phone);
       setIsGuestModalOpen(false);
-    } catch (err) {
-      console.error("Erro ao registrar visitante:", err);
-      setGuestError("Erro ao processar acesso. Tente novamente.");
+      window.location.href = '/';
+    } catch (err: any) {
+      console.error(err);
+      setGuestError(err.message || "Erro ao entrar como visitante");
     } finally {
       setIsSubmitting(false);
     }
@@ -1553,6 +1528,7 @@ const Admin = () => {
 
   const logAction = async (action: string, target: string, details: string, oldData?: any, newData?: any) => {
     if (!user) return;
+    if (isGuest) return;
 
     let extendedDetails = details;
     
@@ -1657,12 +1633,19 @@ const Admin = () => {
 
     // Fetch total counts once for the dashboard summary
     const fetchCounts = async () => {
+      if (!isAdmin) return;
+      
       const safeGetCount = async (coll: any, label: string) => {
         try {
           const snap = await getCountFromServer(coll);
           return snap.data().count;
-        } catch (err) {
-          console.error(`Error fetching count for ${label}:`, err);
+        } catch (err: any) {
+          const errMsg = err?.message || String(err);
+          if (errMsg.includes("Connection") || errMsg.includes("offline")) {
+            // suppress expected errors
+          } else {
+            console.error(`Error fetching count for ${label}:`, err);
+          }
           return 0;
         }
       };
@@ -1673,7 +1656,7 @@ const Admin = () => {
         safeGetCount(collection(db, "vignettes"), "vignettes"),
         safeGetCount(collection(db, "posts"), "posts"),
         safeGetCount(collection(db, "blog"), "blog"),
-        safeGetCount(query(
+        isGuest ? Promise.resolve(0) : safeGetCount(query(
           collection(db, "notifications"), 
           where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
           where("read", "==", false)
@@ -1722,29 +1705,32 @@ const Admin = () => {
       setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading vignettes:", err));
 
-    const unsubLogs = canViewLogs ? onSnapshot(query(collection(db, "audit-logs"), orderBy("timestamp", "desc"), limit(100)), (snap) => {
+    const unsubLogs = (canViewLogs && !isGuest) ? onSnapshot(query(collection(db, "audit-logs"), orderBy("timestamp", "desc"), limit(100)), (snap) => {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading logs:", err)) : () => {};
 
-    const unsubNotifs = onSnapshot(query(
-      collection(db, "notifications"), 
-      where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
-      orderBy("createdAt", "desc"),
-      limit(100)
-    ), (snap) => {
-      setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => {
-      // If the above query fails due to missing composite index, fallback to filtering by userId locally to avoid list errors.
-      if (!isAdmin) {
-        onSnapshot(query(collection(db, "notifications"), where("userId", "==", user?.uid), limit(100)), (snapFallback) => {
-          setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
-      } else {
-        onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(100)), (snapFallback) => {
-          setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
-        }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
-      }
-    });
+    let unsubNotifs = () => {};
+    if (!isGuest) {
+      unsubNotifs = onSnapshot(query(
+        collection(db, "notifications"), 
+        where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
+        orderBy("createdAt", "desc"),
+        limit(100)
+      ), (snap) => {
+        setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      }, (err) => {
+        // If the above query fails due to missing composite index, fallback to filtering by userId locally to avoid list errors.
+        if (!isAdmin) {
+          onSnapshot(query(collection(db, "notifications"), where("userId", "==", user?.uid), limit(100)), (snapFallback) => {
+            setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
+          }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
+        } else {
+          onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(100)), (snapFallback) => {
+            setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
+          }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
+        }
+      });
+    }
 
     const unsubSkills = onSnapshot(doc(db, "settings", "skills"), (snap) => {
       if (snap.exists()) {
@@ -2296,7 +2282,7 @@ const Admin = () => {
               <div className="flex justify-center">
                 <Button 
                   variant="ghost"
-                  className="w-14 h-14 rounded-2xl transition-all active:scale-[0.95] cursor-pointer flex items-center justify-center p-0 hover:bg-transparent"
+                  className="w-14 h-14 rounded-2xl transition-all active:scale-[0.95] cursor-pointer flex items-center justify-center p-0 hover:bg-transparent border-0 bg-transparent text-white"
                   title="Entrar com Google"
                   onClick={async () => {
                     try {
@@ -2348,16 +2334,16 @@ const Admin = () => {
               </div>
 
               <Dialog open={isGuestModalOpen} onOpenChange={setIsGuestModalOpen}>
-                <DialogContent className={cn("rounded-[32px] border shadow-2xl p-0 overflow-hidden max-w-md w-[95%] sm:w-full", isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/5")}>
+                <DialogContent className={cn("rounded-[32px] border shadow-2xl p-0 overflow-hidden max-w-md w-[95%] sm:w-full", isDarkMode ? "bg-[#111] border-white/10 text-white" : "bg-[#111] border-white/10 text-white")}>
                   <div className="p-8">
                     <DialogHeader>
-                      <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+                      <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-white">
                         <div className="w-10 h-10 rounded-2xl bg-[#25D366]/20 flex items-center justify-center text-[#25D366]">
                           <Users className="w-5 h-5" />
                         </div>
                         Acesso de Visitante
                       </DialogTitle>
-                      <DialogDescription className="text-gray-500 mt-2">
+                      <DialogDescription className="text-gray-400 mt-2">
                         Preencha seus dados para acessar as áreas abertas aos visitantes.
                       </DialogDescription>
                     </DialogHeader>
@@ -2370,10 +2356,10 @@ const Admin = () => {
 
                     <div className="space-y-6 mt-8">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Seu Nome</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Seu Nome</label>
                         <Input 
                           placeholder="Ex: João Silva" 
-                          className={cn("h-14 border rounded-2xl px-5 transition-all text-sm", isDarkMode ? "bg-black border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
+                          className="h-14 border rounded-2xl px-5 transition-all text-sm bg-black border-white/5 text-white placeholder-gray-600"
                           value={guestData.name}
                           onChange={(e) => {
                             setGuestData({...guestData, name: e.target.value});
@@ -2383,10 +2369,10 @@ const Admin = () => {
                       </div>
 
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Telefone / WhatsApp</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Telefone / WhatsApp</label>
                         <Input 
                           placeholder="(00) 0 0000-0000" 
-                          className={cn("h-14 border rounded-2xl px-5 transition-all text-sm", isDarkMode ? "bg-black border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
+                          className="h-14 border rounded-2xl px-5 transition-all text-sm bg-black border-white/5 text-white placeholder-gray-600"
                           value={guestData.phone}
                           onChange={(e) => {
                             setGuestData({...guestData, phone: formatPhone(e.target.value)});
@@ -2400,7 +2386,7 @@ const Admin = () => {
                       <Button 
                         variant="ghost" 
                         onClick={() => setIsGuestModalOpen(false)}
-                        className={cn("h-14 rounded-2xl font-bold transition-all", isDarkMode ? "hover:bg-white/5" : "hover:bg-gray-100")}
+                        className="h-14 rounded-2xl font-bold transition-all text-white hover:bg-white/5 hover:text-white"
                       >
                         Cancelar
                       </Button>

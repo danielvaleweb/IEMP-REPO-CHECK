@@ -205,8 +205,8 @@ service cloud.firestore {
     }
 
     match /audit-logs/{logId} {
-      allow read: if isMasterAdmin() || isAdmin();
-      allow create: if (isMasterAdmin() || isEditor()) && isValidAuditLog(incoming());
+      allow read: if isMasterAdmin() || isAdmin() || isEditor();
+      allow create: if isSignedIn() && isValidAuditLog(incoming());
       allow update, delete: if false;
     }
 

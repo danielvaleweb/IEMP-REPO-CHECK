@@ -10,7 +10,8 @@ import {
   setPersistence,
   browserLocalPersistence,
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword
+  createUserWithEmailAndPassword,
+  signInAnonymously
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, collection, addDoc } from "firebase/firestore";
@@ -22,8 +23,10 @@ interface AuthContextType {
   login: () => Promise<void>;
   loginWithEmail: (email: string, password: string) => Promise<void>;
   signupWithEmail: (email: string, password: string, additionalData: any) => Promise<any>;
+  loginAsGuest: (name: string, phone: string) => Promise<any>;
   logout: () => Promise<void>;
   isAdmin: boolean;
+  isGuest: boolean;
   setCustomLogin: (status: boolean, userData?: any) => void;
   error: string | null;
   clearError: () => void;
@@ -221,6 +224,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginAsGuest = async (name: string, phone: string) => {
+    setError(null);
+    try {
+      const userCred = await signInAnonymously(auth);
+      const uid = userCred.user.uid;
+      
+      const newProfile = {
+        name: name,
+        phone: phone,
+        role: "Visitante",
+        status: "visitor",
+        email: `${phone.replace(/[^\d]/g, '')}@visitante.com`,
+        createdAt: new Date().toISOString(),
+        lastVisit: new Date().toISOString()
+      };
+
+      try {
+        const userRef = doc(db, "members", uid);
+        await setDoc(userRef, newProfile, { merge: true });
+        
+        const notifRef = doc(collection(db, "notifications"));
+        await setDoc(notifRef, {
+          title: "Novo Visitante",
+          message: `Um visitante ${name} acabou de entrar`,
+          type: "registration",
+          memberId: uid,
+          read: false,
+          createdAt: new Date().toISOString()
+        });
+      } catch (e) {
+        console.warn("Could not write to members or notifications:", e);
+      }
+      
+      setProfile({ id: uid, ...newProfile });
+      return userCred.user;
+    } catch (error: any) {
+      console.error("Erro no login de visitante:", error);
+      let msg = error.message;
+      if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
+        msg = "O login de visitante (Anônimo) está desabilitado. Peça ao administrador para ativar 'Anônimo' na aba Authentication do Firebase.";
+      }
+      setError(msg);
+      throw error;
+    }
+  };
+
   const clearError = () => setError(null);
 
   const logout = async () => {
@@ -259,6 +308,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   customUserData?.role === "Administradores" ||
                   (isCustomLoggedIn && !customUserData);
 
+  const isGuest = profile?.role === "Visitante" || profile?.status === "visitor" || firebaseUser?.isAnonymous === true;
+
   useEffect(() => {
     console.log("DEBUG AuthContext State Update:", {
       firebaseUserEmail: firebaseUser?.email,
@@ -284,7 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   } : null);
 
   return (
-    <AuthContext.Provider value={{ user, profile: profile || customUserData, loading, login, loginWithEmail, signupWithEmail, logout, isAdmin, setCustomLogin, error, clearError }}>
+    <AuthContext.Provider value={{ user, profile: profile || customUserData, loading, login, loginAsGuest, loginWithEmail, signupWithEmail, logout, isAdmin, isGuest, setCustomLogin, error, clearError }}>
       {children}
     </AuthContext.Provider>
   );
