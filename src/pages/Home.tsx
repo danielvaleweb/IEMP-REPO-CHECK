@@ -33,7 +33,7 @@ import { MovieCard } from "@/components/movies/MovieCard";
 
 export default function Home() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isLive, setIsLive] = useState(false);
   const [nextService, setNextService] = useState("Domingo às 19:00");
   const [videos, setVideos] = useState<any[]>([]);
@@ -43,6 +43,50 @@ export default function Home() {
   const [similarVideos, setSimilarVideos] = useState<any[]>([]);
   const [showSimilarModal, setShowSimilarModal] = useState(false);
   const [activeSimilarVideo, setActiveSimilarVideo] = useState<any | null>(null);
+  
+  // Welcome & LGPD Modals
+  const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+  const [showLgpdModal, setShowLgpdModal] = useState(false);
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
+
+  useEffect(() => {
+    if (user && profile && !hasShownWelcome) {
+      const today = new Date().toISOString().split('T')[0];
+      const storageKey = `welcome_modal_shown_${user.uid}`;
+      const lastShown = localStorage.getItem(storageKey);
+
+      if (lastShown !== today) {
+        // Show Welcome first, then check LGPD
+        setShowWelcomeModal(true);
+        localStorage.setItem(storageKey, today);
+      } else if (!profile.lgpdAccepted) {
+        // If already seen welcome today but LGPD not accepted, show LGPD
+        setShowLgpdModal(true);
+      }
+      setHasShownWelcome(true);
+    }
+  }, [user, profile, hasShownWelcome]);
+
+  const handleWelcomeClose = () => {
+    setShowWelcomeModal(false);
+    if (user && profile && !profile.lgpdAccepted) {
+      setShowLgpdModal(true);
+    }
+  };
+
+  const handleLgpdAccept = async () => {
+    if (user && profile) {
+      try {
+        const userRef = doc(db, "members", profile.id || user.uid);
+        await setDoc(userRef, { lgpdAccepted: true }, { merge: true });
+        setShowLgpdModal(false);
+      } catch (err: any) {
+        // Fallback or user might be stored in a different collection
+        console.error("Error setting LGPD", err);
+        setShowLgpdModal(false); // allow them to proceed anyway
+      }
+    }
+  };
 
   useEffect(() => {
     // Load config
@@ -1166,6 +1210,120 @@ export default function Home() {
                     </Button>
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Welcome Modal */}
+      <AnimatePresence>
+        {showWelcomeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-[#181818] w-full max-w-md rounded-3xl p-8 border border-white/10 text-center shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-primary via-purple-500 to-primary"></div>
+              
+              <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                 <Heart className="w-10 h-10 text-primary" />
+              </div>
+              
+              <h2 className="text-3xl font-black text-white mb-2">Bem vindo, {profile?.name?.split(' ')[0] || user?.displayName?.split(' ')[0] || "Visitante"}!</h2>
+              <p className="text-gray-400 text-lg mb-8">É uma benção ter você aqui!</p>
+              
+              <Button 
+                onClick={handleWelcomeClose}
+                className="w-full bg-primary hover:bg-primary/80 text-white rounded-xl h-14 font-bold text-lg"
+              >
+                Continuar
+              </Button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* LGPD Modal */}
+      <AnimatePresence>
+        {showLgpdModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/95 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 30 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 30 }}
+              className="bg-[#181818] w-full max-w-2xl max-h-[90vh] rounded-2xl flex flex-col border border-white/10 shadow-2xl"
+            >
+              <div className="p-6 border-b border-white/10 shrink-0">
+                <h2 className="text-2xl font-black text-white uppercase flex items-center gap-2">
+                  Termo de Responsabilidade e Consentimento
+                  <span className="bg-primary text-white text-[10px] px-2 py-0.5 rounded-full">LGPD</span>
+                </h2>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6 text-gray-300 text-sm space-y-4 custom-scrollbar">
+                <p><strong>1. Coleta de Dados Pessoais</strong><br/>Ao acessar a plataforma como visitante e fornecer voluntariamente seus dados, incluindo nome e telefone, o usuário declara estar ciente de que essas informações serão coletadas e armazenadas pela empresa responsável.</p>
+                
+                <div className="space-y-1"><strong>2. Finalidade do Uso dos Dados</strong><br/>Os dados fornecidos serão utilizados exclusivamente para:
+                  <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
+                    <li>Identificação do usuário;</li>
+                    <li>Contato futuro para atendimento, suporte, informações comerciais ou institucionais;</li>
+                    <li>Melhoria da experiência do usuário nos serviços oferecidos.</li>
+                  </ul>
+                </div>
+
+                <p><strong>3. Consentimento</strong><br/>Ao fornecer seus dados e prosseguir com o uso da plataforma, o usuário autoriza expressamente, de forma livre, informada e inequívoca, o tratamento de seus dados pessoais para as finalidades descritas neste termo, in conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 – LGPD).</p>
+
+                <div className="space-y-1"><strong>4. Compartilhamento de Dados</strong><br/>Os dados não serão vendidos ou compartilhados com terceiros, exceto quando necessário para:
+                  <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
+                    <li>Cumprimento de obrigações legais;</li>
+                    <li>Execução de serviços essenciais vinculados à operação da plataforma;</li>
+                    <li>Mediante consentimento adicional do usuário.</li>
+                  </ul>
+                </div>
+
+                <p><strong>5. Armazenamento e Segurança</strong><br/>A empresa se compromete a adotar medidas técnicas e administrativas adequadas para proteger os dados pessoais contra acessos não autorizados, vazamentos, perdas ou qualquer forma de tratamento inadequado.</p>
+
+                <div className="space-y-1"><strong>6. Direitos do Titular dos Dados</strong><br/>O usuário poderá, a qualquer momento, solicitar:
+                  <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
+                    <li>Acesso aos seus dados;</li>
+                    <li>Correção de dados incompletos ou desatualizados;</li>
+                    <li>Exclusão dos dados pessoais;</li>
+                    <li>Revogação do consentimento.</li>
+                  </ul>
+                  As solicitações poderão ser feitas por meio de canal de atendimento disponibilizado pela empresa.
+                </div>
+
+                <p><strong>7. Retenção dos Dados</strong><br/>Os dados serão armazenados pelo tempo necessário para cumprir as finalidades descritas neste termo ou conforme exigido por obrigações legais.</p>
+
+                <p><strong>8. Aceite do Termo</strong><br/>Ao fornecer seus dados e continuar utilizando a plataforma, o usuário declara que leu, compreendeu e concorda integralmente com este Termo de Responsabilidade e Consentimento.</p>
+
+                <p className="text-gray-500 font-mono text-xs pt-4 border-t border-white/10 mt-6">Última atualização: 01/05/2026</p>
+              </div>
+
+              <div className="p-6 border-t border-white/10 shrink-0 bg-black/20">
+                <Button 
+                  onClick={handleLgpdAccept}
+                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-xl h-14 font-bold text-lg flex items-center justify-center gap-2 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  <Check className="w-6 h-6" />
+                  Concordar e Continuar
+                </Button>
+                <p className="text-center text-[10px] text-gray-500 mt-4 uppercase tracking-widest">
+                  Ao clicar no botão acima, você aceita o termo.
+                </p>
               </div>
             </motion.div>
           </motion.div>

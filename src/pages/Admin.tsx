@@ -848,7 +848,7 @@ const Admin = () => {
     try {
       await loginAsGuest(guestData.name, guestData.phone);
       setIsGuestModalOpen(false);
-      window.location.href = '/';
+      navigate('/');
     } catch (err: any) {
       console.error(err);
       setGuestError(err.message || "Erro ao entrar como visitante");
@@ -2222,7 +2222,7 @@ const Admin = () => {
                   
                   try {
                     await loginWithEmail(email, password);
-                    window.location.href = "/";
+                    navigate("/");
                   } catch (error: any) {
                     // Fallback para login legado (só no Firestore)
                     if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -2239,10 +2239,10 @@ const Admin = () => {
                                setAuthError("Seu cadastro ainda está em análise.");
                              } else if (memberData.status === "rejected") {
                                setAuthError("Seu cadastro foi reprovado.");
-                             } else {
-                               setCustomLogin(true, { id: memberDoc.id, ...memberData });
-                               window.location.href = "/";
-                             }
+                            } else {
+                              setCustomLogin(true, { id: memberDoc.id, ...memberData });
+                              navigate("/");
+                            }
                            } else {
                              setAuthError("E-mail ou senha incorretos.");
                            }
@@ -2291,7 +2291,7 @@ const Admin = () => {
                       setAuthError("");
                       setIsSubmitting(true);
                       await login();
-                      window.location.href = "/";
+                      navigate("/");
                     } catch (error: any) {
                       console.error("Erro no login Google:", error);
                       if (error.code === 'auth/unauthorized-domain') {

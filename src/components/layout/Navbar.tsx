@@ -66,7 +66,7 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(!isHomePage);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<string | null>(null);
-  const { user, login, logout, isAdmin, error: authError, clearError, loading: authLoading } = useAuth();
+  const { user, profile, login, logout, isAdmin, isGuest, error: authError, clearError, loading: authLoading } = useAuth();
   const { favorites, toggleFavorite } = useFavorites();
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -227,22 +227,24 @@ export default function Navbar() {
                   className="flex items-center gap-3 opacity-90 hover:opacity-100 transition-opacity outline-none group"
                 >
                   <div className="text-right hidden xl:block">
-                    <p className="text-sm font-bold text-white leading-none">{user.displayName?.split(' ')[0]}</p>
+                    <p className="text-sm font-bold text-white leading-none">{(profile?.name || user.displayName)?.split(' ')[0]}</p>
                   </div>
                   <Avatar className="h-9 w-9 border border-white/20 group-hover:border-[#BF76FF]/50 transition-colors">
-                    <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
-                    <AvatarFallback className="bg-primary/20 text-primary text-xs">{user.displayName?.[0] || "U"}</AvatarFallback>
+                    <AvatarImage src={user.photoURL || ""} alt={profile?.name || user.displayName || ""} />
+                    <AvatarFallback className="bg-primary/20 text-primary text-xs">{(profile?.name || user.displayName)?.[0] || "U"}</AvatarFallback>
                   </Avatar>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56 bg-black border-white/10 text-white rounded-xl mt-4 p-2 shadow-2xl" align="end">
                   <div className="flex flex-col space-y-1 p-3">
-                    <p className="text-sm font-medium leading-none">{user.displayName}</p>
-                    <p className="text-xs leading-none text-white/40">{user.email}</p>
+                    <p className="text-sm font-medium leading-none">{profile?.name || user.displayName}</p>
+                    <p className="text-xs leading-none text-white/40">{profile?.email || user.email}</p>
                   </div>
                   <DropdownMenuSeparator className="bg-white/10" />
-                  <DropdownMenuItem render={<Link to="/admin" />} className="rounded-lg focus:bg-white/10 hover:bg-white/10 focus:!text-white hover:!text-white py-3 px-4 transition-colors">
-                    Acessar Painel
-                  </DropdownMenuItem>
+                  {!isGuest && (
+                    <DropdownMenuItem render={<Link to="/admin" />} className="rounded-lg focus:bg-white/10 hover:bg-white/10 focus:!text-white hover:!text-white py-3 px-4 transition-colors">
+                      Acessar Painel
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem onClick={logout} className="rounded-lg focus:bg-red-500/10 hover:bg-red-500/10 focus:!text-red-500 hover:!text-red-500 cursor-pointer py-3 px-4 text-red-500 transition-colors">
                     <LogOut className="mr-2 h-4 w-4" />
@@ -347,19 +349,21 @@ export default function Navbar() {
                       <div className="space-y-3">
                         <div className="flex items-center gap-3 mb-4 p-2 rounded-2xl bg-white/5">
                           <Avatar className="h-10 w-10 border border-white/20">
-                            <AvatarImage src={user.photoURL || ""} alt={user.displayName || ""} />
-                            <AvatarFallback className="bg-primary/20 text-primary">{user.displayName?.[0] || "U"}</AvatarFallback>
+                            <AvatarImage src={user.photoURL || ""} alt={profile?.name || user.displayName || ""} />
+                            <AvatarFallback className="bg-primary/20 text-primary">{(profile?.name || user.displayName)?.[0] || "U"}</AvatarFallback>
                           </Avatar>
                           <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-bold truncate">{user.displayName}</span>
-                            <span className="text-[10px] text-white/40 truncate">{user.email}</span>
+                            <span className="text-sm font-bold truncate">{profile?.name || user.displayName}</span>
+                            <span className="text-[10px] text-white/40 truncate">{profile?.email || user.email}</span>
                           </div>
                         </div>
                         <div className="grid grid-cols-2 gap-3">
-                          <Button render={<Link to="/admin" />} variant="outline" className="rounded-full border-white/10 h-11 text-sm">
-                            Acessar Painel
-                          </Button>
-                          <Button onClick={logout} variant="ghost" className="rounded-full text-red-500 hover:bg-red-500/10 h-11 text-sm">
+                          {!isGuest && (
+                            <Button render={<Link to="/admin" />} variant="outline" className="rounded-full border-white/10 h-11 text-sm">
+                              Acessar Painel
+                            </Button>
+                          )}
+                          <Button onClick={logout} variant="ghost" className={cn("rounded-full text-red-500 hover:bg-red-500/10 h-11 text-sm", isGuest && "col-span-2")}>
                             Sair
                           </Button>
                         </div>
