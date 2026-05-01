@@ -241,6 +241,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const cleanPhone = phone.replace(/\D/g, '');
       const visitorId = `visitor_${cleanPhone}`;
+
+      // 0. Sign in anonymously FIRST to have a valid session
+      const userCred = await signInAnonymously(auth);
+      const uid = userCred.user.uid;
       
       // 1. Check if a member with this phone already exists
       const visitorRef = doc(db, "members", visitorId);
@@ -251,9 +255,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         existingProfile = { id: visitorSnap.id, ...visitorSnap.data() };
         console.log("Visitor identified by phone ID:", visitorId, existingProfile);
       }
-
-      const userCred = await signInAnonymously(auth);
-      const uid = userCred.user.uid;
       
       const lastVisit = new Date().toISOString();
       const canonicalProfile = {
