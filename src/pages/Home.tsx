@@ -64,7 +64,7 @@ export default function Home() {
   const handleToggleMyList = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
     if (!user) {
-      navigate('/login?message=precisamos que você esteja logado para adicionar à sua lista');
+      navigate('/admin?message=precisamos que você esteja logado para adicionar à sua lista');
       return;
     }
 
@@ -80,7 +80,7 @@ export default function Home() {
   const handleToggleFavorite = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
     if (!user) {
-      navigate('/login?message=precisamos que você esteja logado para favoritar conteúdos');
+      navigate('/admin?message=precisamos que você esteja logado para favoritar conteúdos');
       return;
     }
     await toggleFavoriteCtx({
