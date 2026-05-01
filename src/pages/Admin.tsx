@@ -77,6 +77,16 @@ import { VideosView } from "@/components/admin/VideosView";
 import { EventosView } from "@/components/admin/EventosView";
 import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { updateProfile } from "firebase/auth";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger
+} from "@/components/ui/dialog";
 import { 
   collection, 
   addDoc, 
@@ -130,7 +140,6 @@ import {
   useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from "@/components/ui/sheet";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
@@ -806,6 +815,44 @@ const Admin = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const messageParam = searchParams.get('message');
+
+  // Guest Login State
+  const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
+  const [guestData, setGuestData] = useState({ name: "", phone: "" });
+  const [guestError, setGuestError] = useState("");
+
+  const formatPhone = (value: string) => {
+    if (!value) return value;
+    const phoneNumber = value.replace(/[^\d]/g, '');
+    const phoneNumberLength = phoneNumber.length;
+    if (phoneNumberLength < 3) return `(${phoneNumber}`;
+    if (phoneNumberLength < 4) return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2)}`;
+    if (phoneNumberLength < 8) return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 3)} ${phoneNumber.slice(3)}`;
+    if (phoneNumberLength < 12) return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 3)} ${phoneNumber.slice(3, 7)}-${phoneNumber.slice(7, 11)}`;
+    return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 3)} ${phoneNumber.slice(3, 7)}-${phoneNumber.slice(7, 11)}`;
+  };
+
+  const handleGuestLogin = () => {
+    if (!guestData.name.trim()) {
+      setGuestError("Por favor, insira seu nome.");
+      return;
+    }
+    const phoneDigits = guestData.phone.replace(/[^\d]/g, '');
+    if (phoneDigits.length < 11) {
+      setGuestError("Por favor, insira um telefone válido com DDD.");
+      return;
+    }
+    
+    setCustomLogin(true, {
+      id: `guest_${Date.now()}`,
+      name: guestData.name,
+      phone: guestData.phone,
+      role: "Visitante",
+      email: `${guestData.phone}@visitante.com`,
+      photoURL: ""
+    });
+    setIsGuestModalOpen(false);
+  };
 
   // 4. Ponte para receber o Token do Expo via WebView
   useEffect(() => {
@@ -1791,6 +1838,17 @@ const Admin = () => {
           updatedAt: serverTimestamp()
         }, { merge: true });
         
+        if (activeTab === "membros" && selectedItem?.id === user?.uid && auth.currentUser) {
+          try {
+            await updateProfile(auth.currentUser, {
+              displayName: dataToSave.name || auth.currentUser.displayName,
+              photoURL: dataToSave.photoURL || auth.currentUser.photoURL
+            });
+          } catch (profileErr) {
+            console.error("Erro ao sincronizar perfil Auth:", profileErr);
+          }
+        }
+        
         logAction("atualizar", collectionName, `Atualizou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name}`, selectedItem, dataToSave);
         
         // Log Activity
@@ -2244,6 +2302,83 @@ const Admin = () => {
                 </svg>
                 Google
               </Button>
+
+              <Button 
+                variant="outline"
+                className="w-full h-16 bg-[#25D366]/10 border-[#25D366]/20 hover:bg-[#25D366]/20 text-[#25D366] rounded-full text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4"
+                onClick={() => setIsGuestModalOpen(true)}
+              >
+                <Users className="w-5 h-5" />
+                Logar como Visitante
+              </Button>
+
+              <Dialog open={isGuestModalOpen} onOpenChange={setIsGuestModalOpen}>
+                <DialogContent className={cn("rounded-[32px] border shadow-2xl p-0 overflow-hidden max-w-md w-[95%] sm:w-full", isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/5")}>
+                  <div className="p-8">
+                    <DialogHeader>
+                      <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-2xl bg-[#25D366]/20 flex items-center justify-center text-[#25D366]">
+                          <Users className="w-5 h-5" />
+                        </div>
+                        Acesso de Visitante
+                      </DialogTitle>
+                      <DialogDescription className="text-gray-500 mt-2">
+                        Preencha seus dados para acessar as áreas abertas aos visitantes.
+                      </DialogDescription>
+                    </DialogHeader>
+
+                    {guestError && (
+                      <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs p-3 rounded-xl mt-4 animate-in fade-in slide-in-from-top-1">
+                        {guestError}
+                      </div>
+                    )}
+
+                    <div className="space-y-6 mt-8">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Seu Nome</label>
+                        <Input 
+                          placeholder="Ex: João Silva" 
+                          className={cn("h-14 border rounded-2xl px-5 transition-all text-sm", isDarkMode ? "bg-black border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
+                          value={guestData.name}
+                          onChange={(e) => {
+                            setGuestData({...guestData, name: e.target.value});
+                            setGuestError("");
+                          }}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Telefone / WhatsApp</label>
+                        <Input 
+                          placeholder="(00) 0 0000-0000" 
+                          className={cn("h-14 border rounded-2xl px-5 transition-all text-sm", isDarkMode ? "bg-black border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
+                          value={guestData.phone}
+                          onChange={(e) => {
+                            setGuestData({...guestData, phone: formatPhone(e.target.value)});
+                            setGuestError("");
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 mt-10">
+                      <Button 
+                        variant="ghost" 
+                        onClick={() => setIsGuestModalOpen(false)}
+                        className={cn("h-14 rounded-2xl font-bold transition-all", isDarkMode ? "hover:bg-white/5" : "hover:bg-gray-100")}
+                      >
+                        Cancelar
+                      </Button>
+                      <Button 
+                        onClick={handleGuestLogin}
+                        className="h-14 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl font-bold shadow-lg shadow-[#25D366]/20 transition-all active:scale-[0.98]"
+                      >
+                        Entrar agora
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
 
               <div className="mt-4 text-center">
                 <button 

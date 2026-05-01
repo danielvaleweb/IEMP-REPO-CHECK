@@ -270,7 +270,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [firebaseUser, profile, isAdmin]);
 
-  const user = firebaseUser || (isCustomLoggedIn ? {
+  const user = firebaseUser ? {
+    ...firebaseUser,
+    displayName: profile?.name || firebaseUser.displayName,
+    photoURL: profile?.photoURL || firebaseUser.photoURL,
+    uid: firebaseUser.uid,
+    email: firebaseUser.email
+  } : (isCustomLoggedIn ? {
     displayName: customUserData?.name || "Administrador",
     email: customUserData?.email || "admin@ministerioprofecia.com.br",
     photoURL: customUserData?.photoURL || "",

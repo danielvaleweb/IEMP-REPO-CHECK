@@ -243,9 +243,6 @@ export default function Navbar() {
                   <DropdownMenuItem render={<Link to="/admin" />} className="rounded-lg focus:bg-white/10 hover:bg-white/10 focus:!text-white hover:!text-white py-3 px-4 transition-colors">
                     Acessar Painel
                   </DropdownMenuItem>
-                  <DropdownMenuItem render={<Link to="/perfil" />} className="rounded-lg focus:bg-white/10 hover:bg-white/10 focus:!text-white hover:!text-white py-3 px-4 transition-colors">
-                    Meu Perfil
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="bg-white/10" />
                   <DropdownMenuItem onClick={logout} className="rounded-lg focus:bg-red-500/10 hover:bg-red-500/10 focus:!text-red-500 hover:!text-red-500 cursor-pointer py-3 px-4 text-red-500 transition-colors">
                     <LogOut className="mr-2 h-4 w-4" />
