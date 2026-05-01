@@ -181,6 +181,29 @@ export default function EventDetails() {
     }
   };
 
+  const WatermarkOverlay = ({ title, size = "normal" }: { title: string, size?: "normal" | "large" }) => (
+    <div className={cn(
+      "absolute pointer-events-none select-none opacity-20 text-white flex flex-col items-center justify-center z-10 w-full",
+      size === "large" ? "inset-0" : "bottom-6 left-0 right-0"
+    )}>
+      <div className="flex flex-col items-center">
+        <p className={cn(
+          "font-black uppercase tracking-tighter text-white whitespace-nowrap px-4",
+          size === "large" ? "text-4xl md:text-6xl" : "text-[10px] md:text-xs text-center"
+        )}>
+          {title}
+        </p>
+        <div className={cn(
+          "flex items-center mt-0.5",
+          size === "large" ? "text-xl md:text-3xl" : "text-[6px] md:text-[8px]"
+        )}>
+          <span className="text-white font-extralight tracking-tight uppercase">Ministério</span>
+          <span className="text-white font-bold tracking-tight ml-1 uppercase">Profecia</span>
+        </div>
+      </div>
+    </div>
+  );
+
   const submitFeedback = async () => {
     if (!id || feedbackRating === 0) return;
     setSubmittingFeedback(true);
@@ -633,6 +656,7 @@ export default function EventDetails() {
                     )}
                     onClick={() => user && setSelectedPhotoIndex(index)}
                   >
+                    <WatermarkOverlay title={event.title} />
                     <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
                     <img 
                       src={url} 
@@ -772,6 +796,7 @@ export default function EventDetails() {
               className="w-full h-full p-4 md:p-20 flex items-center justify-center cursor-pointer"
               onClick={() => setSelectedPhotoIndex(null)}
             >
+              <WatermarkOverlay title={event.title} size="large" />
               <img 
                 src={event.gallery[selectedPhotoIndex]} 
                 alt="Fullscreen Gallery Preview" 

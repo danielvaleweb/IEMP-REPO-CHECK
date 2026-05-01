@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { cn } from "@/lib/utils";
 
 interface Album {
   id: string;
@@ -48,8 +49,31 @@ export default function Gallery() {
     album.date.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const WatermarkOverlay = ({ title, size = "normal" }: { title: string, size?: "normal" | "large" }) => (
+    <div className={cn(
+      "absolute pointer-events-none select-none opacity-20 text-white flex flex-col items-center justify-center z-10 w-full",
+      size === "large" ? "inset-0" : "bottom-6 left-0 right-0"
+    )}>
+      <div className="flex flex-col items-center">
+        <p className={cn(
+          "font-black uppercase tracking-tighter text-white whitespace-nowrap",
+          size === "large" ? "text-4xl md:text-6xl" : "text-sm md:text-base px-6 text-center"
+        )}>
+          {title}
+        </p>
+        <div className={cn(
+          "flex items-center mt-1",
+          size === "large" ? "text-xl md:text-3xl" : "text-[8px] md:text-[10px]"
+        )}>
+          <span className="text-white font-extralight tracking-tight">Ministério</span>
+          <span className="text-white font-bold tracking-tight ml-1.5 uppercase">Profecia</span>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
-    <div className="pt-24 pb-12 min-h-screen">
+    <div className="pt-24 pb-12 min-h-screen bg-black text-white">
       <div className="max-w-7xl mx-auto px-4">
         {/* Removed Title and Description as requested */}
 
@@ -64,7 +88,7 @@ export default function Gallery() {
                   placeholder="Pesquisar por nome do evento ou data (ex: Março 2026)..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#121212] border-2 border-white/10 rounded-2xl h-16 pl-14 pr-14 text-white text-lg placeholder:text-gray-500 focus:outline-none focus:border-primary focus:bg-[#1a1a1a] transition-all shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)]"
+                  className="w-full bg-[#121212] border-2 border-white/10 rounded-2xl h-16 pl-14 pr-14 text-white text-lg placeholder:text-gray-500 focus:outline-none focus:border-primary focus:bg-[#1a1a1a] transition-all shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] placeholder-shown:border-white/5"
                 />
                 {searchTerm && (
                   <button 
@@ -93,6 +117,7 @@ export default function Gallery() {
                     onClick={() => setSelectedAlbum(album)}
                   >
                     <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-xl border border-black/5">
+                      <WatermarkOverlay title={album.title} />
                       <img 
                         src={album.cover} 
                         alt={album.title} 
@@ -143,9 +168,10 @@ export default function Gallery() {
                 <motion.div
                   key={`photo-${selectedAlbum.id}-${idx}`}
                   whileHover={{ scale: 1.02 }}
-                  className="aspect-square rounded-2xl overflow-hidden cursor-pointer border border-white/5 shadow-lg group"
+                  className="aspect-square rounded-2xl overflow-hidden cursor-pointer border border-white/5 shadow-lg group relative"
                   onClick={() => setSelectedPhoto(photo)}
                 >
+                  <WatermarkOverlay title={selectedAlbum.title} />
                   <img 
                     src={photo} 
                     alt={`Foto ${idx + 1}`} 
@@ -177,15 +203,17 @@ export default function Gallery() {
             >
               <X className="w-8 h-8" />
             </Button>
-            <motion.img
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              src={selectedPhoto}
-              className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-              referrerPolicy="no-referrer"
-            />
+            <div className="relative group max-w-full max-h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <WatermarkOverlay title={selectedAlbum?.title || ""} size="large" />
+              <motion.img
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                src={selectedPhoto}
+                className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
+                referrerPolicy="no-referrer"
+              />
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

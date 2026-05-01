@@ -14,7 +14,7 @@ import {
   signInAnonymously
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection, addDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from "firebase/firestore";
 
 interface AuthContextType {
   user: any | null;
@@ -81,7 +81,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (userSnap.exists()) {
             const data = userSnap.data();
             console.log("DEBUG: Perfil encontrado no Firestore:", data);
-            setProfile({ id: userSnap.id, ...data });
+            
+            // Handle linked profile for visitors
+            if (data.linkedMemberId) {
+              const linkedRef = doc(db, "members", data.linkedMemberId);
+              const linkedSnap = await getDoc(linkedRef);
+              if (linkedSnap.exists()) {
+                setProfile({ id: linkedSnap.id, ...linkedSnap.data(), uid: user.uid });
+              } else {
+                setProfile({ id: userSnap.id, ...data });
+              }
+            } else {
+              setProfile({ id: userSnap.id, ...data });
+            }
           } else {
             console.log("DEBUG: Perfil não encontrado no Firestore.");
             if (user.email === "iempministerioprofecia@gmail.com") {
@@ -227,37 +239,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loginAsGuest = async (name: string, phone: string) => {
     setError(null);
     try {
+      const cleanPhone = phone.replace(/\D/g, '');
+      const visitorId = `visitor_${cleanPhone}`;
+      
+      // 1. Check if a member with this phone already exists
+      const visitorRef = doc(db, "members", visitorId);
+      const visitorSnap = await getDoc(visitorRef);
+      
+      let existingProfile = null;
+      if (visitorSnap.exists()) {
+        existingProfile = { id: visitorSnap.id, ...visitorSnap.data() };
+        console.log("Visitor identified by phone ID:", visitorId, existingProfile);
+      }
+
       const userCred = await signInAnonymously(auth);
       const uid = userCred.user.uid;
       
-      const newProfile = {
-        name: name,
+      const lastVisit = new Date().toISOString();
+      const canonicalProfile = {
+        name: name || (existingProfile as any)?.name || "Visitante",
         phone: phone,
         role: "Visitante",
         status: "visitor",
-        email: `${phone.replace(/[^\d]/g, '')}@visitante.com`,
-        createdAt: new Date().toISOString(),
-        lastVisit: new Date().toISOString()
+        email: (existingProfile as any)?.email || `${cleanPhone}@visitante.com`,
+        createdAt: (existingProfile as any)?.createdAt || lastVisit,
+        lastVisit: lastVisit,
+        lgpdAccepted: (existingProfile as any)?.lgpdAccepted || false
       };
 
       try {
-        const userRef = doc(db, "members", uid);
-        await setDoc(userRef, newProfile, { merge: true });
+        // Save the canonical visitor document (unique by phone)
+        await setDoc(visitorRef, canonicalProfile, { merge: true });
         
-        const notifRef = doc(collection(db, "notifications"));
-        await setDoc(notifRef, {
-          title: "Novo Visitante",
-          message: `Um visitante ${name} acabou de entrar`,
-          type: "registration",
-          memberId: uid,
-          read: false,
-          createdAt: new Date().toISOString()
-        });
+        // Save the session link (unique by anonymous UID)
+        const sessionRef = doc(db, "members", uid);
+        await setDoc(sessionRef, {
+          linkedMemberId: visitorId,
+          role: "Visitante",
+          status: "visitor_session", // This keeps it out of the main dashboard list
+          lastVisit: lastVisit
+        }, { merge: true });
+        
+        // Only send notification if it's truly a new visitor (first time with this phone)
+        if (!existingProfile) {
+          const notifRef = doc(collection(db, "notifications"));
+          await setDoc(notifRef, {
+            title: "Novo Visitante",
+            message: `Um visitante ${name} acabou de entrar`,
+            type: "registration",
+            memberId: visitorId,
+            read: false,
+            createdAt: new Date().toISOString()
+          });
+        }
       } catch (e) {
         console.warn("Could not write to members or notifications:", e);
       }
       
-      setProfile({ id: uid, ...newProfile });
+      setProfile({ id: visitorId, ...canonicalProfile, uid: uid });
       return userCred.user;
     } catch (error: any) {
       console.error("Erro no login de visitante:", error);

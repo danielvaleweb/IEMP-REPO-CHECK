@@ -60,7 +60,9 @@ import {
   ClipboardList,
   Newspaper,
   XCircle,
-  Megaphone
+  Megaphone,
+  UserSearch,
+  UserCheck
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -912,9 +914,9 @@ const Admin = () => {
   const [menuItems, setMenuItems] = useState([
     { id: 'visao-geral', label: 'Início', icon: Home },
     { id: 'eventos', label: 'Eventos', icon: PartyPopper },
-    { id: 'videos', label: 'Vídeos', icon: Video },
     { id: 'noticias', label: 'Notícias', icon: Newspaper },
     { id: 'membros', label: 'Membros', icon: Users },
+    { id: 'visitantes', label: 'Visitantes', icon: UserSearch },
     { id: 'avisos', label: 'Central de Avisos', icon: Megaphone },
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
@@ -1166,12 +1168,39 @@ const Admin = () => {
   
   // Computed
   const pendingMembers = members.filter(m => m.status === "pending" || m.status === "pending_approval");
-  const visitors = members.filter(m => m.status === "visitor" || m.role === "Visitante");
+  
+  const visitors = useMemo(() => {
+    // Only canonical visitors, ignore session links
+    const rawVisitors = members.filter(m => m.status === "visitor");
+    
+    // Duplication Fix: Group by phone, prioritize canonical ids
+    const visitorMap = new Map();
+    rawVisitors.forEach(v => {
+      const cleanPhone = v.phone?.replace(/\D/g, '') || v.id;
+      const existing = visitorMap.get(cleanPhone);
+      
+      // If we have no entry, or if this new one is canonical, or if it's more recent
+      const isCanonical = v.id.startsWith('visitor_');
+      const existingIsCanonical = existing?.id.startsWith('visitor_');
+      
+      if (!existing || (isCanonical && !existingIsCanonical) || (!existingIsCanonical && v.lastVisit > existing.lastVisit)) {
+        visitorMap.set(cleanPhone, v);
+      }
+    });
+    return Array.from(visitorMap.values()) as any[];
+  }, [members]);
+
   const activeMembersForDisplay = showPending 
     ? pendingMembers 
-    : showVisitors 
+    : activeTab === "visitantes"
       ? visitors 
-      : members.filter(m => m.status !== "pending" && m.status !== "pending_approval" && m.status !== "visitor" && m.role !== "Visitante");
+      : members.filter(m => 
+          m.status !== "pending" && 
+          m.status !== "pending_approval" && 
+          m.status !== "visitor" && 
+          m.status !== "visitor_session" && 
+          m.role !== "Visitante"
+        );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -1310,6 +1339,12 @@ const Admin = () => {
 
   const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
   const isAdminOrDev = profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || isMasterAdmin;
+
+  useEffect(() => {
+    if (user && profile && isGuest) {
+      navigate("/");
+    }
+  }, [user, profile, isGuest, navigate]);
 
   // Notifications Filtering Logic
   const displayNotifications = useMemo(() => {
@@ -1610,6 +1645,7 @@ const Admin = () => {
       "noticias": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "radio": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
+      "visitantes": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "avisos": currentRole === "Administradores" || currentRole === "Desenvolvedor",
       "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção"
@@ -2808,6 +2844,7 @@ const Admin = () => {
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               <SidebarItem icon={MessageSquare} active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
@@ -4720,7 +4757,7 @@ const Admin = () => {
                   </div>
                 </div>
               </Card>
-            ) : activeTab === "membros" && !isEditing ? (
+            ) : (activeTab === "membros" || activeTab === "visitantes") && !isEditing ? (
               <div className="space-y-6">
                 {viewingMember ? (
                   <MemberProfile 
@@ -4746,14 +4783,13 @@ const Admin = () => {
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                       <div className="flex items-center gap-4">
                         <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                          {showPending ? "Solicitações de Cadastro" : showVisitors ? "Visitantes Cadastrados" : "Membros da Equipe"}
+                          {showPending ? "Solicitações de Cadastro" : activeTab === "visitantes" ? "Visitantes Cadastrados" : "Membros da Equipe"}
                         </h2>
                         <div className="flex items-center gap-2">
-                          {(isMasterAdmin || profile?.role === "Desenvolvedor") && pendingMembers.length > 0 && (
+                          {(isMasterAdmin || profile?.role === "Desenvolvedor") && pendingMembers.length > 0 && activeTab === "membros" && (
                             <button 
                               onClick={() => {
                                 setShowPending(!showPending);
-                                if (!showPending) setShowVisitors(false);
                               }}
                               className={cn(
                                 "text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer",
@@ -4769,25 +4805,6 @@ const Admin = () => {
                               )}
                             </button>
                           )}
-                          
-                          <button 
-                            onClick={() => {
-                              setShowVisitors(!showVisitors);
-                              if (!showVisitors) setShowPending(false);
-                            }}
-                            className={cn(
-                              "text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer",
-                              showVisitors 
-                                ? "bg-green-500 text-white shadow-lg shadow-green-500/20" 
-                                : isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10"
-                            )}>
-                            {showVisitors ? "Ver Membros Ativos" : "Visitantes"}
-                            {!showVisitors && visitors.length > 0 && (
-                              <span className="bg-green-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black">
-                                {visitors.length}
-                              </span>
-                            )}
-                          </button>
                         </div>
                       </div>
                       
@@ -4796,12 +4813,15 @@ const Admin = () => {
                           className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-11 px-6 font-bold truncate"
                           onClick={() => {
                             setSelectedItem(null);
-                            setFormData({});
+                            setFormData({
+                              role: activeTab === "visitantes" ? "Visitante" : "Membro",
+                              status: activeTab === "visitantes" ? "approved" : "active"
+                            });
                             setIsReadOnly(false);
                             setIsEditing(true);
                           }}
                         >
-                          <Plus className="w-4 h-4 mr-2 shrink-0" /> Novo Membro
+                          <Plus className="w-4 h-4 mr-2" /> {activeTab === "visitantes" ? "Novo Visitante" : "Novo Membro"}
                         </Button>
                       )}
                     </div>
@@ -4983,32 +5003,43 @@ const Admin = () => {
                 </div>
 
                 {/* Section: Summary Cards (Moved Down on Mobile) */}
-                <div className="order-2 md:order-1 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-6 mt-4">
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Users className="w-6 h-6 text-blue-500" />
+                <div className="order-2 md:order-1 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-4">
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                      <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
                     </div>
                     <div>
-                      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Membros</p>
-                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.members}</h4>
+                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Membros</p>
+                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>
+                        {members.filter(m => m.status !== "visitor" && m.status !== "visitor_session" && m.role !== "Visitante" && m.status !== "pending").length}
+                      </h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
-                      <Calendar className="w-6 h-6 text-orange-500" />
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
+                      <UserSearch className="w-5 h-5 md:w-6 md:h-6 text-[#BF76FF]" />
                     </div>
                     <div>
-                      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Agendados</p>
-                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.agenda}</h4>
+                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Visitantes</p>
+                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{visitors.length}</h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-12 h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
-                      <MessageSquare className="w-6 h-6 text-[#BF76FF]" />
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                      <Calendar className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
                     </div>
                     <div>
-                      <p className={cn("text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Mensagens</p>
-                      <h4 className={cn("text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
+                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Agenda</p>
+                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.agenda}</h4>
+                    </div>
+                  </Card>
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                      <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Avisos</p>
+                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
                     </div>
                   </Card>
                 </div>

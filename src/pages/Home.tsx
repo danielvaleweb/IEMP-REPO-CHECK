@@ -52,15 +52,15 @@ export default function Home() {
   useEffect(() => {
     if (user && profile && !hasShownWelcome) {
       const today = new Date().toISOString().split('T')[0];
-      const storageKey = `welcome_modal_shown_${user.uid}`;
+      const storageKey = `welcome_modal_shown_${profile.id || user.uid}`;
       const lastShown = localStorage.getItem(storageKey);
 
       if (lastShown !== today) {
         // Show Welcome first, then check LGPD
         setShowWelcomeModal(true);
         localStorage.setItem(storageKey, today);
-      } else if (!profile.lgpdAccepted) {
-        // If already seen welcome today but LGPD not accepted, show LGPD
+      } else if (profile.role === "Visitante" && !profile.lgpdAccepted) {
+        // If already seen welcome today but LGPD not accepted, show LGPD (ONLY VISITORS)
         setShowLgpdModal(true);
       }
       setHasShownWelcome(true);
@@ -69,7 +69,7 @@ export default function Home() {
 
   const handleWelcomeClose = () => {
     setShowWelcomeModal(false);
-    if (user && profile && !profile.lgpdAccepted) {
+    if (user && profile && profile.role === "Visitante" && !profile.lgpdAccepted) {
       setShowLgpdModal(true);
     }
   };
@@ -1273,44 +1273,46 @@ export default function Home() {
                 </h2>
               </div>
               
-              <div className="flex-1 overflow-y-auto p-6 text-gray-300 text-sm space-y-4 custom-scrollbar">
-                <p><strong>1. Coleta de Dados Pessoais</strong><br/>Ao acessar a plataforma como visitante e fornecer voluntariamente seus dados, incluindo nome e telefone, o usuário declara estar ciente de que essas informações serão coletadas e armazenadas pela empresa responsável.</p>
-                
-                <div className="space-y-1"><strong>2. Finalidade do Uso dos Dados</strong><br/>Os dados fornecidos serão utilizados exclusivamente para:
-                  <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
-                    <li>Identificação do usuário;</li>
-                    <li>Contato futuro para atendimento, suporte, informações comerciais ou institucionais;</li>
-                    <li>Melhoria da experiência do usuário nos serviços oferecidos.</li>
-                  </ul>
+      <div className="flex-1 overflow-y-auto p-6 text-gray-300 text-sm space-y-4 custom-scrollbar">
+                <div className="space-y-4">
+                  <div><strong>1. Coleta de Dados Pessoais</strong><br/>Ao acessar a plataforma como visitante e fornecer voluntariamente seus dados, incluindo nome e telefone, o usuário declara estar ciente de que essas informações serão coletadas e armazenadas pela empresa responsável.</div>
+                  
+                  <div className="space-y-1"><strong>2. Finalidade do Uso dos Dados</strong><br/>Os dados fornecidos serão utilizados exclusivamente para:
+                    <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
+                      <li>Identificação do usuário;</li>
+                      <li>Contato futuro para atendimento, suporte, informações comerciais ou institucionais;</li>
+                      <li>Melhoria da experiência do usuário nos serviços oferecidos.</li>
+                    </ul>
+                  </div>
+
+                  <div><strong>3. Consentimento</strong><br/>Ao fornecer seus dados e prosseguir com o uso da plataforma, o usuário autoriza expressamente, de forma livre, informada e inequívoca, o tratamento de seus dados pessoais para as finalidades descritas neste termo, in conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 – LGPD).</div>
+
+                  <div className="space-y-1"><strong>4. Compartilhamento de Dados</strong><br/>Os dados não serão vendidos ou compartilhados com terceiros, exceto quando necessário para:
+                    <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
+                      <li>Cumprimento de obrigações legais;</li>
+                      <li>Execução de serviços essenciais vinculados à operação da plataforma;</li>
+                      <li>Mediante consentimento adicional do usuário.</li>
+                    </ul>
+                  </div>
+
+                  <div><strong>5. Armazenamento e Segurança</strong><br/>A empresa se compromete a adotar medidas técnicas e administrativas adequadas para proteger os dados pessoais contra acessos não autorizados, vazamentos, perdas ou qualquer forma de tratamento inadequado.</div>
+
+                  <div className="space-y-1"><strong>6. Direitos do Titular dos Dados</strong><br/>O usuário poderá, a qualquer momento, solicitar:
+                    <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
+                      <li>Acesso aos seus dados;</li>
+                      <li>Correção de dados incompletos ou desatualizados;</li>
+                      <li>Exclusão dos dados pessoais;</li>
+                      <li>Revogação do consentimento.</li>
+                    </ul>
+                    <span className="block mt-2">As solicitações poderão ser feitas por meio de canal de atendimento disponibilizado pela empresa.</span>
+                  </div>
+
+                  <div><strong>7. Retenção dos Dados</strong><br/>Os dados serão armazenados pelo tempo necessário para cumprir as finalidades descritas neste termo ou conforme exigido por obrigações legais.</div>
+
+                  <div><strong>8. Aceite do Termo</strong><br/>Ao fornecer seus dados e continuar utilizando a plataforma, o usuário declara que leu, compreendeu e concorda integralmente com este Termo de Responsabilidade e Consentimento.</div>
+
+                  <div className="text-gray-500 font-mono text-xs pt-4 border-t border-white/10 mt-6">Última atualização: 01/05/2026</div>
                 </div>
-
-                <p><strong>3. Consentimento</strong><br/>Ao fornecer seus dados e prosseguir com o uso da plataforma, o usuário autoriza expressamente, de forma livre, informada e inequívoca, o tratamento de seus dados pessoais para as finalidades descritas neste termo, in conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018 – LGPD).</p>
-
-                <div className="space-y-1"><strong>4. Compartilhamento de Dados</strong><br/>Os dados não serão vendidos ou compartilhados com terceiros, exceto quando necessário para:
-                  <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
-                    <li>Cumprimento de obrigações legais;</li>
-                    <li>Execução de serviços essenciais vinculados à operação da plataforma;</li>
-                    <li>Mediante consentimento adicional do usuário.</li>
-                  </ul>
-                </div>
-
-                <p><strong>5. Armazenamento e Segurança</strong><br/>A empresa se compromete a adotar medidas técnicas e administrativas adequadas para proteger os dados pessoais contra acessos não autorizados, vazamentos, perdas ou qualquer forma de tratamento inadequado.</p>
-
-                <div className="space-y-1"><strong>6. Direitos do Titular dos Dados</strong><br/>O usuário poderá, a qualquer momento, solicitar:
-                  <ul className="list-disc pl-5 mt-2 space-y-1 text-gray-400">
-                    <li>Acesso aos seus dados;</li>
-                    <li>Correção de dados incompletos ou desatualizados;</li>
-                    <li>Exclusão dos dados pessoais;</li>
-                    <li>Revogação do consentimento.</li>
-                  </ul>
-                  As solicitações poderão ser feitas por meio de canal de atendimento disponibilizado pela empresa.
-                </div>
-
-                <p><strong>7. Retenção dos Dados</strong><br/>Os dados serão armazenados pelo tempo necessário para cumprir as finalidades descritas neste termo ou conforme exigido por obrigações legais.</p>
-
-                <p><strong>8. Aceite do Termo</strong><br/>Ao fornecer seus dados e continuar utilizando a plataforma, o usuário declara que leu, compreendeu e concorda integralmente com este Termo de Responsabilidade e Consentimento.</p>
-
-                <p className="text-gray-500 font-mono text-xs pt-4 border-t border-white/10 mt-6">Última atualização: 01/05/2026</p>
               </div>
 
               <div className="p-6 border-t border-white/10 shrink-0 bg-black/20">
