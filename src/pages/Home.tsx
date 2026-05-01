@@ -641,6 +641,7 @@ export default function Home() {
                       isInList={myList.includes(video.id)}
                       isFavorited={isFavorite(video.id)}
                       showEffects={config.videoCardsEnabled}
+                      hideTitleOnMobile={true}
                     />
                   </div>
                 ))}
@@ -691,6 +692,7 @@ export default function Home() {
                       isInList={myList.includes(event.id)}
                       isFavorited={isFavorite(event.id)}
                       useGalleryImage={true}
+                      hideTitleOnMobile={true}
                     />
                   </div>
                 ))}
@@ -851,6 +853,7 @@ export default function Home() {
                   onShowSimilar={handleShowSimilar}
                   isInList={myList.includes(event.id)}
                   isFavorited={isFavorite(event.id)}
+                  hideTitleOnMobile={true}
                 />
               ))}
             </div>
@@ -879,6 +882,7 @@ export default function Home() {
                     onShowSimilar={handleShowSimilar}
                     isInList={myList.includes(event.id)}
                     isFavorited={isFavorite(event.id)}
+                    hideTitleOnMobile={true}
                   />
                 ))}
               </div>
@@ -1034,7 +1038,7 @@ export default function Home() {
             >
               <iframe 
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3705.518608226019!2d-43.3888365!3d-21.7513077!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x989b5c39a3f2d9%3A0x7d6f5c8e3c8e3c8e!2sR.%20Cleonice%20Rainho%2C%2019%20-%20Aeroporto%2C%20Juiz%20de%20Fora%20-%20MG%2C%2036038-250!5e0!3m2!1spt-BR!2sbr!4v1713560000000!5m2!1spt-BR!2sbr" 
-                className="w-full h-full border-0 grayscale invert opacity-80" 
+                className="w-full h-full border-0" 
                 allowFullScreen={true} 
                 loading="lazy" 
                 referrerPolicy="no-referrer-when-downgrade"
@@ -1138,8 +1142,9 @@ export default function Home() {
                           isInList={myList.includes(item.id)}
                           isFavorited={isFavorite(item.id)}
                           isSimilarCard={true}
+                          hideTitleOnMobile={true}
                         />
-                        <div className="mt-4 opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity">
+                        <div className="mt-4 hidden sm:block sm:opacity-0 group-hover/item:opacity-100 transition-opacity text-left">
                            <h4 className="text-white font-bold text-sm line-clamp-1">{item.title}</h4>
                            <p className="text-gray-500 text-xs mt-1 line-clamp-2">{item.description}</p>
                         </div>

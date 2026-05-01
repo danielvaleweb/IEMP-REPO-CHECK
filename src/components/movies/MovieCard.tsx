@@ -24,6 +24,7 @@ interface MovieCardProps {
   showEffects?: boolean;
   useGalleryImage?: boolean;
   isSimilarCard?: boolean;
+  hideTitleOnMobile?: boolean;
 }
 
 export const MovieCard = ({ 
@@ -38,7 +39,8 @@ export const MovieCard = ({
   isFavorited,
   showEffects = true,
   useGalleryImage = false,
-  isSimilarCard = false
+  isSimilarCard = false,
+  hideTitleOnMobile = false
 }: MovieCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -108,7 +110,7 @@ export const MovieCard = ({
         />
         {/* Play icon removed on hover as requested */}
       </div>
-      {(!showEffects || isSimilarCard || isMobile) && (
+      {(!showEffects || isSimilarCard || isMobile) && !hideTitleOnMobile && (
         <div className="p-2">
           <h3 className="text-white text-xs font-bold truncate">{item.title}</h3>
         </div>
