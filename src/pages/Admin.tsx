@@ -1170,8 +1170,8 @@ const Admin = () => {
   const pendingMembers = members.filter(m => m.status === "pending" || m.status === "pending_approval");
   
   const visitors = useMemo(() => {
-    // Only canonical visitors, ignore session links
-    const rawVisitors = members.filter(m => m.status === "visitor");
+    // Include regular visitors and those with the "Visitante" role
+    const rawVisitors = members.filter(m => m.status === "visitor" || m.role === "Visitante");
     
     // Duplication Fix: Group by phone, prioritize canonical ids
     const visitorMap = new Map();
@@ -5861,11 +5861,10 @@ const Admin = () => {
 
                   {/* Visitors in Sidebar 4 */}
                   {(() => {
-                    const visitors = members.filter(m => {
-                      const isVisitor = (m.role === "Visitante" || (m.ministries || []).some((min: any) => (typeof min === 'string' ? min : min.name) === "Visitante"));
-                      return isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
+                    const sidebarVisitors = visitors.filter(m => {
+                      return (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
                     });
-                    if (visitors.length === 0) return null;
+                    if (sidebarVisitors.length === 0) return null;
                     return (
                       <div className={cn("space-y-3 mt-6 pt-6 border-t", isDarkMode ? "border-white/5" : "border-black/5")}>
                         <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 text-blue-400")}>
@@ -5873,14 +5872,14 @@ const Admin = () => {
                           Visitantes
                         </h5>
                         <div className="space-y-4">
-                          {visitors.map((member, i) => (
+                          {sidebarVisitors.map((member, i) => (
                             <TeamMember 
                               key={`sidebar-visitor-${member.id || i}`} 
                               member={member}
                               active={member.email === user?.email}
                               onWhatsApp={() => openWhatsApp(member)}
                               onViewProfile={() => {
-                                setActiveTab("membros");
+                                setActiveTab("visitantes");
                                 setViewingMember(member);
                               }}
                               onDelete={() => handleDelete(member.id, "members")}
