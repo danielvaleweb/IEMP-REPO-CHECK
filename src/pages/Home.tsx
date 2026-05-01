@@ -64,7 +64,7 @@ export default function Home() {
   const handleToggleMyList = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
     if (!user) {
-      navigate('/login');
+      navigate('/login?message=precisamos que você esteja logado para adicionar à sua lista');
       return;
     }
 
@@ -80,7 +80,7 @@ export default function Home() {
   const handleToggleFavorite = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
     if (!user) {
-      navigate('/login');
+      navigate('/login?message=precisamos que você esteja logado para favoritar conteúdos');
       return;
     }
     await toggleFavoriteCtx({
@@ -481,10 +481,10 @@ export default function Home() {
                       size="lg"
                       variant="outline"
                       className={cn(
-                        "rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2 transition-all duration-300 border",
+                        "rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2 transition-all duration-300",
                         myList.includes(videos[currentIndex].id)
-                          ? "bg-gradient-to-r from-[#BF76FF] to-purple-800 text-white border-transparent hover:opacity-90 shadow-[0_0_20px_rgba(191,118,255,0.4)]"
-                          : "bg-black/40 backdrop-blur-md border-white/20 text-white hover:bg-white/20"
+                          ? "bg-gradient-to-r from-[#BF76FF] to-purple-800 text-white border-none hover:opacity-90 shadow-[0_0_20px_rgba(191,118,255,0.4)]"
+                          : "bg-black/40 backdrop-blur-md border-none text-white hover:bg-white/20"
                       )}
                       onClick={(e) => handleToggleMyList(e, videos[currentIndex])}
                     >

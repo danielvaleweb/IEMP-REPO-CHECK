@@ -59,7 +59,8 @@ import {
   ExternalLink,
   ClipboardList,
   Newspaper,
-  XCircle
+  XCircle,
+  Megaphone
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -69,7 +70,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { AvisosView } from "@/components/admin/AvisosView";
 import { VideosView } from "@/components/admin/VideosView";
@@ -110,6 +111,25 @@ import {
   isAfter
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import {
+  DndContext, 
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from "@/components/ui/sheet";
 
@@ -713,9 +733,79 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
   );
 }
 
-export default function Admin() {
+function LogFilterSelect({ label, value, onChange, options, isDarkMode }: any) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find((o: any) => o.value === value);
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "h-10 px-4 rounded-xl text-xs font-bold transition-all flex items-center gap-2",
+          isDarkMode 
+            ? "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10" 
+            : "bg-gray-100 text-gray-500 hover:text-black hover:bg-gray-200"
+        )}
+      >
+        <span>{label}: {selectedOption?.label || value}</span>
+        <ChevronDown className={cn("w-3 h-3 transition-transform opacity-50", isOpen && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 5, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className={cn(
+              "absolute top-full left-0 z-[100] w-full mt-1 p-2 rounded-2xl border shadow-2xl overflow-hidden",
+              isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/5"
+            )}
+          >
+            {options.map((opt: any) => (
+              <button
+                key={opt.value}
+                onClick={() => {
+                  onChange(opt.value);
+                  setIsOpen(false);
+                }}
+                className={cn(
+                  "w-full text-left px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                  value === opt.value 
+                    ? "bg-primary text-white" 
+                    : isDarkMode 
+                      ? "text-gray-500 hover:text-white hover:bg-white/5" 
+                      : "text-gray-400 hover:text-black hover:bg-black/5"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+const Admin = () => {
   const { user, profile, login, logout, isAdmin, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const messageParam = searchParams.get('message');
 
   // 4. Ponte para receber o Token do Expo via WebView
   useEffect(() => {
@@ -768,6 +858,71 @@ export default function Admin() {
   const [chatInput, setChatInput] = useState("");
   const [mentionSearch, setMentionSearch] = useState("");
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+
+  const [menuItems, setMenuItems] = useState([
+    { id: 'visao-geral', label: 'Início', icon: Home },
+    { id: 'eventos', label: 'Eventos', icon: PartyPopper },
+    { id: 'videos', label: 'Vídeos', icon: Video },
+    { id: 'noticias', label: 'Notícias', icon: Newspaper },
+    { id: 'membros', label: 'Membros', icon: Users },
+    { id: 'avisos', label: 'Central de Avisos', icon: Megaphone },
+    { id: 'agenda', label: 'Agenda', icon: Clock },
+    { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
+    { id: 'logs', label: 'Audit Logs', icon: ClipboardList },
+  ]);
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, {
+      activationConstraint: {
+        distance: 10,
+      },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: {
+        delay: 250,
+        tolerance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setMenuItems((items) => {
+        const oldIndex = items.findIndex((i) => i.id === active.id);
+        const newIndex = items.findIndex((i) => i.id === over.id);
+        const newOrder = arrayMove(items, oldIndex, newIndex);
+        localStorage.setItem('admin_menu_order', JSON.stringify(newOrder.map(i => i.id)));
+        return newOrder;
+      });
+    }
+  };
+
+  useEffect(() => {
+    const savedOrder = localStorage.getItem('admin_menu_order');
+    if (savedOrder) {
+      try {
+        const orderIds = JSON.parse(savedOrder);
+        setMenuItems((currentItems) => {
+          const sorted = [...currentItems].sort((a, b) => {
+            const indexA = orderIds.indexOf(a.id);
+            const indexB = orderIds.indexOf(b.id);
+            if (indexA === -1 && indexB === -1) return 0;
+            if (indexA === -1) return 1;
+            if (indexB === -1) return -1;
+            return indexA - indexB;
+          });
+          return sorted;
+        });
+      } catch (e) {
+        console.error("Error loading menu order", e);
+      }
+    }
+  }, []);
 
   const stripMentions = (text: string) => {
     if (!text) return "";
@@ -966,6 +1121,23 @@ export default function Admin() {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  
+  // Refs for click outside
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
+        setShowProfileMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToBottom = () => {
@@ -1102,12 +1274,34 @@ export default function Admin() {
 
   const handleMarkAllAsRead = async () => {
     try {
-      // Mark displayed notifications as read in Firestore
       const unreadNotifications = displayNotifications.filter(n => !n.read);
+      if (unreadNotifications.length === 0) return;
+      
+      // Optimistic update
+      setNotifications(prev => prev.map(n => 
+        unreadNotifications.some(un => un.id === n.id) ? { ...n, read: true } : n
+      ));
+
       const updatePromises = unreadNotifications.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }));
       await Promise.all(updatePromises);
     } catch (err) {
       console.error("Error marking notifications as read:", err);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    try {
+      if (displayNotifications.length === 0) return;
+      
+      // Optimistic update
+      const idsToDelete = displayNotifications.map(n => n.id);
+      setNotifications(prev => prev.filter(n => !idsToDelete.includes(n.id)));
+
+      const deletePromises = displayNotifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
+      await Promise.all(deletePromises);
+      setShowNotifications(false);
+    } catch (err) {
+      console.error("Error clearing notifications:", err);
     }
   };
 
@@ -1880,6 +2074,15 @@ export default function Admin() {
             </div>
           )}
 
+          {messageParam && !authError && !user && (
+            <div className="bg-[#BF76FF]/10 border border-[#BF76FF]/20 text-[#BF76FF] text-sm p-4 rounded-xl mb-6 flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="w-5 h-5 shrink-0" />
+                <span className="font-medium">{messageParam}</span>
+              </div>
+            </div>
+          )}
+
           {user && !isMasterAdmin && profile && (profile.status === "approved" || profile.status === "active") && !hasDashboardAccess && (
             <div className="bg-amber-500/10 border border-amber-500/20 text-amber-500 text-sm p-4 rounded-xl mb-6">
               <p className="font-bold mb-1">Acesso Restrito</p>
@@ -2417,46 +2620,48 @@ export default function Admin() {
         <div className="flex-1 w-full px-2 md:px-3 overflow-y-auto scrollbar-hide flex md:block items-center">
           <nav className="flex md:flex-col flex-row justify-around md:justify-start gap-1 md:gap-1.5 w-full md:pb-6">
             <div className="hidden md:flex flex-col gap-1.5 w-full">
-              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral"} onClick={() => setActiveTab("visao-geral")} label="Início" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} label="Eventos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("videos") && <SidebarItem icon={Video} active={activeTab === "videos"} onClick={() => setActiveTab("videos")} label="Vídeos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias"} onClick={() => setActiveTab("noticias")} label="Notícias" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros"} onClick={() => { setActiveTab("membros"); setShowPending(false); }} label="Membros" collapsed={isSidebarCollapsed} isDark={isDarkMode} notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
-              {canViewTab("avisos") && <SidebarItem icon={Bell} active={activeTab === "avisos"} onClick={() => setActiveTab("avisos")} label="Central de Avisos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda"} onClick={() => setActiveTab("agenda")} label="Agenda" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao"} onClick={() => setActiveTab("agenda-direcao")} label="Agen. Direção" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
-              {canViewLogs && <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => setActiveTab("logs")} label="Audit Logs" collapsed={isSidebarCollapsed} isDark={isDarkMode} />}
+              <DndContext 
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext 
+                  items={menuItems.map(i => i.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {menuItems.map((item) => (
+                    canViewTab(item.id) && (
+                      <SortableSidebarItem 
+                        key={item.id} 
+                        id={item.id}
+                        icon={item.icon} 
+                        active={activeTab === item.id} 
+                        onClick={() => {
+                          setActiveTab(item.id);
+                          if (item.id === "membros") setShowPending(false);
+                        }} 
+                        label={item.label} 
+                        collapsed={isSidebarCollapsed} 
+                        isDark={isDarkMode} 
+                        notificationCount={item.id === "membros" && (isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0}
+                      />
+                    )
+                  ))}
+                </SortableContext>
+              </DndContext>
             </div>
 
-            {/* Bottom items (Desktop) */}
+            {/* Bottom items (Desktop) - "Sair" and "Configurações" removed as requested */}
             <div className="hidden md:flex flex-col gap-1.5 w-full mt-auto pt-4 border-t border-white/5">
-              {canViewSettings && (
-                <SidebarItem 
-                  icon={Settings} 
-                  active={activeTab === "config"} 
-                  onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }} 
-                  label="Configurações" 
-                  collapsed={isSidebarCollapsed} 
-                  isDark={isDarkMode} 
-                />
-              )}
-              <SidebarItem 
-                icon={LogOut} 
-                active={false} 
-                onClick={handleLogoutAction} 
-                label="Sair" 
-                collapsed={isSidebarCollapsed} 
-                isDark={isDarkMode} 
-              />
             </div>
 
             {/* Mobile Bottom Bar Items */}
-            <div className="md:hidden flex flex-row justify-around w-full items-center px-2 py-1">
+            <div className="md:hidden flex flex-row justify-around w-full items-center px-1 py-1">
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("eventos"); setRightSidebarView("hidden"); }} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Calendar} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Direção" collapsed={true} isDark={isDarkMode} mobile iconClassName="text-[#BF76FF]" />}
+              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               <SidebarItem icon={MessageSquare} active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
               
               <Sheet>
@@ -2542,23 +2747,11 @@ export default function Admin() {
 
                     <div className="space-y-3">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Opções do Sistema</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {canViewSettings && (
-                          <SheetClose 
-                            onClick={() => { setActiveTab("config"); setRightSidebarView("hidden"); }}
-                            className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all text-left", isDarkMode ? "bg-white/5" : "bg-gray-100")}
-                          >
-                            <Settings className="w-5 h-5 text-gray-400" />
-                            <span className="text-xs font-bold">Configurações</span>
-                          </SheetClose>
-                        )}
-                        <SheetClose 
-                          onClick={logout}
-                          className={cn("flex flex-col gap-2 p-4 rounded-2xl transition-all text-left", isDarkMode ? "bg-red-500/10" : "bg-red-50")}
-                        >
-                          <LogOut className="w-5 h-5 text-red-500" />
-                          <span className="text-xs font-bold text-red-500">Sair</span>
-                        </SheetClose>
+                      <div className="grid grid-cols-1 gap-2">
+                        {/* Settings removed from here - now strictly in header */}
+                        <div className={cn("text-[10px] text-gray-500 px-2 italic", isDarkMode ? "opacity-40" : "opacity-60")}>
+                          Configurações acessíveis via cabeçalho
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -2744,7 +2937,15 @@ export default function Admin() {
               </button>
             </div>
 
-            <div className="relative">
+            <div className="relative flex items-center gap-2" ref={notificationRef}>
+              <button 
+                className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
+                onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }}
+                title="Configurações"
+              >
+                <Settings className="w-5 h-5" />
+              </button>
+
               <button 
                 className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
                 onClick={() => setShowNotifications(!showNotifications)}
@@ -2772,12 +2973,20 @@ export default function Admin() {
                     >
                       <div className="flex items-center justify-between px-2 mb-3">
                         <h6 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Notificações</h6>
-                        <button 
-                          onClick={handleMarkAllAsRead}
-                          className="text-[10px] text-[#BF76FF] hover:underline font-bold"
-                        >
-                          Marcar como lida
-                        </button>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={handleMarkAllAsRead}
+                            className="text-[10px] text-[#BF76FF] hover:underline font-bold"
+                          >
+                            Marcar lidas
+                          </button>
+                          <button 
+                            onClick={handleClearNotifications}
+                            className="text-[10px] text-red-500 hover:underline font-bold"
+                          >
+                            Limpar
+                          </button>
+                        </div>
                       </div>
                       <div className="space-y-1">
                         {displayNotifications.length > 0 ? (
@@ -2786,7 +2995,11 @@ export default function Admin() {
                               key={n.id || i} 
                               onClick={async () => {
                                 try {
-                                  if (!n.read) await updateDoc(doc(db, "notifications", n.id), { read: true });
+                                  if (!n.read) {
+                                    // Update local state immediately
+                                    setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
+                                    await updateDoc(doc(db, "notifications", n.id), { read: true });
+                                  }
                                 } catch (e) {
                                   handleFirestoreError(e, OperationType.UPDATE, `notifications/${n.id}`);
                                 }
@@ -2832,7 +3045,7 @@ export default function Admin() {
               </AnimatePresence>
             </div>
 
-            <div className={cn("flex items-center gap-3 pl-2 md:pl-4 md:border-l relative", isDarkMode ? "border-white/10" : "border-black/10")}>
+            <div className={cn("flex items-center gap-3 pl-2 md:pl-4 md:border-l relative", isDarkMode ? "border-white/10" : "border-black/10")} ref={profileMenuRef}>
               <div className="text-right hidden md:block">
                 <p className={cn("text-sm font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>{user?.displayName || "Admin"}</p>
                 <p className="text-[10px] text-gray-500 grayscale opacity-70">
@@ -2902,6 +3115,21 @@ export default function Admin() {
                       </div>
 
                       <div className="p-1 mt-2 pt-2 border-t border-white/5">
+                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mt-4 mb-2">Conta</h4>
+                        <button
+                          onClick={() => {
+                            setActiveTab("membros");
+                            setViewingMember(profile);
+                            setShowProfileMenu(false);
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-3 p-2.5 rounded-xl transition-all",
+                            isDarkMode ? "text-gray-400 hover:bg-white/5" : "text-gray-600 hover:bg-black/5"
+                          )}
+                        >
+                          <Users className="w-4 h-4" />
+                          <span className="text-xs font-bold">Meu Perfil</span>
+                        </button>
                         <button 
                           onClick={logout}
                           className={cn(
@@ -4928,7 +5156,7 @@ export default function Admin() {
             ) : activeTab === "logs" ? (
               <div className="p-4 md:p-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Histórico de Ações</h2>
+                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Logs</h2>
                   
                   <div className="flex flex-wrap gap-2">
                     <div className="relative">
@@ -4937,43 +5165,49 @@ export default function Admin() {
                         value={logSearch}
                         onChange={(e) => setLogSearch(e.target.value)}
                         placeholder="Buscar log..."
-                        className={cn("pl-10 h-10 w-64 rounded-xl border-none", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                        className={cn("pl-10 h-10 w-64 rounded-xl border-none transition-colors", isDarkMode ? "bg-white/5 text-gray-400 focus:text-white" : "bg-gray-100 text-gray-600 focus:text-black")}
                       />
                     </div>
                     
-                    <select 
+                    <LogFilterSelect 
+                      label="Ações"
                       value={logFilterAction}
-                      onChange={(e) => setLogFilterAction(e.target.value)}
-                      className={cn("h-10 px-4 rounded-xl text-xs font-bold border-none cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
-                    >
-                      <option value="todos">Ações: Todas</option>
-                      <option value="criar">Criar</option>
-                      <option value="atualizar">Atualizar</option>
-                      <option value="excluir">Excluir</option>
-                      <option value="member_approval">Aprovação</option>
-                      <option value="login">Login</option>
-                      <option value="logout">Logout</option>
-                    </select>
-
-                    <select 
-                      value={logFilterCategory}
-                      onChange={(e) => setLogFilterCategory(e.target.value)}
-                      className={cn("h-10 px-4 rounded-xl text-xs font-bold border-none cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
-                    >
-                      <option value="todos">Menu: Todos</option>
-                      <option value="posts">Notícias/Eventos</option>
-                      <option value="blog">Blog</option>
-                      <option value="members">Membros</option>
-                      <option value="agenda">Agenda</option>
-                      <option value="settings">Configurações</option>
-                    </select>
-
-                    <input 
-                      type="date"
-                      value={logFilterDate}
-                      onChange={(e) => setLogFilterDate(e.target.value)}
-                      className={cn("h-10 px-4 rounded-xl text-xs font-bold border-none cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                      onChange={setLogFilterAction}
+                      isDarkMode={isDarkMode}
+                      options={[
+                        { label: "Todas", value: "todos" },
+                        { label: "Criar", value: "criar" },
+                        { label: "Atualizar", value: "atualizar" },
+                        { label: "Excluir", value: "excluir" },
+                        { label: "Aprovação", value: "member_approval" },
+                        { label: "Login", value: "login" },
+                        { label: "Logout", value: "logout" },
+                      ]}
                     />
+
+                    <LogFilterSelect 
+                      label="Menu"
+                      value={logFilterCategory}
+                      onChange={setLogFilterCategory}
+                      isDarkMode={isDarkMode}
+                      options={[
+                        { label: "Todos", value: "todos" },
+                        { label: "Notícias/Eventos", value: "posts" },
+                        { label: "Blog", value: "blog" },
+                        { label: "Membros", value: "members" },
+                        { label: "Agenda", value: "agenda" },
+                        { label: "Configurações", value: "settings" },
+                      ]}
+                    />
+
+                    <div className="relative">
+                      <input 
+                        type="date"
+                        value={logFilterDate}
+                        onChange={(e) => setLogFilterDate(e.target.value)}
+                        className={cn("h-10 px-4 rounded-xl text-xs font-bold border-none cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                      />
+                    </div>
 
                     {(logSearch || logFilterAction !== 'todos' || logFilterCategory !== 'todos' || logFilterDate) && (
                       <Button 
@@ -5014,16 +5248,16 @@ export default function Admin() {
                   ))}
                 </div>
 
-                <Card className={cn("border rounded-[32px] transition-colors overflow-hidden", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                   <div className="overflow-x-hidden overflow-y-auto max-h-[600px] custom-scrollbar">
-                     <table className="w-full text-left table-fixed">
+                <Card className={cn("border rounded-[32px] transition-colors overflow-hidden mx-auto w-full", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                   <div className="w-full overflow-x-hidden overflow-y-auto max-h-[700px] custom-scrollbar">
+                     <table className="w-full text-left border-collapse table-auto">
                        <thead>
-                         <tr className={cn("border-b transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest w-[180px]">Data/Hora / Menu</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest w-[200px]">Usuário Responsável</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center w-[100px]">Ação</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Resumo do Log</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-right w-[150px]">Ações</th>
+                         <tr className={cn("border-b transition-colors sticky top-0 z-10", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
+                           <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden md:table-cell">Data/Hora / Menu</th>
+                           <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Responsável</th>
+                           <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center w-[80px] md:w-[100px]">Ação</th>
+                           <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden sm:table-cell">Resumo</th>
+                           <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-right w-[100px] md:w-[140px]">Ações</th>
                          </tr>
                        </thead>
                        <tbody className={cn("divide-y text-[13px]", isDarkMode ? "divide-white/5" : "divide-black/5")}>
@@ -5042,9 +5276,9 @@ export default function Admin() {
                            })
                            .map((log, i) => (
                            <tr key={log.id || i} className={cn("hover:bg-white/5 transition-colors group")}>
-                             <td className="p-6">
+                             <td className="p-4 md:p-6 hidden md:table-cell">
                                <div className="flex flex-col">
-                                 <span className="text-[11px] font-black text-primary uppercase tracking-tighter mb-1">
+                                 <span className="text-[11px] font-black text-primary uppercase tracking-tighter mb-1 truncate">
                                     {log.target || "Sistema"}
                                  </span>
                                  <span className="text-[10px] text-gray-500 flex items-center gap-1">
@@ -5053,20 +5287,20 @@ export default function Admin() {
                                  </span>
                                </div>
                              </td>
-                             <td className="p-6">
+                             <td className="p-4 md:p-6">
                                <div className="flex items-center gap-3">
-                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-bold text-gray-500 shrink-0 hidden md:flex">
                                    {log.userName?.substring(0, 1).toUpperCase() || "A"}
                                  </div>
-                                 <div className="flex flex-col">
-                                   <span className={cn("font-bold", isDarkMode ? "text-white" : "text-black")}>{log.userName || "Admin"}</span>
-                                   <span className="text-[10px] text-gray-500">{log.userEmail}</span>
+                                 <div className="flex flex-col min-w-0">
+                                   <span className={cn("font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{log.userName || "Admin"}</span>
+                                   <span className="text-[10px] text-gray-500 truncate">{log.userEmail}</span>
                                  </div>
                                </div>
                              </td>
-                             <td className="p-6 text-center">
+                             <td className="p-4 md:p-6 text-center">
                                <span className={cn(
-                                 "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest inline-block whitespace-nowrap",
+                                 "px-2 md:px-3 py-1 rounded-lg text-[8px] md:text-[9px] font-black uppercase tracking-widest inline-block whitespace-nowrap",
                                  log.action === 'criar' ? "bg-green-500/10 text-green-400 border border-green-500/20" :
                                  log.action === 'atualizar' ? "bg-primary/10 text-primary border border-primary/20" :
                                  log.action === 'excluir' ? "bg-red-500/10 text-red-500 border border-red-500/20" :
@@ -5075,22 +5309,22 @@ export default function Admin() {
                                  {log.action}
                                </span>
                              </td>
-                             <td className="p-6">
-                               <p className="text-gray-400 line-clamp-2 max-w-[400px] italic">
+                             <td className="p-4 md:p-6 hidden sm:table-cell">
+                               <p className="text-gray-400 line-clamp-1 italic text-[11px] leading-relaxed">
                                  {log.details || "Sem detalhes adicionais."}
                                </p>
                              </td>
-                             <td className="p-6 text-right">
+                             <td className="p-4 md:p-6 text-right">
                                <Button 
                                  size="sm"
                                  variant="outline"
                                  onClick={() => setSelectedLog(log)}
                                  className={cn(
-                                   "h-8 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest border-none transition-all scale-95 hover:scale-100",
+                                   "h-8 px-2 md:px-4 rounded-xl text-[9px] md:text-[10px] font-bold uppercase tracking-widest border-none transition-all scale-95 hover:scale-100",
                                    isDarkMode ? "bg-white/5 text-white hover:bg-white/10" : "bg-gray-100 text-black hover:bg-gray-200"
                                  )}
                                >
-                                 <Eye className="w-3 h-3 mr-2" /> Detalhes
+                                 <Eye className="w-3 h-3 md:mr-2" /> <span className="hidden md:inline">Detalhes</span>
                                </Button>
                              </td>
                            </tr>
@@ -5257,6 +5491,36 @@ export default function Admin() {
               </div>
             )}
           </div>
+          
+          {/* Footer UI */}
+          <footer className={cn(
+            "max-w-6xl mx-auto w-full mt-10 md:mt-20 py-10 px-4 border-t transition-all",
+            isDarkMode ? "border-white/5" : "border-black/5"
+          )}>
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              <div className="flex flex-col items-center md:items-start gap-1">
+                <p className={cn("text-xs font-black uppercase tracking-widest", isDarkMode ? "text-white/40" : "text-black/40")}>
+                  © {new Date().getFullYear()} Igreja Evangélica Ministerio Profecia
+                </p>
+                <p className={cn("text-[10px] font-bold", isDarkMode ? "text-gray-600" : "text-gray-400")}>
+                  Todos os direitos reservados
+                </p>
+              </div>
+              <div className={cn("flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]", isDarkMode ? "text-gray-500" : "text-gray-400")}>
+                <span>Criado com</span>
+                <Heart className="w-3 h-3 text-red-500 fill-red-500 animate-pulse" />
+                <span>por</span>
+                <a 
+                  href="https://danielvaleweb.com.br" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-[#BF76FF] hover:underline"
+                >
+                  Daniel Vale
+                </a>
+              </div>
+            </div>
+          </footer>
         </div>
 
       </main>
@@ -5837,6 +6101,36 @@ export default function Admin() {
   );
 }
 
+function SortableSidebarItem(props: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: props.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 50 : 1,
+    opacity: isDragging ? 0.6 : 1,
+  };
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      style={style} 
+      {...attributes} 
+      {...listeners}
+      className={isDragging ? "cursor-grabbing" : "cursor-grab"}
+    >
+      <SidebarItem {...props} />
+    </div>
+  );
+}
+
 function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mobile, notificationCount, iconClassName }: { icon: any, active?: boolean, onClick: () => void, label: string, collapsed?: boolean, isDark?: boolean, mobile?: boolean, notificationCount?: number, iconClassName?: string }) {
   if (mobile) {
     return (
@@ -6342,3 +6636,5 @@ function ActionIcon({ icon: Icon, onClick, active, isDark }: { icon: any, onClic
 function cn(...classes: any[]) {
   return classes.filter(Boolean).join(" ");
 }
+
+export default Admin;

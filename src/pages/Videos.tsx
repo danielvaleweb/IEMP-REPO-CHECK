@@ -95,7 +95,7 @@ export default function Videos() {
   const handleToggleMyList = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
     if (!user) {
-      navigate('/login');
+      navigate('/login?message=precisamos que você esteja logado para adicionar à sua lista');
       return;
     }
 
@@ -111,7 +111,7 @@ export default function Videos() {
   const handleToggleFavorite = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
     if (!user) {
-      navigate('/login');
+      navigate('/login?message=precisamos que você esteja logado para favoritar conteúdos');
       return;
     }
     await toggleFavoriteCtx({

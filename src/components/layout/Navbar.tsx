@@ -256,7 +256,7 @@ export default function Navbar() {
             ) : (
               <Link 
                 to="/admin" 
-                className="text-white hover:bg-white/10 rounded-full px-6 h-10 font-bold border border-white/10 flex items-center gap-2 transition-colors"
+                className="text-white hover:bg-white/10 rounded-full px-6 h-10 font-bold flex items-center gap-2 transition-colors"
               >
                 <LogIn className="w-4 h-4" />
                 <span className="hidden sm:inline">Área de Membro</span>
