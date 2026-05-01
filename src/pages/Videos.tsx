@@ -5,7 +5,8 @@ import {
   Play,
   X,
   Plus,
-  ArrowLeft
+  ArrowLeft,
+  Check
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
@@ -23,6 +24,9 @@ export default function Videos() {
   const [myListIds, setMyListIds] = useState<string[]>([]);
   const { favorites, favoriteIds, toggleFavorite: toggleFavoriteCtx, isFavorite } = useFavorites();
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState("TODOS");
+  const [filterDate, setFilterDate] = useState("");
+  const [filterOrganizer, setFilterOrganizer] = useState("");
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
   const [config, setConfig] = useState<any>({ videoCardsEnabled: true });
   const [similarVideos, setSimilarVideos] = useState<any[]>([]);
@@ -43,13 +47,22 @@ export default function Videos() {
       setVideos(snapshot.docs.map(doc => {
         const data = doc.data();
         const url = data.url || "";
-        const videoId = url.includes('v=') ? url.split('v=')[1].split('&')[0] : 
-                        url.includes('youtu.be/') ? url.split('youtu.be/')[1] : url;
+        const getYoutubeId = (u: string) => {
+          if (!u) return null;
+          if (u.length === 11 && !u.includes('/') && !u.includes('?')) return u;
+          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/)([^#\&\?]*).*/;
+          const match = u.match(regExp);
+          return (match && match[2].length === 11) ? match[2] : null;
+        };
+        const parsedId = getYoutubeId(url);
+        const videoId = parsedId || doc.id;
+        const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : "";
         return {
           id: videoId, // Use youtubeId as id for consistency with Home.tsx
           firestoreId: doc.id,
           ...data,
-          thumbnail: data.thumbnail || (videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ""),
+          createdAtDate,
+          thumbnail: data.thumbnail || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
           tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
           category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
         };
@@ -90,7 +103,8 @@ export default function Videos() {
     if (myListIds.includes(video.id)) {
       await deleteDoc(docRef);
     } else {
-      await setDoc(docRef, video);
+      const cleanVideo = Object.fromEntries(Object.entries(video).filter(([_, v]) => v !== undefined));
+      await setDoc(docRef, cleanVideo);
     }
   };
 
@@ -110,10 +124,31 @@ export default function Videos() {
     });
   };
 
-  const filteredVideos = videos.filter(v => 
-    v.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    v.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredVideos = videos.filter(v => {
+    const searchMatch = v.title?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                      v.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // category check
+    let categoryMatch = true;
+    if (filterCategory !== "TODOS") {
+      categoryMatch = v.tags?.some((t: string) => t.toUpperCase() === filterCategory.toUpperCase()) || 
+                      v.category?.toUpperCase() === filterCategory.toUpperCase();
+    }
+
+    // organizer check
+    let organizerMatch = true;
+    if (filterOrganizer.trim()) {
+      organizerMatch = v.organizer?.toLowerCase().includes(filterOrganizer.toLowerCase());
+    }
+
+    // date check
+    let dateMatch = true;
+    if (filterDate.trim()) {
+      dateMatch = v.publishedAt?.includes(filterDate.trim()) || v.published?.includes(filterDate.trim()) || v.createdAtDate?.includes(filterDate.trim());
+    }
+
+    return searchMatch && categoryMatch && organizerMatch && dateMatch;
+  });
 
   const getYoutubeId = (url: string) => {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -193,9 +228,50 @@ export default function Videos() {
                 />
               ))}
             </div>
-            <div className="h-px bg-white/5 w-full pt-8" />
           </section>
         )}
+
+        <div className="h-[1px] bg-[#BF76FF] w-full mt-12 mb-8" />
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white/5 p-4 rounded-2xl border border-white/10">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-2">Categoria</label>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full h-12 bg-black/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white"
+            >
+              <option value="TODOS">Todas</option>
+              <option value="PREGAÇÃO">Pregações</option>
+              <option value="EVENTO">Eventos</option>
+              <option value="LIVE">Live</option>
+              <option value="PODCAST">Podcast</option>
+              <option value="DISCIPULADO">Discipulado</option>
+              <option value="EBD">EBD</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-2">Organizador / Preletor</label>
+            <input
+              type="text"
+              placeholder="Nome do organizador..."
+              value={filterOrganizer}
+              onChange={(e) => setFilterOrganizer(e.target.value)}
+              className="w-full h-12 bg-black/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-gray-500"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-2">Data (DD/MM/AA)</label>
+            <input
+              type="text"
+              placeholder="Ex: 01/12/23"
+              value={filterDate}
+              onChange={(e) => setFilterDate(e.target.value)}
+              className="w-full h-12 bg-black/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-gray-500"
+            />
+          </div>
+        </div>
 
         {/* All Videos Section */}
         <section className="space-y-6">
@@ -245,7 +321,7 @@ export default function Videos() {
             >
               <button 
                 onClick={() => setSelectedVideo(null)}
-                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 hover:bg-black/70 transition-colors text-white"
+                className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 hover:bg-white hover:text-black transition-colors text-white"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -348,7 +424,7 @@ export default function Videos() {
                         onShowSimilar={handleShowSimilar}
                         isInList={myListIds.includes(item.id)}
                         isFavorited={isFavorite(item.id)}
-                        showEffects={true}
+                        isSimilarCard={true}
                       />
                     ))}
                   </div>

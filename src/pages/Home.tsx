@@ -72,7 +72,8 @@ export default function Home() {
     if (myList.includes(video.id)) {
       await deleteDoc(docRef);
     } else {
-      await setDoc(docRef, video);
+      const cleanVideo = Object.fromEntries(Object.entries(video).filter(([_, v]) => v !== undefined));
+      await setDoc(docRef, cleanVideo);
     }
   };
 
@@ -125,6 +126,7 @@ export default function Home() {
   const [showVideo, setShowVideo] = useState(false);
   const [isWatching, setIsWatching] = useState(false);
   const [isFlashing, setIsFlashing] = useState(false);
+  const [infoModalVideo, setInfoModalVideo] = useState<any | null>(null);
 
   // Consolidated with the primary config effect above
   
@@ -258,16 +260,23 @@ export default function Home() {
     const unsubscribeVideos = onSnapshot(query(collection(db, "videos"), orderBy("createdAt", "desc")), (snap) => {
       setVideos(snap.docs.map(doc => {
         const data = doc.data();
-        const videoId = data.url?.includes('v=') ? data.url.split('v=')[1].split('&')[0] : 
-                        data.url?.includes('youtu.be/') ? data.url.split('youtu.be/')[1] : data.url;
+        const getYoutubeId = (url: string) => {
+          if (!url) return null;
+          if (url.length === 11 && !url.includes('/') && !url.includes('?')) return url;
+          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/)([^#\&\?]*).*/;
+          const match = url.match(regExp);
+          return (match && match[2].length === 11) ? match[2] : null;
+        };
+        const parsedId = getYoutubeId(data.url);
+        const safeId = parsedId || doc.id;
         return {
-          id: videoId,
+          id: safeId,
           title: data.title,
           badge: data.badge,
           description: data.description || "",
-          thumbnail: data.thumbnail || `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          thumbnail: data.thumbnail || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
           published: data.published || (data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : ""),
-          link: `https://www.youtube.com/watch?v=${videoId}`,
+          link: parsedId ? `https://www.youtube.com/watch?v=${parsedId}` : (data.url || `https://www.youtube.com/watch?v=${safeId}`),
           tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
           category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
         };
@@ -363,8 +372,13 @@ export default function Home() {
       window.open(video.link || "https://www.youtube.com/@ministerio_profecia/videos", '_blank');
       return;
     }
-    setSelectedVideo(video);
-    setIsWatching(true);
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+    if (isMobile) {
+      setInfoModalVideo(video);
+    } else {
+      setSelectedVideo(video);
+      setIsWatching(true);
+    }
   };
 
   return (
@@ -419,12 +433,12 @@ export default function Home() {
               </div>
 
               {/* Content Overlay */}
-              <div className="relative z-10 h-full flex flex-col justify-end items-start text-left px-6 md:px-16 pb-24 md:pb-32">
+              <div className="relative z-10 h-full flex flex-col justify-end items-start text-left px-6 md:px-16 pb-24 md:pb-32 pointer-events-none">
                 <motion.div
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.5 }}
-                  className="max-w-3xl"
+                  className="max-w-3xl pointer-events-auto"
                 >
                   <div className="flex items-center gap-3 mb-4">
                     {videos[currentIndex].tags && videos[currentIndex].tags.length > 0 ? (
@@ -502,11 +516,89 @@ export default function Home() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="absolute top-[80px] right-8 text-white hover:bg-white/10 rounded-full z-[10000]"
+                className="absolute top-[80px] right-8 text-white hover:bg-white hover:text-black rounded-full z-[10000] transition-colors"
                 onClick={() => setIsWatching(false)}
               >
                 <X className="w-8 h-8" />
               </Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Info Modal for Mobile */}
+        <AnimatePresence>
+          {infoModalVideo && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="relative w-full max-w-5xl bg-[#181818] rounded-2xl overflow-hidden shadow-2xl"
+              >
+                <button 
+                  onClick={() => setInfoModalVideo(null)}
+                  className="absolute top-4 right-4 z-10 p-2 rounded-full bg-black/50 hover:bg-white hover:text-black transition-colors text-white"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+                
+                <div className="aspect-video w-full relative">
+                  {infoModalVideo.id.includes('fallback') ? (
+                    <img 
+                      src={infoModalVideo.thumbnail} 
+                      alt={infoModalVideo.title} 
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <iframe
+                      src={`https://www.youtube-nocookie.com/embed/${infoModalVideo.id}?autoplay=1&controls=1&modestbranding=1&rel=0&origin=${window.location.origin}`}
+                      title={infoModalVideo.title}
+                      className="w-full h-full border-none"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  )}
+                </div>
+                
+                <div className="p-4 sm:p-8 space-y-4 max-h-[40vh] overflow-y-auto">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h2 className="text-xl sm:text-3xl font-bold">{infoModalVideo.title}</h2>
+                    <div className="flex gap-2 shrink-0">
+                      <button 
+                        onClick={(e) => handleToggleMyList(e, infoModalVideo)}
+                        className={cn(
+                          "flex items-center gap-2 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-bold transition-all border text-sm sm:text-base",
+                          myList.includes(infoModalVideo.id) 
+                            ? "bg-gradient-to-r from-[#BF76FF] to-purple-800 text-white border-transparent hover:opacity-90 shadow-[0_0_20px_rgba(191,118,255,0.4)]" 
+                            : "bg-white/10 text-white hover:bg-white/20 border-white/20"
+                        )}
+                      >
+                        {myList.includes(infoModalVideo.id) ? <Check className="w-4 sm:w-5 h-4 sm:h-5" /> : <Plus className="w-4 sm:w-5 h-4 sm:h-5" />}
+                        {myList.includes(infoModalVideo.id) ? "Adicionado!" : "Assistir Depois"}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-400">
+                    <span className="text-green-500 font-bold">98% Relevante</span>
+                    {infoModalVideo.tags && infoModalVideo.tags.length > 0 ? (
+                      infoModalVideo.tags.map((tag: string, i: number) => (
+                        <span key={i} className="text-[#BF76FF] font-bold">{tag}</span>
+                      ))
+                    ) : (
+                      <span>{infoModalVideo.badge || "Série"}</span>
+                    )}
+                    <span className="border border-gray-600 px-1 rounded-sm">HD</span>
+                  </div>
+                  <p className="text-sm sm:text-lg text-gray-300 leading-relaxed max-w-3xl">
+                    {infoModalVideo.description || "Assista a esta mensagem inspiradora da Igreja Batista Ministério Profecia."}
+                  </p>
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -528,27 +620,38 @@ export default function Home() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8 relative z-10 overflow-visible"> {/** Grid de Vídeos */}
+          <div className="flex overflow-x-auto md:grid md:grid-cols-5 gap-4 mt-8 relative z-10 pb-4 snap-x snap-mandatory scrollbar-hide md:overflow-visible items-stretch"> {/** Grid de Vídeos */}
             {videos.length === 0 ? (
                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="aspect-video bg-white/5 rounded-md animate-pulse" />
+                  <div key={i} className="min-w-[85vw] md:min-w-0 md:w-auto shrink-0 snap-center aspect-video bg-white/5 rounded-md animate-pulse" />
                ))
             ) : (
-              (showAllVideos ? videos : videos.slice(0, 5)).map((video, idx) => (
-                <MovieCard 
-                  key={`home-video-${idx}-${video.id || 'no-id'}`}
-                  item={video}
-                  type="video"
-                  idx={idx}
-                  onClick={() => handleWatchVideo(video)}
-                  onAddToList={handleToggleMyList}
-                  onFavorite={handleToggleFavorite}
-                  onShowSimilar={handleShowSimilar}
-                  isInList={myList.includes(video.id)}
-                  isFavorited={isFavorite(video.id)}
-                  showEffects={config.videoCardsEnabled}
-                />
-              ))
+              <>
+                {(showAllVideos ? videos : videos.slice(0, 5)).map((video, idx) => (
+                  <div key={`home-video-wrap-${idx}`} className="w-[85vw] sm:w-[45vw] md:w-auto shrink-0 snap-center md:snap-align-none">
+                    <MovieCard 
+                      key={`home-video-${idx}-${video.id || 'no-id'}`}
+                      item={video}
+                      type="video"
+                      idx={idx}
+                      onClick={() => handleWatchVideo(video)}
+                      onAddToList={handleToggleMyList}
+                      onFavorite={handleToggleFavorite}
+                      onShowSimilar={handleShowSimilar}
+                      isInList={myList.includes(video.id)}
+                      isFavorited={isFavorite(video.id)}
+                      showEffects={config.videoCardsEnabled}
+                    />
+                  </div>
+                ))}
+                {/* Mobile View All Card */}
+                <div className="w-[85vw] sm:w-[45vw] md:hidden shrink-0 snap-center aspect-[16/9] bg-white/5 hover:bg-white/10 border border-white/10 rounded-md flex flex-col items-center justify-center cursor-pointer transition-colors" onClick={() => navigate('/videos')}>
+                  <div className="w-12 h-12 rounded-full bg-[#BF76FF]/20 flex items-center justify-center mb-3">
+                    <ArrowRight className="w-6 h-6 text-[#BF76FF]" />
+                  </div>
+                  <span className="text-white font-bold text-sm tracking-widest uppercase">Ver Tudo</span>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -567,27 +670,38 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-8 relative z-10 overflow-visible"> {/** Grid de Cliques */}
+          <div className="flex overflow-x-auto md:grid md:grid-cols-5 gap-4 mt-8 relative z-10 pb-4 snap-x snap-mandatory scrollbar-hide md:overflow-visible items-stretch"> {/** Grid de Cliques */}
             {pastEvents.length === 0 ? (
                Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="aspect-video bg-white/5 rounded-md animate-pulse" />
+                  <div key={i} className="min-w-[85vw] md:min-w-0 md:w-auto shrink-0 snap-center aspect-video bg-white/5 rounded-md animate-pulse" />
                ))
             ) : (
-              pastEvents.slice(0, 5).map((event, idx) => (
-                <MovieCard 
-                  key={`home-clique-${idx}-${event.id}`}
-                  item={event}
-                  type="event"
-                  idx={idx}
-                  onClick={() => navigate(`/evento/${event.id}#galeria`)}
-                  onAddToList={handleToggleMyList}
-                  onFavorite={handleToggleFavorite}
-                  onShowSimilar={handleShowSimilar}
-                  isInList={myList.includes(event.id)}
-                  isFavorited={isFavorite(event.id)}
-                  useGalleryImage={true}
-                />
-              ))
+              <>
+                {pastEvents.slice(0, 5).map((event, idx) => (
+                  <div key={`home-clique-wrap-${idx}`} className="w-[85vw] sm:w-[45vw] md:w-auto shrink-0 snap-center md:snap-align-none">
+                    <MovieCard 
+                      key={`home-clique-${idx}-${event.id}`}
+                      item={event}
+                      type="event"
+                      idx={idx}
+                      onClick={() => navigate(`/evento/${event.id}#galeria`)}
+                      onAddToList={handleToggleMyList}
+                      onFavorite={handleToggleFavorite}
+                      onShowSimilar={handleShowSimilar}
+                      isInList={myList.includes(event.id)}
+                      isFavorited={isFavorite(event.id)}
+                      useGalleryImage={true}
+                    />
+                  </div>
+                ))}
+                {/* Mobile View All Card */}
+                <div className="w-[85vw] sm:w-[45vw] md:hidden shrink-0 snap-center aspect-[16/9] bg-white/5 hover:bg-white/10 border border-white/10 rounded-md flex flex-col items-center justify-center cursor-pointer transition-colors" onClick={() => navigate('/eventos')}>
+                  <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
+                     <ArrowRight className="w-6 h-6 text-red-500" />
+                  </div>
+                  <span className="text-white font-bold text-sm tracking-widest uppercase">Ver Galeria</span>
+                </div>
+              </>
             )}
           </div>
         </div>
@@ -883,26 +997,29 @@ export default function Home() {
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
-              <h2 className="text-4xl md:text-5xl font-black mb-8 tracking-tighter uppercase">
+              <h2 className="text-4xl md:text-5xl font-black mb-8 tracking-tighter uppercase text-white">
                 Venha nos <span className="text-primary">Visitar</span>
               </h2>
-              <p className="text-white/60 text-lg mb-12 leading-relaxed">
+              <p className="text-white text-lg mb-12 leading-relaxed opacity-80">
                 Nossa igreja é um lugar de acolhimento e transformação. Junte-se a nós em um de nossos cultos presenciais e experimente o poder de Deus em comunidade.
               </p>
               
               <div className="space-y-6">
                 {[
-                  { icon: Calendar, title: "Culto de Celebração", detail: "Domingos às 19:00" },
-                  { icon: Clock, title: "Culto de Oração", detail: "Terças às 20:00" },
-                  { icon: MapPin, title: "Endereço", detail: "Rua Exemplo, 123 - Cidade/UF" }
+                  { day: "Ter", title: "Culto de Oração", detail: "Terça-feira às ", time: "19:30h" },
+                  { day: "Sex", title: "Culto de Libertação", detail: "Sexta-feira às ", time: "19:30h" },
+                  { day: "Dom", title: "Culto da Família", detail: "Domingo às ", time: "19:00h" }
                 ].map((item, i) => (
                   <div key={`link-card-${i}`} className="flex items-center gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/30 transition-colors group">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                      <item.icon className="w-6 h-6" />
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <span className="text-primary font-black text-xs uppercase">{item.day}</span>
                     </div>
                     <div>
                       <h4 className="font-bold text-white">{item.title}</h4>
-                      <p className="text-white/40 text-sm">{item.detail}</p>
+                      <p className="text-white/40 text-sm">
+                        {item.detail}
+                        <span className="font-black text-white/90">{item.time}</span>
+                      </p>
                     </div>
                   </div>
                 ))}
@@ -915,16 +1032,20 @@ export default function Home() {
               viewport={{ once: true }}
               className="relative aspect-square rounded-3xl overflow-hidden border border-white/10 shadow-2xl"
             >
-              <img 
-                src="https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1000" 
-                alt="Igreja" 
-                className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
+              <iframe 
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3705.518608226019!2d-43.3888365!3d-21.7513077!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x989b5c39a3f2d9%3A0x7d6f5c8e3c8e3c8e!2sR.%20Cleonice%20Rainho%2C%2019%20-%20Aeroporto%2C%20Juiz%20de%20Fora%20-%20MG%2C%2036038-250!5e0!3m2!1spt-BR!2sbr!4v1713560000000!5m2!1spt-BR!2sbr" 
+                className="w-full h-full border-0 grayscale invert opacity-80" 
+                allowFullScreen={true} 
+                loading="lazy" 
+                referrerPolicy="no-referrer-when-downgrade"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
+              <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black via-transparent to-transparent" />
               <div className="absolute bottom-8 left-8 right-8">
-                <Button className="w-full bg-white text-black hover:bg-white/90 rounded-xl h-14 font-bold text-lg">
-                  Como Chegar
+                <Button 
+                  onClick={() => window.open('https://www.google.com/maps/search/?api=1&query=Ministério+Profecia+Juiz+de+Fora', '_blank')}
+                  className="w-full bg-white text-black hover:bg-white/90 rounded-xl h-14 font-bold text-lg"
+                >
+                  Me leve até lá
                 </Button>
               </div>
             </motion.div>
@@ -1016,7 +1137,7 @@ export default function Home() {
                           onShowSimilar={handleShowSimilar}
                           isInList={myList.includes(item.id)}
                           isFavorited={isFavorite(item.id)}
-                          showEffects={true}
+                          isSimilarCard={true}
                         />
                         <div className="mt-4 opacity-100 sm:opacity-0 group-hover/item:opacity-100 transition-opacity">
                            <h4 className="text-white font-bold text-sm line-clamp-1">{item.title}</h4>

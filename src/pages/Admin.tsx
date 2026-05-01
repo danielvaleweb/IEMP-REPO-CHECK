@@ -3078,7 +3078,7 @@ export default function Admin() {
                         {(formData.invitedMembers?.length > 0) && (
                           <div className="space-y-8 py-6">
                              <div className="flex items-center gap-6">
-                                <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Quem estará presente</h5>
+                                <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Membros da igreja presente</h5>
                                 <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/5" : "bg-black/5")} />
                              </div>
                              
@@ -3103,6 +3103,45 @@ export default function Admin() {
                                        <p className={cn("text-[11px] font-black uppercase tracking-[0.15em] transition-colors", isDarkMode ? "text-white group-hover:text-[#BF76FF]" : "text-black")}>
                                          {m.name}
                                        </p>
+                                     </div>
+                                  </div>
+                                ))}
+                             </div>
+                          </div>
+                        )}
+
+                        {/* Guests Section */}
+                        {formData.guests && Array.isArray(formData.guests) && formData.guests.filter((g: any) => g.name).length > 0 && (
+                          <div className="space-y-8 py-6">
+                             <div className="flex items-center gap-6">
+                                <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Convidados presente</h5>
+                                <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/5" : "bg-black/5")} />
+                             </div>
+                             
+                             <div className="flex flex-wrap gap-x-8 gap-y-10">
+                                {formData.guests.filter((g: any) => g.name).map((guest: any, idx: number) => (
+                                  <div key={`guest-display-${idx}`} className="flex flex-col items-center gap-4 group">
+                                     <div className="relative">
+                                       <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                          <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
+                                            {guest.image ? (
+                                              <img src={guest.image} alt={guest.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                                 <Users className="w-10 h-10" />
+                                              </div>
+                                            )}
+                                          </div>
+                                       </div>
+                                       <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 bg-amber-500 rounded-lg border-4 z-10 hidden md:block", isDarkMode ? "border-[#111]" : "border-white")} />
+                                     </div>
+                                     <div className="text-center space-y-0.5">
+                                       <p className={cn("text-[11px] font-black uppercase tracking-[0.15em] transition-colors", isDarkMode ? "text-white group-hover:text-[#BF76FF]" : "text-black")}>
+                                         {guest.name}
+                                       </p>
+                                       {guest.role && (
+                                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">{guest.role}</p>
+                                       )}
                                      </div>
                                   </div>
                                 ))}
@@ -3737,7 +3776,7 @@ export default function Admin() {
                               {formData.guests && Array.isArray(formData.guests) && formData.guests.length > 0 && (
                                 <div className="space-y-4">
                                   {formData.guests.map((guest: any, i: number) => (
-                                    <div key={`guest-form-${guest.name || 'new'}-${i}`} className="flex gap-4 p-4 rounded-b-2xl rounded-t-lg bg-black/10 dark:bg-white/5 border border-white/5 relative group">
+                                    <div key={`guest-form-${i}`} className="flex gap-4 p-4 rounded-b-2xl rounded-t-lg bg-black/10 dark:bg-white/5 border border-white/5 relative group">
                                       <div className="flex-1 space-y-4">
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                           <div className="space-y-2">
@@ -3747,7 +3786,7 @@ export default function Admin() {
                                               value={guest.name || ""}
                                               onChange={(e) => {
                                                 const newGuests = [...formData.guests];
-                                                newGuests[i].name = e.target.value;
+                                                newGuests[i] = { ...newGuests[i], name: e.target.value };
                                                 setFormData({ ...formData, guests: newGuests });
                                               }}
                                               readOnly={isReadOnly}

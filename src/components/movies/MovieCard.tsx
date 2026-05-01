@@ -23,6 +23,7 @@ interface MovieCardProps {
   isFavorited?: boolean;
   showEffects?: boolean;
   useGalleryImage?: boolean;
+  isSimilarCard?: boolean;
 }
 
 export const MovieCard = ({ 
@@ -36,13 +37,17 @@ export const MovieCard = ({
   isInList, 
   isFavorited,
   showEffects = true,
-  useGalleryImage = false
+  useGalleryImage = false,
+  isSimilarCard = false
 }: MovieCardProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const hoverTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+
   const handleMouseEnter = () => {
+    if (isMobile) return;
     setIsHovered(true);
     if (!showEffects || type === 'event') return;
     hoverTimerRef.current = setTimeout(() => {
@@ -51,12 +56,14 @@ export const MovieCard = ({
   };
 
   const handleMouseLeave = () => {
+    if (isMobile) return;
     setIsHovered(false);
     if (hoverTimerRef.current) {
       clearTimeout(hoverTimerRef.current);
     }
     setShowPreview(false);
   };
+
 
   useEffect(() => {
     return () => {
@@ -88,7 +95,7 @@ export const MovieCard = ({
     <div 
       className={cn(
         "group cursor-pointer bg-[#141414] rounded-md shadow-2xl relative w-full overflow-hidden transition-all duration-300",
-        !showEffects && "hover:opacity-80"
+        (!showEffects || isMobile) && !isSimilarCard && "hover:opacity-80"
       )}
       onClick={onClick}
     >
@@ -101,7 +108,7 @@ export const MovieCard = ({
         />
         {/* Play icon removed on hover as requested */}
       </div>
-      {!showEffects && (
+      {(!showEffects || isSimilarCard || isMobile) && (
         <div className="p-2">
           <h3 className="text-white text-xs font-bold truncate">{item.title}</h3>
         </div>
@@ -109,9 +116,9 @@ export const MovieCard = ({
     </div>
   );
 
-  if (!showEffects || type === 'event') {
+  if (isMobile || !showEffects || type === 'event' || isSimilarCard) {
     return (
-      <div className="relative z-10 w-full animate-in fade-in duration-500">
+      <div className={cn("relative z-10 w-full animate-in fade-in duration-500", isSimilarCard && "grayscale hover:grayscale-0 transition-all duration-300")}>
         {cardContent}
       </div>
     );
@@ -119,7 +126,7 @@ export const MovieCard = ({
 
   return (
     <div 
-      className={cn("relative w-full", isHovered ? "z-[100]" : "z-10")}
+      className={cn("relative w-full", isHovered ? "z-[1050]" : "z-10")}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -141,7 +148,7 @@ export const MovieCard = ({
             animate={{ scale: 1.15, opacity: 1, y: -40 }}
             exit={{ scale: 0.9, opacity: 0, y: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
-            className="absolute top-0 left-[-7.5%] w-[115%] z-[500] bg-[#181818] rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden cursor-pointer flex flex-col"
+            className="absolute top-0 left-[-7.5%] w-[115%] z-[1050] bg-[#181818] rounded-lg shadow-[0_20px_50px_rgba(0,0,0,0.9)] overflow-hidden cursor-pointer flex flex-col"
             onClick={onClick}
           >
             <div className="relative aspect-video bg-black">
@@ -210,7 +217,7 @@ export const MovieCard = ({
                       <span key={idx} className="text-[10px] text-[#BF76FF] bg-[#BF76FF]/10 border border-[#BF76FF]/20 px-1.5 py-0.5 rounded uppercase font-bold">{tag}</span>
                     ))
                   ) : (
-                    <span className="text-[10px] text-gray-400 border border-white/20 px-1.5 py-0.5 rounded uppercase font-bold">{item.badge || (type === 'event' ? 'Evento' : 'Série')}</span>
+                    <span className="text-[10px] text-gray-400 border border-white/20 px-1.5 py-0.5 rounded uppercase font-bold">{item.badge || 'Série'}</span>
                   )}
                   <span className="text-[10px] text-gray-500 font-medium whitespace-nowrap">Classificação Livre</span>
                 </div>

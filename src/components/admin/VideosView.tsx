@@ -38,12 +38,16 @@ export function VideosView({ isDark }: { isDark: boolean }) {
     thumbnail: string;
     tags: string[];
     description: string;
+    publishedAt: string;
+    organizer: string;
   }>({
     title: "",
     url: "",
     thumbnail: "",
     tags: [],
-    description: ""
+    description: "",
+    publishedAt: "",
+    organizer: ""
   });
 
   const predefinedTags = ["PREGAÇÃO", "LIVE", "EVENTO", "DISCIPULADO", "EBD", "PODCAST"];
@@ -86,7 +90,7 @@ export function VideosView({ isDark }: { isDark: boolean }) {
           createdAt: serverTimestamp()
         });
       }
-      setFormData({ title: "", url: "", thumbnail: "", tags: [], description: "" });
+      setFormData({ title: "", url: "", thumbnail: "", tags: [], description: "", publishedAt: "", organizer: "" });
       setIsAdding(false);
       setEditingVideo(null);
     } catch (err) {
@@ -108,7 +112,9 @@ export function VideosView({ isDark }: { isDark: boolean }) {
       url: video.url || "",
       thumbnail: video.thumbnail || "",
       tags: initialTags,
-      description: video.description || ""
+      description: video.description || "",
+      publishedAt: video.publishedAt || "",
+      organizer: video.organizer || ""
     });
     setIsAdding(true);
   };
@@ -126,7 +132,9 @@ export function VideosView({ isDark }: { isDark: boolean }) {
   );
 
   const getYoutubeId = (url: string) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    if (!url) return null;
+    if (url.length === 11 && !url.includes('/') && !url.includes('?')) return url;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/)([^#\&\?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
   };
@@ -158,13 +166,14 @@ export function VideosView({ isDark }: { isDark: boolean }) {
         </div>
 
         {isAdding && (
-          <Card className={cn("p-8 rounded-[32px] border-none shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300", isDark ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-2xl uppercase tracking-tight">{editingVideo ? "Editar" : "Cadastrar Novo"} Vídeo</h3>
-              <button onClick={() => { setIsAdding(false); setEditingVideo(null); }} className={cn("p-2 rounded-full transition-colors", isDark ? "hover:bg-white/5" : "hover:bg-black/5")}>
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => { setIsAdding(false); setEditingVideo(null); }}>
+            <Card className={cn("relative w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 rounded-[32px] border-none shadow-2xl animate-in zoom-in-95 duration-300", isDark ? "bg-[#1A1A1A] text-white" : "bg-white text-black")} onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="font-black text-2xl uppercase tracking-tight">{editingVideo ? "Editar" : "Cadastrar Novo"} Vídeo</h3>
+                <button onClick={() => { setIsAdding(false); setEditingVideo(null); }} className={cn("p-2 rounded-full transition-colors", isDark ? "hover:bg-white/5" : "hover:bg-black/5")}>
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
             <div className="space-y-6">
               <div className="space-y-2">
                 <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Título do Vídeo</label>
@@ -233,6 +242,26 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Data (DD/MM/AA)</label>
+                  <Input 
+                    value={formData.publishedAt}
+                    onChange={(e) => setFormData({...formData, publishedAt: e.target.value})}
+                    placeholder="Ex: 01/12/23"
+                    className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Organizador (Opcional)</label>
+                  <Input 
+                    value={formData.organizer}
+                    onChange={(e) => setFormData({...formData, organizer: e.target.value})}
+                    placeholder="Nome do preletor/organizador"
+                    className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
                 <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Descrição (Opcional)</label>
                 <textarea 
@@ -249,7 +278,8 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                 <Save className="w-5 h-5 mr-2" /> {editingVideo ? "Salvar Alterações" : "Salvar Vídeo"}
               </Button>
             </div>
-          </Card>
+            </Card>
+          </div>
         )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">

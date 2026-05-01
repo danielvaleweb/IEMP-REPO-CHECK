@@ -54,7 +54,8 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
       if (exists) {
         await deleteDoc(docRef);
       } else {
-        await setDoc(docRef, item);
+        const cleanItem = Object.fromEntries(Object.entries(item).filter(([_, v]) => v !== undefined));
+        await setDoc(docRef, cleanItem);
       }
     } catch (e) {
       console.error("Failed to toggle favorite", e);

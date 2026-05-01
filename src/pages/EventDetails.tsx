@@ -283,6 +283,7 @@ export default function EventDetails() {
   const youtubeId = getYoutubeVideoId(event.youtubeLink);
 
   const guests = event.guests || [];
+  const hasOrganizer = Boolean(event.organizer || event.organization);
   const organizerDisplay = event.organizer || event.organization || "Organizador Local";
   const organizerImage = event.organizerImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(organizerDisplay)}&background=BF76FF&color=fff&size=512`;
 
@@ -360,17 +361,31 @@ export default function EventDetails() {
                    transition={{ delay: idx * 0.1 }}
                    className="flex flex-col items-center group relative cursor-pointer"
                  >
-                   <div 
-                     className={cn(
-                       "w-full aspect-square rounded-[30px] overflow-hidden mb-3 relative transition-all duration-500 group-hover:-translate-y-2 border-2 border-white/10",
-                       theme.shadow
+                   <div className="relative w-full aspect-square mb-3">
+                     {/* Adaptive Glow */}
+                     {guest.image && (
+                       <div 
+                         className="absolute inset-4 blur-2xl opacity-0 group-hover:opacity-70 transition-all duration-500 rounded-[30px] z-0 scale-110"
+                         style={{ 
+                           backgroundImage: `url(${guest.image})`, 
+                           backgroundSize: 'cover',
+                           backgroundPosition: 'center' 
+                         }} 
+                       />
                      )}
-                   >
-                     {guest.image ? (
-                       <img src={guest.image} alt={guest.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
-                     ) : (
-                       <div className={cn("w-full h-full flex items-center justify-center text-white/50 text-4xl font-black", theme.bg)}>{guest.name?.charAt(0)}</div>
-                     )}
+                     
+                     <div 
+                       className={cn(
+                         "w-full h-full rounded-[30px] overflow-hidden relative transition-all duration-500 group-hover:-translate-y-2 z-10 bg-[#10001D]",
+                         !guest.image && theme.shadow
+                       )}
+                     >
+                       {guest.image ? (
+                         <img src={guest.image} alt={guest.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" referrerPolicy="no-referrer" />
+                       ) : (
+                         <div className={cn("w-full h-full flex items-center justify-center text-white/50 text-4xl font-black", theme.bg)}>{guest.name?.charAt(0)}</div>
+                       )}
+                     </div>
                    </div>
                    <h4 className="text-white font-light uppercase text-sm md:text-base text-center leading-tight tracking-tight mt-2">{guest.name}</h4>
                    <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1 text-center">{guest.role}</p>
@@ -380,21 +395,23 @@ export default function EventDetails() {
           </div>
 
           {/* Organizer Card - Right Side */}
-          <div className="w-full lg:w-[400px] xl:w-[450px] shrink-0 mt-8 lg:mt-0 flex justify-center lg:justify-end">
-             <motion.div 
-               initial={{ opacity: 0, scale: 0.95 }}
-               animate={{ opacity: 1, scale: 1 }}
-               transition={{ duration: 0.8 }}
-               className="relative overflow-hidden group w-full aspect-[4/5] rounded-[40px]"
-             >
-               <div className="absolute inset-0 bg-gradient-to-t from-[#10001D]/90 via-transparent to-transparent z-10 pointer-events-none rounded-[40px]" />
-               <img src={organizerImage} alt={organizerDisplay} className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none rounded-[40px]" />
-               <div className="absolute bottom-6 left-0 w-full text-center z-20 px-6">
-                 <h3 className="text-3xl lg:text-4xl font-black uppercase tracking-tighter text-white drop-shadow-lg">{organizerDisplay}</h3>
-                 <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mt-2 drop-shadow-lg">Organizador (Convener)</p>
-               </div>
-             </motion.div>
-          </div>
+          {hasOrganizer && (
+            <div className="w-full lg:w-[400px] xl:w-[450px] shrink-0 mt-8 lg:mt-0 flex justify-center lg:justify-end">
+               <motion.div 
+                 initial={{ opacity: 0, scale: 0.95 }}
+                 animate={{ opacity: 1, scale: 1 }}
+                 transition={{ duration: 0.8 }}
+                 className="relative overflow-hidden group w-full aspect-[4/5] rounded-[40px]"
+               >
+                 <div className="absolute inset-0 bg-gradient-to-t from-[#10001D]/90 via-transparent to-transparent z-10 pointer-events-none rounded-[40px]" />
+                 <img src={organizerImage} alt={organizerDisplay} className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none rounded-[40px]" />
+                 <div className="absolute bottom-6 left-0 w-full text-center z-20 px-6">
+                   <h3 className="text-3xl lg:text-4xl font-black uppercase tracking-tighter text-white drop-shadow-lg">{organizerDisplay}</h3>
+                   <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mt-2 drop-shadow-lg">Organizador (Convener)</p>
+                 </div>
+               </motion.div>
+            </div>
+          )}
         </div>
 
         {/* Info & Call to Action Bar */}

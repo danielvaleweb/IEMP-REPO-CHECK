@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
@@ -34,10 +35,14 @@ function AppContent() {
   const isSolicitacaoPage = location.pathname.startsWith("/solicitacao");
   const isEventPage = location.pathname.startsWith("/evento/");
 
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary">
       {!isAdminPage && !isEventPage && !isSolicitacaoPage && <Navbar />}
-      <main className={cn("flex-grow", !isHomePage && !isAdminPage && !isEventPage && !isSolicitacaoPage && "pt-20", !isAdminPage && !isEventPage && !isSolicitacaoPage && "pb-20")}>
+      <main className="flex-grow flex flex-col">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/ao-vivo" element={<Live />} />
