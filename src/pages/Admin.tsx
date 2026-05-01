@@ -978,11 +978,27 @@ export default function Admin() {
     }
   }, [chatMessages, rightSidebarView]);
 
+  const [hasLoggedLogin, setHasLoggedLogin] = useState(false);
   const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     setAuthError(contextAuthError || "");
   }, [contextAuthError]);
+
+  useEffect(() => {
+    if (user && !hasLoggedLogin && logAction) {
+      logAction("login", "auth", `Usuário ${user.displayName || user.email} entrou no sistema`);
+      setHasLoggedLogin(true);
+    }
+  }, [user]);
+
+  const handleLogoutAction = async () => {
+    if (user) {
+      await logAction("logout", "auth", `Usuário ${user.displayName || user.email} encerrou a sessão`);
+    }
+    await auth.signOut();
+    navigate("/");
+  };
 
   const userStatus = profile?.status_presence || "online";
 
@@ -1213,7 +1229,7 @@ export default function Admin() {
   });
   
   // Form States
-  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, collection: string } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, collection: string, item?: any } | null>(null);
   const [formData, setFormData] = useState<any>({});
 
   // Split location into fields for editing
@@ -1253,14 +1269,64 @@ export default function Admin() {
   const [localSettings, setLocalSettings] = useState<any>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
+  const [logSearch, setLogSearch] = useState("");
+  const [logFilterAction, setLogFilterAction] = useState("todos");
+  const [logFilterCategory, setLogFilterCategory] = useState("todos");
+  const [logFilterUser, setLogFilterUser] = useState("todos");
+  const [logFilterDate, setLogFilterDate] = useState("");
+  const [selectedLog, setSelectedLog] = useState<any>(null);
 
-  const logAction = async (action: string, target: string, details: string) => {
+  const logAction = async (action: string, target: string, details: string, oldData?: any, newData?: any) => {
     if (!user) return;
+
+    let extendedDetails = details;
+    
+    if (oldData && newData) {
+      const changes: string[] = [];
+      const keys = new Set([...Object.keys(oldData), ...Object.keys(newData)]);
+      
+      keys.forEach(key => {
+        if (['id', 'updatedAt', 'createdAt', 'authorId', 'authorName', 'lastLogin', 'invitedMembersIds'].includes(key)) return;
+        
+        const oldVal = oldData[key];
+        const newVal = newData[key];
+        
+        if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+          if (Array.isArray(oldVal) && Array.isArray(newVal)) {
+            if (key === 'gallery' || key === 'images') {
+               const lenDiff = newVal.length - oldVal.length;
+               if (lenDiff > 0) changes.push(`Adicionou ${lenDiff} fotos em ${key}`);
+               else if (lenDiff < 0) changes.push(`Removeu ${Math.abs(lenDiff)} fotos de ${key}`);
+               else changes.push(`Substituiu fotos na galeria`);
+            } else if (key === 'invitedMembers' || key === 'guests') {
+               const added = newVal.filter((n: any) => !oldVal.some((o: any) => o.id === n.id || o.name === n.name)).length;
+               const removed = oldVal.filter((o: any) => !newVal.some((n: any) => o.id === n.id || o.name === n.name)).length;
+               if (added > 0) changes.push(`Adicionou ${added} participantes/convidados`);
+               if (removed > 0) changes.push(`Removeu ${removed} participantes/convidados`);
+            } else {
+               changes.push(`Alterou lista ${key}`);
+            }
+          } else if (typeof newVal === 'boolean') {
+            changes.push(`${key}: ${oldVal ? 'Sim' : 'Não'} → ${newVal ? 'Sim' : 'Não'}`);
+          } else if (key.toLowerCase().includes('image') || key.toLowerCase().includes('url')) {
+            changes.push(`Alterou link/imagem de ${key}`);
+          } else {
+            changes.push(`${key}: "${oldVal || 'vazio'}" para "${newVal || 'vazio'}"`);
+          }
+        }
+      });
+      
+      if (changes.length > 0) {
+        extendedDetails += ` | Detalhes: ${changes.join('; ')}`;
+      }
+    }
+
     try {
       await addDoc(collection(db, "audit-logs"), {
         action,
         target,
-        details,
+        details: extendedDetails,
+        fullDetails: oldData || newData ? { old: oldData || null, new: newData || null } : null,
         userId: user.uid,
         userName: profile?.name || user.displayName || "Usuário desconhecido",
         userEmail: user.email,
@@ -1531,7 +1597,7 @@ export default function Admin() {
           updatedAt: serverTimestamp()
         }, { merge: true });
         
-        logAction("atualizar", collectionName, `Atualizou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name}`);
+        logAction("atualizar", collectionName, `Atualizou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name}`, selectedItem, dataToSave);
         
         // Log Activity
         await addDoc(collection(db, "notifications"), {
@@ -1550,7 +1616,7 @@ export default function Admin() {
           authorName: user?.displayName || profile?.name || "Admin"
         });
 
-        logAction("criar", collectionName, `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'agenda-direcao' ? 'compromisso na direção' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name} (ID: ${newDoc.id})`);
+        logAction("criar", collectionName, `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'agenda-direcao' ? 'compromisso na direção' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name} (ID: ${newDoc.id})`, null, dataToSave);
 
         // Log Activity
         await addDoc(collection(db, "notifications"), {
@@ -1709,17 +1775,24 @@ export default function Admin() {
     }
   };
 
-  const handleDelete = (id: string, collectionOverride?: string) => {
+  const handleDelete = (item: any, collectionOverride?: string) => {
+    const id = typeof item === 'string' ? item : item.id;
+    const itemData = typeof item === 'object' ? item : null;
     const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "radio" ? "vignettes" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
-    setDeleteConfirm({ id, collection: colName });
+    setDeleteConfirm({ id, collection: colName, item: itemData });
   };
 
   const executeDelete = async () => {
     if (!deleteConfirm) return;
     try {
       console.log('Excluindo item:', deleteConfirm.id, 'da coleção:', deleteConfirm.collection);
+      
+      // Get item details for logging before deleting
+      const itemToDelete = deleteConfirm.item || null;
+      
       await deleteDoc(doc(db, deleteConfirm.collection, deleteConfirm.id));
-      logAction("excluir", deleteConfirm.collection, `Excluiu item ID: ${deleteConfirm.id}`);
+      logAction("excluir", deleteConfirm.collection, `Excluiu item: ${itemToDelete?.title || itemToDelete?.name || deleteConfirm.id}`, itemToDelete, null);
+      
       setSelectedItem(null);
       setIsEditing(false);
       setDeleteConfirm(null);
@@ -2370,7 +2443,7 @@ export default function Admin() {
               <SidebarItem 
                 icon={LogOut} 
                 active={false} 
-                onClick={() => auth.signOut()} 
+                onClick={handleLogoutAction} 
                 label="Sair" 
                 collapsed={isSidebarCollapsed} 
                 isDark={isDarkMode} 
@@ -4214,7 +4287,7 @@ export default function Admin() {
                                     className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
                                     onClick={() => {
                                       if (selectedItem) {
-                                        handleDelete(selectedItem.id, "agenda-direcao");
+                                        handleDelete(selectedItem, "agenda-direcao");
                                         setIsEditing(false);
                                       }
                                     }}
@@ -4262,7 +4335,7 @@ export default function Admin() {
                                       selectedItem.type === 'agenda' ? 'agenda' :
                                       activeTab === "eventos" ? "posts" : 
                                       activeTab === "membros" ? "members" : "agenda";
-                          handleDelete(selectedItem.id, col);
+                          handleDelete(selectedItem, col);
                         }}
                       >
                         <Trash2 className="w-4 h-4 mr-2" /> Excluir
@@ -4350,7 +4423,7 @@ export default function Admin() {
                               setIsEditing(true);
                               setViewingMember(null);
                             } : undefined}
-                            onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member.id, "members") : undefined}
+                            onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member, "members") : undefined}
                             isDark={isDarkMode}
                             isAdmin={isAdmin}
                             logAction={logAction}
@@ -4450,7 +4523,7 @@ export default function Admin() {
                   setIsEditing(true);
                 }}
                 onDeleteEvent={(item) => {
-                  handleDelete(item.id, activeTab === "noticias" ? "blog" : "posts");
+                  handleDelete(item, activeTab === "noticias" ? "blog" : "posts");
                 }}
               />
             ) : activeTab === "agenda" ? (
@@ -4479,7 +4552,7 @@ export default function Admin() {
                 }}
                 onDeleteEvent={(item) => {
                   const col = item.type === 'post' ? 'posts' : 'agenda';
-                  handleDelete(item.id, col);
+                  handleDelete(item, col);
                 }}
               />
             ) : activeTab === "visao-geral" ? (
@@ -4582,7 +4655,7 @@ export default function Admin() {
                     setIsEditing(true);
                   }}
                   onDeleteEvent={(item) => {
-                    handleDelete(item.id, "agenda-direcao");
+                    handleDelete(item, "agenda-direcao");
                   }}
                 />
               </div>
@@ -4615,7 +4688,7 @@ export default function Admin() {
                           setIsSavingSettings(true);
                           try {
                              await setDoc(doc(db, "settings", "general"), { ...localSettings }, { merge: true });
-                             logAction("atualizar", "settings", `Atualizou configurações gerais: ${Object.keys(localSettings).join(", ")}`);
+                             logAction("atualizar", "settings", `Atualizou configurações gerais: ${Object.keys(localSettings).join(", ")}`, settings, { ...settings, ...localSettings });
                              setLocalSettings({}); // Clear local settings so it falls back to DB settings
                           } catch (error) {
                              handleFirestoreError(error, OperationType.UPDATE, "settings/general");
@@ -4854,46 +4927,172 @@ export default function Admin() {
               </div>
             ) : activeTab === "logs" ? (
               <div className="p-4 md:p-8">
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Audit Logs</h2>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Histórico de Ações</h2>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <Input 
+                        value={logSearch}
+                        onChange={(e) => setLogSearch(e.target.value)}
+                        placeholder="Buscar log..."
+                        className={cn("pl-10 h-10 w-64 rounded-xl border-none", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                      />
+                    </div>
+                    
+                    <select 
+                      value={logFilterAction}
+                      onChange={(e) => setLogFilterAction(e.target.value)}
+                      className={cn("h-10 px-4 rounded-xl text-xs font-bold border-none cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                    >
+                      <option value="todos">Ações: Todas</option>
+                      <option value="criar">Criar</option>
+                      <option value="atualizar">Atualizar</option>
+                      <option value="excluir">Excluir</option>
+                      <option value="member_approval">Aprovação</option>
+                      <option value="login">Login</option>
+                      <option value="logout">Logout</option>
+                    </select>
+
+                    <select 
+                      value={logFilterCategory}
+                      onChange={(e) => setLogFilterCategory(e.target.value)}
+                      className={cn("h-10 px-4 rounded-xl text-xs font-bold border-none cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                    >
+                      <option value="todos">Menu: Todos</option>
+                      <option value="posts">Notícias/Eventos</option>
+                      <option value="blog">Blog</option>
+                      <option value="members">Membros</option>
+                      <option value="agenda">Agenda</option>
+                      <option value="settings">Configurações</option>
+                    </select>
+
+                    <input 
+                      type="date"
+                      value={logFilterDate}
+                      onChange={(e) => setLogFilterDate(e.target.value)}
+                      className={cn("h-10 px-4 rounded-xl text-xs font-bold border-none cursor-pointer", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}
+                    />
+
+                    {(logSearch || logFilterAction !== 'todos' || logFilterCategory !== 'todos' || logFilterDate) && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setLogSearch("");
+                          setLogFilterAction("todos");
+                          setLogFilterCategory("todos");
+                          setLogFilterDate("");
+                        }}
+                        className="h-10 text-gray-500 hover:text-red-500"
+                      >
+                        <XCircle className="w-4 h-4 mr-2" /> Limpar
+                      </Button>
+                    )}
+                  </div>
                 </div>
+
+                <div className="flex gap-4 mb-4 overflow-x-auto pb-2 scrollbar-none">
+                  {[
+                    { label: "Todo o tempo", value: "" },
+                    { label: "Hoje", value: format(new Date(), 'yyyy-MM-dd') },
+                    { label: "Ontem", value: format(new Date(Date.now() - 86400000), 'yyyy-MM-dd') }
+                  ].map((period) => (
+                    <button
+                      key={period.label}
+                      onClick={() => setLogFilterDate(period.value)}
+                      className={cn(
+                        "px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap transition-all",
+                        logFilterDate === period.value 
+                          ? "bg-primary text-white shadow-lg shadow-primary/30" 
+                          : "bg-white/5 text-gray-500 hover:bg-white/10"
+                      )}
+                    >
+                      {period.label}
+                    </button>
+                  ))}
+                </div>
+
                 <Card className={cn("border rounded-[32px] transition-colors overflow-hidden", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                   <div className="overflow-x-auto">
-                     <table className="w-full text-left">
+                   <div className="overflow-x-hidden overflow-y-auto max-h-[600px] custom-scrollbar">
+                     <table className="w-full text-left table-fixed">
                        <thead>
                          <tr className={cn("border-b transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Data/Hora</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Usuário</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Ação</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Alvo</th>
-                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Detalhes</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest w-[180px]">Data/Hora / Menu</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest w-[200px]">Usuário Responsável</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center w-[100px]">Ação</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Resumo do Log</th>
+                           <th className="p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-right w-[150px]">Ações</th>
                          </tr>
                        </thead>
-                       <tbody className={cn("divide-y", isDarkMode ? "divide-white/5" : "divide-black/5")}>
-                         {logs.map((log, i) => (
-                           <tr key={log.id || i} className={cn("hover:bg-white/5 transition-colors")}>
-                             <td className="p-6 text-xs text-gray-400 whitespace-nowrap">
-                               {log.timestamp?.toDate ? format(log.timestamp.toDate(), "dd/MM/yyyy HH:mm:ss") : "Carregando..."}
-                             </td>
+                       <tbody className={cn("divide-y text-[13px]", isDarkMode ? "divide-white/5" : "divide-black/5")}>
+                         {logs
+                           .filter(log => {
+                             const matchesSearch = !logSearch || 
+                               log.details?.toLowerCase().includes(logSearch.toLowerCase()) ||
+                               log.target?.toLowerCase().includes(logSearch.toLowerCase()) ||
+                               log.userName?.toLowerCase().includes(logSearch.toLowerCase());
+                             
+                             const matchesAction = logFilterAction === 'todos' || log.action === logFilterAction;
+                             const matchesCategory = logFilterCategory === 'todos' || log.target === logFilterCategory;
+                             const matchesDate = !logFilterDate || (log.timestamp?.toDate && format(log.timestamp.toDate(), 'yyyy-MM-dd') === logFilterDate);
+                             
+                             return matchesSearch && matchesAction && matchesCategory && matchesDate;
+                           })
+                           .map((log, i) => (
+                           <tr key={log.id || i} className={cn("hover:bg-white/5 transition-colors group")}>
                              <td className="p-6">
                                <div className="flex flex-col">
-                                 <span className={cn("text-xs font-bold", isDarkMode ? "text-white" : "text-black")}>{log.userName || "Admin"}</span>
-                                 <span className="text-[10px] text-gray-500">{log.userEmail}</span>
+                                 <span className="text-[11px] font-black text-primary uppercase tracking-tighter mb-1">
+                                    {log.target || "Sistema"}
+                                 </span>
+                                 <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                                   <Clock className="w-3 h-3" />
+                                   {log.timestamp?.toDate ? format(log.timestamp.toDate(), "dd/MM HH:mm") : "..."}
+                                 </span>
                                </div>
                              </td>
                              <td className="p-6">
+                               <div className="flex items-center gap-3">
+                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-[10px] font-bold text-gray-500">
+                                   {log.userName?.substring(0, 1).toUpperCase() || "A"}
+                                 </div>
+                                 <div className="flex flex-col">
+                                   <span className={cn("font-bold", isDarkMode ? "text-white" : "text-black")}>{log.userName || "Admin"}</span>
+                                   <span className="text-[10px] text-gray-500">{log.userEmail}</span>
+                                 </div>
+                               </div>
+                             </td>
+                             <td className="p-6 text-center">
                                <span className={cn(
-                                 "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest",
-                                 log.action === 'criar' ? "bg-green-500/10 text-green-500" :
-                                 log.action === 'atualizar' ? "bg-blue-500/10 text-blue-500" :
-                                 log.action === 'excluir' ? "bg-red-500/10 text-red-500" :
-                                 "bg-gray-500/10 text-gray-400"
+                                 "px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest inline-block whitespace-nowrap",
+                                 log.action === 'criar' ? "bg-green-500/10 text-green-400 border border-green-500/20" :
+                                 log.action === 'atualizar' ? "bg-primary/10 text-primary border border-primary/20" :
+                                 log.action === 'excluir' ? "bg-red-500/10 text-red-500 border border-red-500/20" :
+                                 "bg-gray-500/10 text-gray-400 border border-gray-500/10"
                                )}>
                                  {log.action}
                                </span>
                              </td>
-                             <td className="p-6 text-xs font-medium text-gray-400">{log.target}</td>
-                             <td className="p-6 text-xs text-gray-400 min-w-[200px]">{log.details}</td>
+                             <td className="p-6">
+                               <p className="text-gray-400 line-clamp-2 max-w-[400px] italic">
+                                 {log.details || "Sem detalhes adicionais."}
+                               </p>
+                             </td>
+                             <td className="p-6 text-right">
+                               <Button 
+                                 size="sm"
+                                 variant="outline"
+                                 onClick={() => setSelectedLog(log)}
+                                 className={cn(
+                                   "h-8 px-4 rounded-xl text-[10px] font-bold uppercase tracking-widest border-none transition-all scale-95 hover:scale-100",
+                                   isDarkMode ? "bg-white/5 text-white hover:bg-white/10" : "bg-gray-100 text-black hover:bg-gray-200"
+                                 )}
+                               >
+                                 <Eye className="w-3 h-3 mr-2" /> Detalhes
+                               </Button>
+                             </td>
                            </tr>
                          ))}
                          {logs.length === 0 && (
@@ -4907,6 +5106,133 @@ export default function Admin() {
                      </table>
                    </div>
                 </Card>
+
+                <AnimatePresence>
+                  {selectedLog && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                      <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        onClick={() => setSelectedLog(null)}
+                        className="absolute inset-0 bg-black/60 backdrop-blur-md"
+                      />
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        className={cn(
+                          "relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-[40px] shadow-2xl flex flex-col",
+                          isDarkMode ? "bg-[#111] border border-white/10" : "bg-white"
+                        )}
+                      >
+                        <div className="p-8 border-b border-white/5 flex justify-between items-start">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="px-2 py-1 bg-primary/10 text-primary rounded text-[10px] font-black uppercase tracking-widest">EXTRATO DETALHADO</span>
+                              <span className="text-gray-500 text-[10px]">#LOG-{selectedLog.id?.substring(0, 8)}</span>
+                            </div>
+                            <h3 className={cn("text-2xl font-black uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>
+                              {selectedLog.action} em {selectedLog.target}
+                            </h3>
+                          </div>
+                          <button onClick={() => setSelectedLog(null)} className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors">
+                            <X className="w-5 h-5 text-gray-500" />
+                          </button>
+                        </div>
+                        
+                        <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
+                          <div className="grid grid-cols-2 gap-8 mb-8">
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Executado por</p>
+                              <p className={cn("text-sm font-bold", isDarkMode ? "text-white" : "text-black")}>{selectedLog.userName}</p>
+                              <p className="text-xs text-gray-500">{selectedLog.userEmail}</p>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Horário exato</p>
+                              <p className={cn("text-sm font-bold", isDarkMode ? "text-white" : "text-black")}>
+                                {selectedLog.timestamp?.toDate ? format(selectedLog.timestamp.toDate(), "dd 'de' MMMM 'de' yyyy 'às' HH:mm:ss") : "Indisponível"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="p-6 rounded-[24px] bg-white/5 border border-white/5 mb-8">
+                             <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-4">Descrição Geral</p>
+                             <p className="text-sm text-gray-300 leading-relaxed italic">
+                                "{selectedLog.details}"
+                             </p>
+                          </div>
+
+                          {selectedLog.fullDetails && (
+                            <div className="space-y-6">
+                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                {selectedLog.action === 'excluir' ? 'Dados Excluídos' : 'Alterações por Campo'}
+                              </p>
+                              <div className="space-y-3">
+                                {selectedLog.action === 'excluir' 
+                                  ? Object.keys(selectedLog.fullDetails.old || {})
+                                      .filter(key => !['updatedAt', 'id', 'createdAt', 'authorId', 'authorName'].includes(key))
+                                      .map(key => (
+                                        <div key={key} className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
+                                          <div className="flex items-center gap-2 mb-1">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                                            <span className="text-[10px] font-black uppercase text-red-400">{key}</span>
+                                          </div>
+                                          <p className="text-xs text-gray-400 break-all">
+                                            {typeof selectedLog.fullDetails.old[key] === 'object' 
+                                              ? JSON.stringify(selectedLog.fullDetails.old[key]) 
+                                              : String(selectedLog.fullDetails.old[key] || "vazio")}
+                                          </p>
+                                        </div>
+                                      ))
+                                  : Object.keys({ ...selectedLog.fullDetails.old, ...selectedLog.fullDetails.new })
+                                      .filter(key => {
+                                        const oldV = selectedLog.fullDetails.old?.[key];
+                                        const newV = selectedLog.fullDetails.new?.[key];
+                                        return JSON.stringify(oldV) !== JSON.stringify(newV) && 
+                                               !['updatedAt', 'id', 'createdAt', 'authorId', 'authorName'].includes(key);
+                                      })
+                                      .map(key => {
+                                        const oldVal = selectedLog.fullDetails.old?.[key];
+                                        const newVal = selectedLog.fullDetails.new?.[key];
+                                        
+                                        return (
+                                          <div key={key} className="p-4 rounded-2xl bg-black/20 border border-white/5">
+                                            <div className="flex items-center gap-2 mb-2">
+                                              <div className="w-2 h-2 rounded-full bg-primary" />
+                                              <span className="text-[11px] font-black uppercase text-gray-400">{key}</span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-4 text-xs">
+                                              <div className="space-y-1 opacity-60">
+                                                <span className="text-[9px] uppercase font-bold text-red-500/80">Anterior</span>
+                                                <p className="line-clamp-2 break-all">{typeof oldVal === 'object' ? JSON.stringify(oldVal) : String(oldVal || "vazio")}</p>
+                                              </div>
+                                              <div className="space-y-1">
+                                                <span className="text-[9px] uppercase font-bold text-green-500/80">Novo</span>
+                                                <p className="line-clamp-2 break-all">{typeof newVal === 'object' ? JSON.stringify(newVal) : String(newVal || "vazio")}</p>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )
+                                      })
+                                }
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="p-8 border-t border-white/5 bg-black/20">
+                           <Button 
+                             onClick={() => setSelectedLog(null)}
+                             className="w-full h-12 rounded-[20px] bg-primary text-white font-bold tracking-widest uppercase text-xs"
+                           >
+                             Fechar Detalhes
+                           </Button>
+                        </div>
+                      </motion.div>
+                    </div>
+                  )}
+                </AnimatePresence>
               </div>
             ) : (
               <div className="text-center py-20 flex flex-col items-center justify-center h-full">
@@ -5016,7 +5342,7 @@ export default function Admin() {
                                   setActiveTab("membros");
                                   setViewingMember(member);
                                 }}
-                                onDelete={() => handleDelete(member.id, "members")}
+                                onDelete={() => handleDelete(member, "members")}
                                 isDark={isDarkMode}
                                 isAdmin={isAdmin}
                                 logAction={logAction}
@@ -5753,7 +6079,7 @@ interface TeamMemberProps {
   onDelete?: () => void;
   isDark?: boolean;
   isAdmin?: boolean;
-  logAction?: (action: string, target: string, details: string) => void;
+  logAction?: (action: string, target: string, details: string, oldData?: any, newData?: any) => void;
 }
 
 function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, isDark, isAdmin, logAction }: TeamMemberProps) {
@@ -5946,7 +6272,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
                     colors: ['#BF76FF', '#7300FF', '#CC7EFF', '#ffffff']
                   });
                   if (logAction) {
-                    logAction("member_approval", member.id, `Aprovado cadastro de ${member.name}`);
+                    logAction("member_approval", "members", `Aprovado cadastro de ${member.name}`, member, { ...member, status: "active" });
                   }
                 } catch(err) {
                   console.error(err);
