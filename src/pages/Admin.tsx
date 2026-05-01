@@ -2249,6 +2249,15 @@ const Admin = () => {
                 {isSubmitting ? "Entrando..." : "Logar"}
               </Button>
 
+              <Button 
+                variant="outline"
+                className="w-full h-16 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4 border-none"
+                onClick={() => setIsGuestModalOpen(true)}
+              >
+                <Users className="w-5 h-5" />
+                Logar como Visitante
+              </Button>
+
               <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-white/10"></span>
@@ -2260,7 +2269,7 @@ const Admin = () => {
 
               <Button 
                 variant="outline"
-                className="w-full h-16 bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-full text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3"
+                className="w-full h-12 bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-full text-sm font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3"
                 onClick={async () => {
                   try {
                     setAuthError("");
@@ -2282,7 +2291,7 @@ const Admin = () => {
                   }
                 }}
               >
-                <svg className="w-6 h-6" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path
                     fill="currentColor"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -2301,15 +2310,6 @@ const Admin = () => {
                   />
                 </svg>
                 Google
-              </Button>
-
-              <Button 
-                variant="outline"
-                className="w-full h-16 bg-[#25D366]/10 border-[#25D366]/20 hover:bg-[#25D366]/20 text-[#25D366] rounded-full text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4"
-                onClick={() => setIsGuestModalOpen(true)}
-              >
-                <Users className="w-5 h-5" />
-                Logar como Visitante
               </Button>
 
               <Dialog open={isGuestModalOpen} onOpenChange={setIsGuestModalOpen}>
