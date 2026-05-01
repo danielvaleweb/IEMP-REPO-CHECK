@@ -27,6 +27,7 @@ import NoticiaDetalhe from "@/pages/NoticiaDetalhe";
 
 import Solicitacao from "@/pages/Solicitacao";
 import Videos from "@/pages/Videos";
+import RadioPage from "@/pages/Radio";
 
 function AppContent() {
   const location = useLocation();
@@ -47,6 +48,7 @@ function AppContent() {
           <Route path="/" element={<Home />} />
           <Route path="/ao-vivo" element={<Live />} />
           <Route path="/videos" element={<Videos />} />
+          <Route path="/radio" element={<RadioPage />} />
           <Route path="/galeria" element={<Gallery />} />
           <Route path="/favoritos" element={<Favorites />} />
           <Route path="/admin" element={<Admin />} />

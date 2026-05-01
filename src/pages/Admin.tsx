@@ -62,7 +62,9 @@ import {
   XCircle,
   Megaphone,
   UserSearch,
-  UserCheck
+  UserCheck,
+  Radio,
+  Music
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -920,6 +922,7 @@ const Admin = () => {
     { id: 'avisos', label: 'Central de Avisos', icon: Megaphone },
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
+    { id: 'radio', label: 'Rádio & Música', icon: Radio },
     { id: 'logs', label: 'Audit Logs', icon: ClipboardList },
   ]);
 
@@ -1127,6 +1130,7 @@ const Admin = () => {
   const [agenda, setAgenda] = useState<any[]>([]);
   const [agendaDirecao, setAgendaDirecao] = useState<any[]>([]);
   const [vignettes, setVignettes] = useState<any[]>([]);
+  const [radioTracks, setRadioTracks] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
   
   // Stats state to avoid full-collection reads
@@ -1155,6 +1159,7 @@ const Admin = () => {
   }, [isDarkMode]);
 
   const [activeTab, setActiveTab] = useState("visao-geral");
+  const [radioSubTab, setRadioSubTab] = useState<"vignettes" | "tracks">("tracks");
   
   // Close right sidebar when changing tabs
   useEffect(() => {
@@ -1741,6 +1746,10 @@ const Admin = () => {
       setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading vignettes:", err));
 
+    const unsubRadioTracks = onSnapshot(query(collection(db, "radio-playlist"), orderBy("order", "asc")), (snap) => {
+      setRadioTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error("Error loading radio tracks:", err));
+
     const unsubLogs = (canViewLogs && !isGuest) ? onSnapshot(query(collection(db, "audit-logs"), orderBy("timestamp", "desc"), limit(100)), (snap) => {
       setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading logs:", err)) : () => {};
@@ -1782,6 +1791,7 @@ const Admin = () => {
       unsubAgenda();
       unsubAgendaDirecao();
       unsubVignettes();
+      unsubRadioTracks();
       unsubLogs();
       unsubNotifs();
       unsubSkills();
@@ -1814,18 +1824,26 @@ const Admin = () => {
     const query = searchQuery.toLowerCase();
     if (activeTab === "eventos") return posts.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
     if (activeTab === "noticias") return blog.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
-    if (activeTab === "radio") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
+    if (activeTab === "radio") {
+      if (radioSubTab === "vignettes") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
+      return radioTracks.filter(t => t.title?.toLowerCase().includes(query));
+    }
     if (activeTab === "membros") return members.filter(m => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     if (activeTab === "agenda-direcao") return agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     return [];
-  }, [activeTab, searchQuery, posts, members, agenda, agendaDirecao]);
+  }, [activeTab, searchQuery, posts, members, agenda, agendaDirecao, vignettes, radioTracks, radioSubTab]);
 
   const handleSave = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      let collectionName = activeTab === "eventos" ? "posts" : activeTab === "noticias" ? "blog" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
+      let collectionName = activeTab === "eventos" ? "posts" : 
+                           activeTab === "noticias" ? "blog" : 
+                           activeTab === "membros" ? "members" : 
+                           activeTab === "agenda-direcao" ? "agenda-direcao" : 
+                           activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : "radio-playlist") :
+                           "agenda";
       
       // Override collection if editing an item that has a specific type (e.g. from merged agenda)
       if (selectedItem?.type) {
@@ -2086,7 +2104,7 @@ const Admin = () => {
   const handleDelete = (item: any, collectionOverride?: string) => {
     const id = typeof item === 'string' ? item : item.id;
     const itemData = typeof item === 'object' ? item : null;
-    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "radio" ? "vignettes" : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
+    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : "radio-playlist") : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
     setDeleteConfirm({ id, collection: colName, item: itemData });
   };
 
@@ -4640,41 +4658,69 @@ const Admin = () => {
                   )}
 
                   {activeTab === "radio" && (
-                    <>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título da Vinheta</label>
-                          <Input 
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                            placeholder="Ex: Identidade Profecia, Chamada de Culto..."
-                            value={formData.title || ""}
-                            onChange={(e) => setFormData({...formData, title: e.target.value})}
-                            readOnly={isReadOnly}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do YouTube (Vinheta)</label>
-                          <Input 
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                            placeholder="Cole o link do YouTube aqui..."
-                            value={formData.youtubeUrl || ""}
-                            onChange={(e) => {
-                              const url = e.target.value;
-                              const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-                              const match = url.match(regExp);
-                              const videoId = (match && match[2].length === 11) ? match[2] : null;
+                    <div className="space-y-4">
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">
+                          {radioSubTab === "tracks" ? "Título da Música" : "Título da Vinheta"}
+                        </label>
+                        <Input 
+                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-black border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                          placeholder={radioSubTab === "tracks" ? "Ex: Louvor de Adoração - Casa do Pai" : "Ex: Identidade Profecia, Chamada de Culto..."}
+                          value={formData.title || ""}
+                          onChange={(e) => setFormData({...formData, title: e.target.value})}
+                          readOnly={isReadOnly}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                        <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Link do YouTube</label>
+                        <Input 
+                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-black border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                          placeholder="Cole o link do YouTube aqui..."
+                          value={radioSubTab === "tracks" ? (formData.youtubeId ? `https://youtube.com/watch?v=${formData.youtubeId}` : formData.rawUrl || "") : (formData.youtubeUrl || "")}
+                          onChange={(e) => {
+                            const url = e.target.value;
+                            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                            const match = url.match(regExp);
+                            const videoId = (match && match[2].length === 11) ? match[2] : null;
+                            
+                            if (radioSubTab === "tracks") {
+                              setFormData({
+                                ...formData,
+                                rawUrl: url,
+                                youtubeId: videoId || ""
+                              });
+                            } else {
                               setFormData({
                                 ...formData, 
                                 youtubeUrl: url, 
                                 videoId: videoId || "",
-                                thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg` : ""
+                                thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : ""
                               });
-                            }}
+                            }
+                          }}
+                          readOnly={isReadOnly}
+                        />
+                        {radioSubTab === 'tracks' && formData.youtubeId && (
+                           <div className="mt-2 rounded-xl overflow-hidden aspect-video border border-white/10 max-w-[200px]">
+                             <img src={`https://img.youtube.com/vi/${formData.youtubeId}/mqdefault.jpg`} className="w-full h-full object-cover" alt="Preview YouTube" />
+                           </div>
+                        )}
+                      </div>
+
+                      {radioSubTab === "tracks" && (
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Ordem na Playlist</label>
+                          <Input 
+                            type="number"
+                            className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-black border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                            value={formData.order || 1}
+                            onChange={(e) => setFormData({...formData, order: parseInt(e.target.value)})}
                             readOnly={isReadOnly}
                           />
                         </div>
-                      </div>
-                    </>
+                      )}
+                    </div>
                   )}
 
                   {activeTab === "eventos" && selectedItem?.id && (
@@ -4861,49 +4907,85 @@ const Admin = () => {
               </div>
             ) : activeTab === "radio" ? (
               <div className="space-y-6 pb-32">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                  <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Vinhetas da Web Rádio</h2>
-                  {canEdit && (
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                  <h2 className={cn("text-2xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Gestão da Rádio</h2>
+                  <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl border border-white/5">
+                    <button 
+                      onClick={() => setRadioSubTab("tracks")}
+                      className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", radioSubTab === "tracks" ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" : "text-gray-500 hover:text-gray-300")}
+                    >
+                      Músicas (YouTube)
+                    </button>
+                    <button 
+                      onClick={() => setRadioSubTab("vignettes")}
+                      className={cn("px-4 py-2 rounded-lg text-xs font-bold transition-all", radioSubTab === "vignettes" ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" : "text-gray-500 hover:text-gray-300")}
+                    >
+                      Vinhetas
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center mb-8">
+                   <p className="text-sm text-gray-500">
+                     {radioSubTab === "tracks" ? "Gerencie a playlist de louvores do YouTube." : "Gerencie as vinhetas e chamadas rápidas."}
+                   </p>
+                   {canEdit && (
                     <Button 
-                      className="w-full sm:w-auto bg-gradient-to-r from-[#BF76FF] to-[#8E44AD] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold truncate"
+                      className="bg-gradient-to-r from-[#BF76FF] to-[#8E44AD] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold"
                       onClick={() => {
                         setSelectedItem(null);
-                        setFormData({});
+                        setFormData(radioSubTab === "tracks" ? { order: radioTracks.length + 1 } : {});
                         setIsReadOnly(false);
                         setIsEditing(true);
                       }}
                     >
-                      <Plus className="w-4 h-4 mr-2 shrink-0" /> Adicionar Vinheta
+                      <Plus className="w-4 h-4 mr-2" /> {radioSubTab === "tracks" ? "Adicionar Música" : "Adicionar Vinheta"}
                     </Button>
                   )}
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredItems.map(vignette => (
-                    <div key={vignette.id} className={cn("p-4 rounded-2xl border transition-colors cursor-pointer relative group", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222]" : "bg-white border-black/5 hover:bg-gray-50")}>
+                  {filteredItems.map(item => (
+                    <div 
+                      key={item.id} 
+                      className={cn("p-4 rounded-2xl border transition-all cursor-pointer relative group overflow-hidden", isDarkMode ? "bg-[#1a1a1a] border-white/5 hover:bg-[#222] hover:border-[#BF76FF]/30" : "bg-white border-black/5 hover:bg-gray-50 hover:border-[#BF76FF]/30")}
+                      onClick={() => {
+                        setSelectedItem(item);
+                        setFormData(item);
+                        setIsReadOnly(!canEdit);
+                        setIsEditing(true);
+                      }}
+                    >
                       <div className="flex items-center gap-4">
-                        <img src={vignette.thumbnail || "https://picsum.photos/seed/mic/100/100"} className="w-12 h-12 rounded-xl object-cover" alt="" />
-                        <div className="flex-1 min-w-0">
-                          <h4 className={cn("font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{vignette.title}</h4>
-                          <p className="text-xs text-muted-foreground uppercase tracking-widest">Vinheta ⚡</p>
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0 overflow-hidden relative", isDarkMode ? "bg-black" : "bg-gray-100")}>
+                          {radioSubTab === "tracks" ? (
+                            <img src={`https://img.youtube.com/vi/${item.youtubeId}/mqdefault.jpg`} className="w-full h-full object-cover" alt="" />
+                          ) : (
+                            <img src={item.thumbnail || "https://picsum.photos/seed/mic/100/100"} className="w-full h-full object-cover" alt="" />
+                          )}
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Play className="w-4 h-4 text-white fill-current" />
+                          </div>
                         </div>
-                        <button 
-                          className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedItem(vignette);
-                            setFormData(vignette);
-                            setIsReadOnly(!canEdit);
-                            setIsEditing(true);
-                          }}
-                        >
-                          <Edit className="w-4 h-4 text-gray-500" />
-                        </button>
+                        <div className="flex-1 min-w-0">
+                          <h4 className={cn("font-bold truncate text-sm uppercase tracking-tight", isDarkMode ? "text-white" : "text-black")}>{item.title}</h4>
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                            {radioSubTab === "tracks" ? <><Youtube className="w-3 h-3" /> Música</> : <><Radio className="w-3 h-3" /> Vinheta</>}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          <button className="p-2 rounded-lg hover:bg-black/5 dark:hover:bg-white/5 transition-colors">
+                            <Edit className="w-4 h-4 text-gray-500" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                   {filteredItems.length === 0 && (
-                    <div className="col-span-full text-center py-12 text-gray-500">
-                      Nenhuma vinheta encontrada.
+                    <div className="col-span-full bg-white/5 border border-dashed border-white/10 rounded-2xl py-20 flex flex-col items-center justify-center text-gray-500">
+                      <Music className="w-12 h-12 mb-4 opacity-20" />
+                      <p className="font-bold uppercase tracking-widest text-xs">Nenhum item encontrado.</p>
+                      <p className="text-[10px] mt-1 opacity-60">Comece adicionando {radioSubTab === "tracks" ? "suas músicas favoritas" : "suas vinhetas"}.</p>
                     </div>
                   )}
                 </div>
@@ -5173,6 +5255,56 @@ const Admin = () => {
                         </div>
                         <div className="md:col-span-2">
                           <p className="text-[10px] text-gray-500 italic pl-1">Essas configurações definem de qual canal o site buscará os vídeos e lives recentes.</p>
+                        </div>
+                      </div>
+
+                      <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                        <div className="md:col-span-2 border-b border-white/5 pb-2 mb-2">
+                           <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações da Rádio Online</h5>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>URL do Streaming (MP3/AAC)</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: https://streaming.zeno.fm/..."
+                            value={localSettings.radioStreamUrl ?? settings.radioStreamUrl ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, radioStreamUrl: e.target.value}));
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título da Rádio</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: Rádio Profecia Mix"
+                            value={localSettings.radioTitle ?? settings.radioTitle ?? "Rádio Profecia Mix"}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, radioTitle: e.target.value}));
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Subtítulo / Descrição</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: Sua dose diária de fé..."
+                            value={localSettings.radioSubtitle ?? settings.radioSubtitle ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, radioSubtitle: e.target.value}));
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Tocando Agora (Texto Fixo/Opcional)</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: Som da Vitória - Ministério Profecia"
+                            value={localSettings.radioNowPlaying ?? settings.radioNowPlaying ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, radioNowPlaying: e.target.value}));
+                            }}
+                          />
                         </div>
                       </div>
 

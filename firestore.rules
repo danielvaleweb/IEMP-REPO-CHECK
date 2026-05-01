@@ -92,6 +92,12 @@ service cloud.firestore {
              data.title is string;
     }
 
+    function isValidRadioTrack(data) {
+      return data.keys().hasAll(['title', 'youtubeId']) &&
+             data.title is string &&
+             data.youtubeId is string;
+    }
+
     function isValidPlaylist(data) {
       return data.keys().hasAll(['title', 'authorId']) &&
              data.title is string &&
@@ -145,6 +151,12 @@ service cloud.firestore {
     match /vignettes/{vignetteId} {
       allow read, list, get: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidVignette(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /radio-playlist/{trackId} {
+      allow read, list, get: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidRadioTrack(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 

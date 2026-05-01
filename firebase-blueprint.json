@@ -114,7 +114,11 @@
       "description": "Configurações gerais do site",
       "type": "object",
       "properties": {
-        "enableHeaderVideos": { "type": "boolean" }
+        "enableHeaderVideos": { "type": "boolean" },
+        "radioStreamUrl": { "type": "string", "description": "URL do streaming da rádio (mp3/aac)" },
+        "radioTitle": { "type": "string", "description": "Título exibido na rádio" },
+        "radioSubtitle": { "type": "string", "description": "Subtítulo da rádio" },
+        "radioNowPlaying": { "type": "string", "description": "Texto do que está tocando agora" }
       }
     },
     "AuditLog": {
@@ -164,9 +168,25 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "url"]
+    },
+    "RadioTrack": {
+      "title": "RadioTrack",
+      "description": "Música da rádio via YouTube",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "youtubeId": { "type": "string" },
+        "order": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "youtubeId"]
     }
   },
   "firestore": {
+    "/radio-playlist/{trackId}": {
+      "schema": "RadioTrack",
+      "description": "Lista de reprodução da rádio"
+    },
     "/posts/{postId}": {
       "schema": "Post",
       "description": "Coleção de artigos"

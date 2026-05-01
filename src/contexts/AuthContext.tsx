@@ -134,6 +134,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         prompt: 'select_account'
       });
       
+      // Determine if it's mobile to prefer redirect
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const isWebview = navigator.userAgent.includes('wv') || (navigator.userAgent.includes('iPhone') && !navigator.userAgent.includes('Safari'));
+      
+      if (isMobile || isWebview) {
+        console.log("DEBUG: Dispositivo móvel/webview detectado. Usando redirecionamento para evitar tela branca.");
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+
       console.log("DEBUG: Iniciando signInWithPopup...");
       try {
         const result = await signInWithPopup(auth, provider);
@@ -145,23 +155,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const shouldRedirect = [
           'auth/popup-blocked',
           'auth/cancelled-popup-request',
-          'auth/popup-closed-by-user', // Sometimes triggered by blockers
+          'auth/popup-closed-by-user', 
           'auth/internal-error',
           'auth/network-request-failed'
         ].includes(popupError.code);
 
         if (shouldRedirect) {
           console.log(`DEBUG: Erro ${popupError.code} detectado. Tentando signInWithRedirect como fallback...`);
-          try {
-            await signInWithRedirect(auth, provider);
-          } catch (redirectError: any) {
-            console.error("DEBUG: Erro no signInWithRedirect:", redirectError);
-            let msg = redirectError.message;
-            if (redirectError.code === 'auth/network-request-failed') {
-              msg = "Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.";
-            }
-            setError(msg);
-          }
+          await signInWithRedirect(auth, provider);
         } else {
           setError(popupError.message);
         }
