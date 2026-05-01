@@ -832,7 +832,7 @@ const Admin = () => {
     return `(${phoneNumber.slice(0, 2)}) ${phoneNumber.slice(2, 3)} ${phoneNumber.slice(3, 7)}-${phoneNumber.slice(7, 11)}`;
   };
 
-  const handleGuestLogin = () => {
+  const handleGuestLogin = async () => {
     if (!guestData.name.trim()) {
       setGuestError("Por favor, insira seu nome.");
       return;
@@ -843,15 +843,43 @@ const Admin = () => {
       return;
     }
     
-    setCustomLogin(true, {
-      id: `guest_${Date.now()}`,
-      name: guestData.name,
-      phone: guestData.phone,
-      role: "Visitante",
-      email: `${guestData.phone}@visitante.com`,
-      photoURL: ""
-    });
-    setIsGuestModalOpen(false);
+    setIsSubmitting(true);
+    try {
+      const guestId = `visitante_${phoneDigits}`;
+      const guestObj = {
+        name: guestData.name,
+        phone: guestData.phone,
+        role: "Visitante",
+        status: "visitor",
+        email: `${phoneDigits}@visitante.com`,
+        photoURL: "",
+        lastVisit: serverTimestamp(),
+        createdAt: serverTimestamp()
+      };
+
+      // Ensure the visitor exists in the members collection
+      await setDoc(doc(db, "membros", guestId), guestObj, { merge: true });
+
+      // Create a notification for admins
+      await addDoc(collection(db, "notifications"), {
+        title: "Novo Visitante",
+        message: `Um visitante ${guestData.name} acabou de entrar`,
+        type: "system",
+        read: false,
+        createdAt: serverTimestamp()
+      });
+
+      setCustomLogin(true, {
+        id: guestId,
+        ...guestObj
+      });
+      setIsGuestModalOpen(false);
+    } catch (err) {
+      console.error("Erro ao registrar visitante:", err);
+      setGuestError("Erro ao processar acesso. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // 4. Ponte para receber o Token do Expo via WebView
@@ -1157,12 +1185,18 @@ const Admin = () => {
   }, [activeTab]);
 
   const [showPending, setShowPending] = useState(false);
+  const [showVisitors, setShowVisitors] = useState(false);
   const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
   
   // Computed
   const pendingMembers = members.filter(m => m.status === "pending" || m.status === "pending_approval");
-  const activeMembersForDisplay = showPending ? pendingMembers : members.filter(m => m.status !== "pending" && m.status !== "pending_approval");
+  const visitors = members.filter(m => m.status === "visitor" || m.role === "Visitante");
+  const activeMembersForDisplay = showPending 
+    ? pendingMembers 
+    : showVisitors 
+      ? visitors 
+      : members.filter(m => m.status !== "pending" && m.status !== "pending_approval" && m.status !== "visitor" && m.role !== "Visitante");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -1306,7 +1340,7 @@ const Admin = () => {
   const displayNotifications = useMemo(() => {
     return notifications.filter(n => {
       // Administrative notifications (only for Master Admin and Dev)
-      if (n.type === "registration" || n.type === "activity") {
+      if (n.type === "registration" || n.type === "activity" || n.type === "system") {
         return isAdminOrDev;
       }
       
@@ -2188,15 +2222,8 @@ const Admin = () => {
                 </div>
               </div>
 
-              <div className="text-center mb-10">
-                <p className="text-sm text-[#666666]">
-                  Ao clicar, você concorda com termos da igreja Evangelica ministério Profecia.<br />
-                  <Link to="/terms" className="underline hover:text-white">Termos de uso</Link> & <Link to="/privacy" className="underline hover:text-white">Política de privacidade</Link>
-                </p>
-              </div>
-
               <Button 
-                className="w-full h-16 bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-full text-xl font-bold shadow-lg shadow-[#7300FF]/20 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
+                className="w-full h-16 bg-gradient-to-r from-[#BF76FF] to-[#7300FF] hover:opacity-90 text-white rounded-2xl text-xl font-bold shadow-lg shadow-[#7300FF]/20 transition-all active:scale-[0.98] cursor-pointer disabled:opacity-50"
                 disabled={isSubmitting}
                 onClick={async () => {
                   setAuthError("");
@@ -2250,67 +2277,75 @@ const Admin = () => {
               </Button>
 
               <Button 
-                variant="outline"
-                className="w-full h-16 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-full text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4 border-none"
+                className="w-full h-16 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4 border-none"
                 onClick={() => setIsGuestModalOpen(true)}
               >
-                <Users className="w-5 h-5" />
-                Logar como Visitante
+                <Users className="w-5 h-5 text-white" />
+                <span className="text-white">Logar como Visitante</span>
               </Button>
 
-              <div className="relative my-6">
+              <div className="relative my-8">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-white/10"></span>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-[#0a0a0a] px-2 text-gray-500">Ou continue com</span>
+                <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
+                  <span className={cn("px-4 text-gray-500 font-black", isDarkMode ? "bg-[#0a0a0a]" : "bg-white")}>Outras opções</span>
                 </div>
               </div>
 
-              <Button 
-                variant="outline"
-                className="w-full h-12 bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-full text-sm font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3"
-                onClick={async () => {
-                  try {
-                    setAuthError("");
-                    setIsSubmitting(true);
-                    await login();
-                  } catch (error: any) {
-                    console.error("Erro no login Google:", error);
-                    if (error.code === 'auth/unauthorized-domain') {
-                      setAuthError(`Este domínio (${window.location.hostname}) não está autorizado no Firebase. Adicione-o na seção 'Authentication > Settings > Authorized domains' do Console do Firebase.`);
-                    } else if (error.code === 'auth/popup-closed-by-user') {
-                      setAuthError("A janela de login foi fechada antes de completar. Tente novamente.");
-                    } else if (error.code === 'auth/network-request-failed') {
-                      setAuthError("Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.");
-                    } else {
-                      setAuthError("Erro ao entrar com Google: " + (error.message || "Tente novamente."));
+              <div className="flex justify-center">
+                <Button 
+                  variant="ghost"
+                  className="w-14 h-14 rounded-2xl transition-all active:scale-[0.95] cursor-pointer flex items-center justify-center p-0 hover:bg-transparent"
+                  title="Entrar com Google"
+                  onClick={async () => {
+                    try {
+                      setAuthError("");
+                      setIsSubmitting(true);
+                      await login();
+                    } catch (error: any) {
+                      console.error("Erro no login Google:", error);
+                      if (error.code === 'auth/unauthorized-domain') {
+                        setAuthError(`Este domínio (${window.location.hostname}) não está autorizado no Firebase. Adicione-o na seção 'Authentication > Settings > Authorized domains' do Console do Firebase.`);
+                      } else if (error.code === 'auth/popup-closed-by-user') {
+                        setAuthError("A janela de login foi fechada antes de completar. Tente novamente.");
+                      } else if (error.code === 'auth/network-request-failed') {
+                        setAuthError("Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.");
+                      } else {
+                        setAuthError("Erro ao entrar com Google: " + (error.message || "Tente novamente."));
+                      }
+                    } finally {
+                      setIsSubmitting(false);
                     }
-                  } finally {
-                    setIsSubmitting(false);
-                  }
-                }}
-              >
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                Google
-              </Button>
+                  }}
+                >
+                  <svg className="w-8 h-8 text-current" viewBox="0 0 24 24">
+                    <path
+                      fill="currentColor"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                </Button>
+              </div>
+
+              <div className="text-center mt-10">
+                <p className="text-sm text-[#666666]">
+                  Ao clicar, você concorda com termos da igreja Evangelica ministério Profecia.<br />
+                  <Link to="/terms" className="underline hover:text-white">Termos de uso</Link> & <Link to="/privacy" className="underline hover:text-white">Política de privacidade</Link>
+                </p>
+              </div>
 
               <Dialog open={isGuestModalOpen} onOpenChange={setIsGuestModalOpen}>
                 <DialogContent className={cn("rounded-[32px] border shadow-2xl p-0 overflow-hidden max-w-md w-[95%] sm:w-full", isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/5")}>
@@ -2379,17 +2414,6 @@ const Admin = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-
-              <div className="mt-4 text-center">
-                <button 
-                  onClick={() => {
-                    window.open('https://wa.me/5532998288650?text=Ol%C3%A1%20estou%20tendo%20dificuldades%20para%20logar%20com%20o%20Google%20no%20site%2C%20poderia%20me%20ajudar%3F', '_blank');
-                  }}
-                  className="text-xs text-gray-500 hover:text-[#BF76FF] transition-colors cursor-pointer"
-                >
-                  Problemas com o login do Google?
-                </button>
-              </div>
 
               <div className="mt-8 text-center space-y-4">
                 <p className="text-sm font-medium text-white">
@@ -4733,25 +4757,49 @@ const Admin = () => {
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                       <div className="flex items-center gap-4">
                         <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                          {showPending ? "Solicitações de Cadastro" : "Membros da Equipe"}
+                          {showPending ? "Solicitações de Cadastro" : showVisitors ? "Visitantes Cadastrados" : "Membros da Equipe"}
                         </h2>
-                        {(isMasterAdmin || profile?.role === "Desenvolvedor") && pendingMembers.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          {(isMasterAdmin || profile?.role === "Desenvolvedor") && pendingMembers.length > 0 && (
+                            <button 
+                              onClick={() => {
+                                setShowPending(!showPending);
+                                if (!showPending) setShowVisitors(false);
+                              }}
+                              className={cn(
+                                "text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer",
+                                showPending 
+                                  ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" 
+                                  : isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10"
+                              )}>
+                              {showPending ? "Ver Membros Ativos" : "Solicitações"}
+                              {!showPending && (
+                                <span className="bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black">
+                                  {pendingMembers.length}
+                                </span>
+                              )}
+                            </button>
+                          )}
+                          
                           <button 
-                            onClick={() => setShowPending(!showPending)}
+                            onClick={() => {
+                              setShowVisitors(!showVisitors);
+                              if (!showVisitors) setShowPending(false);
+                            }}
                             className={cn(
                               "text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer",
-                              showPending 
-                                ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" 
+                              showVisitors 
+                                ? "bg-green-500 text-white shadow-lg shadow-green-500/20" 
                                 : isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10"
                             )}>
-                            {showPending ? "Ver Membros Ativos" : "Solicitações"}
-                            {!showPending && (
-                              <span className="bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black">
-                                {pendingMembers.length}
+                            {showVisitors ? "Ver Membros Ativos" : "Visitantes"}
+                            {!showVisitors && visitors.length > 0 && (
+                              <span className="bg-green-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black">
+                                {visitors.length}
                               </span>
                             )}
                           </button>
-                        )}
+                        </div>
                       </div>
                       
                       {!showPending && canEditProfiles && (
