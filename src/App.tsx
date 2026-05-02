@@ -13,6 +13,7 @@ import Home from "@/pages/Home";
 import Live from "@/pages/Live";
 import Gallery from "@/pages/Gallery";
 import Admin from "@/pages/Admin";
+import Google from "@/pages/Google";
 import About from "@/pages/About";
 import Bible from "@/pages/Bible";
 import Departments from "@/pages/Departments";
@@ -33,6 +34,7 @@ function AppContent() {
   const location = useLocation();
   const isHomePage = location.pathname === "/";
   const isAdminPage = location.pathname.startsWith("/admin");
+  const isGooglePage = location.pathname === "/google";
   const isSolicitacaoPage = location.pathname.startsWith("/solicitacao");
   const isEventPage = location.pathname.startsWith("/evento/");
 
@@ -42,7 +44,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary">
-      {!isAdminPage && !isEventPage && !isSolicitacaoPage && <Navbar />}
+      {!isAdminPage && !isGooglePage && !isEventPage && !isSolicitacaoPage && <Navbar />}
       <main className="flex-grow flex flex-col">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -52,6 +54,7 @@ function AppContent() {
           <Route path="/galeria" element={<Gallery />} />
           <Route path="/favoritos" element={<Favorites />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/google" element={<Google />} />
           <Route path="/solicitacao" element={<Solicitacao />} />
           <Route path="/evento/:id" element={<EventDetails />} />
           <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
@@ -63,7 +66,7 @@ function AppContent() {
           <Route path="/:page" element={<StaticPages />} />
         </Routes>
       </main>
-      {!isAdminPage && !isSolicitacaoPage && <Footer />}
+      {!isAdminPage && !isGooglePage && !isSolicitacaoPage && <Footer />}
     </div>
   );
 }

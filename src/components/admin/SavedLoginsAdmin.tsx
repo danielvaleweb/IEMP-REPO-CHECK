@@ -17,8 +17,11 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
   const [unlockedItem, setUnlockedItem] = useState<string | null>(null);
   const [masterPasswordModal, setMasterPasswordModal] = useState<string | null>(null);
   const [masterPasswordInput, setMasterPasswordInput] = useState("");
+  
+  const [deletePasswordModal, setDeletePasswordModal] = useState<string | null>(null);
+  const [deletePasswordInput, setDeletePasswordInput] = useState("");
 
-  const SECURITY_PIN = "iemp1234@"; // Using a specific default master password for viewing specific passwords.
+  const SECURITY_PIN = "15634260"; // Updated per user request
 
   useEffect(() => {
     const q = query(collection(db, "saved-logins"), orderBy("createdAt", "desc"));
@@ -54,13 +57,22 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm("Tem certeza que deseja excluir este login?")) {
+  const handleDelete = (id: string) => {
+    setDeletePasswordModal(id);
+  };
+
+  const executeDelete = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (deletePasswordInput === SECURITY_PIN && deletePasswordModal) {
       try {
-        await deleteDoc(doc(db, "saved-logins", id));
+        await deleteDoc(doc(db, "saved-logins", deletePasswordModal));
+        setDeletePasswordModal(null);
+        setDeletePasswordInput("");
       } catch (e) {
         console.error(e);
       }
+    } else {
+      alert("Contra-senha incorreta!");
     }
   };
 
@@ -184,6 +196,34 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
         </div>
       )}
 
+      {deletePasswordModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <Card className={cn("w-full max-w-sm rounded-[30px] p-8 border", isDark ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10 shadow-2xl")}>
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mb-4 text-red-500">
+                <Trash className="w-8 h-8" />
+              </div>
+              <h3 className={cn("text-2xl font-black text-center tracking-tight", isDark ? "text-white" : "text-black")}>Acesso Restrito</h3>
+              <p className={cn("text-center text-sm font-medium mt-2", isDark ? "text-gray-400" : "text-gray-500")}>Digite a contra-senha para excluir este item.</p>
+            </div>
+            <form onSubmit={executeDelete} className="space-y-4">
+              <Input 
+                type="password" 
+                placeholder="Contra-senha" 
+                value={deletePasswordInput}
+                onChange={e => setDeletePasswordInput(e.target.value)}
+                className={cn("h-14 rounded-2xl text-center tracking-[0.3em] font-black text-lg", isDark ? "bg-black/50 border-white/5 text-white" : "bg-gray-50 border-black/5")}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <Button type="button" variant="ghost" onClick={() => { setDeletePasswordModal(null); setDeletePasswordInput(""); }} className="flex-1 h-12 rounded-xl text-gray-500 font-bold">Cancelar</Button>
+                <Button type="submit" className="flex-1 h-12 rounded-xl bg-red-500 hover:bg-red-600 text-white font-bold">Excluir</Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
       <Card className={cn("border rounded-3xl p-6 transition-colors shadow-2xl", isDark ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
         <div className="mb-6">
           <Input 
@@ -216,9 +256,6 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <button onClick={() => { setSelectedItem(login); setFormData(login); setIsEditing(true); }} className={cn("p-2 rounded-lg transition-colors", isDark ? "hover:bg-white/10 text-gray-400" : "hover:bg-black/5 text-gray-500")}>
-                        <User className="w-4 h-4" />
-                      </button>
                       <button onClick={() => handleDelete(login.id)} className="p-2 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors">
                         <Trash className="w-4 h-4" />
                       </button>

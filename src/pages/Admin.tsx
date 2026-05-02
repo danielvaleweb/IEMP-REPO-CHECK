@@ -964,13 +964,12 @@ const Admin = () => {
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
-    { id: 'logins', label: 'Logins Salvos', icon: Key },
   ]);
 
   const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
     const savedVisible = localStorage.getItem('admin_visible_tabs');
     if (savedVisible) return JSON.parse(savedVisible);
-    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio', 'logins'];
+    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio'];
   });
 
   const sensors = useSensors(
@@ -2604,62 +2603,7 @@ const Admin = () => {
                 <span className="text-white">Logar como Visitante</span>
               </Button>
 
-              <div className="relative my-8">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t border-white/10"></span>
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-                  <span className={cn("px-4 text-gray-500 font-black", isDarkMode ? "bg-[#0a0a0a]" : "bg-white")}>Outras opções</span>
-                </div>
-              </div>
 
-              <div className="flex justify-center">
-                <Button 
-                  variant="ghost"
-                  className="w-14 h-14 rounded-2xl transition-all active:scale-[0.95] cursor-pointer flex items-center justify-center p-0 hover:bg-transparent border-0 bg-transparent text-white"
-                  title="Entrar com Google"
-                  onClick={async () => {
-                    try {
-                      setAuthError("");
-                      setIsSubmitting(true);
-                      await login();
-                      navigate("/");
-                    } catch (error: any) {
-                      console.error("Erro no login Google:", error);
-                      if (error.code === 'auth/unauthorized-domain') {
-                        setAuthError(`Este domínio (${window.location.hostname}) não está autorizado no Firebase. Adicione-o na seção 'Authentication > Settings > Authorized domains' do Console do Firebase.`);
-                      } else if (error.code === 'auth/popup-closed-by-user') {
-                        setAuthError("A janela de login foi fechada antes de completar. Tente novamente.");
-                      } else if (error.code === 'auth/network-request-failed') {
-                        setAuthError("Falha na conexão com o Google. Verifique sua internet ou desative extensões como AdBlock que podem estar bloqueando o login.");
-                      } else {
-                        setAuthError("Erro ao entrar com Google: " + (error.message || "Tente novamente."));
-                      }
-                    } finally {
-                      setIsSubmitting(false);
-                    }
-                  }}
-                >
-                  <svg className="w-8 h-8 text-current" viewBox="0 0 24 24">
-                    <path
-                      fill="currentColor"
-                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                    />
-                    <path
-                      fill="currentColor"
-                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                    />
-                  </svg>
-                </Button>
-              </div>
 
               <div className="text-center mt-10">
                 <p className="text-sm text-[#666666]">
@@ -3187,6 +3131,9 @@ const Admin = () => {
               {canViewLogs && (
                 <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => { setActiveTab("logs"); setRightSidebarView("hidden"); }} label="Audit Logs" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
               )}
+              {canViewTab("logins") && (
+                <SidebarItem icon={Key} active={activeTab === "logins"} onClick={() => { setActiveTab("logins"); setRightSidebarView("hidden"); }} label="Logins Salvos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
+              )}
             </div>
 
             {/* Mobile Bottom Bar Items */}
@@ -3200,7 +3147,6 @@ const Admin = () => {
               {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("logins") && <SidebarItem icon={Key} active={activeTab === "logins" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("logins"); setRightSidebarView("hidden"); }} label="Logins Salvos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               <SidebarItem 
