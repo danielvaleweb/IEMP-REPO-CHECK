@@ -46,7 +46,9 @@ const useMediaQuery = (query: string) => {
 export default function Gallery() {
   const location = useLocation();
   const navigate = useNavigate();
-  const stateAlbumId = location.state?.selectedAlbumId;
+  const queryParams = new URLSearchParams(location.search);
+  const queryAlbumId = queryParams.get('album');
+  const stateAlbumId = location.state?.selectedAlbumId || queryAlbumId;
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -228,7 +230,7 @@ export default function Gallery() {
                   placeholder="Pesquisar por nome do evento ou data (ex: Março 2026)..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-[#121212] border-2 border-white/10 rounded-2xl h-16 pl-14 pr-14 text-white text-lg placeholder:text-gray-500 focus:outline-none focus:border-primary focus:bg-[#1a1a1a] transition-all shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] placeholder-shown:border-white/5"
+                  className="w-full bg-cinza-input border-2 border-white/10 rounded-2xl h-16 pl-14 pr-14 text-white text-lg placeholder:text-gray-500 focus:outline-none focus:border-primary focus:bg-[#1a1a1a] transition-all shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] placeholder-shown:border-white/5"
                 />
                 {searchTerm && (
                   <button 

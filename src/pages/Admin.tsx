@@ -321,7 +321,7 @@ function CalendarView({
                   "min-h-[50px] md:min-h-[100px] p-1 md:p-2 rounded-xl md:rounded-2xl border transition-all cursor-pointer relative group",
                   isCurrentMonth 
                     ? isDark ? "bg-[#222] border-white/5" : "bg-gray-50 border-black/5" 
-                    : isDark ? "bg-[#111]/30 border-white/5 opacity-30" : "bg-gray-50/30 border-black/5 opacity-50",
+                    : isDark ? "bg-roxo-bg/30 border-white/5 opacity-30" : "bg-gray-50/30 border-black/5 opacity-50",
                   "hover:border-[#BF76FF]/50",
                   isSameDay(day, new Date()) && "ring-2 ring-[#BF76FF]",
                 )}
@@ -346,7 +346,7 @@ function CalendarView({
                       
                       <div className={cn(
                         "absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden md:group-hover/event:block w-56 border p-4 rounded-3xl shadow-2xl z-50 transition-all duration-300 backdrop-blur-md",
-                        isDark ? "bg-[#111]/95 border-white/10 text-white" : "bg-white/95 border-black/10 text-black"
+                        isDark ? "bg-roxo-bg/95 border-white/10 text-white" : "bg-white/95 border-black/10 text-black"
                       )}>
                         <div className="flex items-center gap-2 mb-2">
                           <div className={cn("w-1.5 h-1.5 rounded-full", day.getDay() === 6 ? "bg-green-500" : "bg-[#BF76FF]")} />
@@ -535,7 +535,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
         <ArrowLeft className="w-4 h-4" /> Voltar para lista
       </button>
 
-      <div className={cn("rounded-[40px] overflow-hidden border transition-all", isDark ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-2xl")}>
+      <div className={cn("rounded-[40px] overflow-hidden border transition-all", isDark ? "bg-roxo-bg border-white/5" : "bg-white border-black/5 shadow-2xl")}>
         <div className="relative min-h-[500px] md:h-80">
           <img 
             src={getImageUrl(member.coverImage || "https://picsum.photos/seed/church/1200/400")} 
@@ -818,7 +818,7 @@ function LogFilterSelect({ label, value, onChange, options, isDarkMode }: any) {
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             className={cn(
               "absolute top-full left-0 z-[100] w-full mt-1 p-2 rounded-2xl border shadow-2xl overflow-hidden",
-              isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/5"
+              isDarkMode ? "bg-roxo-bg border-white/10" : "bg-white border-black/5"
             )}
           >
             {options.map((opt: any) => (
@@ -957,7 +957,6 @@ const Admin = () => {
     { id: 'videos', label: 'Vídeos', icon: Youtube },
     { id: 'membros', label: 'Membros', icon: Users },
     { id: 'visitantes', label: 'Visitantes', icon: UserSearch },
-    { id: 'avisos', label: 'Central de Avisos', icon: Megaphone },
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
@@ -966,7 +965,7 @@ const Admin = () => {
   const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
     const savedVisible = localStorage.getItem('admin_visible_tabs');
     if (savedVisible) return JSON.parse(savedVisible);
-    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'avisos', 'agenda', 'agenda-direcao', 'radio'];
+    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio'];
   });
 
   const sensors = useSensors(
@@ -1317,6 +1316,19 @@ const Admin = () => {
   };
 
   const userStatus = profile?.status_online || "online";
+
+  useEffect(() => {
+    if (user && profile && (!profile.status_online || profile.status_online !== 'online')) {
+      // Only auto-set to online if not away or busy or if it's the first time
+      // But user says they are online but marked as busy, so let's default to online on session start
+      const lastSessionUpdate = localStorage.getItem('lastStatusUpdate');
+      const now = Date.now();
+      if (!lastSessionUpdate || now - parseInt(lastSessionUpdate) > 1000 * 60 * 60) { // 1 hour
+        updatePresenceStatus('online');
+        localStorage.setItem('lastStatusUpdate', now.toString());
+      }
+    }
+  }, [user, profile]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -2425,7 +2437,7 @@ const Admin = () => {
                   <Input 
                     type="email" 
                     placeholder="membro@ministerioprofecia.com.br" 
-                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -2439,7 +2451,7 @@ const Admin = () => {
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -2582,7 +2594,7 @@ const Admin = () => {
               </div>
 
               <Dialog open={isGuestModalOpen} onOpenChange={setIsGuestModalOpen}>
-                <DialogContent className={cn("rounded-[32px] border shadow-2xl p-0 overflow-hidden max-w-md w-[95%] sm:w-full", isDarkMode ? "bg-[#111] border-white/10 text-white" : "bg-[#111] border-white/10 text-white")}>
+                <DialogContent className={cn("rounded-[32px] border shadow-2xl p-0 overflow-hidden max-w-md w-[95%] sm:w-full", isDarkMode ? "bg-roxo-bg border-white/10 text-white" : "bg-roxo-bg border-white/10 text-white")}>
                   <div className="p-8">
                     <DialogHeader>
                       <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-white">
@@ -2665,7 +2677,7 @@ const Admin = () => {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome</label>
                     <Input 
-                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.firstName}
                       onChange={(e) => setSignUpData({...signUpData, firstName: e.target.value})}
                     />
@@ -2673,7 +2685,7 @@ const Admin = () => {
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sobrenome</label>
                     <Input 
-                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.lastName}
                       onChange={(e) => setSignUpData({...signUpData, lastName: e.target.value})}
                     />
@@ -2684,7 +2696,7 @@ const Admin = () => {
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">E-mail</label>
                   <Input 
                     type="email"
-                    className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                    className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                     value={signUpData.email}
                     onChange={(e) => setSignUpData({...signUpData, email: e.target.value})}
                   />
@@ -2695,7 +2707,7 @@ const Admin = () => {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data de Nascimento</label>
                     <Input 
                       type="date"
-                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white [color-scheme:dark]" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white [color-scheme:dark]" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.birthDate}
                       onChange={(e) => setSignUpData({...signUpData, birthDate: e.target.value})}
                     />
@@ -2703,7 +2715,7 @@ const Admin = () => {
                   <div className="space-y-2">
                     <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1"><MessageSquare className="w-3 h-3 fill-current"/> Telefone/WhatsApp</label>
                     <Input 
-                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       placeholder="(ddd) 0 0000-0000"
                       value={signUpData.phone}
                       onChange={(e) => {
@@ -2721,7 +2733,7 @@ const Admin = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Você é?</label>
-                    <div className="flex bg-[#000] rounded-2xl p-1 h-14">
+                    <div className="flex bg-cinza-input rounded-2xl p-1 h-14">
                       <button 
                         type="button"
                         onClick={() => setSignUpData({...signUpData, memberType: "Visitante", churchRole: "Visitante"})}
@@ -2769,7 +2781,7 @@ const Admin = () => {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Senha</label>
                     <Input 
                       type="password"
-                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.password}
                       onChange={(e) => setSignUpData({...signUpData, password: e.target.value})}
                     />
@@ -2778,7 +2790,7 @@ const Admin = () => {
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Confirmar Senha</label>
                     <Input 
                       type="password"
-                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                       value={signUpData.confirmPassword}
                       onChange={(e) => setSignUpData({...signUpData, confirmPassword: e.target.value})}
                     />
@@ -2867,7 +2879,7 @@ const Admin = () => {
 
         {/* Clear Gallery Confirmation Modal */}
         <Dialog open={showClearGalleryDialog} onOpenChange={setShowClearGalleryDialog}>
-          <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-[400px] text-center p-8 rounded-[32px]">
+          <DialogContent className="bg-roxo-bg border-white/10 text-white sm:max-w-[400px] text-center p-8 rounded-[32px]">
             <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <AlertTriangle className="w-10 h-10" />
             </div>
@@ -2900,7 +2912,7 @@ const Admin = () => {
           </DialogContent>
         </Dialog>
         <Dialog open={showSignUpSuccessModal} onOpenChange={setShowSignUpSuccessModal}>
-          <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-[425px] text-center p-8 rounded-[32px]">
+          <DialogContent className="bg-roxo-bg border-white/10 text-white sm:max-w-[425px] text-center p-8 rounded-[32px]">
             <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-10 h-10" />
             </div>
@@ -2932,20 +2944,21 @@ const Admin = () => {
 
   return (
     <div className={cn(
-      "flex flex-col md:flex-row h-screen h-[100dvh] overflow-hidden font-sans transition-colors duration-500 relative",
-      isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black"
+      "flex flex-col h-screen h-[100dvh] overflow-hidden font-sans transition-colors duration-500 relative",
+      isDarkMode ? "bg-roxo-bg text-white" : "bg-white text-black"
     )}>
-      {/* Sidebar 1: Navigation (Desktop: Sidebar, Mobile: Fixed Bottom Nav) */}
-      <aside 
-        className={cn(
-          "transition-all duration-300 ease-in-out z-50",
-          "md:h-full md:border-r",
-          isSidebarCollapsed ? "md:w-20" : "md:w-64",
-          // Mobile specifics
-          "fixed bottom-0 left-0 right-0 h-20 border-t md:relative md:bottom-auto md:left-auto md:right-auto md:border-t-0",
-          isDarkMode ? "bg-[#0a0a0a]/80 md:bg-[#0a0a0a] border-white/5 backdrop-blur-lg" : "bg-white/80 md:bg-gray-50 border-black/5 backdrop-blur-lg"
-        )}
-      >
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        {/* Sidebar 1: Navigation (Desktop: Sidebar, Mobile: Fixed Bottom Nav) */}
+        <aside 
+          className={cn(
+            "transition-all duration-300 ease-in-out z-50",
+            "md:h-full md:border-r",
+            isSidebarCollapsed ? "md:w-20" : "md:w-64",
+            // Mobile specifics
+            "fixed bottom-0 left-0 right-0 h-20 border-t md:relative md:bottom-auto md:left-auto md:right-auto md:border-t-0",
+            isDarkMode ? "bg-roxo-bg/80 md:bg-roxo-bg border-white/5 backdrop-blur-lg" : "bg-white/80 md:bg-gray-50 border-black/5 backdrop-blur-lg"
+          )}
+        >
         <div className="hidden md:flex flex-col w-full px-4 pt-6 mb-4">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
@@ -3009,7 +3022,7 @@ const Admin = () => {
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
                     className={cn(
                       "absolute top-full left-0 right-0 mt-2 p-2 rounded-2xl border z-[60] shadow-2xl",
-                      isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5"
+                      isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5"
                     )}
                   >
                     <div className="space-y-1 max-h-[400px] overflow-y-auto overflow-x-hidden p-1 scrollbar-hide">
@@ -3081,8 +3094,9 @@ const Admin = () => {
               </DndContext>
             </div>
 
-            {/* Manage Visibility Dialog */}
-            <div className="hidden md:flex flex-col gap-1.5 w-full mt-2">
+            {/* Bottom items (Desktop) */}
+            <div className="hidden md:flex flex-col gap-1.5 w-full mt-auto pt-4 border-t border-white/5">
+              {/* Manage Visibility Dialog - Moved here */}
               <Dialog>
                 <DialogTrigger
                   render={
@@ -3095,7 +3109,7 @@ const Admin = () => {
                   <PanelLeftOpen className="w-5 h-5 shrink-0" />
                   {!isSidebarCollapsed && <span className="text-[10px] font-bold uppercase tracking-widest">Personalizar Menu</span>}
                 </DialogTrigger>
-                <DialogContent className={cn("rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-[#111] text-white" : "bg-white text-black")}>
+                <DialogContent className={cn("rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-roxo-bg text-white" : "bg-white text-black")}>
                   <DialogHeader>
                     <DialogTitle className="text-xl font-black uppercase tracking-tight">Gerenciar Itens do Menu</DialogTitle>
                     <DialogDescription className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Selecione quais atalhos você deseja manter visíveis na barra lateral.</DialogDescription>
@@ -3128,17 +3142,17 @@ const Admin = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
 
-            {/* Bottom items (Desktop) */}
-            <div className="hidden md:flex flex-col gap-1.5 w-full mt-auto pt-4 border-t border-white/5">
               {canViewLogs && (
                 <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => { setActiveTab("logs"); setRightSidebarView("hidden"); }} label="Audit Logs" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
               )}
             </div>
 
             {/* Mobile Bottom Bar Items */}
-            <div className="md:hidden flex flex-row justify-around w-full items-center px-1 py-1 overflow-x-auto scrollbar-hide">
+            <div className="md:hidden flex flex-row justify-around w-full items-center px-1 py-1 overflow-x-auto scrollbar-hide relative">
+              <div className="absolute top-0 right-4 -translate-y-full mb-1">
+                <span className="text-[8px] font-black text-[#BF76FF]/40 uppercase tracking-widest bg-[#BF76FF]/5 px-2 py-0.5 rounded-full border border-[#BF76FF]/10">V1.0</span>
+              </div>
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
@@ -3190,7 +3204,7 @@ const Admin = () => {
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className={cn(
                             "w-full rounded-2xl py-4 pl-12 pr-4 text-sm outline-none border transition-all", 
-                            isDarkMode ? "bg-black border-white/10 text-white focus:border-[#BF76FF]/50" : "bg-white border-black/5 text-black focus:border-[#BF76FF]/50"
+                            isDarkMode ? "bg-cinza-input border-white/10 text-white focus:border-[#BF76FF]/50" : "bg-white border-black/5 text-black focus:border-[#BF76FF]/50"
                           )}
                         />
                       </div>
@@ -3270,15 +3284,15 @@ const Admin = () => {
 
       </aside>
 
-      {/* Main Content Area */}
-      <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-[#0a0a0a]" : "bg-gray-50")}>
-        {/* Desktop Header */}
-        <header className={cn("hidden md:flex h-[90px] px-8 items-center justify-between border-b transition-colors shrink-0", isDarkMode ? "bg-[#0a0a0a] border-white/5" : "bg-white border-black/5")}>
-          <div className="flex items-center gap-4">
-            {/* The title has been removed as requested */}
-          </div>
-          <div className="flex items-center gap-6">
-            {/* Notifications Bell */}
+        {/* Main Content Area */}
+        <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-roxo-bg" : "bg-gray-50")}>
+          {/* Desktop Header */}
+          <header className={cn("hidden md:flex h-[90px] px-8 items-center justify-between border-b transition-colors shrink-0", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
+            <div className="flex items-center gap-4">
+              {/* The title has been removed as requested */}
+            </div>
+            <div className="flex items-center gap-6">
+              {/* Notifications Bell */}
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
                 <div className="relative group p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
@@ -3288,7 +3302,7 @@ const Admin = () => {
                   )}
                 </div>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className={cn("w-[340px] rounded-[24px] p-0 border shadow-2xl mt-4 overflow-hidden", isDarkMode ? "bg-[#111] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+              <DropdownMenuContent align="end" className={cn("w-[340px] rounded-[24px] p-0 border shadow-2xl mt-4 overflow-hidden", isDarkMode ? "bg-roxo-bg border-white/5 text-white" : "bg-white border-black/5 text-black")}>
                 <div className="p-5 border-b border-white/5 flex items-center justify-between">
                   <div>
                     <h3 className="font-black uppercase tracking-tighter text-lg">Notificações</h3>
@@ -3400,7 +3414,7 @@ const Admin = () => {
                   </div>
                 </div>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[220px] rounded-2xl p-2 border bg-[#111] border-white/5 shadow-2xl mt-2 text-white">
+              <DropdownMenuContent align="end" className="w-[220px] rounded-2xl p-2 border bg-roxo-bg border-white/5 shadow-2xl mt-2 text-white">
                 <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Seu Status</DropdownMenuLabel>
                 <DropdownMenuItem 
                   className={cn(
@@ -3459,6 +3473,24 @@ const Admin = () => {
                   {profile?.status_online === 'away' && <CheckCircle2 className="w-4 h-4 text-amber-500" />}
                 </DropdownMenuItem>
                 
+                <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Aparência</DropdownMenuLabel>
+                <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl mb-4">
+                  <button 
+                    onClick={() => setIsDarkMode(false)}
+                    className={cn("flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all", !isDarkMode ? "bg-white text-[#BF76FF] shadow-sm" : "text-gray-500 hover:text-gray-300")}
+                  >
+                    <Sun className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-bold uppercase">Claro</span>
+                  </button>
+                  <button 
+                    onClick={() => setIsDarkMode(true)}
+                    className={cn("flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all", isDarkMode ? "bg-white/10 text-[#BF76FF]" : "text-gray-500 hover:text-gray-300")}
+                  >
+                    <Moon className="w-3.5 h-3.5" />
+                    <span className="text-[10px] font-bold uppercase">Escuro</span>
+                  </button>
+                </div>
+                
                 <div className="h-[1px] w-full bg-white/5 my-4"></div>
                 
                 <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Conta</DropdownMenuLabel>
@@ -3479,7 +3511,10 @@ const Admin = () => {
         <div className="flex-1 p-2 md:p-8 pb-32 md:pb-8 overflow-y-auto scroll-smooth scrollbar-hide overscroll-contain touch-pan-y">
           <div className="max-w-6xl mx-auto w-full space-y-4 md:space-y-8">
             {isEditing ? (
-              <Card className={cn("border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all", isDarkMode ? "bg-[#111]" : "bg-white border-black/5")}>
+              <Card className={cn(
+                "border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all", 
+                isDarkMode ? "bg-roxo-bg" : "bg-white border-black/5"
+              )}>
                 <div className="space-y-8">
                   {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") ? (
                     <div className="mb-2">
@@ -3812,7 +3847,7 @@ const Admin = () => {
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Imagem de Capa (Evento)</label>
                                 <Input 
-                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="https://exemplo.com/banner.jpg"
                                   value={formData.image || ""}
                                   onChange={(e) => setFormData({...formData, image: e.target.value})}
@@ -3827,7 +3862,7 @@ const Admin = () => {
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">URL da Moldura (Criar Foto)</label>
                                 <Input 
-                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="https://exemplo.com/moldura.png"
                                   value={formData.frameUrl || ""}
                                   onChange={(e) => setFormData({...formData, frameUrl: e.target.value})}
@@ -3879,7 +3914,7 @@ const Admin = () => {
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Título da Matéria</label>
                                     <Input 
-                                      className={cn("border h-16 rounded-2xl px-6 text-xl font-black transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      className={cn("border h-16 rounded-2xl px-6 text-xl font-black transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Título impactante da notícia..."
                                       value={formData.title || ""}
                                       onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -3890,7 +3925,7 @@ const Admin = () => {
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Subtítulo / Gravata</label>
                                     <Textarea 
-                                      className={cn("border min-h-[80px] rounded-2xl p-6 transition-all font-medium", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      className={cn("border min-h-[80px] rounded-2xl p-6 transition-all font-medium", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Um resumo breve que aparece logo abaixo do título"
                                       value={formData.subtitle || ""}
                                       onChange={(e) => setFormData({...formData, subtitle: e.target.value})}
@@ -3901,7 +3936,7 @@ const Admin = () => {
                                   <div className="space-y-2">
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Fonte da Matéria</label>
                                     <Input 
-                                      className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Ex: Redação Ministério Profecia, G1, Gospel Prime..."
                                       value={formData.source || ""}
                                       onChange={(e) => setFormData({...formData, source: e.target.value})}
@@ -3950,7 +3985,7 @@ const Admin = () => {
                                       </div>
                                     </div>
                                     <Input 
-                                      className={cn("border h-12 rounded-2xl px-6 transition-all italic", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      className={cn("border h-12 rounded-2xl px-6 transition-all italic", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Cole o link (YouTube, Instagram ou Shorts)..."
                                       value={formData.videoUrl || ""}
                                       onChange={(e) => setFormData({...formData, videoUrl: e.target.value})}
@@ -3963,7 +3998,7 @@ const Admin = () => {
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">URL da Imagem Capa</label>
                                         <Input 
-                                          className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                          className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                           placeholder="https://exemplo.com/cafe.jpg"
                                           value={formData.image || ""}
                                           onChange={(e) => setFormData({...formData, image: e.target.value})}
@@ -3972,7 +4007,7 @@ const Admin = () => {
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Legenda da Imagem</label>
                                         <Input 
-                                          className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                          className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                           placeholder="Fiel orando no monte"
                                           value={formData.imageCaption || ""}
                                           onChange={(e) => setFormData({...formData, imageCaption: e.target.value})}
@@ -3996,7 +4031,7 @@ const Admin = () => {
                                       <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Corpo da Matéria (Texto Principal)</label>
                                     </div>
                                     <Textarea 
-                                      className={cn("border min-h-[300px] rounded-[32px] p-8 transition-all text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      className={cn("border min-h-[300px] rounded-[32px] p-8 transition-all text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Escreva aqui a reportagem completa. Use parágrafos para melhor leitura."
                                       value={formData.content || ""}
                                       onChange={(e) => setFormData({...formData, content: e.target.value})}
@@ -4039,7 +4074,7 @@ const Admin = () => {
                                               <div className="relative flex-1">
                                                 <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                                                 <Input 
-                                                  className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                                  className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                                   placeholder="URL da imagem..."
                                                   value={url.trim()}
                                                   onChange={(e) => {
@@ -4115,7 +4150,7 @@ const Admin = () => {
                               <div className="space-y-2">
                                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{activeTab === 'eventos' ? 'Título da Postagem' : 'Título do Compromisso'}</label>
                                 <Input 
-                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder={activeTab === 'eventos' ? "Ex: Conferência de Jovens 2024" : "Ex: Visitar igreja no Grama"}
                                   value={formData.title || ""}
                                   onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -4149,7 +4184,7 @@ const Admin = () => {
                                   <div className="space-y-2">
                                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio/Descrição do Evento</label>
                                     <Textarea 
-                                      className={cn("border min-h-[150px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      className={cn("border min-h-[150px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                       placeholder="Conte mais sobre o evento..."
                                       value={formData.content || ""}
                                       onChange={(e) => setFormData({...formData, content: e.target.value})}
@@ -4167,7 +4202,7 @@ const Admin = () => {
                                   <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Data</p>
                                   <Input 
                                     type="date"
-                                    className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                    className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                     value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
                                     onChange={(e) => {
                                       const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "";
@@ -4182,7 +4217,7 @@ const Admin = () => {
                                     <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF] z-10" />
                                     <Input 
                                       type="time"
-                                      className={cn("border h-14 rounded-2xl pl-10 pr-4 transition-all w-full", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                      className={cn("border h-14 rounded-2xl pl-10 pr-4 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                       value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
                                       onChange={(e) => {
                                         const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
@@ -4196,7 +4231,7 @@ const Admin = () => {
                                   <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Término</p>
                                   <Input 
                                     type="time"
-                                    className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                    className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                     value={formData.endTime || ""}
                                     onChange={(e) => setFormData({...formData, endTime: e.target.value})}
                                     readOnly={isReadOnly}
@@ -4208,7 +4243,7 @@ const Admin = () => {
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Nome do Organizador / Igreja Local</label>
                               <Input 
-                                className={cn("border h-14 rounded-2xl px-6 transition-all shadow-sm", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                className={cn("border h-14 rounded-2xl px-6 transition-all shadow-sm", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                 placeholder="Ex: Pr. Fernando ou Igreja Batista..."
                                 value={formData.organizer || formData.organization || ""}
                                 onChange={(e) => setFormData({...formData, organizer: e.target.value, organization: e.target.value})}
@@ -4218,7 +4253,7 @@ const Admin = () => {
                             <div className="space-y-2">
                               <label className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest">Foto do Organizador (URL)</label>
                               <Input 
-                                className={cn("border h-14 rounded-2xl px-6 transition-all shadow-sm", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                className={cn("border h-14 rounded-2xl px-6 transition-all shadow-sm", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                 placeholder="URL da foto do organizador (Convener)"
                                 value={formData.organizerImage || ""}
                                 onChange={(e) => setFormData({...formData, organizerImage: e.target.value})}
@@ -4314,7 +4349,7 @@ const Admin = () => {
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Rua / Logradouro</label>
                                 <div className="relative group">
                                   <Input 
-                                    className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                    className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                     placeholder="Ex: Rua das Flores"
                                     value={formData.street || ""}
                                     onChange={(e) => setFormData({...formData, street: e.target.value})}
@@ -4325,7 +4360,7 @@ const Admin = () => {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Número</label>
                                 <Input 
-                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="123 ou S/N"
                                   value={formData.streetNumber || ""}
                                   onChange={(e) => setFormData({...formData, streetNumber: e.target.value})}
@@ -4338,7 +4373,7 @@ const Admin = () => {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Bairro</label>
                                 <Input 
-                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="Bairro"
                                   value={formData.neighborhood || ""}
                                   onChange={(e) => setFormData({...formData, neighborhood: e.target.value})}
@@ -4348,7 +4383,7 @@ const Admin = () => {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Cidade</label>
                                 <Input 
-                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="Cidade"
                                   value={formData.city || ""}
                                   onChange={(e) => setFormData({...formData, city: e.target.value})}
@@ -4358,7 +4393,7 @@ const Admin = () => {
                               <div className="space-y-2">
                                 <label className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Estado (UF)</label>
                                 <Input 
-                                  className={cn("border h-12 rounded-2xl px-6 transition-all uppercase", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                  className={cn("border h-12 rounded-2xl px-6 transition-all uppercase", isDarkMode ? "bg-cinza-input border-white/5 text-white/70 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                   placeholder="UF"
                                   maxLength={2}
                                   value={formData.state || ""}
@@ -4383,7 +4418,7 @@ const Admin = () => {
                                 Contatos & Informações
                               </label>
                               <Textarea 
-                                className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")} 
+                                className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")} 
                                 placeholder="Informações de contato e detalhes adicionais..."
                                 value={formData.additionalInfo || ""}
                                 onChange={(e) => setFormData({...formData, additionalInfo: e.target.value})}
@@ -4396,7 +4431,7 @@ const Admin = () => {
                                 Observações Importantes
                               </label>
                               <Textarea 
-                                className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")} 
+                                className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")} 
                                 placeholder="Observações importantes para a equipe..."
                                 value={formData.observations || ""}
                                 onChange={(e) => setFormData({...formData, observations: e.target.value})}
@@ -4431,7 +4466,7 @@ const Admin = () => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                           <div className="space-y-2">
                                             <Input 
-                                              className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                              className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                               placeholder="Nome (Ex: Pr. Fernando)"
                                               value={guest.name || ""}
                                               onChange={(e) => {
@@ -4444,7 +4479,7 @@ const Admin = () => {
                                           </div>
                                           <div className="space-y-2">
                                             <Input 
-                                              className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                              className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                               placeholder="Função (Ex: Convener)"
                                               value={guest.role || ""}
                                               onChange={(e) => {
@@ -4458,7 +4493,7 @@ const Admin = () => {
                                         </div>
                                         <div className="space-y-2">
                                           <Input 
-                                            className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                            className={cn("border h-12 rounded-xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                             placeholder="URL da Foto do Convidado"
                                             value={guest.image || ""}
                                             onChange={(e) => {
@@ -4503,7 +4538,7 @@ const Admin = () => {
                                       <div className="relative">
                                         <Youtube className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500" />
                                         <Input 
-                                          className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                          className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                           placeholder="https://www.youtube.com/watch?v=..."
                                           value={formData.youtubeLink || ""}
                                           onChange={(e) => setFormData({...formData, youtubeLink: e.target.value})}
@@ -4518,7 +4553,7 @@ const Admin = () => {
                                         <div className="relative flex-1">
                                           <FolderOpen className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-500" />
                                           <Input 
-                                            className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                            className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                                             placeholder="https://drive.google.com/drive/folders/..."
                                             value={formData.driveFolderId || ""}
                                             onChange={(e) => setFormData({...formData, driveFolderId: e.target.value})}
@@ -4576,7 +4611,7 @@ const Admin = () => {
                                         <div className="relative flex-1">
                                           <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                                           <Input 
-                                            className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-[#000] border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+                                            className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
                                             placeholder="URL ou ID da imagem..."
                                             value={url}
                                             onChange={(e) => {
@@ -4668,7 +4703,7 @@ const Admin = () => {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Perfil (URL)</label>
                           <Input 
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="https://exemplo.com/foto.jpg"
                             value={formData.photoURL || ""}
                             onChange={(e) => setFormData({...formData, photoURL: e.target.value})}
@@ -4678,7 +4713,7 @@ const Admin = () => {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Capa (URL)</label>
                           <Input 
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="https://exemplo.com/capa.jpg"
                             value={formData.coverImage || ""}
                             onChange={(e) => setFormData({...formData, coverImage: e.target.value})}
@@ -4691,7 +4726,7 @@ const Admin = () => {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome</label>
                           <Input 
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.name || ""}
                             onChange={(e) => setFormData({...formData, name: e.target.value})}
                             readOnly={isReadOnly}
@@ -4700,7 +4735,7 @@ const Admin = () => {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">E-mail</label>
                           <Input 
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.email || ""}
                             onChange={(e) => setFormData({...formData, email: e.target.value})}
                             readOnly={isReadOnly}
@@ -4712,7 +4747,7 @@ const Admin = () => {
                         <div className="space-y-2">
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp (com DDD)</label>
                           <Input 
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="11999999999"
                             value={formData.phone || ""}
                             onChange={(e) => setFormData({...formData, phone: e.target.value})}
@@ -4723,7 +4758,7 @@ const Admin = () => {
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data de Nascimento</label>
                           <Input 
                             type="date"
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.birthDate || ""}
                             onChange={(e) => setFormData({...formData, birthDate: e.target.value})}
                             readOnly={isReadOnly}
@@ -4733,7 +4768,7 @@ const Admin = () => {
                           <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data que se tornou membro</label>
                           <Input 
                             type="date"
-                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             value={formData.joinedDate || ""}
                             onChange={(e) => setFormData({...formData, joinedDate: e.target.value})}
                             readOnly={isReadOnly}
@@ -4836,7 +4871,7 @@ const Admin = () => {
                           <div className="flex gap-2 mt-4 max-w-xs">
                               <Input 
                                 placeholder="Nova habilidade..."
-                                className={cn("border h-10 rounded-xl px-4 text-xs transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                className={cn("border h-10 rounded-xl px-4 text-xs transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                 value={newSkillName}
                                 onChange={(e) => setNewSkillName(e.target.value)}
                               />
@@ -4870,7 +4905,7 @@ const Admin = () => {
                       <div className="space-y-2">
                         <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sobre o Membro (Bio)</label>
                         <Textarea 
-                          className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                          className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                           placeholder="Fale um pouco sobre a jornada, dons e ministérios do membro..."
                           value={formData.bio || ""}
                           onChange={(e) => setFormData({...formData, bio: e.target.value})}
@@ -4887,7 +4922,7 @@ const Admin = () => {
                           {radioSubTab === "tracks" ? "Título da Música" : "Título da Vinheta"}
                         </label>
                         <Input 
-                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-black border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
                           placeholder={radioSubTab === "tracks" ? "Ex: Louvor de Adoração - Casa do Pai" : "Ex: Identidade Profecia, Chamada de Culto..."}
                           value={formData.title || ""}
                           onChange={(e) => setFormData({...formData, title: e.target.value})}
@@ -4898,7 +4933,7 @@ const Admin = () => {
                       <div className="flex flex-col gap-2">
                         <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Link do YouTube</label>
                         <Input 
-                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-black border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
                           placeholder="Cole o link do YouTube aqui..."
                           value={radioSubTab === "tracks" ? (formData.youtubeId ? `https://youtube.com/watch?v=${formData.youtubeId}` : formData.rawUrl || "") : (formData.youtubeUrl || "")}
                           onChange={(e) => {
@@ -4936,7 +4971,7 @@ const Admin = () => {
                           <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Ordem na Playlist</label>
                           <Input 
                             type="number"
-                            className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-black border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                            className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
                             value={formData.order || 1}
                             onChange={(e) => setFormData({...formData, order: parseInt(e.target.value)})}
                             readOnly={isReadOnly}
@@ -5252,34 +5287,39 @@ const Admin = () => {
                 }}
               />
             ) : activeTab === "agenda" ? (
-              <CalendarView 
-                agenda={mergedAgenda} 
-                isDark={isDarkMode}
-                canEdit={canEdit}
-                canDelete={canDelete}
-                onNewEvent={(date) => {
-                  setSelectedItem(null);
-                  setFormData({ date: format(date, "yyyy-MM-dd'T'19:00") });
-                  setIsReadOnly(false);
-                  setIsEditing(true);
-                }}
-                onViewEvent={(item) => {
-                  setSelectedItem(item);
-                  setFormData(item);
-                  setIsReadOnly(true);
-                  setIsEditing(true);
-                }}
-                onEditEvent={(item) => {
-                  setSelectedItem(item);
-                  setFormData(item);
-                  setIsReadOnly(false);
-                  setIsEditing(true);
-                }}
-                onDeleteEvent={(item) => {
-                  const col = item.type === 'post' ? 'posts' : 'agenda';
-                  handleDelete(item, col);
-                }}
-              />
+              <div className="space-y-6 pb-32">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Agenda Geral</h2>
+                </div>
+                <CalendarView 
+                  agenda={mergedAgenda} 
+                  isDark={isDarkMode}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  onNewEvent={(date) => {
+                    setSelectedItem(null);
+                    setFormData({ date: format(date, "yyyy-MM-dd'T'19:00") });
+                    setIsReadOnly(false);
+                    setIsEditing(true);
+                  }}
+                  onViewEvent={(item) => {
+                    setSelectedItem(item);
+                    setFormData(item);
+                    setIsReadOnly(true);
+                    setIsEditing(true);
+                  }}
+                  onEditEvent={(item) => {
+                    setSelectedItem(item);
+                    setFormData(item);
+                    setIsReadOnly(false);
+                    setIsEditing(true);
+                  }}
+                  onDeleteEvent={(item) => {
+                    const col = item.type === 'post' ? 'posts' : 'agenda';
+                    handleDelete(item, col);
+                  }}
+                />
+              </div>
             ) : activeTab === "visao-geral" ? (
               <div className="space-y-8 md:space-y-12 flex flex-col">
                 {/* Section: Summary Cards */}
@@ -5327,7 +5367,7 @@ const Admin = () => {
                 {/* Section: Próximos Eventos */}
                 <div className="space-y-6 md:space-y-8 mt-8">
                   <div className="flex items-center justify-between">
-                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Próximos Eventos</h4>
+                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda Geral</h4>
                   </div>
                   
                   <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
@@ -5351,8 +5391,8 @@ const Admin = () => {
               </div>
             ) : activeTab === "agenda-direcao" ? (
               <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex justify-between items-center mb-8">
-                  <h2 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda da Direção</h2>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Agenda da Direção</h2>
                   {canEdit && (
                     <Button 
                       variant="outline"
@@ -5457,7 +5497,7 @@ const Admin = () => {
                             </a>
                           </div>
                           <Input 
-                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: UCILgaItnqDH3plhRXD54QUg"
                             value={localSettings.youtubeChannelId ?? settings.youtubeChannelId ?? "UCILgaItnqDH3plhRXD54QUg"}
                             onChange={(e) => {
@@ -5468,7 +5508,7 @@ const Admin = () => {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>YouTube Handle</label>
                           <Input 
-                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: @ministerio_profecia"
                             value={localSettings.youtubeHandle ?? settings.youtubeHandle ?? "@ministerio_profecia"}
                             onChange={(e) => {
@@ -5488,7 +5528,7 @@ const Admin = () => {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>URL do Streaming (MP3/AAC)</label>
                           <Input 
-                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: https://streaming.zeno.fm/..."
                             value={localSettings.radioStreamUrl ?? settings.radioStreamUrl ?? ""}
                             onChange={(e) => {
@@ -5499,7 +5539,7 @@ const Admin = () => {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título da Rádio</label>
                           <Input 
-                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: Rádio Profecia Mix"
                             value={localSettings.radioTitle ?? settings.radioTitle ?? "Rádio Profecia Mix"}
                             onChange={(e) => {
@@ -5510,7 +5550,7 @@ const Admin = () => {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Subtítulo / Descrição</label>
                           <Input 
-                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: Sua dose diária de fé..."
                             value={localSettings.radioSubtitle ?? settings.radioSubtitle ?? ""}
                             onChange={(e) => {
@@ -5521,7 +5561,7 @@ const Admin = () => {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Tocando Agora (Texto Fixo/Opcional)</label>
                           <Input 
-                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: Som da Vitória - Ministério Profecia"
                             value={localSettings.radioNowPlaying ?? settings.radioNowPlaying ?? ""}
                             onChange={(e) => {
@@ -5535,7 +5575,7 @@ const Admin = () => {
                         <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Próximo Culto (Frase no início)</label>
                           <Input 
-                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-black border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: Domingo às 19:00"
                             value={localSettings.nextService ?? settings.nextService ?? "Domingo às 19:00"}
                             onChange={(e) => {
@@ -5804,11 +5844,11 @@ const Admin = () => {
                   ))}
                 </div>
 
-                <Card className={cn("border rounded-[32px] transition-colors overflow-hidden mx-auto w-full", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                <Card className={cn("border rounded-[32px] transition-colors overflow-hidden mx-auto w-full", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5 shadow-xl")}>
                    <div className="w-full overflow-x-hidden overflow-y-auto max-h-[700px] custom-scrollbar">
                      <table className="w-full text-left border-collapse table-auto">
                        <thead>
-                         <tr className={cn("border-b transition-colors sticky top-0 z-10", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
+                         <tr className={cn("border-b transition-colors sticky top-0 z-10", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
                            <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest hidden md:table-cell">Data/Hora / Menu</th>
                            <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Responsável</th>
                            <th className="p-4 md:p-6 text-[10px] font-bold text-gray-500 uppercase tracking-widest text-center w-[80px] md:w-[100px]">Ação</th>
@@ -5913,7 +5953,7 @@ const Admin = () => {
                         exit={{ opacity: 0, scale: 0.95, y: 20 }}
                         className={cn(
                           "relative w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-[40px] shadow-2xl flex flex-col",
-                          isDarkMode ? "bg-[#111] border border-white/10" : "bg-white"
+                          isDarkMode ? "bg-roxo-bg border border-white/10" : "bg-white"
                         )}
                       >
                         <div className="p-8 border-b border-white/5 flex justify-between items-start">
@@ -6047,36 +6087,6 @@ const Admin = () => {
               </div>
             )}
           </div>
-          
-          {/* Footer UI */}
-          <footer className={cn(
-            "max-w-6xl mx-auto w-full mt-10 md:mt-20 py-10 px-4 border-t transition-all",
-            isDarkMode ? "border-white/5" : "border-black/5"
-          )}>
-            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-              <div className="flex flex-col items-center md:items-start gap-1">
-                <p className={cn("text-xs font-black uppercase tracking-widest", isDarkMode ? "text-white/40" : "text-black/40")}>
-                  © {new Date().getFullYear()} Igreja Evangélica Ministerio Profecia
-                </p>
-                <p className={cn("text-[10px] font-bold", isDarkMode ? "text-gray-600" : "text-gray-400")}>
-                  Todos os direitos reservados
-                </p>
-              </div>
-              <div className={cn("flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em]", isDarkMode ? "text-gray-500" : "text-gray-400")}>
-                <span>Criado com</span>
-                <Heart className="w-3 h-3 text-red-500 fill-red-500 animate-pulse" />
-                <span>por</span>
-                <a 
-                  href="https://danielvaleweb.com.br" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-[#BF76FF] hover:underline"
-                >
-                  Daniel Vale
-                </a>
-              </div>
-            </div>
-          </footer>
         </div>
 
       </main>
@@ -6085,7 +6095,7 @@ const Admin = () => {
       <aside className={cn(
         "fixed top-0 bottom-0 right-0 z-[40] w-full xl:w-80 border-l flex-col overflow-hidden transition-all duration-300 xl:relative xl:flex",
         rightSidebarView !== "hidden" ? "translate-x-0 flex" : "translate-x-full xl:translate-x-0 hidden xl:flex",
-        isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
+        isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
 
         <div className="flex justify-between xl:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
@@ -6095,14 +6105,18 @@ const Admin = () => {
             </button>
            </div>
            <div className="flex gap-2">
-            <div className="hidden md:block">
-              <ActionIcon 
-                icon={isDarkMode ? Sun : Moon} 
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                active={false}
-                isDark={isDarkMode}
-              />
-            </div>
+            <ActionIcon 
+              icon={isDarkMode ? Sun : Moon} 
+              onClick={() => setIsDarkMode(!isDarkMode)}
+              active={false}
+              isDark={isDarkMode}
+            />
+            <ActionIcon 
+              icon={Megaphone} 
+              active={activeTab === "avisos"}
+              onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }}
+              isDark={isDarkMode} 
+            />
             <ActionIcon 
               icon={MessageSquare} 
               active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
@@ -6111,14 +6125,14 @@ const Admin = () => {
             />
             <ActionIcon 
               icon={Users} 
-              active={rightSidebarView === "team"}
+              active={rightSidebarView === "team" || (rightSidebarView === "hidden" && window.innerWidth >= 1280)}
               onClick={() => setRightSidebarView(rightSidebarView === "team" ? "hidden" : "team")}
               isDark={isDarkMode} 
             />
           </div>
         </div>
 
-        {rightSidebarView === "team" && (
+        {(rightSidebarView === "team" || (rightSidebarView === "hidden" && window.innerWidth >= 1280)) && (
           <div className="flex-1 px-6 pt-4 overflow-y-auto scrollbar-hide flex flex-col">
             <div className="space-y-8 flex-1">
               {/* Members/Team Section */}
@@ -6130,7 +6144,7 @@ const Admin = () => {
                     placeholder="Pesquisar membro..." 
                     value={rightSidebarSearch}
                     onChange={(e) => setRightSidebarSearch(e.target.value)}
-                    className={cn("w-full border rounded-2xl py-3 pl-10 pr-4 text-sm outline-none transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                    className={cn("w-full border rounded-2xl py-3 pl-10 pr-4 text-sm outline-none transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                   />
                 </div>
                 
@@ -6250,7 +6264,7 @@ const Admin = () => {
         )}
 
         {rightSidebarView === "chat-list" && (
-          <div className={cn("flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
+          <div className={cn("flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
             <div className="p-6 pt-4 pb-2">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -6307,9 +6321,9 @@ const Admin = () => {
         )}
 
         {rightSidebarView === "chat-active" && activeChatUser && (
-          <div className={cn("flex-1 flex flex-col relative overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-[#0f0f0f]" : "bg-white lg:bg-gray-50")}>
+          <div className={cn("flex-1 flex flex-col relative overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
             {/* Header */}
-            <div className={cn("px-5 py-4 border-b flex items-center justify-between shadow-sm z-10 shrink-0", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
+            <div className={cn("px-5 py-4 border-b flex items-center justify-between shadow-sm z-10 shrink-0", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
               <div className="flex items-center gap-3">
                 <button onClick={() => setRightSidebarView("chat-list")} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors mr-1">
                   <ArrowLeft className={cn("w-5 h-5", isDarkMode ? "text-gray-300" : "text-gray-600")} />
@@ -6322,11 +6336,13 @@ const Admin = () => {
                       {activeChatUser.name?.[0] || 'M'}
                     </div>
                   )}
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-white dark:border-[#111] rounded-full" />
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-white dark:border-[#111] rounded-full" style={{ backgroundColor: activeChatUser.status_online === 'online' ? '#22c55e' : activeChatUser.status_online === 'busy' ? '#ef4444' : activeChatUser.status_online === 'away' ? '#f59e0b' : '#6b7280' }} />
                 </div>
                 <div className="flex flex-col relative top-0.5">
                   <h3 className={cn("font-extrabold text-[15px] leading-tight", isDarkMode ? "text-white" : "text-gray-900")}>{activeChatUser.name || 'Membro'}</h3>
-                  <p className="text-[10px] text-green-500 font-bold uppercase tracking-wider">Online</p>
+                  <p className={cn("text-[10px] font-bold uppercase tracking-wider", activeChatUser.status_online === 'online' ? 'text-[#22c55e]' : activeChatUser.status_online === 'busy' ? 'text-red-500' : activeChatUser.status_online === 'away' ? 'text-amber-500' : 'text-gray-500')}>
+                    {activeChatUser.status_online === 'online' ? 'Online' : activeChatUser.status_online === 'busy' ? 'Ocupado' : activeChatUser.status_online === 'away' ? 'Ausente' : 'Offline'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -6362,7 +6378,7 @@ const Admin = () => {
             </div>
 
             {/* Input Area */}
-            <div className={cn("p-4 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] relative", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-t border-black/5")}>
+            <div className={cn("p-4 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] relative", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-t border-black/5")}>
               {/* Mention Suggestions */}
               {showMentionSuggestions && (
                 <div className={cn(
@@ -6412,7 +6428,7 @@ const Admin = () => {
                 </div>
               )}
 
-              <div className={cn("flex items-end gap-2 p-1.5 pl-3 rounded-3xl transition-transform focus-within:-translate-y-1", isDarkMode ? "bg-black border border-white/10 focus-within:bg-black" : "bg-gray-100 focus-within:bg-gray-200")}>
+              <div className={cn("flex items-end gap-2 p-1.5 pl-3 rounded-3xl transition-transform focus-within:-translate-y-1", isDarkMode ? "bg-cinza-input border border-white/10 focus-within:bg-cinza-input" : "bg-gray-100 focus-within:bg-gray-200")}>
                 <textarea 
                   rows={1}
                   placeholder="Mensagem..." 
@@ -6462,7 +6478,7 @@ const Admin = () => {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={deleteConfirm !== null} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
-        <DialogContent className={cn("border rounded-[32px] p-8 max-w-sm transition-colors", isDarkMode ? "bg-[#111] border-white/10 text-white" : "bg-white border-black/10 text-black")}>
+        <DialogContent className={cn("border rounded-[32px] p-8 max-w-sm transition-colors", isDarkMode ? "bg-roxo-bg border-white/10 text-white" : "bg-white border-black/10 text-black")}>
           <DialogHeader className="space-y-4">
             <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto text-red-500">
               <Trash2 className="w-8 h-8" />
@@ -6494,7 +6510,7 @@ const Admin = () => {
 
       {/* Import Event Dialog */}
       <Dialog open={isImportEventDialogOpen} onOpenChange={setIsImportEventDialogOpen}>
-        <DialogContent className={cn("sm:max-w-xl p-0 overflow-hidden max-h-[85vh] flex flex-col rounded-[32px] border", isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10")}>
+        <DialogContent className={cn("sm:max-w-xl p-0 overflow-hidden max-h-[85vh] flex flex-col rounded-[32px] border", isDarkMode ? "bg-roxo-bg border-white/10" : "bg-white border-black/10")}>
           <div className="p-8 pb-4">
             <DialogHeader>
               <DialogTitle className={cn("text-2xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>Adicionar Evento Existente</DialogTitle>
@@ -6505,7 +6521,7 @@ const Admin = () => {
                 placeholder="Pesquisar em eventos e agenda comum..."
                 value={importSearch}
                 onChange={(e) => setImportSearch(e.target.value)}
-                className={cn("pl-12 h-14 rounded-2xl border transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                className={cn("pl-12 h-14 rounded-2xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
               />
             </div>
           </div>
@@ -6562,7 +6578,7 @@ const Admin = () => {
 
       {/* Member Selector Dialog */}
       <Dialog open={isMemberSelectorOpen} onOpenChange={setIsMemberSelectorOpen}>
-        <DialogContent className={cn("sm:max-w-md p-0 overflow-hidden max-h-[85vh] flex flex-col rounded-[32px] border", isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10")}>
+        <DialogContent className={cn("sm:max-w-md p-0 overflow-hidden max-h-[85vh] flex flex-col rounded-[32px] border", isDarkMode ? "bg-roxo-bg border-white/10" : "bg-white border-black/10")}>
           <div className="p-8 pb-4">
             <DialogHeader>
               <DialogTitle className={cn("text-2xl font-black transition-colors", isDarkMode ? "text-white" : "text-black")}>Convidar Membros</DialogTitle>
@@ -6573,7 +6589,7 @@ const Admin = () => {
                 placeholder="Pesquisar por nome ou cargo..."
                 value={memberSearch}
                 onChange={(e) => setMemberSearch(e.target.value)}
-                className={cn("pl-12 h-14 rounded-2xl border transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                className={cn("pl-12 h-14 rounded-2xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
               />
             </div>
           </div>
@@ -6687,6 +6703,43 @@ const Admin = () => {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+
+      {/* Global Footer (Desktop Only) */}
+      <footer className={cn(
+        "hidden md:flex h-12 border-t items-center justify-between px-8 shrink-0 transition-colors bg-roxo-bg border-white/5",
+        isDarkMode ? "bg-roxo-bg border-white/10" : "bg-white border-black/5"
+      )}>
+        <div className="flex items-center gap-8">
+           <div className={cn("text-[9px] uppercase font-black tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>
+             © 2026 PROFECIA <span className="opacity-20">|</span> TODOS OS DIREITOS RESERVADOS
+           </div>
+           <div className="flex items-center gap-4">
+              <a href="#" className="text-[9px] font-bold uppercase tracking-widest text-[#BF76FF] hover:opacity-80">Privacidade</a>
+              <a href="#" className="text-[9px] font-bold uppercase tracking-widest text-[#BF76FF] hover:opacity-80">Termos</a>
+           </div>
+        </div>
+
+        <div className="flex items-center gap-6">
+          <div className={cn("text-[10px] uppercase font-black tracking-[0.2em] flex items-center gap-1.5", isDarkMode ? "text-gray-400" : "text-gray-500")}>
+            <span>Desenvolvido com</span>
+            <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500 shrink-0" />
+            <span>por</span>
+            <a 
+              href="https://danielvaleweb.com.br" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[#BF76FF] hover:underline font-extrabold"
+            >
+              Daniel Vale
+            </a>
+          </div>
+          <div className="h-6 w-[1px] bg-white/5 mx-2" />
+          <div className="text-[10px] font-black text-[#BF76FF] tracking-tighter bg-[#BF76FF]/10 px-3 py-0.5 rounded-full border border-[#BF76FF]/20">
+            Versão 1.0
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

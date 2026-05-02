@@ -74,6 +74,10 @@ export default function EventDetails() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
+          if (data.typeEvent === 'culto') {
+            navigate('/galeria', { state: { selectedAlbumId: docSnap.id }, replace: true });
+            return;
+          }
           setEvent({ id: docSnap.id, ...data });
 
           let eventDate = new Date(0);

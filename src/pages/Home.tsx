@@ -133,7 +133,7 @@ export default function Home() {
       title: video.title,
       thumbnail: video.thumbnail || video.image,
       published: video.published || video.date,
-      link: video.link || `/evento/${video.id}`,
+      link: video.link || (video.typeEvent === 'culto' ? `/galeria?album=${video.id}` : `/evento/${video.id}`),
       category: video.category === "event" ? "event" : "video"
     });
   };
@@ -758,7 +758,7 @@ export default function Home() {
                       onShowSimilar={handleShowSimilar}
                       isInList={myList.includes(event.id)}
                       isFavorited={isFavorite(event.id)}
-                      useGalleryImage={true}
+                      useGalleryImage={false}
                       hideTitleOnMobile={true}
                     />
                   </div>

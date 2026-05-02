@@ -202,7 +202,7 @@ export default function Videos() {
               placeholder="Títulos, pregadores, séries..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-12 bg-black/40 border border-white/10 rounded-full pl-12 pr-6 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all"
+              className="w-full h-12 bg-cinza-input border border-white/10 rounded-full pl-12 pr-6 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all"
             />
           </div>
         </div>
@@ -240,7 +240,7 @@ export default function Videos() {
             <select
               value={filterCategory}
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full h-12 bg-black/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white"
+              className="w-full h-12 bg-cinza-input/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white"
             >
               <option value="TODOS">Todas</option>
               <option value="PREGAÇÃO">Pregações</option>
@@ -258,7 +258,7 @@ export default function Videos() {
               placeholder="Nome do organizador..."
               value={filterOrganizer}
               onChange={(e) => setFilterOrganizer(e.target.value)}
-              className="w-full h-12 bg-black/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-gray-500"
+              className="w-full h-12 bg-cinza-input/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-gray-500"
             />
           </div>
           <div className="space-y-2">
@@ -268,7 +268,7 @@ export default function Videos() {
               placeholder="Ex: 01/12/23"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full h-12 bg-black/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-gray-500"
+              className="w-full h-12 bg-cinza-input/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-gray-500"
             />
           </div>
         </div>
