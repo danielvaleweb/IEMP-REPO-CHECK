@@ -6106,19 +6106,20 @@ const Admin = () => {
               active={false}
               isDark={isDarkMode}
             />
-            <ActionIcon 
-              icon={Megaphone} 
-              active={activeTab === "avisos"}
-              onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }}
-              isDark={isDarkMode} 
-            />
+            {canViewTab("avisos") && (
+              <ActionIcon 
+                icon={Megaphone} 
+                active={activeTab === "avisos"}
+                onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }}
+                isDark={isDarkMode} 
+              />
+            )}
             <ActionIcon 
               icon={MessageSquare} 
               active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
               onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
               isDark={isDarkMode} 
               hasNotification={activeChats.some(chat => chat.unreadCount?.[profile?.id || ''] > 0)}
-              notificationCount={activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)}
             />
             <ActionIcon 
               icon={Users} 
@@ -6130,7 +6131,7 @@ const Admin = () => {
         </div>
 
         {(rightSidebarView === "team" || (rightSidebarView === "hidden" && window.innerWidth >= 1280)) && (
-          <div className="flex-1 px-6 pt-4 overflow-y-auto scrollbar-hide flex flex-col">
+          <div className="flex-1 min-h-0 px-6 pt-4 overflow-y-auto scrollbar-hide flex flex-col">
             <div className="space-y-8 flex-1">
               {/* Members/Team Section */}
               <div>
@@ -6261,7 +6262,7 @@ const Admin = () => {
         )}
 
         {rightSidebarView === "chat-list" && (
-          <div className={cn("flex-1 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
+          <div className={cn("flex-1 min-h-0 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
             <div className="p-6 pt-4 pb-2">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -6322,7 +6323,7 @@ const Admin = () => {
         )}
 
         {rightSidebarView === "chat-active" && activeChatUser && (
-          <div className={cn("flex-1 flex flex-col relative overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
+          <div className={cn("flex-1 min-h-0 flex flex-col relative overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
             {/* Header */}
             <div className={cn("px-5 py-4 border-b flex items-center justify-between shadow-sm z-10 shrink-0", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
               <div className="flex items-center gap-3">
