@@ -21,6 +21,9 @@ import {
   EyeOff,
   Search,
   Bell,
+  CheckCheck,
+  UserPlus,
+  Zap,
   MoreHorizontal,
   Phone,
   Video,
@@ -845,7 +848,7 @@ function LogFilterSelect({ label, value, onChange, options, isDarkMode }: any) {
 }
 
 const Admin = () => {
-  const { user, profile, login, loginAsGuest, logout, isAdmin, isGuest, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
+  const { user, profile, setProfile, login, loginAsGuest, logout, isAdmin, isGuest, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const messageParam = searchParams.get('message');
@@ -957,9 +960,14 @@ const Admin = () => {
     { id: 'avisos', label: 'Central de Avisos', icon: Megaphone },
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
-    { id: 'chat', label: 'Mensagens', icon: MessageSquare },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
   ]);
+
+  const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
+    const savedVisible = localStorage.getItem('admin_visible_tabs');
+    if (savedVisible) return JSON.parse(savedVisible);
+    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'avisos', 'agenda', 'agenda-direcao', 'radio'];
+  });
 
   const sensors = useSensors(
     useSensor(MouseSensor, {
@@ -1298,13 +1306,13 @@ const Admin = () => {
     navigate("/");
   };
 
-  const userStatus = profile?.status_presence || "online";
+  const userStatus = profile?.status_online || "online";
 
   const getStatusColor = (status: string) => {
     switch (status) {
       case "online": return "bg-green-500";
-      case "ocupado": return "bg-red-500";
-      case "ausente": return "bg-yellow-500";
+      case "busy": return "bg-red-500";
+      case "away": return "bg-amber-500";
       default: return "bg-gray-500";
     }
   };
@@ -1313,9 +1321,12 @@ const Admin = () => {
     if (!user) return;
     try {
       await updateDoc(doc(db, "members", user.uid), {
-        status_presence: status,
+        status_online: status,
         lastUpdated: serverTimestamp()
       });
+      if (setProfile && profile) {
+        setProfile({ ...profile, status_online: status });
+      }
     } catch (error) {
       console.error("Error updating status:", error);
     }
@@ -1680,19 +1691,19 @@ const Admin = () => {
     if (isEffectivelyAdmin) return true;
     const rolePerms = settings.permissions?.[currentRole];
     
-    const defaultVals: any = {
-      "visao-geral": true,
-      "eventos": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "videos": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "noticias": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "radio": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "visitantes": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "avisos": currentRole === "Administradores" || currentRole === "Desenvolvedor",
-      "chat": true, // Todos podem ver o menu de chat
-      "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção" || currentRole === "Secretaria" || currentRole.includes("Secretaria")
-    };
+    // Auto-generate default values for ALL menus in menuItems
+    const defaultVals: any = {};
+    menuItems.forEach(item => {
+      if (item.id === "visao-geral") {
+        defaultVals[item.id] = true;
+      } else if (item.id === "avisos") {
+        defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(currentRole);
+      } else if (item.id === "agenda-direcao") {
+        defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(currentRole) || currentRole.includes("Secretaria");
+      } else {
+        defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(currentRole);
+      }
+    });
 
     if (!rolePerms) {
       return defaultVals[tab] ?? false;
@@ -2299,10 +2310,8 @@ const Admin = () => {
   };
 
   const openWhatsApp = (member: any) => {
-    setActiveTab("chat");
-    setChatListSubTab("chats");
+    // Centralizando conversa no menu lateral direito
     setActiveChatUser(member);
-    // Also keep compatibility with sidebar if needed, but primary is now the main view
     setRightSidebarView("chat-active");
   };
 
@@ -3037,7 +3046,7 @@ const Admin = () => {
                   strategy={verticalListSortingStrategy}
                 >
                   {menuItems.map((item) => (
-                    canViewTab(item.id) && (
+                    canViewTab(item.id) && visibleTabs.includes(item.id) && (
                       <SortableSidebarItem 
                         key={item.id} 
                         id={item.id}
@@ -3053,15 +3062,62 @@ const Admin = () => {
                         notificationCount={
                           item.id === "membros" && (isMasterAdmin || profile?.role === "Desenvolvedor") 
                             ? pendingMembers.length 
-                            : item.id === "chat" 
-                              ? activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)
-                              : 0
+                            : 0
                         }
                       />
                     )
                   ))}
                 </SortableContext>
               </DndContext>
+            </div>
+
+            {/* Manage Visibility Dialog */}
+            <div className="hidden md:flex flex-col gap-1.5 w-full mt-2">
+              <Dialog>
+                <DialogTrigger
+                  render={
+                    <button className={cn(
+                      "flex items-center gap-3 w-full px-4 h-10 rounded-xl transition-all duration-300",
+                      isDarkMode ? "hover:bg-white/5 text-gray-500 hover:text-white" : "hover:bg-black/5 text-gray-400 hover:text-black"
+                    )} />
+                  }
+                >
+                  <PanelLeftOpen className="w-5 h-5 shrink-0" />
+                  {!isSidebarCollapsed && <span className="text-[10px] font-bold uppercase tracking-widest">Personalizar Menu</span>}
+                </DialogTrigger>
+                <DialogContent className={cn("rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-[#111] text-white" : "bg-white text-black")}>
+                  <DialogHeader>
+                    <DialogTitle className="text-xl font-black uppercase tracking-tight">Gerenciar Itens do Menu</DialogTitle>
+                    <DialogDescription className="text-[10px] uppercase font-bold text-gray-500 tracking-widest">Selecione quais atalhos você deseja manter visíveis na barra lateral.</DialogDescription>
+                  </DialogHeader>
+                  <div className="grid grid-cols-2 gap-3 py-6">
+                    {menuItems.map(item => (
+                      <button
+                        key={`toggle-vis-${item.id}`}
+                        onClick={() => {
+                          let newVisible;
+                          if (visibleTabs.includes(item.id)) {
+                            newVisible = visibleTabs.filter(t => t !== item.id);
+                          } else {
+                            newVisible = [...visibleTabs, item.id];
+                          }
+                          setVisibleTabs(newVisible);
+                          localStorage.setItem('admin_visible_tabs', JSON.stringify(newVisible));
+                        }}
+                        className={cn(
+                          "flex items-center gap-3 p-3 rounded-xl border transition-all text-left",
+                          visibleTabs.includes(item.id) 
+                            ? "bg-[#BF76FF]/10 border-[#BF76FF]/30 text-[#BF76FF]" 
+                            : "bg-transparent border-white/5 text-gray-500 hover:border-white/10"
+                        )}
+                      >
+                        <item.icon className="w-4 h-4" />
+                        <span className="text-xs font-bold">{item.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {/* Bottom items (Desktop) */}
@@ -3081,16 +3137,6 @@ const Admin = () => {
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
-              <SidebarItem 
-                icon={MessageSquare} 
-                active={activeTab === "chat"} 
-                onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }} 
-                label="Chat" 
-                collapsed={true} 
-                isDark={isDarkMode} 
-                mobile 
-                notificationCount={activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)} 
-              />
               
               <Sheet>
                 <SheetTrigger
@@ -3222,10 +3268,97 @@ const Admin = () => {
             {/* The title has been removed as requested */}
           </div>
           <div className="flex items-center gap-6">
-            {canViewSettings && (
-              <Button variant="ghost" size="icon" onClick={() => setActiveTab("config")} className={cn("rounded-full w-12 h-12", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}>
-                <Settings className="w-7 h-7" />
-              </Button>
+            {/* Notifications Bell */}
+            <DropdownMenu>
+              <DropdownMenuTrigger className="focus:outline-none">
+                <div className="relative group p-2 rounded-xl hover:bg-white/5 transition-all cursor-pointer">
+                  <Bell className={cn("w-[26px] h-[26px] transition-colors", isDarkMode ? "text-gray-500 group-hover:text-white" : "text-gray-400 group-hover:text-black")} />
+                  {displayNotifications.some(n => !n.read) && (
+                    <span className="absolute top-2 right-2 w-3 h-3 bg-red-500 rounded-full border-2 border-[#0a0a0a] shadow-lg" />
+                  )}
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className={cn("w-[340px] rounded-[24px] p-0 border shadow-2xl mt-4 overflow-hidden", isDarkMode ? "bg-[#111] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+                <div className="p-5 border-b border-white/5 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-black uppercase tracking-tighter text-lg">Notificações</h3>
+                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Central de alertas e avisos</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={handleMarkAllAsRead}
+                      className="p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-[#BF76FF] transition-all"
+                      title="Marcar todas como lidas"
+                    >
+                      <CheckCheck className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={handleClearNotifications}
+                      className="p-2 rounded-lg hover:bg-white/5 text-gray-500 hover:text-red-500 transition-all font-bold text-[10px] uppercase tracking-widest"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <ScrollArea className="max-h-[400px]">
+                  <div className="p-2">
+                    {displayNotifications.length > 0 ? (
+                      displayNotifications.map((n) => (
+                        <div 
+                          key={n.id} 
+                          className={cn(
+                            "p-4 rounded-xl mb-1 last:mb-0 transition-all border border-transparent",
+                            !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600"),
+                            "group"
+                          )}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                              n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
+                              n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
+                              'bg-green-500/20 text-green-500'
+                            )}>
+                              {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
+                               n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
+                               <Bell className="w-4 h-4" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold leading-tight line-clamp-2">{n.title}</p>
+                              <p className="text-xs opacity-70 mt-1 line-clamp-3">{n.message}</p>
+                              <p className="text-[10px] font-medium opacity-40 mt-2">
+                                {n.timestamp?.toDate ? format(n.timestamp.toDate(), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'Agora'}
+                              </p>
+                            </div>
+                            {!n.read && (
+                              <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
+                        <Bell className="w-12 h-12 mb-4" />
+                        <p className="text-xs font-bold uppercase tracking-widest">Sem notificações</p>
+                        <p className="text-[10px] mt-1">Tudo limpo por aqui!</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {(profile?.role === "Desenvolvedor" || isMasterAdmin) && (
+              <motion.div
+                whileHover={{ rotate: 90 }}
+                transition={{ duration: 0.5, ease: "easeInOut" }}
+              >
+                <Settings 
+                  className="w-[27px] h-[27px] text-gray-500 hover:text-white transition-colors cursor-pointer" 
+                  onClick={() => setActiveTab("config")}
+                />
+              </motion.div>
             )}
             
             <DropdownMenu>
@@ -3239,32 +3372,81 @@ const Admin = () => {
                       {profile?.role || "Membro"}
                     </p>
                   </div>
-                  <div className="w-[52px] h-[52px] rounded-full overflow-hidden border-[3px] border-[#BF76FF]/30 object-cover flex items-center justify-center shrink-0 relative transition-transform group-hover:scale-105">
-                    {profile?.photoURL ? (
-                      <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <User className="w-8 h-8 text-gray-400" />
-                    )}
-                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-[2px] border-[#0a0a0a] rounded-full z-10" />
+                  <div className="relative group-hover:scale-105 transition-transform">
+                    <div className="w-[52px] h-[52px] rounded-full overflow-hidden border-[3px] border-[#BF76FF]/30 object-cover flex items-center justify-center shrink-0">
+                      {profile?.photoURL ? (
+                        <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <User className="w-8 h-8 text-gray-400" />
+                      )}
+                    </div>
+                    <div className={cn(
+                      "absolute bottom-0 right-1 w-4 h-4 rounded-full border-[3px] z-10 transition-colors duration-300 shadow-sm",
+                      isDarkMode ? "border-[#0f0f0f]" : "border-white",
+                      profile?.status_online === 'busy' ? "bg-red-500" :
+                      profile?.status_online === 'away' ? "bg-amber-500" :
+                      "bg-green-500"
+                    )} />
                   </div>
                 </div>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[260px] rounded-3xl p-4 border bg-[#111] border-white/5 shadow-2xl mt-2 text-white">
+              <DropdownMenuContent align="end" className="w-[220px] rounded-2xl p-2 border bg-[#111] border-white/5 shadow-2xl mt-2 text-white">
                 <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Seu Status</DropdownMenuLabel>
-                <DropdownMenuItem className="flex items-center justify-between rounded-xl p-3 bg-[#BF76FF]/10 focus:bg-[#BF76FF]/20 cursor-pointer mb-2">
+                <DropdownMenuItem 
+                  className={cn(
+                    "flex items-center justify-between rounded-xl p-3 cursor-pointer mb-2 transition-colors",
+                    (!profile?.status_online || profile?.status_online === 'online') ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "focus:bg-white/5 text-gray-300"
+                  )}
+                  onClick={async () => {
+                    if (!user) return;
+                    const newProfile = { ...profile, status_online: 'online' };
+                    setProfile(newProfile);
+                    await updateDoc(doc(db, "members", user.uid), { status_online: 'online' });
+                  }}
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0"></div>
-                    <span className="font-bold text-[#BF76FF]">Online</span>
+                    <span className="font-bold">Online</span>
                   </div>
-                  <CheckCircle2 className="w-4 h-4 text-[#BF76FF]" />
+                  {(!profile?.status_online || profile?.status_online === 'online') && <CheckCircle2 className="w-4 h-4 text-[#BF76FF]" />}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></div>
-                  <span className="font-bold text-gray-300">Ocupado</span>
+                
+                <DropdownMenuItem 
+                  className={cn(
+                    "flex items-center justify-between rounded-xl p-3 cursor-pointer mb-2 transition-colors",
+                    profile?.status_online === 'busy' ? "bg-red-500/10 text-red-500" : "focus:bg-white/5 text-gray-300"
+                  )}
+                  onClick={async () => {
+                    if (!user) return;
+                    const newProfile = { ...profile, status_online: 'busy' };
+                    setProfile(newProfile);
+                    await updateDoc(doc(db, "members", user.uid), { status_online: 'busy' });
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></div>
+                    <span className="font-bold">Ocupado</span>
+                  </div>
+                  {profile?.status_online === 'busy' && <CheckCircle2 className="w-4 h-4 text-red-500" />}
                 </DropdownMenuItem>
-                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></div>
-                  <span className="font-bold text-gray-300">Ausente</span>
+
+                <DropdownMenuItem 
+                  className={cn(
+                    "flex items-center justify-between rounded-xl p-3 cursor-pointer mb-2 transition-colors",
+                    profile?.status_online === 'away' ? "bg-amber-500/10 text-amber-500" : "focus:bg-white/5 text-gray-300"
+                  )}
+                  onClick={async () => {
+                    if (!user) return;
+                    const newProfile = { ...profile, status_online: 'away' };
+                    setProfile(newProfile);
+                    await updateDoc(doc(db, "members", user.uid), { status_online: 'away' });
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></div>
+                    <span className="font-bold">Ausente</span>
+                  </div>
+                  {profile?.status_online === 'away' && <CheckCircle2 className="w-4 h-4 text-amber-500" />}
                 </DropdownMenuItem>
                 
                 <div className="h-[1px] w-full bg-white/5 my-4"></div>
@@ -5461,36 +5643,24 @@ const Admin = () => {
                               <div>
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 block">Páginas Visíveis</span>
                                 <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                                  {[
-                                    { label: "Início", key: "visao-geral" },
-                                    { label: "Eventos", key: "eventos" },
-                                    { label: "Notícias", key: "noticias" },
-                                    { label: "Membros", key: "membros" },
-                                    { label: "Agenda", key: "agenda" },
-                                    { label: "Agen. Direção", key: "agenda-direcao" },
-                                    { label: "Vídeos", key: "videos" },
-                                    { label: "Visitantes", key: "visitantes" },
-                                    { label: "Avisos", key: "avisos" },
-                                    { label: "Rádio", key: "radio" }
-                                  ].map(tab => {
+                                  {menuItems.map(tab => {
+                                    const defaultVals: any = {};
+                                    menuItems.forEach(item => {
+                                      if (item.id === "visao-geral") {
+                                        defaultVals[item.id] = true;
+                                      } else if (item.id === "avisos") {
+                                        defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(role);
+                                      } else if (item.id === "agenda-direcao") {
+                                        defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(role);
+                                      } else {
+                                        defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(role);
+                                      }
+                                    });
                                     
-                                    const defaultVals: any = {
-                                      "visao-geral": true,
-                                      "eventos": !["Membro", "Visitante", "Direção"].includes(role),
-                                      "noticias": !["Membro", "Visitante", "Direção"].includes(role),
-                                      "membros": !["Membro", "Visitante", "Direção"].includes(role),
-                                      "agenda": !["Membro", "Visitante", "Direção"].includes(role),
-                                      "agenda-direcao": ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(role),
-                                      "videos": !["Membro", "Visitante", "Direção"].includes(role),
-                                      "visitantes": !["Membro", "Visitante", "Direção"].includes(role),
-                                      "avisos": ["Administradores", "Desenvolvedor"].includes(role),
-                                      "radio": !["Membro", "Visitante", "Direção"].includes(role)
-                                    };
-                                    
-                                    const isChecked = settings.permissions?.[role]?.tabs?.[tab.key] ?? defaultVals[tab.key];
+                                    const isChecked = settings.permissions?.[role]?.tabs?.[tab.id] ?? defaultVals[tab.id];
                                     return (
                                       <button
-                                        key={tab.key}
+                                        key={tab.id}
                                         onClick={async () => {
                                           const newPermissions = {
                                             ...settings.permissions,
@@ -5498,7 +5668,7 @@ const Admin = () => {
                                               ...(settings.permissions?.[role] || { edit: true, delete: true, tabs: {} }),
                                               tabs: {
                                                 ...(settings.permissions?.[role]?.tabs || {}),
-                                                [tab.key]: !isChecked
+                                                [tab.id]: !isChecked
                                               }
                                             }
                                           };
@@ -5515,7 +5685,7 @@ const Admin = () => {
                                             : "bg-transparent text-gray-500 border-gray-700 hover:border-gray-500"
                                         )}
                                       >
-                                        {tab.label}
+                                        {tab.id === 'avisos' ? 'Avisos' : tab.label}
                                       </button>
                                     );
                                   })}
@@ -5528,209 +5698,6 @@ const Admin = () => {
                     </div>
                   </div>
                 </Card>
-              </div>
-            ) : activeTab === "chat" ? (
-              <div className="flex flex-col h-[600px] border rounded-[32px] overflow-hidden transition-colors relative" style={{ height: 'calc(100vh - 200px)', maxHeight: '800px' }}>
-                <div className="flex h-full">
-                  {/* Left panel: Chat list or members */}
-                  <div className={cn("w-full md:w-80 border-r flex flex-col", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
-                    <div className="p-4 border-b border-white/5 flex gap-2">
-                       <Button 
-                         variant="ghost" 
-                         className={cn("flex-1 text-[10px] font-black uppercase tracking-widest", chatListSubTab === "chats" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500")}
-                         onClick={() => setChatListSubTab("chats")}
-                       >
-                         Conversas
-                       </Button>
-                       <Button 
-                         variant="ghost" 
-                         className={cn("flex-1 text-[10px] font-black uppercase tracking-widest", chatListSubTab === "contacts" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500")}
-                         onClick={() => setChatListSubTab("contacts")}
-                       >
-                         Contatos
-                       </Button>
-                    </div>
-                    
-                    <div className="flex-1 overflow-y-auto scrollbar-hide">
-                      {chatListSubTab === "chats" ? (
-                        <div className="p-2 space-y-1">
-                          {activeChats.length > 0 ? (
-                            activeChats.map(chat => {
-                              const otherParticipantId = chat.participants.find((id: string) => id !== profile?.id);
-                              const otherUser = members.find(m => m.id === otherParticipantId);
-                              const unread = chat.unreadCount?.[profile?.id || ''] || 0;
-                              
-                              if (!otherUser) return null;
-
-                              return (
-                                <button
-                                  key={chat.id}
-                                  onClick={() => setActiveChatUser(otherUser)}
-                                  className={cn(
-                                    "w-full flex items-center gap-3 p-3 rounded-2xl transition-all group",
-                                    activeChatUser?.id === otherUser.id 
-                                      ? "bg-[#BF76FF]/10" 
-                                      : isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5"
-                                  )}
-                                >
-                                  <div className="relative">
-                                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#BF76FF]/20 flex items-center justify-center border border-[#BF76FF]/30">
-                                      {otherUser.photoURL ? (
-                                        <img src={otherUser.photoURL} alt="" className="w-full h-full object-cover" />
-                                      ) : (
-                                        <User className="w-5 h-5 text-[#BF76FF]" />
-                                      )}
-                                    </div>
-                                    {unread > 0 && (
-                                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-black flex items-center justify-center text-[10px] text-white font-black">
-                                        {unread}
-                                      </div>
-                                    )}
-                                  </div>
-                                  <div className="flex-1 text-left">
-                                    <p className={cn("text-xs font-black uppercase tracking-tighter truncate", isDarkMode ? "text-white" : "text-black")}>{otherUser.name}</p>
-                                    <p className="text-[10px] text-gray-500 truncate">{chat.lastMessage || "Nenhuma mensagem"}</p>
-                                  </div>
-                                </button>
-                              );
-                            })
-                          ) : (
-                            <div className="py-20 text-center flex flex-col items-center justify-center">
-                              <MessageSquare className="w-10 h-10 text-gray-700 mb-4 opacity-20" />
-                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4">Nenhuma conversa ativa</p>
-                              <Button variant="ghost" className="mt-4 text-[#BF76FF] text-[10px]" onClick={() => setChatListSubTab("contacts")}>Ver contatos</Button>
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="p-2 space-y-1">
-                          <div className="px-3 py-2">
-                             <input 
-                               placeholder="Procurar contato..."
-                               className={cn("w-full h-9 rounded-xl px-4 text-xs outline-none border transition-colors", isDarkMode ? "bg-white/5 border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
-                               onChange={(e) => setChatSearch(e.target.value)}
-                             />
-                          </div>
-                          {members
-                             .filter(m => m.id !== profile?.id && m.status !== "pending")
-                             .filter(m => !chatSearch || m.name?.toLowerCase().includes(chatSearch.toLowerCase()))
-                             .map(member => (
-                            <button
-                              key={`contact-${member.id}`}
-                              onClick={() => {
-                                setActiveChatUser(member);
-                                setChatListSubTab("chats");
-                              }}
-                              className={cn(
-                                "w-full flex items-center gap-3 p-3 rounded-2xl transition-all group",
-                                isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5"
-                              )}
-                            >
-                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#BF76FF]/20 flex items-center justify-center border border-[#BF76FF]/30">
-                                {member.photoURL ? (
-                                  <img src={member.photoURL} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <User className="w-5 h-5 text-[#BF76FF]" />
-                                )}
-                              </div>
-                              <div className="flex-1 text-left">
-                                <p className={cn("text-xs font-black uppercase tracking-tighter truncate", isDarkMode ? "text-white" : "text-black")}>{member.name}</p>
-                                <p className="text-[9px] text-[#BF76FF] font-black uppercase tracking-widest leading-none">{member.role}</p>
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right panel: Active chat window */}
-                  <div className={cn("flex-1 flex flex-col relative", isDarkMode ? "bg-[#161616]" : "bg-gray-50")}>
-                    {activeChatUser ? (
-                      <div className="flex-1 flex flex-col h-full overflow-hidden">
-                        {/* Header */}
-                        <div className={cn("p-4 border-b flex items-center justify-between", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
-                           <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#BF76FF]/20 flex items-center justify-center border border-[#BF76FF]/30">
-                                {activeChatUser.photoURL ? (
-                                  <img src={activeChatUser.photoURL} alt="" className="w-full h-full object-cover" />
-                                ) : (
-                                  <User className="w-5 h-5 text-[#BF76FF]" />
-                                )}
-                              </div>
-                              <div>
-                                <h3 className={cn("text-xs font-black uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>{activeChatUser.name}</h3>
-                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{activeChatUser.role}</p>
-                              </div>
-                           </div>
-                           <Button variant="ghost" size="icon" onClick={() => setActiveChatUser(null)} className="md:hidden">
-                             <X className="w-5 h-5" />
-                           </Button>
-                        </div>
-
-                        {/* Messages Area - this would use the same message display logic as the sidebar */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
-                          {chatMessages.length > 0 ? (
-                            chatMessages.map((msg, idx) => {
-                              const isMe = msg.senderId === profile?.id;
-                              return (
-                                <div key={msg.id || idx} className={cn("flex flex-col max-w-[80%] space-y-1", isMe ? "ml-auto items-end" : "mr-auto items-start")}>
-                                  <div className={cn(
-                                    "px-4 py-2 rounded-2xl text-[11px] font-bold",
-                                    isMe 
-                                      ? "bg-[#BF76FF] text-white rounded-tr-none" 
-                                      : isDarkMode ? "bg-white/10 text-white rounded-tl-none" : "bg-white text-black border border-black/5 shadow-sm rounded-tl-none"
-                                  )}>
-                                    {msg.text}
-                                  </div>
-                                  <span className="text-[8px] text-gray-500 font-black uppercase">{msg.createdAt?.toDate ? format(msg.createdAt.toDate(), "HH:mm") : ""}</span>
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <div className="flex-1 flex flex-col items-center justify-center opacity-30">
-                              <MessageSquare className="w-12 h-12 mb-4" />
-                              <p className="text-[10px] font-black uppercase tracking-widest">Inicie a conversa</p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Input Area */}
-                        <div className={cn("p-4 border-t", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
-                          <form onSubmit={(e) => {
-                            e.preventDefault();
-                            sendChatMessage();
-                          }} className="flex gap-2">
-                             <input 
-                               value={chatInput}
-                               onChange={(e) => setChatInput(e.target.value)}
-                               placeholder="Digite sua mensagem..."
-                               className={cn("flex-1 h-11 rounded-2xl px-4 text-xs outline-none border transition-colors", isDarkMode ? "bg-white/5 border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
-                             />
-                             <Button 
-                               type="submit"
-                               size="icon" 
-                               disabled={!chatInput.trim()}
-                               className="w-11 h-11 rounded-2xl bg-[#BF76FF] hover:bg-[#BF76FF]/80 text-white shadow-lg shadow-[#BF76FF]/20 shrink-0"
-                             >
-                               <Send className="w-4 h-4" />
-                             </Button>
-                          </form>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex-1 flex flex-col items-center justify-center text-center p-12 space-y-4">
-                        <div className="w-20 h-20 rounded-[32px] bg-[#BF76FF]/10 flex items-center justify-center mb-4">
-                          <MessageSquare className="w-10 h-10 text-[#BF76FF]" />
-                        </div>
-                        <h3 className={cn("text-xl font-black uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Chat do Ministério</h3>
-                        <p className="text-sm text-gray-500 max-w-xs leading-relaxed">
-                          Selecione um contato ao lado para iniciar uma conversa.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
             ) : activeTab === "logs" ? (
               <div className="p-4 md:p-8">
@@ -6992,14 +6959,14 @@ interface TeamMemberProps {
 function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, isDark, isAdmin, logAction }: TeamMemberProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const name = member.name || "Membro";
-  const status = member.status_presence || "offline";
+  const status = member.status_online || "offline";
   const isPending = member.status === "pending" || member.status === "pending_approval";
 
   const getStatusColor = (s: string) => {
     switch (s) {
       case "online": return "bg-green-500";
-      case "ocupado": return "bg-red-500";
-      case "ausente": return "bg-yellow-500";
+      case "busy": return "bg-red-500";
+      case "away": return "bg-amber-500";
       default: return "bg-gray-500";
     }
   };

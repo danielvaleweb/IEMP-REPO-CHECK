@@ -28,6 +28,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isGuest: boolean;
   setCustomLogin: (status: boolean, userData?: any) => void;
+  setProfile: (profile: any) => void;
   error: string | null;
   clearError: () => void;
 }
@@ -376,7 +377,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   } : null);
 
   return (
-    <AuthContext.Provider value={{ user, profile: profile || customUserData, loading, login, loginAsGuest, loginWithEmail, signupWithEmail, logout, isAdmin, isGuest, setCustomLogin, error, clearError }}>
+    <AuthContext.Provider value={{ user, profile: profile || customUserData, setProfile, loading, login, loginAsGuest, loginWithEmail, signupWithEmail, logout, isAdmin, isGuest, setCustomLogin, error, clearError }}>
       {children}
     </AuthContext.Provider>
   );
