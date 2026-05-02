@@ -172,7 +172,7 @@ service cloud.firestore {
     }
 
     match /agenda-direcao/{eventId} {
-      allow read, write: if isMasterAdmin() || isAdmin() || getRole() == 'Secretaria' || getRole() == 'Secretário' || (getRole() == 'Mídia' && isLeader());
+      allow read, write: if isMasterAdmin() || isAdmin() || ((getRole() == 'Secretaria' || getRole() == 'Secretário' || getRole() == 'Mídia') && isLeader());
     }
 
     match /playlists/{playlistId} {
