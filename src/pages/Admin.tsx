@@ -1711,10 +1711,6 @@ const Admin = () => {
       return tab === "agenda-direcao" || tab === "chat";
     }
 
-    if (currentRole === "Secretaria" && (tab === "agenda-direcao" || tab === "agenda" || tab === "eventos")) {
-      return true;
-    }
-
     if (isEffectivelyAdmin) return true;
     const rolePerms = settings.permissions?.[currentRole];
     
@@ -1816,17 +1812,17 @@ const Admin = () => {
       setBlog(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading blog:", err));
 
-    const unsubMembers = isAdmin ? onSnapshot(query(collection(db, "members"), limit(200)), (snap) => {
+    const unsubMembers = onSnapshot(query(collection(db, "members"), limit(200)), (snap) => {
       setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading members:", err)) : () => {};
+    }, (err) => console.error("Error loading members:", err));
 
     const unsubAgenda = onSnapshot(query(collection(db, "agenda"), orderBy("date", "asc"), limit(200)), (snap) => {
       setAgenda(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading agenda:", err));
 
-    const unsubAgendaDirecao = (isAdmin || (profile?.role && profile.role.includes("Secretaria"))) ? onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc"), limit(200)), (snap) => {
+    const unsubAgendaDirecao = onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc"), limit(200)), (snap) => {
       setAgendaDirecao(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading agenda-direcao:", err)) : () => {};
+    }, (err) => console.error("Error loading agenda-direcao:", err));
 
     const unsubVignettes = onSnapshot(query(collection(db, "vignettes"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
       setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
