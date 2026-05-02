@@ -74,7 +74,7 @@ export const MovieCard = ({
   }, []);
 
   const isVideo = type === 'video';
-  let displayImage = getImageUrl(item.image || item.coverImage || item.thumbnail);
+  let displayImage = getImageUrl(item.coverImage || item.image || item.thumbnail);
   
   if (type === 'event') {
     if (useGalleryImage && item.gallery && item.gallery.length > 0) {

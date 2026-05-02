@@ -166,7 +166,7 @@ service cloud.firestore {
     }
 
     match /agenda-direcao/{eventId} {
-      allow read, write: if isMasterAdmin() || isAdmin();
+      allow read, write: if isMasterAdmin() || isAdmin() || getRole() == 'Secretaria' || getRole() == 'Secretário';
     }
 
     match /playlists/{playlistId} {
