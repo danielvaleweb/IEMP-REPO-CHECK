@@ -6155,81 +6155,100 @@ const Admin = () => {
                 </div>
                 
                 <div className="space-y-8">
-                  {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
-                    const roleMembers = members.filter(m => {
-                      const ministry = (m.ministries || []).find((min: any) => (typeof min === 'string' ? min : min.name) === role);
-                      const isPartOfThisRole = Boolean(ministry) || m.role === role;
-                      return isPartOfThisRole && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
-                    });
-                    if (roleMembers.length === 0 && rightSidebarSearch) return null;
-                    return (
-                      <div key={`role-group-${role}`} className="space-y-3">
-                        <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
-                          <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
-                          {role === "Administradores" ? "Administrador Master" : role}
-                        </h5>
-                        <div className="space-y-4">
-                          {roleMembers.length > 0 ? (
-                            roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map((member, i) => (
-                              <TeamMember 
-                                key={`role-member-${role}-${member.id || i}`} 
-                                member={member}
-                                active={member.email === user?.email}
-                                onWhatsApp={() => openWhatsApp(member)}
-                                onViewProfile={() => {
-                                  setActiveTab("membros");
-                                  setViewingMember(member);
-                                }}
-                                onDelete={() => handleDelete(member, "members")}
-                                isDark={isDarkMode}
-                                isAdmin={isAdmin}
-                                logAction={logAction}
-                              />
-                            ))
-                          ) : (
-                            <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Others in Sidebar 3 */}
                   {(() => {
-                    const standardMembers = members.filter(m => {
-                      const hasSpecificRole = (m.ministries || []).some((min: any) => {
-                         const n = typeof min === 'string' ? min : min.name;
-                         return n !== 'Membro' && n !== 'Visitante' && allRoles.includes(n);
-                      }) || (m.role && m.role !== 'Membro' && m.role !== 'Visitante' && allRoles.includes(m.role));
-                      const isVisitor = (m.role === "Visitante" || (m.ministries || []).some((min: any) => (typeof min === 'string' ? min : min.name) === "Visitante"));
-                      return !hasSpecificRole && !isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
+                    const getPrimaryRole = (m: any) => {
+                      const leaderRoles = (m.ministries || []).filter((min: any) => typeof min === 'object' && min.isLeader).map((min: any) => min.name);
+                      if (leaderRoles.length > 0) {
+                        for (const role of allRoles) {
+                          if (leaderRoles.includes(role)) return role;
+                        }
+                      }
+                      const memberRoles = (m.ministries || []).map((min: any) => typeof min === 'string' ? min : min.name);
+                      if (m.role) memberRoles.push(m.role);
+                      for (const role of allRoles) {
+                        if (memberRoles.includes(role)) return role;
+                      }
+                      return m.role === "Visitante" ? "Visitante" : "Membro";
+                    };
+
+                    const groupedMembers = new Map<string, any[]>();
+                    members.forEach(m => {
+                      const pr = getPrimaryRole(m);
+                      if (!groupedMembers.has(pr)) groupedMembers.set(pr, []);
+                      if (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase())) {
+                        groupedMembers.get(pr)!.push(m);
+                      }
                     });
-                    if (standardMembers.length === 0) return null;
+
                     return (
-                      <div className="space-y-3">
-                        <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
-                          <div className="w-1 h-2 bg-gray-600 rounded-full" />
-                          Membros
-                        </h5>
-                        <div className="space-y-4">
-                          {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map((member, i) => (
-                            <TeamMember 
-                              key={`sidebar-standard-${member.id || i}`} 
-                              member={member}
-                              active={member.email === user?.email}
-                              onWhatsApp={() => openWhatsApp(member)}
-                              onViewProfile={() => {
-                                setActiveTab("membros");
-                                setViewingMember(member);
-                              }}
-                              onDelete={() => handleDelete(member.id, "members")}
-                              isDark={isDarkMode}
-                              isAdmin={isAdmin}
-                              logAction={logAction}
-                            />
-                          ))}
-                        </div>
-                      </div>
+                      <>
+                        {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
+                          const roleMembers = groupedMembers.get(role) || [];
+                          if (roleMembers.length === 0 && rightSidebarSearch) return null;
+                          return (
+                            <div key={`role-group-${role}`} className="space-y-3">
+                              <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
+                                <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
+                                {role === "Administradores" ? "Administrador Master" : role}
+                              </h5>
+                              <div className="space-y-4">
+                                {roleMembers.length > 0 ? (
+                                  roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map((member, i) => (
+                                    <TeamMember 
+                                      key={`role-member-${role}-${member.id || i}`} 
+                                      member={member}
+                                      active={member.email === user?.email}
+                                      onWhatsApp={() => openWhatsApp(member)}
+                                      onViewProfile={() => {
+                                        setActiveTab("membros");
+                                        setViewingMember(member);
+                                      }}
+                                      onDelete={() => handleDelete(member, "members")}
+                                      isDark={isDarkMode}
+                                      isAdmin={isAdmin}
+                                      logAction={logAction}
+                                    />
+                                  ))
+                                ) : (
+                                  <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        
+                        {/* Others in Sidebar 3 */}
+                        {(() => {
+                          const standardMembers = groupedMembers.get("Membro") || [];
+                          if (standardMembers.length === 0) return null;
+                          return (
+                            <div className="space-y-3">
+                              <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
+                                <div className="w-1 h-2 bg-gray-600 rounded-full" />
+                                Membros
+                              </h5>
+                              <div className="space-y-4">
+                                {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map((member, i) => (
+                                  <TeamMember 
+                                    key={`sidebar-standard-${member.id || i}`} 
+                                    member={member}
+                                    active={member.email === user?.email}
+                                    onWhatsApp={() => openWhatsApp(member)}
+                                    onViewProfile={() => {
+                                      setActiveTab("membros");
+                                      setViewingMember(member);
+                                    }}
+                                    onDelete={() => handleDelete(member.id, "members")}
+                                    isDark={isDarkMode}
+                                    isAdmin={isAdmin}
+                                    logAction={logAction}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </>
                     );
                   })()}
 
