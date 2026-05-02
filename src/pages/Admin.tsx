@@ -3166,23 +3166,132 @@ const Admin = () => {
                   <span className="text-[10px] font-bold uppercase">Menu</span>
                 </SheetTrigger>
                 <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
-                  <div className="flex items-center justify-between px-2 mb-2">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Aparência do Tema</p>
-                    <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-full">
-                      <button 
-                        onClick={() => setIsDarkMode(false)}
-                        className={cn("p-2 rounded-full transition-all", !isDarkMode ? "bg-white text-[#BF76FF] shadow-sm" : "text-gray-500")}
-                      >
-                        <Sun className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => setIsDarkMode(true)}
-                        className={cn("p-2 rounded-full transition-all", isDarkMode ? "bg-[#1a1a1a] text-[#BF76FF] shadow-inner" : "text-gray-500")}
-                      >
-                        <Moon className="w-4 h-4" />
-                      </button>
+                  {/* Profile Section inside Mobile Menu */}
+                  <div className="flex items-center gap-4 p-4 border rounded-2xl bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5">
+                    <div className="relative group">
+                      <div className="w-[52px] h-[52px] rounded-full overflow-hidden border-[3px] border-[#BF76FF]/30 object-cover flex items-center justify-center shrink-0">
+                        {profile?.photoURL ? (
+                          <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <User className="w-8 h-8 text-gray-400" />
+                        )}
+                      </div>
+                      <div className={cn(
+                        "absolute bottom-0 right-1 w-4 h-4 rounded-full border-[3px] z-10 transition-colors duration-300 shadow-sm",
+                        isDarkMode ? "border-[#0f0f0f]" : "border-white",
+                        profile?.status_online === 'busy' ? "bg-red-500" :
+                        profile?.status_online === 'away' ? "bg-amber-500" :
+                        "bg-green-500"
+                      )} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={cn("font-black tracking-tighter text-lg leading-tight truncate", isDarkMode ? "text-white" : "text-black")}>
+                        {profile?.name || "Usuário"}
+                      </p>
+                      <p className="text-xs text-gray-500 font-medium truncate">
+                        {profile?.role || "Membro"}
+                      </p>
                     </div>
                   </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">Seu Status</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <button 
+                          onClick={async () => {
+                            if (!user) return;
+                            const newProfile = { ...profile, status_online: 'online' };
+                            setProfile(newProfile);
+                            await updateDoc(doc(db, "members", user.uid), { status_online: 'online' });
+                          }}
+                          className={cn(
+                            "flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all text-left", 
+                            (!profile?.status_online || profile?.status_online === 'online') 
+                              ? "bg-green-500/10 border-green-500/30 text-green-500" 
+                              : isDarkMode ? "bg-white/5 border-white/5 text-gray-400" : "bg-black/5 border-black/5 text-gray-600"
+                          )}
+                        >
+                          <div className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0"></div>
+                          <span className="text-[10px] font-bold">Online</span>
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (!user) return;
+                            const newProfile = { ...profile, status_online: 'busy' };
+                            setProfile(newProfile);
+                            await updateDoc(doc(db, "members", user.uid), { status_online: 'busy' });
+                          }}
+                          className={cn(
+                            "flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all text-left", 
+                            profile?.status_online === 'busy' 
+                              ? "bg-red-500/10 border-red-500/30 text-red-500" 
+                              : isDarkMode ? "bg-white/5 border-white/5 text-gray-400" : "bg-black/5 border-black/5 text-gray-600"
+                          )}
+                        >
+                          <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></div>
+                          <span className="text-[10px] font-bold">Ocupado</span>
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (!user) return;
+                            const newProfile = { ...profile, status_online: 'away' };
+                            setProfile(newProfile);
+                            await updateDoc(doc(db, "members", user.uid), { status_online: 'away' });
+                          }}
+                          className={cn(
+                            "flex flex-col items-center justify-center gap-1.5 p-3 rounded-xl border transition-all text-left", 
+                            profile?.status_online === 'away' 
+                              ? "bg-amber-500/10 border-amber-500/30 text-amber-500" 
+                              : isDarkMode ? "bg-white/5 border-white/5 text-gray-400" : "bg-black/5 border-black/5 text-gray-600"
+                          )}
+                        >
+                          <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></div>
+                          <span className="text-[10px] font-bold">Ausente</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between px-2 mb-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Aparência do Tema</p>
+                      <div className="flex items-center gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-full">
+                        <button 
+                          onClick={() => setIsDarkMode(false)}
+                          className={cn("p-2 rounded-full transition-all", !isDarkMode ? "bg-white text-[#BF76FF] shadow-sm" : "text-gray-500")}
+                        >
+                          <Sun className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setIsDarkMode(true)}
+                          className={cn("p-2 rounded-full transition-all", isDarkMode ? "bg-[#1a1a1a] text-[#BF76FF] shadow-inner" : "text-gray-500")}
+                        >
+                          <Moon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mb-2">
+                    <SheetClose
+                      className={cn(
+                        "flex flex-col items-center justify-center gap-2 p-3 rounded-[20px] transition-all border outline-none",
+                        isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-white border-black/10 text-black shadow-sm"
+                      )}
+                      onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}
+                    >
+                      <User className="w-5 h-5 text-gray-400" />
+                      <span className="font-bold text-[10px] uppercase">Meu Perfil</span>
+                    </SheetClose>
+                    <button
+                      className="flex flex-col items-center justify-center gap-2 p-3 rounded-[20px] transition-all border outline-none bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20"
+                      onClick={handleLogoutAction}
+                    >
+                      <LogOut className="w-5 h-5" />
+                      <span className="font-bold text-[10px] uppercase">Encerrar Sessão</span>
+                    </button>
+                  </div>
+                  
+                  <div className="h-[1px] w-full bg-black/5 dark:bg-white/5"></div>
 
                   <div className="space-y-6">
                     {/* Search Field inside Menu (Always Visible) */}
@@ -3279,6 +3388,83 @@ const Admin = () => {
 
         {/* Main Content Area */}
         <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-roxo-bg" : "bg-gray-50")}>
+          {/* Mobile Header */}
+          <header className={cn("md:hidden flex h-16 px-6 items-center justify-end border-b transition-colors shrink-0 z-10", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="focus:outline-none">
+                <div className="relative group p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer">
+                  <Bell className={cn("w-[24px] h-[24px] transition-colors", isDarkMode ? "text-gray-500" : "text-gray-400")} />
+                  {displayNotifications.some(n => !n.read) && (
+                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0a0a0a]" />
+                  )}
+                </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className={cn("w-[320px] rounded-[24px] p-0 border shadow-2xl mt-4 overflow-hidden", isDarkMode ? "bg-roxo-bg border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+                <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-black uppercase tracking-tighter text-base">Notificações</h3>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={handleMarkAllAsRead}
+                      className="p-2 rounded-lg text-gray-500 hover:text-[#BF76FF] transition-all"
+                    >
+                      <CheckCheck className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={handleClearNotifications}
+                      className="p-2 rounded-lg text-gray-500 hover:text-red-500 transition-all font-bold text-[10px] uppercase tracking-widest"
+                    >
+                      Limpar
+                    </button>
+                  </div>
+                </div>
+                <ScrollArea className="max-h-[300px]">
+                  <div className="p-2">
+                    {displayNotifications.length > 0 ? (
+                      displayNotifications.map((n) => (
+                        <div 
+                          key={n.id} 
+                          className={cn(
+                            "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent flex gap-3 group",
+                            !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600")
+                          )}
+                        >
+                          <div className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                            n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
+                            n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
+                            'bg-green-500/20 text-green-500'
+                          )}>
+                            {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
+                             n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
+                             <Bell className="w-4 h-4" />
+                            }
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold leading-tight line-clamp-2">{n.title}</p>
+                            <p className="text-xs opacity-70 mt-1 line-clamp-3">{n.message}</p>
+                            <p className="text-[10px] font-medium opacity-40 mt-1">
+                              {n.timestamp?.toDate ? format(n.timestamp.toDate(), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'Agora'}
+                            </p>
+                          </div>
+                          {!n.read && (
+                            <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="py-8 flex flex-col items-center justify-center text-center opacity-40">
+                        <Bell className="w-8 h-8 mb-2" />
+                        <p className="text-xs font-bold uppercase tracking-widest">Sem notificações</p>
+                      </div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </header>
+
           {/* Desktop Header */}
           <header className={cn("hidden md:flex h-[90px] px-8 items-center justify-between border-b transition-colors shrink-0", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
             <div className="flex items-center gap-4">
