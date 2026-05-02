@@ -1172,6 +1172,18 @@ const Admin = () => {
         createdAt: serverTimestamp()
       });
       
+      // Gatilho: Push Notification para o chat
+      fetch("/services/push/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: "💬 Nova Mensagem",
+          message: `${profile.name || user?.displayName || 'Alguém'}: ${msgText}`,
+          target: "specific",
+          userIds: [activeChatUser.id]
+        })
+      }).catch(e => console.error("Erro ao enviar push:", e));
+      
     } catch (err) {
       console.error("Erro ao enviar mensagem", err);
     }
@@ -4970,7 +4982,6 @@ const Admin = () => {
                                     onClick={() => {
                                       if (selectedItem) {
                                         handleDelete(selectedItem, "agenda-direcao");
-                                        setIsEditing(false);
                                       }
                                     }}
                                   >
@@ -5031,8 +5042,11 @@ const Admin = () => {
                         onClick={() => {
                           const col = selectedItem.type === 'post' ? 'posts' : 
                                       selectedItem.type === 'agenda' ? 'agenda' :
+                                      selectedItem.type === 'agenda-direcao' ? 'agenda-direcao' :
                                       activeTab === "eventos" ? "posts" : 
-                                      activeTab === "membros" ? "members" : "agenda";
+                                      activeTab === "membros" ? "members" : 
+                                      activeTab === "agenda-direcao" ? "agenda-direcao" :
+                                      "agenda";
                           handleDelete(selectedItem, col);
                         }}
                       >
@@ -6074,7 +6088,7 @@ const Admin = () => {
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile/tablets, only permanent on XL) */}
       <aside className={cn(
-        "fixed top-0 bottom-0 right-0 z-[40] w-full xl:w-80 border-l flex-col overflow-hidden transition-all duration-300 xl:relative xl:flex",
+        "fixed top-0 bottom-0 right-0 z-[40] w-full xl:w-80 border-l flex-col overflow-hidden transition-all duration-300 xl:relative xl:flex pb-20 md:pb-0",
         rightSidebarView !== "hidden" ? "translate-x-0 flex" : "translate-x-full xl:translate-x-0 hidden xl:flex",
         isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
