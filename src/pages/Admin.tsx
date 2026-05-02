@@ -1725,6 +1725,12 @@ const Admin = () => {
     if (currentRole === "Direção") {
       return tab === "agenda-direcao" || tab === "chat";
     }
+    
+    // Strict restriction for Mídia profile regarding agenda-direcao
+    if (tab === "agenda-direcao" && currentRole === "Mídia") {
+      const isMidiaLeader = profile?.ministries?.some((m: any) => typeof m === 'object' && m.name === 'Mídia' && m.isLeader);
+      if (!isMidiaLeader) return false;
+    }
 
     if (isEffectivelyAdmin) return true;
     const rolePerms = settings.permissions?.[currentRole];
