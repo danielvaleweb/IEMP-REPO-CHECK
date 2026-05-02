@@ -17,6 +17,12 @@ service cloud.firestore {
         : 'member';
     }
 
+    function isLeader() {
+      return exists(/databases/$(database)/documents/members/$(request.auth.uid)) 
+        ? get(/databases/$(database)/documents/members/$(request.auth.uid)).data.isLeader == true
+        : false;
+    }
+
     function isAdmin() {
       return isSignedIn() && (
         isMasterAdmin() || 
@@ -166,7 +172,7 @@ service cloud.firestore {
     }
 
     match /agenda-direcao/{eventId} {
-      allow read, write: if isMasterAdmin() || isAdmin() || getRole() == 'Secretaria' || getRole() == 'Secretário';
+      allow read, write: if isMasterAdmin() || isAdmin() || getRole() == 'Secretaria' || getRole() == 'Secretário' || (getRole() == 'Mídia' && isLeader());
     }
 
     match /playlists/{playlistId} {

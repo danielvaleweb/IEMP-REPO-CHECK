@@ -1737,7 +1737,8 @@ const Admin = () => {
       } else if (item.id === "avisos") {
         defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(currentRole);
       } else if (item.id === "agenda-direcao") {
-        defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(currentRole) || currentRole.includes("Secretaria");
+        const isMidiaLeader = currentRole === "Mídia" && profile?.ministries?.some((m: any) => typeof m === 'object' && m.name === 'Mídia' && m.isLeader);
+        defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(currentRole) || currentRole.includes("Secretaria") || Boolean(isMidiaLeader);
       } else {
         defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(currentRole);
       }
@@ -5696,7 +5697,7 @@ const Admin = () => {
                                       } else if (item.id === "avisos") {
                                         defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(role);
                                       } else if (item.id === "agenda-direcao") {
-                                        defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(role);
+                                        defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(role) || role.includes("Secretaria") || role === "Mídia"; // Permissão para líderes de mídia é gerenciada no nível do usuário
                                       } else {
                                         defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(role);
                                       }
