@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn, getImageUrl } from "@/lib/utils";
 
 export function EventosView({ 
   events, 
@@ -37,12 +38,14 @@ export function EventosView({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>{title}</h2>
         {canEdit && (
-          <Button 
-            className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer"
-            onClick={onNewEvent}
-          >
-            <ButtonIcon className="w-4 h-4 mr-2" /> {buttonLabel}
-          </Button>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <Button 
+              className="flex-1 sm:flex-initial bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer"
+              onClick={onNewEvent}
+            >
+              <ButtonIcon className="w-4 h-4 mr-2" /> {buttonLabel}
+            </Button>
+          </div>
         )}
       </div>
 
@@ -51,7 +54,7 @@ export function EventosView({
           <div key={event.id} className={cn("rounded-[32px] overflow-hidden border group relative aspect-[9/13] flex flex-col transition-all", isDark ? "bg-[#1A1A1A] border-white/5" : "bg-white border-black/5 shadow-md hover:shadow-xl")}>
             <div className="absolute inset-0 z-0 text-white">
               <img 
-                src={event.image || "https://picsum.photos/seed/evento/400/700"} 
+                src={getImageUrl(event.image || "https://picsum.photos/seed/evento/400/700")} 
                 alt={event.title} 
                 className={cn("w-full h-full object-cover transition-all duration-700 opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110")}
               />
@@ -61,30 +64,35 @@ export function EventosView({
             <div className="relative z-10 p-5 flex flex-col h-full justify-end">
               <div className="absolute top-4 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 text-white">
                 <button 
-                  onClick={() => onViewEvent(event)} 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewEvent(event);
+                  }} 
                   title="Visualizar"
-                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:bg-transparent hover:text-[#BF76FF] transition-colors p-0"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:bg-transparent hover:text-[#BF76FF] transition-colors p-0 hover:scale-110"
                 >
                   <Eye className="w-5 h-5" />
                 </button>
                 {canEdit && (
                   <button 
-                    onClick={() => onEditEvent(event)} 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditEvent(event);
+                    }} 
                     title="Editar"
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:bg-transparent hover:text-[#BF76FF] transition-colors p-0"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:bg-transparent hover:text-[#BF76FF] transition-colors p-0 hover:scale-110"
                   >
                     <Edit className="w-5 h-5" />
                   </button>
                 )}
                 {canDelete && (
                   <button 
-                    onClick={() => {
-                      if (window.confirm("Deseja realmente excluir este evento?")) {
-                        onDeleteEvent(event);
-                      }
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteEvent(event);
                     }} 
                     title="Excluir"
-                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:bg-transparent hover:text-red-500 transition-colors p-0"
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white hover:bg-transparent hover:text-red-500 transition-colors p-0 hover:scale-110"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -112,8 +120,4 @@ export function EventosView({
       </div>
     </div>
   );
-}
-
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(" ");
 }

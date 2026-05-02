@@ -195,8 +195,8 @@ export default function Home() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const cacheKey = "cachedEvents";
-        const cacheTimeKey = "cachedEventsTime";
+        const cacheKey = "cachedEvents_v2";
+        const cacheTimeKey = "cachedEventsTime_v2";
         const cached = localStorage.getItem(cacheKey);
         const cacheTime = localStorage.getItem(cacheTimeKey);
 
@@ -250,6 +250,18 @@ export default function Home() {
                 }
                 if (!isNaN(day) && !isNaN(month)) {
                    eventDate = new Date(year, month, day);
+                   
+                   // Try extracting time if present
+                   if (data.date && data.date.includes('T')) {
+                     const timeStr = data.date.split('T')[1];
+                     if (timeStr) {
+                       const timeParts = timeStr.split(':');
+                       if (timeParts.length >= 2) {
+                         eventDate.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]));
+                       }
+                     }
+                   }
+
                    const yy = year.toString().slice(-2);
                    const dd = day.toString().padStart(2, '0');
                    const mm = (month + 1).toString().padStart(2, '0');
@@ -270,7 +282,8 @@ export default function Home() {
               invitedMembers: data.invitedMembers || [],
               neighborhood: data.neighborhood || "",
               rating: "5.0", // Fixed rating instead of random to look more professional
-              gallery: data.gallery || []
+              gallery: data.gallery || [],
+              typeEvent: data.typeEvent || "evento"
             };
           }).filter(e => e.title && e.title.trim() !== "");
 
@@ -279,14 +292,24 @@ export default function Home() {
         }
 
         const now = new Date();
-        now.setHours(0, 0, 0, 0); // Start of today
+        const nowMidnight = new Date();
+        nowMidnight.setHours(0, 0, 0, 0);
 
         const upcoming = allEvents
-          .filter((e: any) => e.fullDate >= now)
+          .filter((e: any) => {
+            if (e.typeEvent === 'culto') return false;
+            const eDate = new Date(e.fullDate);
+            eDate.setHours(0,0,0,0);
+            return eDate.getTime() >= nowMidnight.getTime();
+          })
           .sort((a: any, b: any) => a.fullDate.getTime() - b.fullDate.getTime());
         
         const past = allEvents
-          .filter((e: any) => e.fullDate < now)
+          .filter((e: any) => {
+            const eDate = new Date(e.fullDate);
+            eDate.setHours(0,0,0,0);
+            return eDate.getTime() <= nowMidnight.getTime();
+          })
           .sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
         setUpcomingEvents(upcoming);
@@ -710,7 +733,7 @@ export default function Home() {
               <div className="w-1 h-8 bg-red-500 rounded-full" />
               <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Clicks Recentes</h2>
             </div>
-            <Link to="/eventos" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
+            <Link to="/galeria" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
               Ver Galeria <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </Link>
           </div>
@@ -729,7 +752,7 @@ export default function Home() {
                       item={event}
                       type="event"
                       idx={idx}
-                      onClick={() => navigate(`/evento/${event.id}#galeria`)}
+                      onClick={() => navigate('/galeria', { state: { selectedAlbumId: event.id } })}
                       onAddToList={handleToggleMyList}
                       onFavorite={handleToggleFavorite}
                       onShowSimilar={handleShowSimilar}
@@ -741,7 +764,7 @@ export default function Home() {
                   </div>
                 ))}
                 {/* Mobile View All Card */}
-                <div className="w-[85vw] sm:w-[45vw] md:hidden shrink-0 snap-center aspect-[16/9] bg-white/5 hover:bg-white/10 border border-white/10 rounded-md flex flex-col items-center justify-center cursor-pointer transition-colors" onClick={() => navigate('/eventos')}>
+                <div className="w-[85vw] sm:w-[45vw] md:hidden shrink-0 snap-center aspect-[16/9] bg-white/5 hover:bg-white/10 border border-white/10 rounded-md flex flex-col items-center justify-center cursor-pointer transition-colors" onClick={() => navigate('/galeria')}>
                   <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
                      <ArrowRight className="w-6 h-6 text-red-500" />
                   </div>
@@ -754,26 +777,28 @@ export default function Home() {
       </div>
 
       {/* Eventos Section - Movie Style */}
+      {(upcomingEvents.filter(e => e.typeEvent !== 'culto').length > 0 || pastEvents.filter(e => e.typeEvent !== 'culto').length > 0) && (
       <section className="py-24 px-4 md:px-12 bg-[#F8F9FB] rounded-t-[3.5rem] text-black relative z-10 -mt-10">
         <div className="max-w-[1400px] mx-auto">
           
           {/* Upcoming Events Carousel/Banner */}
-          {(upcomingEvents.length > 0 || pastEvents.length > 0) && (
-            <div className="mb-20">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-1 h-8 bg-primary rounded-full" />
-                <h2 className="text-3xl md:text-4xl tracking-tighter text-gray-900 font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">
-                   <span className="font-light">Eventos</span>
-                </h2>
-              </div>
-              
-              <div className="relative h-[450px] md:h-[550px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl bg-gray-100">
-                <AnimatePresence mode="wait">
-                  {(() => {
-                    const allEventsSorted = [...upcomingEvents, ...pastEvents];
-                    const currentEvent = allEventsSorted[currentEventIndex % allEventsSorted.length];
-                    if (!currentEvent) return null;
-                    const isPast = currentEvent.fullDate < new Date().setHours(0,0,0,0);
+          <div className="mb-20">
+            <div className="flex items-center gap-3 mb-8">
+              <div className="w-1 h-8 bg-primary rounded-full" />
+              <h2 className="text-3xl md:text-4xl tracking-tighter text-gray-900 font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">
+                 <span className="font-light">Eventos</span>
+              </h2>
+            </div>
+            
+            <div className="relative h-[450px] md:h-[550px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl bg-gray-100">
+              <AnimatePresence mode="wait">
+                {(() => {
+                  const filteredPastEvents = pastEvents.filter(e => e.typeEvent !== 'culto');
+                  const filteredUpcomingEvents = upcomingEvents.filter(e => e.typeEvent !== 'culto');
+                  const allEventsSorted = [...filteredUpcomingEvents, ...filteredPastEvents];
+                  const currentEvent = allEventsSorted[currentEventIndex % allEventsSorted.length];
+                  if (!currentEvent) return null;
+                  const isPast = currentEvent.fullDate < new Date().setHours(0,0,0,0);
 
                     return (
                       <motion.div
@@ -831,7 +856,7 @@ export default function Home() {
                                     // Flash effect before navigating
                                     setTimeout(() => {
                                       setIsFlashing(false);
-                                      navigate(`/evento/${currentEvent.id}#galeria`);
+                                      navigate('/galeria', { state: { selectedAlbumId: currentEvent.id } });
                                     }, 300);
                                   }}
                                   className="bg-black text-white hover:bg-neutral-900 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-xl border border-white/10"
@@ -868,7 +893,6 @@ export default function Home() {
                 </AnimatePresence>
               </div>
             </div>
-          )}
 
           {/* Past Events Grid */}
           <div className="mb-20">
@@ -879,13 +903,13 @@ export default function Home() {
                   <span className="font-light">Últimos</span> <span className="font-bold">eventos</span>
                 </h2>
               </div>
-              <Link to="/eventos" className="text-xs font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4 transition-all">
+              <Link to="/galeria" className="text-xs font-black text-primary uppercase tracking-widest hover:underline decoration-2 underline-offset-4 transition-all">
                 Ver Galeria Completa
               </Link>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 overflow-visible">
-              {(pastEvents.length > 0 ? pastEvents : []).slice(0, 4).map((event, idx) => (
+              {(pastEvents.length > 0 ? pastEvents : []).filter(e => e.typeEvent !== 'culto').slice(0, 4).map((event, idx) => (
                 <MovieCard 
                   key={`past-event-${event.id}-${idx}`}
                   item={event}
@@ -904,7 +928,7 @@ export default function Home() {
           </div>
 
           {/* Vem aí Section */}
-          {upcomingEvents.length > 0 && (
+          {upcomingEvents.filter(e => e.typeEvent !== 'culto').length > 0 && (
             <div className="mb-20">
               <div className="flex items-center gap-3 mb-10">
                 <div className="w-1 h-8 bg-primary rounded-full" />
@@ -914,7 +938,7 @@ export default function Home() {
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 overflow-visible">
-                {upcomingEvents.slice(0, 4).map((event, idx) => (
+                {upcomingEvents.filter(e => e.typeEvent !== 'culto').slice(0, 4).map((event, idx) => (
                   <MovieCard 
                     key={`upcoming-event-${event.id}-${idx}`}
                     item={event}
@@ -935,6 +959,7 @@ export default function Home() {
 
         </div>
       </section>
+      )}
 
       {/* Blog/Notícias Section - Estilo Portal de Notícias (Mosaico) */}
       <section className="py-24 px-4 md:px-12 bg-white text-black relative hover:z-[70] transition-[z-index] duration-0">

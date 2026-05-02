@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { Camera, Image as ImageIcon, Calendar, ArrowRight, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,6 +16,9 @@ interface Album {
 }
 
 export default function Gallery() {
+  const location = useLocation();
+  const stateAlbumId = location.state?.selectedAlbumId;
+
   const [albums, setAlbums] = useState<Album[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
@@ -39,10 +43,17 @@ export default function Gallery() {
       
       setAlbums(fetchedAlbums);
       setLoading(false);
+
+      if (stateAlbumId) {
+        const targetAlbum = fetchedAlbums.find(a => a.id === stateAlbumId);
+        if (targetAlbum) {
+          setSelectedAlbum(targetAlbum);
+        }
+      }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [stateAlbumId]);
 
   const filteredAlbums = albums.filter(album => 
     album.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

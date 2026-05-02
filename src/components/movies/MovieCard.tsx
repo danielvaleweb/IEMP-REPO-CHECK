@@ -74,13 +74,23 @@ export const MovieCard = ({
   }, []);
 
   const isVideo = type === 'video';
-  let displayImage = getImageUrl(item.thumbnail);
+  let displayImage = getImageUrl(item.thumbnail || item.image || item.coverImage);
   
   if (type === 'event') {
     if (useGalleryImage && item.gallery && item.gallery.length > 0) {
-      displayImage = getImageUrl(typeof item.gallery[0] === 'string' ? item.gallery[0] : item.gallery[0].url);
+      const validGalleryImages = item.gallery.filter((g: any) => {
+        if (typeof g === 'string') return g.trim() !== '';
+        if (g && typeof g === 'object') return g.url && g.url.trim() !== '';
+        return false;
+      });
+      
+      if (validGalleryImages.length > 0) {
+        displayImage = getImageUrl(typeof validGalleryImages[0] === 'string' ? validGalleryImages[0] : validGalleryImages[0].url);
+      } else {
+        displayImage = getImageUrl(item.image || item.thumbnail || item.coverImage);
+      }
     } else {
-      displayImage = getImageUrl(item.image);
+      displayImage = getImageUrl(item.image || item.thumbnail || item.coverImage);
     }
   }
 

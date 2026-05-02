@@ -151,6 +151,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Sheet, SheetContent, SheetTrigger, SheetClose, SheetTitle } from "@/components/ui/sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const WhatsAppIcon = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
@@ -958,7 +959,6 @@ const Admin = () => {
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
     { id: 'chat', label: 'Mensagens', icon: MessageSquare },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
-    { id: 'logs', label: 'Audit Logs', icon: ClipboardList },
   ]);
 
   const sensors = useSensors(
@@ -1206,7 +1206,7 @@ const Admin = () => {
   const [showVisitors, setShowVisitors] = useState(false);
   const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-  
+
   // Computed
   const pendingMembers = members.filter(m => m.status === "pending" || m.status === "pending_approval");
   
@@ -1691,7 +1691,7 @@ const Admin = () => {
       "avisos": currentRole === "Administradores" || currentRole === "Desenvolvedor",
       "chat": true, // Todos podem ver o menu de chat
       "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção" || currentRole === "Secretaria"
+      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção" || currentRole === "Secretaria" || currentRole.includes("Secretaria")
     };
 
     if (!rolePerms) {
@@ -1786,7 +1786,7 @@ const Admin = () => {
       setAgenda(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading agenda:", err));
 
-    const unsubAgendaDirecao = isAdmin ? onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc"), limit(200)), (snap) => {
+    const unsubAgendaDirecao = (isAdmin || (profile?.role && profile.role.includes("Secretaria"))) ? onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc"), limit(200)), (snap) => {
       setAgendaDirecao(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading agenda-direcao:", err)) : () => {};
 
@@ -2264,22 +2264,27 @@ const Admin = () => {
   };
 
   const handleDelete = (item: any, collectionOverride?: string) => {
-    const id = typeof item === 'string' ? item : item.id;
+    if (!item) return;
+    const id = typeof item === 'string' ? item : (item.id || item.uid);
     const itemData = typeof item === 'object' ? item : null;
     const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : "radio-playlist") : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
+    
+    if (!id) {
+      console.error('Tentativa de excluir item sem ID:', item);
+      return;
+    }
+
     setDeleteConfirm({ id, collection: colName, item: itemData });
   };
 
   const executeDelete = async () => {
     if (!deleteConfirm) return;
+    const { id, collection: col, item: itemToDelete } = deleteConfirm;
+
     try {
-      console.log('Excluindo item:', deleteConfirm.id, 'da coleção:', deleteConfirm.collection);
-      
-      // Get item details for logging before deleting
-      const itemToDelete = deleteConfirm.item || null;
-      
-      await deleteDoc(doc(db, deleteConfirm.collection, deleteConfirm.id));
-      logAction("excluir", deleteConfirm.collection, `Excluiu item: ${itemToDelete?.title || itemToDelete?.name || deleteConfirm.id}`, itemToDelete, null);
+      setIsSubmitting(true);
+      await deleteDoc(doc(db, col, id));
+      logAction("excluir", col, `Excluiu item: ${itemToDelete?.title || itemToDelete?.name || id}`, itemToDelete, null);
       
       setSelectedItem(null);
       setIsEditing(false);
@@ -2288,6 +2293,8 @@ const Admin = () => {
       console.error('Erro ao excluir:', err);
       handleFirestoreError(err, OperationType.DELETE, activeTab);
       setDeleteConfirm(null);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -3057,8 +3064,11 @@ const Admin = () => {
               </DndContext>
             </div>
 
-            {/* Bottom items (Desktop) - "Sair" and "Configurações" removed as requested */}
+            {/* Bottom items (Desktop) */}
             <div className="hidden md:flex flex-col gap-1.5 w-full mt-auto pt-4 border-t border-white/5">
+              {canViewLogs && (
+                <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => { setActiveTab("logs"); setRightSidebarView("hidden"); }} label="Audit Logs" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
+              )}
             </div>
 
             {/* Mobile Bottom Bar Items */}
@@ -3206,207 +3216,70 @@ const Admin = () => {
 
       {/* Main Content Area */}
       <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-[#0a0a0a]" : "bg-gray-50")}>
-        {/* Main Header */}
-        <header className={cn(
-          "h-14 md:h-20 border-b flex items-center transition-all duration-500 z-50 sticky top-0 shadow-sm",
-          isDarkMode ? "border-white/5 bg-[#0a0a0a]/80 backdrop-blur-xl" : "border-black/5 bg-white/80 backdrop-blur-xl"
-        )}>
-          <div className="flex items-center gap-2 px-4 md:px-8 shrink-0">
-            {isEditing ? (
-              <button 
-                className={cn("p-1.5 rounded-lg transition-colors cursor-pointer md:hidden", isDarkMode ? "bg-white/5 text-white" : "bg-black/5 text-black")}
-                onClick={() => setIsEditing(false)}
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            ) : (
-              <div className="md:hidden flex items-center gap-4">
-                <div className="flex flex-col items-start leading-none gap-0 ml-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className={cn("font-black text-[13px] tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Ministerio</span>
-                    <span className={cn("font-light text-[13px] tracking-tight uppercase", isDarkMode ? "text-white/80" : "text-gray-600")}>Profecia</span>
-                  </div>
-                  <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
-                </div>
-              </div>
+        {/* Desktop Header */}
+        <header className={cn("hidden md:flex h-[90px] px-8 items-center justify-between border-b transition-colors shrink-0", isDarkMode ? "bg-[#0a0a0a] border-white/5" : "bg-white border-black/5")}>
+          <div className="flex items-center gap-4">
+            {/* The title has been removed as requested */}
+          </div>
+          <div className="flex items-center gap-6">
+            {canViewSettings && (
+              <Button variant="ghost" size="icon" onClick={() => setActiveTab("config")} className={cn("rounded-full w-12 h-12", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}>
+                <Settings className="w-7 h-7" />
+              </Button>
             )}
-          </div>
-          
-          <div className="flex-1 flex md:hidden items-center justify-end px-4 gap-2">
-             <Dialog>
-                <DialogTrigger className={cn("p-2 rounded-full transition-colors cursor-pointer outline-none", isDarkMode ? "text-gray-400 hover:bg-white/5" : "text-gray-500 hover:bg-black/5")}>
-                   <Search className="w-5 h-5" />
-                </DialogTrigger>
-                <DialogContent className={cn("border-none", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
-                   <DialogHeader>
-                      <DialogTitle className="text-xl font-black uppercase tracking-tighter">Pesquisar no Painel</DialogTitle>
-                   </DialogHeader>
-                   <div className="py-4">
-                      <div className="relative">
-                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                         <Input 
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Buscar membros, eventos, músicas..."
-                            className={cn("h-14 pl-12 rounded-2xl border transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                         />
-                      </div>
-                      <div className="mt-4 max-h-[300px] overflow-y-auto">
-                        {globalSearchResults.map((res, i) => (
-                          <button
-                            key={`search-res-overlay-${res.type}-${i}-${res.item?.id || 'no-id'}`}
-                            onClick={() => {
-                              if (res.type === 'membros') setViewingMember(res.item);
-                              setSelectedItem(res.item);
-                              setFormData({ ...res.item });
-                              setActiveTab(res.type);
-                              setIsEditing(!(res.type === 'membros' || res.type === 'agenda' || res.type === 'agenda-direcao'));
-                              setSearchQuery("");
-                            }}
-                            className={cn("w-full text-left p-3 rounded-xl flex items-center gap-3 transition-colors", isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5")}
-                          >
-                             <div className="w-10 h-10 rounded-lg bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
-                                {res.type === 'membros' ? <Users className="w-5 h-5 text-[#BF76FF]" /> : <Calendar className="w-5 h-5 text-[#BF76FF]" />}
-                             </div>
-                             <div className="flex flex-col min-w-0">
-                                <span className="text-sm font-bold truncate">{res.title}</span>
-                                <span className="text-[10px] uppercase font-bold text-gray-500">{res.type}</span>
-                             </div>
-                          </button>
-                        ))}
-                      </div>
-                   </div>
-                </DialogContent>
-             </Dialog>
-             <Sheet>
-               <SheetTrigger className={cn("p-2 rounded-full transition-colors cursor-pointer outline-none", isDarkMode ? "text-gray-400 hover:bg-white/5" : "text-gray-500 hover:bg-black/5")}>
-                  <Menu className="w-6 h-6" />
-               </SheetTrigger>
-               <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
-                   <SheetTitle className="sr-only">Menu Mobile do Dashboard</SheetTitle>
-                   <div className="flex items-center justify-between px-2 mb-2">
-                     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Painel Administrativo</p>
-                   </div>
-                   <div className="grid grid-cols-2 gap-3">
-                      <Button onClick={() => setActiveTab("visao-geral")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
-                        <Home className="w-6 h-6" /> <span className="text-[10px] font-bold">Início</span>
-                      </Button>
-                      <Button onClick={() => setActiveTab("membros")} variant="ghost" className="h-20 flex flex-col items-center justify-center gap-2 rounded-[24px] border border-white/5">
-                        <Users className="w-6 h-6" /> <span className="text-[10px] font-bold">Membros</span>
-                      </Button>
-                   </div>
-               </SheetContent>
-             </Sheet>
-          </div>
-
-          <div className="hidden md:flex flex-[2] justify-center relative">
-            {/* Campo de pesquisa removido conforme solicitado */}
-          </div>
-          
-          <div className="flex items-center gap-2 md:gap-4 pl-0 pr-2 md:px-8 md:flex-1 justify-end relative ml-auto">
-            {/* Menu superior com ícones removido conforme solicitado para simplificar o cabeçalho */}
-
-            <div className={cn("flex items-center gap-3 pl-2 md:pl-4 md:border-l relative", isDarkMode ? "border-white/10" : "border-black/10")} ref={profileMenuRef}>
-              <div className="text-right hidden md:block">
-                <p className={cn("text-sm font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>{user?.displayName || "Admin"}</p>
-                <p className="text-[10px] text-gray-500 grayscale opacity-70">
-                  {formatRoles(profile || { role: currentRole })}
-                </p>
-              </div>
-              <button 
-                onClick={() => {
-                  setShowProfileMenu(!showProfileMenu);
-                  setShowNotifications(false);
-                }}
-                className="relative group cursor-pointer"
-              >
-                <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] p-0.5 shadow-lg shadow-[#BF76FF]/20 group-hover:scale-105 transition-transform">
-                  <div className={cn("w-full h-full rounded-full flex items-center justify-center overflow-hidden transition-colors relative", isDarkMode ? "bg-[#0a0a0a]" : "bg-white")}>
-                    {user?.photoURL ? (
-                      <img src={getImageUrl(user.photoURL)} alt="" className="w-full h-full object-cover" />
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger className="focus:outline-none">
+                <div className="flex items-center gap-4 pl-6 border-l border-white/10 cursor-pointer group">
+                  <div className="text-right hidden lg:block group-hover:opacity-80 transition-opacity">
+                    <p className={cn("font-black tracking-tighter text-lg leading-tight", isDarkMode ? "text-white" : "text-black")}>
+                      {profile?.name || "Usuário"}
+                    </p>
+                    <p className="text-xs text-gray-400 font-medium">
+                      {profile?.role || "Membro"}
+                    </p>
+                  </div>
+                  <div className="w-[52px] h-[52px] rounded-full overflow-hidden border-[3px] border-[#BF76FF]/30 object-cover flex items-center justify-center shrink-0 relative transition-transform group-hover:scale-105">
+                    {profile?.photoURL ? (
+                      <img src={profile.photoURL} alt={profile.name} className="w-full h-full object-cover" />
                     ) : (
-                      <span className={cn("font-bold text-xs uppercase", isDarkMode ? "text-white" : "text-black")}>
-                        {(user?.displayName || "A")[0]}
-                      </span>
+                      <User className="w-8 h-8 text-gray-400" />
                     )}
+                    <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-[2px] border-[#0a0a0a] rounded-full z-10" />
                   </div>
                 </div>
-                {/* Status indicator */}
-                <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 animate-pulse", isDarkMode ? "border-[#0a0a0a]" : "border-white", getStatusColor(userStatus))} />
-              </button>
-
-              <AnimatePresence>
-                {showProfileMenu && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowProfileMenu(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className={cn(
-                        "fixed top-20 right-4 w-72 max-w-[calc(100vw-32px)] md:absolute md:top-full md:right-0 md:mt-4 md:w-72 rounded-[28px] border shadow-2xl p-3 z-50",
-                        isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5"
-                      )}
-                    >
-                      <div className="space-y-1 p-1">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mb-2">Seu Status</p>
-                        {[
-                          { id: 'online', label: 'Online', color: 'bg-green-500' },
-                          { id: 'ocupado', label: 'Ocupado', color: 'bg-red-500' },
-                          { id: 'ausente', label: 'Ausente', color: 'bg-yellow-500' }
-                        ].map(st => (
-                          <button
-                            key={st.id}
-                            onClick={() => {
-                              updatePresenceStatus(st.id);
-                              setShowProfileMenu(false);
-                            }}
-                            className={cn(
-                              "w-full flex items-center justify-between p-2.5 rounded-xl transition-all",
-                              userStatus === st.id ? "bg-[#BF76FF]/10 text-[#BF76FF]" : isDarkMode ? "text-gray-400 hover:bg-white/5" : "text-gray-600 hover:bg-black/5"
-                            )}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className={cn("w-2 h-2 rounded-full", st.color)} />
-                              <span className="text-xs font-bold">{st.label}</span>
-                            </div>
-                            {userStatus === st.id && <CheckCircle2 className="w-3 h-3" />}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="p-1 mt-2 pt-2 border-t border-white/5">
-                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2 mt-4 mb-2">Conta</h4>
-                        <button
-                          onClick={() => {
-                            setActiveTab("membros");
-                            setViewingMember(profile);
-                            setShowProfileMenu(false);
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-3 p-2.5 rounded-xl transition-all",
-                            isDarkMode ? "text-gray-400 hover:bg-white/5" : "text-gray-600 hover:bg-black/5"
-                          )}
-                        >
-                          <Users className="w-4 h-4" />
-                          <span className="text-xs font-bold">Meu Perfil</span>
-                        </button>
-                        <button 
-                          onClick={logout}
-                          className={cn(
-                            "w-full flex items-center gap-3 p-2.5 rounded-xl text-red-500 transition-all",
-                            isDarkMode ? "hover:bg-red-500/10" : "hover:bg-red-50/10"
-                          )}
-                        >
-                          <LogOut className="w-4 h-4" />
-                          <span className="text-xs font-bold">Encerrar Sessão</span>
-                        </button>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[260px] rounded-3xl p-4 border bg-[#111] border-white/5 shadow-2xl mt-2 text-white">
+                <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Seu Status</DropdownMenuLabel>
+                <DropdownMenuItem className="flex items-center justify-between rounded-xl p-3 bg-[#BF76FF]/10 focus:bg-[#BF76FF]/20 cursor-pointer mb-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0"></div>
+                    <span className="font-bold text-[#BF76FF]">Online</span>
+                  </div>
+                  <CheckCircle2 className="w-4 h-4 text-[#BF76FF]" />
+                </DropdownMenuItem>
+                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-red-500 shrink-0"></div>
+                  <span className="font-bold text-gray-300">Ocupado</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></div>
+                  <span className="font-bold text-gray-300">Ausente</span>
+                </DropdownMenuItem>
+                
+                <div className="h-[1px] w-full bg-white/5 my-4"></div>
+                
+                <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Conta</DropdownMenuLabel>
+                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2" onClick={() => { setActiveViewRole(null); setActiveTab("config"); }}>
+                  <User className="w-5 h-5 text-gray-400 shrink-0" />
+                  <span className="font-bold text-gray-300">Meu Perfil</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-red-500/10 cursor-pointer text-red-500 hover:text-red-400 transition-colors" onClick={handleLogoutAction}>
+                  <LogOut className="w-5 h-5 shrink-0" />
+                  <span className="font-bold">Encerrar Sessão</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </header>
 
@@ -4059,16 +3932,39 @@ const Admin = () => {
                               </div>
 
                               {activeTab === "eventos" && (
-                                <div className="space-y-2">
-                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio/Descrição do Evento</label>
-                                  <Textarea 
-                                    className={cn("border min-h-[150px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                                    placeholder="Conte mais sobre o evento..."
-                                    value={formData.content || ""}
-                                    onChange={(e) => setFormData({...formData, content: e.target.value})}
-                                    readOnly={isReadOnly}
-                                  />
-                                </div>
+                                <>
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tipo</label>
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        className={cn("h-14 rounded-2xl transition-all", formData.typeEvent === 'culto' ? "border-[#BF76FF] text-[#BF76FF] bg-[#BF76FF]/10" : "border-white/10 text-gray-400")}
+                                        onClick={() => !isReadOnly && setFormData({...formData, typeEvent: 'culto'})}
+                                      >
+                                        Culto
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        className={cn("h-14 rounded-2xl transition-all", formData.typeEvent !== 'culto' ? "border-[#BF76FF] text-[#BF76FF] bg-[#BF76FF]/10" : "border-white/10 text-gray-400")}
+                                        onClick={() => !isReadOnly && setFormData({...formData, typeEvent: 'evento'})}
+                                      >
+                                        Evento
+                                      </Button>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Bio/Descrição do Evento</label>
+                                    <Textarea 
+                                      className={cn("border min-h-[150px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      placeholder="Conte mais sobre o evento..."
+                                      value={formData.content || ""}
+                                      onChange={(e) => setFormData({...formData, content: e.target.value})}
+                                      readOnly={isReadOnly}
+                                    />
+                                  </div>
+                                </>
                               )}
 
                           <div className="grid grid-cols-1 gap-4">
@@ -4538,6 +4434,20 @@ const Admin = () => {
                                               }
                                             }} 
                                           />
+                                          {formData.image === url && (
+                                            <div className="absolute top-2 left-2 bg-[#BF76FF] text-white text-[10px] font-bold px-2 py-1 rounded shadow-lg uppercase tracking-widest flex items-center gap-1 z-10">
+                                              <ImageIcon className="w-3 h-3" /> Capa
+                                            </div>
+                                          )}
+                                          {!isReadOnly && formData.image !== url && (
+                                            <Button
+                                              type="button"
+                                              onClick={() => setFormData({ ...formData, image: url })}
+                                              className="absolute top-2 right-2 h-8 text-[9px] font-bold uppercase bg-black/50 hover:bg-[#BF76FF] text-white rounded-lg px-3 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-all z-10 flex items-center gap-1"
+                                            >
+                                              <ImageIcon className="w-3 h-3" /> Definir Capa
+                                            </Button>
+                                          )}
                                         </div>
                                       )}
                                     </div>
@@ -4553,12 +4463,12 @@ const Admin = () => {
                               </div>
                             </div>
                           )}
-                            </>
-                          )}
-                        </div>
-                      </>
-                    ))
-                  }
+                        </>
+                      )}
+                    </div>
+                  </>
+                )
+              )}
 
                   {activeTab === "membros" && (
                     <div className="space-y-8">
@@ -5180,33 +5090,8 @@ const Admin = () => {
               />
             ) : activeTab === "visao-geral" ? (
               <div className="space-y-8 md:space-y-12 flex flex-col">
-                {/* Section: Próximos Eventos (Moved Up on Mobile) */}
-                <div className="order-1 md:order-2 space-y-6 md:space-y-8">
-                  <div className="flex items-center justify-between">
-                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Próximos Eventos</h4>
-                  </div>
-                  
-                  <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
-                    <div className="mt-8 flex justify-center md:hidden">
-                      <Button 
-                        variant="ghost" 
-                        className="w-full h-12 rounded-2xl bg-[#BF76FF]/10 text-[#BF76FF] font-bold text-xs uppercase tracking-widest hover:bg-[#BF76FF]/20 cursor-pointer" 
-                        onClick={() => setActiveTab("agenda")}
-                      >
-                        Ver agenda completa
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="hidden md:flex justify-end">
-                    <Button variant="ghost" className="text-xs text-[#BF76FF] hover:underline" onClick={() => setActiveTab("agenda")}>
-                      Ver agenda completa
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Section: Summary Cards (Moved Down on Mobile) */}
-                <div className="order-2 md:order-1 grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-4">
+                {/* Section: Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-4">
                   <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
                     <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
                       <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
@@ -5245,15 +5130,31 @@ const Admin = () => {
                       <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
                     </div>
                   </Card>
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-red-500/10 flex items-center justify-center shrink-0">
-                      <Youtube className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
+                </div>
+
+                {/* Section: Próximos Eventos */}
+                <div className="space-y-6 md:space-y-8 mt-8">
+                  <div className="flex items-center justify-between">
+                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Próximos Eventos</h4>
+                  </div>
+                  
+                  <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
+                    <div className="mt-8 flex justify-center md:hidden">
+                      <Button 
+                        variant="ghost" 
+                        className="w-full h-12 rounded-2xl bg-[#BF76FF]/10 text-[#BF76FF] font-bold text-xs uppercase tracking-widest hover:bg-[#BF76FF]/20 cursor-pointer" 
+                        onClick={() => setActiveTab("agenda")}
+                      >
+                        Ver agenda completa
+                      </Button>
                     </div>
-                    <div>
-                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Vídeos</p>
-                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.videos}</h4>
-                    </div>
-                  </Card>
+                  </div>
+                  <div className="hidden md:flex justify-end">
+                    <Button variant="ghost" className="text-xs text-[#BF76FF] hover:underline" onClick={() => setActiveTab("agenda")}>
+                      Ver agenda completa
+                    </Button>
+                  </div>
                 </div>
               </div>
             ) : activeTab === "agenda-direcao" ? (
@@ -6205,7 +6106,7 @@ const Admin = () => {
 
       {/* Sidebar 3: Stats & Files (Hidden on mobile/tablets, only permanent on XL) */}
       <aside className={cn(
-        "fixed top-14 bottom-20 right-0 z-[40] w-full xl:top-0 xl:bottom-0 xl:z-auto xl:w-80 border-l flex-col overflow-hidden transition-all duration-300 xl:relative xl:flex",
+        "fixed top-0 bottom-0 right-0 z-[40] w-full xl:w-80 border-l flex-col overflow-hidden transition-all duration-300 xl:relative xl:flex",
         rightSidebarView !== "hidden" ? "translate-x-0 flex" : "translate-x-full xl:translate-x-0 hidden xl:flex",
         isDarkMode ? "bg-[#0f0f0f] border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
       )}>
