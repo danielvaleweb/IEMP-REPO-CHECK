@@ -6158,8 +6158,8 @@ const Admin = () => {
                   {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
                     const roleMembers = members.filter(m => {
                       const ministry = (m.ministries || []).find((min: any) => (typeof min === 'string' ? min : min.name) === role);
-                      const isLeaderOfThisRole = typeof ministry === 'object' ? ministry.isLeader : (m.role === role && m.isLeader);
-                      return isLeaderOfThisRole && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
+                      const isPartOfThisRole = Boolean(ministry) || m.role === role;
+                      return isPartOfThisRole && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
                     });
                     if (roleMembers.length === 0 && rightSidebarSearch) return null;
                     return (
@@ -6187,7 +6187,7 @@ const Admin = () => {
                               />
                             ))
                           ) : (
-                            <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum líder cadastrado</p>
+                            <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
                           )}
                         </div>
                       </div>
@@ -6197,9 +6197,12 @@ const Admin = () => {
                   {/* Others in Sidebar 3 */}
                   {(() => {
                     const standardMembers = members.filter(m => {
-                      const isAnyLeader = (m.ministries || []).some((min: any) => typeof min === 'object' && min.isLeader) || m.isLeader;
+                      const hasSpecificRole = (m.ministries || []).some((min: any) => {
+                         const n = typeof min === 'string' ? min : min.name;
+                         return n !== 'Membro' && n !== 'Visitante' && allRoles.includes(n);
+                      }) || (m.role && m.role !== 'Membro' && m.role !== 'Visitante' && allRoles.includes(m.role));
                       const isVisitor = (m.role === "Visitante" || (m.ministries || []).some((min: any) => (typeof min === 'string' ? min : min.name) === "Visitante"));
-                      return !isAnyLeader && !isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
+                      return !hasSpecificRole && !isVisitor && (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
                     });
                     if (standardMembers.length === 0) return null;
                     return (
