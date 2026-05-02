@@ -205,7 +205,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: additionalData.role || "Membro",
       status: additionalData.status || "pending",
       hasDashboardAccess: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      signupPassword: password
     };
 
     try {

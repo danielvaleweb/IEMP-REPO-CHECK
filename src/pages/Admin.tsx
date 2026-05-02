@@ -73,7 +73,8 @@ import {
   UserCheck,
   Radio,
   Music,
-  HardDrive
+  HardDrive,
+  Key
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -89,6 +90,7 @@ import { AvisosView } from "@/components/admin/AvisosView";
 import { VideosView } from "@/components/admin/VideosView";
 import { EventosView } from "@/components/admin/EventosView";
 import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
+import { SavedLoginsAdmin } from "@/components/admin/SavedLoginsAdmin";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { getImageUrl } from "@/lib/utils";
 import { updateProfile } from "firebase/auth";
@@ -116,7 +118,8 @@ import {
   getDocs,
   increment,
   getCountFromServer,
-  limit
+  limit,
+  deleteField
 } from "firebase/firestore";
 import { 
   differenceInMonths,
@@ -961,12 +964,13 @@ const Admin = () => {
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
+    { id: 'logins', label: 'Logins Salvos', icon: Key },
   ]);
 
   const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
     const savedVisible = localStorage.getItem('admin_visible_tabs');
     if (savedVisible) return JSON.parse(savedVisible);
-    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio'];
+    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio', 'logins'];
   });
 
   const sensors = useSensors(
@@ -1748,6 +1752,8 @@ const Admin = () => {
 
   const canRoleViewTab = (rName: string, rIsLeader: boolean, tab: string) => {
     if (rName === "Administradores" || rName === "Desenvolvedor" || isMasterAdmin) return true;
+    
+    if (tab === "logins") return false; // Strictly restricted to above roles
     
     if (rName === "Direção") {
       if (tab !== "agenda-direcao" && tab !== "chat" && tab !== "visao-geral") return false;
@@ -3194,6 +3200,7 @@ const Admin = () => {
               {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("logins") && <SidebarItem icon={Key} active={activeTab === "logins" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("logins"); setRightSidebarView("hidden"); }} label="Logins Salvos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               <SidebarItem 
@@ -3601,7 +3608,24 @@ const Admin = () => {
                           className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-lg"
                           onClick={async () => {
                             try {
-                              await updateDoc(doc(db, "members", selectedItem.id), { status: "approved" });
+                              const updateData: any = { status: "approved" };
+                              
+                              if (selectedItem.signupPassword) {
+                                  updateData.signupPassword = deleteField();
+                                  try {
+                                    await addDoc(collection(db, "saved-logins"), {
+                                        title: `Cadastro - ${selectedItem.name}`,
+                                        username: selectedItem.email,
+                                        password: selectedItem.signupPassword,
+                                        createdAt: serverTimestamp(),
+                                        updatedAt: serverTimestamp()
+                                    });
+                                  } catch (e) {
+                                    console.error("Failed to save login password", e);
+                                  }
+                              }
+                              
+                              await updateDoc(doc(db, "members", selectedItem.id), updateData);
                               // Gatilho: Notificação de aprovação
                               fetch("/services/push/broadcast", {
                                 method: "POST",
@@ -5324,6 +5348,10 @@ const Admin = () => {
                   handleDelete(item, activeTab === "noticias" ? "blog" : "posts");
                 }}
               />
+            ) : activeTab === "logins" ? (
+              <div className="space-y-6 pb-32">
+                <SavedLoginsAdmin isDark={isDarkMode} />
+              </div>
             ) : activeTab === "agenda" ? (
               <div className="space-y-6 pb-32">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
@@ -5740,6 +5768,8 @@ const Admin = () => {
                                         defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(role);
                                       } else if (item.id === "agenda-direcao") {
                                         defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção"].includes(role) || role.includes("Secretaria") || role === "Mídia"; // Permissão para líderes de mídia/secretaria é gerenciada no nível do usuário
+                                      } else if (item.id === "logins") {
+                                        defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(role);
                                       } else {
                                         defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(role);
                                       }
@@ -7222,7 +7252,22 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
                          onClick={async () => {
                             setShowTooltip(false);
                             try {
-                              await updateDoc(doc(db, "members", member.id), { status: "active", updatedAt: serverTimestamp() });
+                              const updateData: any = { status: "active", updatedAt: serverTimestamp() };
+                              if (member.signupPassword) {
+                                updateData.signupPassword = deleteField();
+                                try {
+                                  await addDoc(collection(db, "saved-logins"), {
+                                    title: `Cadastro - ${member.name}`,
+                                    username: member.email,
+                                    password: member.signupPassword,
+                                    createdAt: serverTimestamp(),
+                                    updatedAt: serverTimestamp()
+                                  });
+                                } catch (e) {
+                                  console.error("Failed to save login password", e);
+                                }
+                              }
+                              await updateDoc(doc(db, "members", member.id), updateData);
                             } catch(err) {
                               console.error(err);
                             }
@@ -7266,10 +7311,25 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
               onClick={async (e) => {
                 e.stopPropagation();
                 try {
-                  await updateDoc(doc(db, "members", member.id), { 
+                  const updateData: any = { 
                     status: "active", 
                     updatedAt: serverTimestamp() 
-                  });
+                  };
+                  if (member.signupPassword) {
+                    updateData.signupPassword = deleteField();
+                    try {
+                      await addDoc(collection(db, "saved-logins"), {
+                        title: `Cadastro - ${member.name}`,
+                        username: member.email,
+                        password: member.signupPassword,
+                        createdAt: serverTimestamp(),
+                        updatedAt: serverTimestamp()
+                      });
+                    } catch (e) {
+                      console.error("Failed to save login password", e);
+                    }
+                  }
+                  await updateDoc(doc(db, "members", member.id), updateData);
                   confetti({
                     particleCount: 150,
                     spread: 70,
