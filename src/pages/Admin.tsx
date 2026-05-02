@@ -1246,7 +1246,7 @@ const Admin = () => {
   
   const visitors = useMemo(() => {
     // Include regular visitors and those with the "Visitante" role
-    const rawVisitors = members.filter(m => m.status === "visitor" || m.role === "Visitante");
+    const rawVisitors = members.filter(m => (m.status === "visitor" || m.role === "Visitante") && m.status !== "visitor_session");
     
     // Duplication Fix: Group by phone, prioritize canonical ids
     const visitorMap = new Map();
@@ -1526,13 +1526,17 @@ const Admin = () => {
   const [activeViewRole, setActiveViewRole] = useState<string | null>(null);
 
   const userRolesArray = useMemo(() => {
-    if (activeViewRole) return [{ name: activeViewRole, isLeader: true }];
+    if (activeViewRole) {
+      if (isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor") {
+         return [{ name: activeViewRole, isLeader: true }];
+      }
+    }
     if (isMasterAdmin) return [{ name: "Administradores", isLeader: true }];
 
     const rolesMap = new Map<string, boolean>();
     
     if (profile?.role) {
-      rolesMap.set(profile.role, false);
+      rolesMap.set(profile.role, profile.isLeader || false);
     }
     
     if (profile?.ministries && Array.isArray(profile.ministries)) {
@@ -1546,10 +1550,6 @@ const Admin = () => {
           }
         }
       });
-    }
-    
-    if (profile?.role && profile?.isLeader && !rolesMap.get(profile.role)) {
-      rolesMap.set(profile.role, true);
     }
     
     if (rolesMap.size === 0) rolesMap.set("Membro", false);
@@ -1569,12 +1569,6 @@ const Admin = () => {
   
   const [availableSkills, setAvailableSkills] = useState<string[]>(["Música", "Instrumentos", "Canto", "Som/Áudio", "Vídeo/Edição", "Design Gráfico", "Mídias Sociais", "Liderança", "Pregação", "Ensino Infantil", "Organização", "Cozinha", "Limpeza", "Recepção"]);
   const [newSkillName, setNewSkillName] = useState("");
-  
-  useEffect(() => {
-    if (profile?.role && !activeViewRole) {
-      setActiveViewRole(profile.role);
-    }
-  }, [profile?.role]);
 
   useEffect(() => {
     if (user && profile?.status === "pending") {
@@ -3371,7 +3365,7 @@ const Admin = () => {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {(profile?.role === "Desenvolvedor" || isMasterAdmin) && (
+            {canViewSettings && (
               <motion.div
                 whileHover={{ rotate: 90 }}
                 transition={{ duration: 0.5, ease: "easeInOut" }}
