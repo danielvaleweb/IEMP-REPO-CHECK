@@ -6281,16 +6281,8 @@ const Admin = () => {
                           <div className={cn("absolute bottom-0 right-0 w-3.5 h-3.5 border-[3px] border-white dark:border-[#0f0f0f] rounded-full", getStatusColor(m.status_presence))} />
                         )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <h4 className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
-                          {chat.unreadCount?.[profile?.id || ''] > 0 && (
-                            <div className="bg-[#BF76FF] text-white text-[10px] font-black h-5 px-2 rounded-full flex items-center justify-center gap-1 animate-pulse shadow-sm shadow-[#BF76FF]/40">
-                              <Clock className="w-2.5 h-2.5" />
-                              <span>{chat.unreadCount[profile?.id || '']}</span>
-                            </div>
-                          )}
-                        </div>
+                      <div className="flex-1 min-w-0 flex flex-col justify-center">
+                        <h4 className={cn("font-bold text-sm truncate mb-1", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
                         <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
                           {chat.lastSenderId && chat.lastSenderId !== profile?.id ? (
                             <i className="font-bold">{m.name?.[0]?.toUpperCase()}: </i>
@@ -6300,6 +6292,13 @@ const Admin = () => {
                           {stripMentions(chat.lastMessage) || "Toque para abrir a conversa"}
                         </p>
                       </div>
+                      {chat.unreadCount?.[profile?.id || ''] > 0 && (
+                        <div className="bg-red-500 text-white min-w-[20px] h-[20px] px-1 rounded-full flex items-center justify-center shrink-0 shadow-sm ml-2 self-center">
+                          <span className="text-[10px] font-black">
+                            {chat.unreadCount[profile?.id || ''] > 9 ? '+9' : chat.unreadCount[profile?.id || '']}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 })
