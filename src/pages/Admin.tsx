@@ -1522,14 +1522,47 @@ const Admin = () => {
 
   const [activeViewRole, setActiveViewRole] = useState<string | null>(null);
 
+  const userRolesArray = useMemo(() => {
+    if (activeViewRole) return [{ name: activeViewRole, isLeader: true }];
+    if (isMasterAdmin) return [{ name: "Administradores", isLeader: true }];
+
+    const rolesMap = new Map<string, boolean>();
+    
+    if (profile?.role) {
+      rolesMap.set(profile.role, false);
+    }
+    
+    if (profile?.ministries && Array.isArray(profile.ministries)) {
+      profile.ministries.forEach((m: any) => {
+        const name = typeof m === 'object' ? m.name : m;
+        const isLeader = typeof m === 'object' ? m.isLeader : false;
+        if (name) {
+          rolesMap.set(name, rolesMap.get(name) || isLeader);
+          if (name === profile?.role && isLeader) {
+            rolesMap.set(profile.role, true);
+          }
+        }
+      });
+    }
+    
+    if (profile?.role && profile?.isLeader && !rolesMap.get(profile.role)) {
+      rolesMap.set(profile.role, true);
+    }
+    
+    if (rolesMap.size === 0) rolesMap.set("Membro", false);
+    
+    return Array.from(rolesMap.entries()).map(([name, isLeader]) => ({ name, isLeader }));
+  }, [activeViewRole, isMasterAdmin, profile]);
+
   const currentRole = activeViewRole || profile?.role || "Membro";
   
-  // Auto-redirect for Direção role
+  // Auto-redirect for Direção role if they ONLY have Direção role
   useEffect(() => {
-    if (currentRole === "Direção" && activeTab !== "agenda-direcao") {
+    const isStrictlyDirecao = userRolesArray.length === 1 && userRolesArray[0].name === "Direção";
+    if (isStrictlyDirecao && activeTab !== "agenda-direcao" && activeTab !== "chat") {
       setActiveTab("agenda-direcao");
     }
-  }, [currentRole, activeTab, setActiveTab]);
+  }, [userRolesArray, activeTab, setActiveTab]);
   
   const [availableSkills, setAvailableSkills] = useState<string[]>(["Música", "Instrumentos", "Canto", "Som/Áudio", "Vídeo/Edição", "Design Gráfico", "Mídias Sociais", "Liderança", "Pregação", "Ensino Infantil", "Organização", "Cozinha", "Limpeza", "Recepção"]);
   const [newSkillName, setNewSkillName] = useState("");
@@ -1713,63 +1746,65 @@ const Admin = () => {
     }
   };
 
+  const canRoleViewTab = (rName: string, rIsLeader: boolean, tab: string) => {
+    if (rName === "Administradores" || rName === "Desenvolvedor" || isMasterAdmin) return true;
+    
+    if (rName === "Direção") {
+      if (tab !== "agenda-direcao" && tab !== "chat" && tab !== "visao-geral") return false;
+      return true;
+    }
+    
+    if (tab === "agenda-direcao" && (rName === "Mídia" || rName === "Secretaria" || rName === "Secretário")) {
+      if (!rIsLeader) return false;
+    }
+
+    const rolePerms = settings.permissions?.[rName];
+    
+    // Default values logic
+    const getDefVal = () => {
+      if (tab === "visao-geral") return true;
+      if (tab === "avisos") return ["Administradores", "Desenvolvedor"].includes(rName);
+      if (tab === "agenda-direcao") {
+        const isSpecLeader = (rName === "Mídia" || rName === "Secretaria" || rName === "Secretário") && rIsLeader;
+        return ["Administradores", "Desenvolvedor", "Direção"].includes(rName) || isSpecLeader;
+      }
+      return !["Membro", "Visitante", "Direção"].includes(rName);
+    };
+
+    if (!rolePerms) return getDefVal();
+    if (rolePerms.tabs && tab in rolePerms.tabs) return rolePerms.tabs[tab];
+    return getDefVal();
+  };
+
   const isEffectivelyAdmin = (isMasterAdmin || profile?.role === "Administradores") && (!activeViewRole || activeViewRole === "Administradores");
-  const canViewSettings = currentRole === "Desenvolvedor" || currentRole === "Administradores" || (isMasterAdmin && (!activeViewRole || activeViewRole === "Administradores" || activeViewRole === "Desenvolvedor"));
+  
+  const canViewSettings = userRolesArray.some(r => r.name === "Desenvolvedor" || r.name === "Administradores");
   const canViewLogs = canViewSettings;
 
   const canViewTab = (tab: string) => {
-    if (isMasterAdmin && !activeViewRole) return true;
     if ((tab === "config" || tab === "logs") && !canViewSettings) return false;
-    
-    // Strict restriction for Direção profile
-    if (currentRole === "Direção") {
-      return tab === "agenda-direcao" || tab === "chat";
-    }
-    
-    // Strict restriction for Mídia and Secretaria profiles regarding agenda-direcao
-    if (tab === "agenda-direcao" && (currentRole === "Mídia" || currentRole === "Secretaria" || currentRole === "Secretário")) {
-      const isLeader = profile?.ministries?.some((m: any) => typeof m === 'object' && (m.name === 'Mídia' || m.name === 'Secretaria' || m.name === 'Secretário') && m.isLeader);
-      if (!isLeader) return false;
-    }
-
-    if (isEffectivelyAdmin) return true;
-    const rolePerms = settings.permissions?.[currentRole];
-    
-    // Auto-generate default values for ALL menus in menuItems
-    const defaultVals: any = {};
-    menuItems.forEach(item => {
-      if (item.id === "visao-geral") {
-        defaultVals[item.id] = true;
-      } else if (item.id === "avisos") {
-        defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(currentRole);
-      } else if (item.id === "agenda-direcao") {
-        const isMidiaLeader = currentRole === "Mídia" && profile?.ministries?.some((m: any) => typeof m === 'object' && m.name === 'Mídia' && m.isLeader);
-        const isSecretariaLeader = (currentRole === "Secretaria" || currentRole === "Secretário") && profile?.ministries?.some((m: any) => typeof m === 'object' && (m.name === 'Secretaria' || m.name === 'Secretário') && m.isLeader);
-        defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção"].includes(currentRole) || Boolean(isSecretariaLeader) || Boolean(isMidiaLeader);
-      } else {
-        defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(currentRole);
-      }
-    });
-
-    if (!rolePerms) {
-      return defaultVals[tab] ?? false;
-    }
-    
-    // If the role has defined permissions, strictly follow them
-    if (rolePerms.tabs && tab in rolePerms.tabs) {
-      return rolePerms.tabs[tab];
-    }
-    
-    // For specific roles, if tab is not defined in settings, use default
-    return defaultVals[tab] ?? false;
+    return userRolesArray.some(r => canRoleViewTab(r.name, r.isLeader, tab));
   };
 
-  const defaultEditPerm = !["Membro", "Visitante"].includes(currentRole);
-  const defaultEditProfilesPerm = currentRole === "Administradores" || currentRole === "Desenvolvedor";
-  const canEdit = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.edit ?? defaultEditPerm);
-  const canDelete = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.delete ?? defaultEditPerm);
-  const canEditProfiles = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.editProfiles ?? defaultEditProfilesPerm);
-  const canDeletePhotos = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.deletePhotos ?? defaultEditPerm);
+  const canEdit = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
+    return settings.permissions?.[r.name]?.edit ?? defaultEditPerm;
+  });
+  
+  const canDelete = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
+    return settings.permissions?.[r.name]?.delete ?? defaultEditPerm;
+  });
+  
+  const canEditProfiles = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditProfilesPerm = r.name === "Administradores" || r.name === "Desenvolvedor";
+    return settings.permissions?.[r.name]?.editProfiles ?? defaultEditProfilesPerm;
+  });
+  
+  const canDeletePhotos = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
+    return settings.permissions?.[r.name]?.deletePhotos ?? defaultEditPerm;
+  });
 
   // Real-time listeners
   useEffect(() => {
@@ -3504,7 +3539,7 @@ const Admin = () => {
                 <div className="h-[1px] w-full bg-white/5 my-4"></div>
                 
                 <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Conta</DropdownMenuLabel>
-                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2" onClick={() => { setActiveViewRole(null); setActiveTab("config"); }}>
+                <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2" onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}>
                   <User className="w-5 h-5 text-gray-400 shrink-0" />
                   <span className="font-bold text-gray-300">Meu Perfil</span>
                 </DropdownMenuItem>
@@ -4973,7 +5008,7 @@ const Admin = () => {
                   <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-white/5 items-stretch sm:items-center">
                             {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") ? (
                               <>
-                                {currentRole !== "Direção" && activeTab === "agenda-direcao" && (
+                                {(!userRolesArray.every(r => r.name === "Direção")) && activeTab === "agenda-direcao" && (
                                   <Button 
                                     variant="outline"
                                     className={cn("w-full sm:w-auto rounded-2xl h-12 px-8 font-bold border-none transition-all", isDarkMode ? "bg-white/5 text-white hover:bg-[#BF76FF] hover:text-white" : "bg-gray-100 text-black hover:bg-[#BF76FF] hover:text-white")}
