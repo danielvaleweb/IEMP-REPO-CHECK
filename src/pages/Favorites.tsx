@@ -3,7 +3,7 @@ import { Heart, X, Play, ArrowLeft, ExternalLink } from "lucide-react";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 
 export default function Favorites() {
   const { favorites, toggleFavorite } = useFavorites();
@@ -124,10 +124,9 @@ function FavoriteCard({ item, index, toggleFavorite }: { item: any, index: numbe
       {/* Thumbnail Container */}
       <div className="aspect-video relative overflow-hidden">
         <img 
-          src={item.thumbnail} 
+          src={getImageUrl(item.thumbnail)} 
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
           alt={item.title} 
-          referrerPolicy="no-referrer"
         />
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-center justify-center gap-3">
           <Button 

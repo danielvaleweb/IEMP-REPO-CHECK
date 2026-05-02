@@ -404,7 +404,7 @@ export default function EventDetails() {
                        )}
                      >
                        {guest.image ? (
-                         <img src={guest.image} alt={guest.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" referrerPolicy="no-referrer" />
+                         <img src={getImageUrl(guest.image)} alt={guest.name} className="w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
                        ) : (
                          <div className={cn("w-full h-full flex items-center justify-center text-white/50 text-4xl font-black", theme.bg)}>{guest.name?.charAt(0)}</div>
                        )}
@@ -427,7 +427,7 @@ export default function EventDetails() {
                  className="relative overflow-hidden group w-full aspect-[4/5] rounded-[40px]"
                >
                  <div className="absolute inset-0 bg-gradient-to-t from-[#10001D]/90 via-transparent to-transparent z-10 pointer-events-none rounded-[40px]" />
-                 <img src={organizerImage} alt={organizerDisplay} className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none rounded-[40px]" />
+                 <img src={getImageUrl(organizerImage)} alt={organizerDisplay} className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none rounded-[40px]" />
                  <div className="absolute bottom-6 left-0 w-full text-center z-20 px-6">
                    <h3 className="text-3xl lg:text-4xl font-black uppercase tracking-tighter text-white drop-shadow-lg">{organizerDisplay}</h3>
                    <p className="text-white/80 text-[10px] font-black uppercase tracking-[0.2em] mt-2 drop-shadow-lg">Organizador (Convener)</p>
@@ -557,7 +557,7 @@ export default function EventDetails() {
                 <div className="space-y-4">
                   {feedbacks.map((f, idx) => (
                     <div key={idx} className="bg-black/40 rounded-2xl p-4 flex gap-4 items-start border border-white/5">
-                      <img src={f.userPhoto || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"} alt={f.userName} className="w-12 h-12 rounded-full object-cover shrink-0" />
+                      <img src={getImageUrl(f.userPhoto || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")} alt={f.userName} className="w-12 h-12 rounded-full object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-bold text-sm truncate">{f.userName}</p>
                         <div className="flex text-yellow-400 mb-2 mt-1">
@@ -659,7 +659,7 @@ export default function EventDetails() {
                     <WatermarkOverlay title={event.title} />
                     <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
                     <img 
-                      src={url} 
+                      src={getImageUrl(url)} 
                       alt={`Galeria ${index + 1}`} 
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
                     />
@@ -798,7 +798,7 @@ export default function EventDetails() {
             >
               <WatermarkOverlay title={event.title} size="large" />
               <img 
-                src={event.gallery[selectedPhotoIndex]} 
+                src={getImageUrl(event.gallery[selectedPhotoIndex])} 
                 alt="Fullscreen Gallery Preview" 
                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" 
                 onClick={(e) => e.stopPropagation()} // prevent close on clicking image

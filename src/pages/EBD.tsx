@@ -21,7 +21,6 @@ export default function EBD() {
                 src="https://picsum.photos/seed/ebd/1200/800" 
                 alt="EBD" 
                 className="w-full h-full object-cover"
-                referrerPolicy="no-referrer"
               />
             </div>
             <div className="space-y-6">

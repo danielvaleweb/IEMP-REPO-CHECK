@@ -456,10 +456,9 @@ export default function Home() {
                   </div>
                 ) : (
                     <img
-                      src={videos[currentIndex].thumbnail}
+                      src={getImageUrl(videos[currentIndex].thumbnail)}
                       alt=""
                       className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         const videoId = videos[currentIndex].id;

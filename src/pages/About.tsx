@@ -18,7 +18,6 @@ export default function About() {
             src="https://picsum.photos/seed/church-about/1200/800" 
             alt="Nossa Igreja" 
             className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
           />
         </div>
 

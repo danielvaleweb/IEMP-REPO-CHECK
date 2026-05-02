@@ -106,7 +106,6 @@ export const MovieCard = ({
           src={displayImage} 
           alt={item.title} 
           className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110"
-          referrerPolicy="no-referrer"
         />
         {/* Play icon removed on hover as requested */}
       </div>
@@ -138,7 +137,6 @@ export const MovieCard = ({
           src={displayImage} 
           alt={item.title} 
           className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
         />
       </div>
 
@@ -167,7 +165,6 @@ export const MovieCard = ({
                   src={displayImage} 
                   alt={item.title} 
                   className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
                 />
               )}
             </div>

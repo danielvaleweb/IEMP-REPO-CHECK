@@ -50,7 +50,6 @@ export default function Departments() {
             src={getImageUrl(info.image)} 
             alt={info.title} 
             className="w-full h-full object-cover"
-            referrerPolicy="no-referrer"
           />
         </div>
 

@@ -1142,6 +1142,7 @@ const Admin = () => {
     posts: 0,
     blog: 0,
     vignettes: 0,
+    videos: 0,
     unreadNotifications: 0
   });
 
@@ -1635,6 +1636,7 @@ const Admin = () => {
   const canViewLogs = canViewSettings;
 
   const canViewTab = (tab: string) => {
+    if (isMasterAdmin && !activeViewRole) return true;
     if ((tab === "config" || tab === "logs") && !canViewSettings) return false;
     
     // Strict restriction for Direção profile
@@ -1700,12 +1702,13 @@ const Admin = () => {
         }
       };
 
-      const [membersCount, agendaCount, vignettesCount, postsCount, blogCount, unreadCount] = await Promise.all([
+      const [membersCount, agendaCount, vignettesCount, postsCount, blogCount, videosCount, unreadCount] = await Promise.all([
         isAdmin ? safeGetCount(collection(db, "members"), "members") : Promise.resolve(0),
         safeGetCount(collection(db, "agenda"), "agenda"),
         safeGetCount(collection(db, "vignettes"), "vignettes"),
         safeGetCount(collection(db, "posts"), "posts"),
         safeGetCount(collection(db, "blog"), "blog"),
+        safeGetCount(collection(db, "videos"), "videos"),
         isGuest ? Promise.resolve(0) : safeGetCount(query(
           collection(db, "notifications"), 
           where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
@@ -1719,6 +1722,7 @@ const Admin = () => {
         vignettes: vignettesCount,
         posts: postsCount,
         blog: blogCount,
+        videos: videosCount,
         unreadNotifications: unreadCount
       });
     };
@@ -3627,7 +3631,7 @@ const Admin = () => {
                                        <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                                           <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
                                             {m.photo ? (
-                                              <img src={getImageUrl(m.photo)} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+                                              <img src={getImageUrl(m.photo)} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                             ) : (
                                               <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
                                                  <Users className="w-10 h-10" />
@@ -3663,7 +3667,7 @@ const Admin = () => {
                                        <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                                           <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
                                             {guest.image ? (
-                                              <img src={getImageUrl(guest.image)} alt={guest.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+                                              <img src={getImageUrl(guest.image)} alt={guest.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                                             ) : (
                                               <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
                                                  <Users className="w-10 h-10" />
@@ -4170,7 +4174,7 @@ const Admin = () => {
                                           {(formData.invitedMembers || []).map((m: any) => (
                                             <div key={m.id} className="flex items-center gap-2 bg-[#BF76FF]/10 px-3 py-1.5 rounded-full border border-[#BF76FF]/20 group relative">
                                               <div className="w-5 h-5 rounded-full bg-gray-200 overflow-hidden shrink-0">
-                                                {m.photo ? <img src={m.photo} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Users className="w-3 h-3 m-1 text-gray-500" />}
+                                                {m.photo ? <img src={getImageUrl(m.photo)} alt="" className="w-full h-full object-cover" /> : <Users className="w-3 h-3 m-1 text-gray-500" />}
                                               </div>
                                               <span className="text-[10px] font-bold text-[#BF76FF]">{m.name}</span>
                                               {!isReadOnly && (
@@ -5156,6 +5160,15 @@ const Admin = () => {
                     <div>
                       <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Avisos</p>
                       <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
+                    </div>
+                  </Card>
+                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-red-500/10 flex items-center justify-center shrink-0">
+                      <Youtube className="w-5 h-5 md:w-6 md:h-6 text-red-500" />
+                    </div>
+                    <div>
+                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Vídeos</p>
+                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.videos}</h4>
                     </div>
                   </Card>
                 </div>
@@ -6434,7 +6447,7 @@ const Admin = () => {
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-200 shrink-0">
                           {member.photoURL ? (
-                            <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                            <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold">
                               {member.name?.[0]}

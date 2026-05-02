@@ -122,7 +122,6 @@ export default function Gallery() {
                         src={getImageUrl(album.cover)} 
                         alt={album.title} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                        referrerPolicy="no-referrer"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
                       <div className="absolute bottom-6 left-6 right-6">
@@ -176,7 +175,6 @@ export default function Gallery() {
                     src={getImageUrl(photo)} 
                     alt={`Foto ${idx + 1}`} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    referrerPolicy="no-referrer"
                   />
                 </motion.div>
               ))}
@@ -211,7 +209,6 @@ export default function Gallery() {
                 exit={{ scale: 0.9, opacity: 0 }}
                 src={getImageUrl(selectedPhoto)}
                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
-                referrerPolicy="no-referrer"
               />
             </div>
           </motion.div>

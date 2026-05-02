@@ -14,7 +14,7 @@ import { collection, query, orderBy, onSnapshot, doc, deleteDoc, setDoc } from "
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { MovieCard } from "@/components/movies/MovieCard";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 
 export default function Videos() {
   const navigate = useNavigate();
@@ -62,7 +62,7 @@ export default function Videos() {
           firestoreId: doc.id,
           ...data,
           createdAtDate,
-          thumbnail: data.thumbnail || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
+          thumbnail: getImageUrl(data.thumbnail) || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
           tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
           category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
         };

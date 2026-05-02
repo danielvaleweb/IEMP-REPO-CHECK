@@ -39,7 +39,6 @@ export default function Discipleship() {
               src="https://picsum.photos/seed/discipleship/800/800" 
               alt="Discipulado" 
               className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
             />
           </div>
         </div>

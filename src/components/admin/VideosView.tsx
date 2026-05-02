@@ -25,7 +25,7 @@ import {
   orderBy, 
   serverTimestamp 
 } from "firebase/firestore";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 
 export function VideosView({ isDark }: { isDark: boolean }) {
   const [videos, setVideos] = useState<any[]>([]);
@@ -292,7 +292,7 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                 {/* Clean Image Architecture - Grains color on hover */}
                 <div className="absolute inset-0 z-0">
                   <img 
-                    src={thumb} 
+                    src={getImageUrl(thumb)} 
                     className={cn("w-full h-full object-cover transition-all duration-[2s] opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110")} 
                     alt="" 
                   />
