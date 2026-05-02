@@ -8,6 +8,7 @@ import {
   Plus,
   Trash2,
   RefreshCcw,
+  User,
   FolderOpen,
   Loader2,
   Edit,
@@ -35,6 +36,8 @@ import {
   Clock,
   MapPin,
   X,
+  XCircle,
+  AlertTriangle,
   ShieldCheck,
   Facebook,
   Instagram,
@@ -62,7 +65,6 @@ import {
   ExternalLink,
   ClipboardList,
   Newspaper,
-  XCircle,
   Megaphone,
   UserSearch,
   UserCheck,
@@ -249,7 +251,27 @@ function CalendarView({
 
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-  const selectedDayEvents = selectedDay ? agenda.filter(event => event.date && isSameDay(parseISO(event.date), selectedDay)) : [];
+  const parseDate = (date: any) => {
+    if (!date) return null;
+    if (date instanceof Date) return date;
+    if (date.toDate) return date.toDate(); // Handle Firestore Timestamp
+    try {
+      // Try ISO first
+      const d = parseISO(date);
+      if (!isNaN(d.getTime())) return d;
+      // Fallback to simple date parsing
+      const d2 = new Date(date);
+      if (!isNaN(d2.getTime())) return d2;
+    } catch (e) {
+      console.error("Error parsing date:", date, e);
+    }
+    return null;
+  };
+
+  const selectedDayEvents = selectedDay ? agenda.filter(event => {
+    const d = parseDate(event.date);
+    return d && isSameDay(d, selectedDay);
+  }) : [];
 
   return (
     <>
@@ -281,7 +303,10 @@ function CalendarView({
         
         <div className="grid grid-cols-7 gap-1 md:gap-2">
           {days.map((day, i) => {
-            const dayEvents = agenda.filter(event => event.date && isSameDay(parseISO(event.date), day));
+            const dayEvents = agenda.filter(event => {
+              const d = parseDate(event.date);
+              return d && isSameDay(d, day);
+            });
             const isCurrentMonth = isSameMonth(day, monthStart);
             
             return (
@@ -915,6 +940,8 @@ const Admin = () => {
   const [activeChats, setActiveChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [chatListSubTab, setChatListSubTab] = useState<"chats" | "contacts">("chats");
+  const [chatSearch, setChatSearch] = useState("");
   const [showClearGalleryDialog, setShowClearGalleryDialog] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
@@ -929,6 +956,7 @@ const Admin = () => {
     { id: 'avisos', label: 'Central de Avisos', icon: Megaphone },
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
+    { id: 'chat', label: 'Mensagens', icon: MessageSquare },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
     { id: 'logs', label: 'Audit Logs', icon: ClipboardList },
   ]);
@@ -1646,7 +1674,7 @@ const Admin = () => {
     
     // Strict restriction for Direção profile
     if (currentRole === "Direção") {
-      return tab === "agenda-direcao";
+      return tab === "agenda-direcao" || tab === "chat";
     }
 
     if (isEffectivelyAdmin) return true;
@@ -1661,6 +1689,7 @@ const Admin = () => {
       "membros": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "visitantes": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "avisos": currentRole === "Administradores" || currentRole === "Desenvolvedor",
+      "chat": true, // Todos podem ver o menu de chat
       "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção" || currentRole === "Secretaria"
     };
@@ -2263,8 +2292,11 @@ const Admin = () => {
   };
 
   const openWhatsApp = (member: any) => {
-    setRightSidebarView("chat-active");
+    setActiveTab("chat");
+    setChatListSubTab("chats");
     setActiveChatUser(member);
+    // Also keep compatibility with sidebar if needed, but primary is now the main view
+    setRightSidebarView("chat-active");
   };
 
   const confirmWhatsApp = (member: any, message: string) => {
@@ -2807,7 +2839,40 @@ const Admin = () => {
           )}
         </div>
 
-        {/* Sign Up Success Modal */}
+        {/* Clear Gallery Confirmation Modal */}
+        <Dialog open={showClearGalleryDialog} onOpenChange={setShowClearGalleryDialog}>
+          <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-[400px] text-center p-8 rounded-[32px]">
+            <div className="w-20 h-20 bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-6">
+              <AlertTriangle className="w-10 h-10" />
+            </div>
+            <DialogHeader className="mb-4 text-center">
+              <DialogTitle className="text-2xl font-black text-center uppercase tracking-tighter">
+                Tem certeza?
+              </DialogTitle>
+            </DialogHeader>
+            <p className="text-gray-400 text-sm leading-relaxed mb-8">
+              Isso irá remover TODAS as fotos cadastradas nesta galeria. Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-4">
+              <Button 
+                variant="ghost"
+                className="flex-1 bg-white/5 border border-white/5 hover:bg-white/10 text-white font-bold h-12 rounded-2xl"
+                onClick={() => setShowClearGalleryDialog(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-12 rounded-2xl"
+                onClick={() => {
+                  setFormData({ ...formData, gallery: [] });
+                  setShowClearGalleryDialog(false);
+                }}
+              >
+                Limpar Tudo
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
         <Dialog open={showSignUpSuccessModal} onOpenChange={setShowSignUpSuccessModal}>
           <DialogContent className="bg-[#111] border-white/10 text-white sm:max-w-[425px] text-center p-8 rounded-[32px]">
             <div className="w-20 h-20 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -2978,7 +3043,13 @@ const Admin = () => {
                         label={item.label} 
                         collapsed={isSidebarCollapsed} 
                         isDark={isDarkMode} 
-                        notificationCount={item.id === "membros" && (isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0}
+                        notificationCount={
+                          item.id === "membros" && (isMasterAdmin || profile?.role === "Desenvolvedor") 
+                            ? pendingMembers.length 
+                            : item.id === "chat" 
+                              ? activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)
+                              : 0
+                        }
                       />
                     )
                   ))}
@@ -3000,7 +3071,16 @@ const Admin = () => {
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
-              <SidebarItem icon={MessageSquare} active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")} label="Chat" collapsed={true} isDark={isDarkMode} mobile />
+              <SidebarItem 
+                icon={MessageSquare} 
+                active={activeTab === "chat"} 
+                onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }} 
+                label="Chat" 
+                collapsed={true} 
+                isDark={isDarkMode} 
+                mobile 
+                notificationCount={activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)} 
+              />
               
               <Sheet>
                 <SheetTrigger
@@ -3220,193 +3300,11 @@ const Admin = () => {
           </div>
 
           <div className="hidden md:flex flex-[2] justify-center relative">
-            <div className={cn(
-              "relative group transition-all duration-300 w-full max-w-[400px]",
-              isEditing ? "hidden md:flex" : "hidden md:flex"
-            )}>
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input 
-                type="text" 
-                placeholder="Pesquisar..." 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={cn(
-                  "border rounded-full h-10 pl-11 pr-4 text-sm w-full outline-none transition-all", 
-                  isDarkMode ? "bg-[#000] border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/10 text-black shadow-inner"
-                )}
-              />
-              
-              {globalSearchResults.length > 0 && searchQuery && (
-                <div className={cn(
-                  "absolute top-full left-0 right-0 mt-2 rounded-2xl border shadow-2xl overflow-hidden p-2 animate-in fade-in slide-in-from-top-2 duration-200 z-[70]",
-                  isDarkMode ? "bg-[#111] border-white/10" : "bg-white border-black/10"
-                )}>
-                  {globalSearchResults.map((res, i) => (
-                    <button
-                      key={`search-res-desktop-${res.type}-${i}-${res.item?.id || 'no-id'}`}
-                      onClick={() => {
-                        if (res.type === 'membros') setViewingMember(res.item);
-                        setSelectedItem(res.item);
-                        setFormData(res.item);
-                        setActiveTab(res.type);
-                        setIsEditing(true);
-                        setIsReadOnly(true);
-                        setSearchQuery("");
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left",
-                        isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5"
-                      )}
-                    >
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center shrink-0", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                        <res.icon className="w-4 h-4 text-[#BF76FF]" />
-                      </div>
-                      <div className="flex flex-col min-w-0 flex-1">
-                        <span className={cn("text-xs font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{res.title}</span>
-                        <span className="text-[10px] text-gray-500 truncate">{res.sub}</span>
-                      </div>
-                      <ChevronRight className="w-3 h-3 text-gray-500" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            {/* Campo de pesquisa removido conforme solicitado */}
           </div>
           
           <div className="flex items-center gap-2 md:gap-4 pl-0 pr-2 md:px-8 md:flex-1 justify-end relative ml-auto">
-            {/* Toggle Sidebar Buttons (Only visible when sidebar is not permanent) */}
-            <div className="hidden md:flex xl:hidden items-center gap-1 mr-1">
-              <button 
-                onClick={() => setRightSidebarView(rightSidebarView === "team" ? "hidden" : "team")}
-                className={cn(
-                  "p-2 rounded-xl transition-all",
-                  rightSidebarView === "team" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500 hover:bg-black/5 dark:hover:bg-white/5"
-                )}
-                title="Membros"
-              >
-                <Users className="w-5 h-5" />
-              </button>
-              <button 
-                onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
-                className={cn(
-                  "p-2 rounded-xl transition-all",
-                  rightSidebarView === "chat-list" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500 hover:bg-black/5 dark:hover:bg-white/5"
-                )}
-                title="Mensagens"
-              >
-                <MessageSquare className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="relative flex items-center gap-2" ref={notificationRef}>
-              {canViewSettings && (
-                <button 
-                  className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
-                  onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }}
-                  title="Configurações"
-                >
-                  <Settings className="w-5 h-5" />
-                </button>
-              )}
-
-              <button 
-                className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
-                onClick={() => setShowNotifications(!showNotifications)}
-              >
-                <Bell className={cn("w-5 h-5", counts.unreadNotifications > 0 && "text-[#BF76FF]")} />
-                {counts.unreadNotifications > 0 && (
-                  <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-[#BF76FF] rounded-full border-2 border-[#0a0a0a] flex items-center justify-center text-[9px] text-white font-black shadow-lg px-1 animate-bounce">
-                    {counts.unreadNotifications}
-                  </div>
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showNotifications && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className={cn(
-                        "fixed top-20 right-4 w-80 max-w-[calc(100vw-32px)] md:absolute md:top-full md:right-0 md:mt-4 md:w-72 max-h-[80vh] overflow-y-auto scrollbar-hide rounded-[28px] border shadow-2xl p-3 z-50",
-                        isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5"
-                      )}
-                    >
-                      <div className="flex items-center justify-between px-2 mb-3">
-                        <h6 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Notificações</h6>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={handleMarkAllAsRead}
-                            className="text-[10px] text-[#BF76FF] hover:underline font-bold"
-                          >
-                            Marcar lidas
-                          </button>
-                          <button 
-                            onClick={handleClearNotifications}
-                            className="text-[10px] text-red-500 hover:underline font-bold"
-                          >
-                            Limpar
-                          </button>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        {displayNotifications.length > 0 ? (
-                          displayNotifications.map((n, i) => (
-                            <button 
-                              key={n.id || i} 
-                              onClick={async () => {
-                                try {
-                                  if (!n.read) {
-                                    // Update local state immediately
-                                    setNotifications(prev => prev.map(item => item.id === n.id ? { ...item, read: true } : item));
-                                    await updateDoc(doc(db, "notifications", n.id), { read: true });
-                                  }
-                                } catch (e) {
-                                  handleFirestoreError(e, OperationType.UPDATE, `notifications/${n.id}`);
-                                }
-                                if (n.type === "registration" && n.memberId) {
-                                  setActiveTab("membros");
-                                  const member = members.find(m => m.id === n.memberId);
-                                  if (member) {
-                                    setSelectedItem(member);
-                                    setFormData(member);
-                                    setIsEditing(true);
-                                    setIsReadOnly(false);
-                                  }
-                                } else if (n.type === "chat" && n.senderId) {
-                                  const sender = members.find(m => m.id === n.senderId);
-                                  if (sender) {
-                                    setRightSidebarView("chat-active");
-                                    setActiveChatUser(sender);
-                                  }
-                                }
-                                setShowNotifications(false);
-                              }}
-                              className={cn(
-                                "w-full text-left p-3 rounded-2xl text-[10px] transition-all", 
-                                isDarkMode 
-                                  ? n.read ? "bg-white/5 text-gray-500" : "bg-white/10 text-gray-300" 
-                                  : n.read ? "bg-gray-50 text-gray-500" : "bg-primary/5 text-gray-700"
-                              )}
-                            >
-                              <div className="flex items-center gap-2 mb-0.5">
-                                {!n.read && <div className="w-1.5 h-1.5 rounded-full bg-[#BF76FF]" />}
-                                <span className={cn("font-bold block", isDarkMode ? "text-white" : "text-black")}>{n.title}</span>
-                              </div>
-                              <p className="line-clamp-2">{n.message}</p>
-                            </button>
-                          ))
-                        ) : (
-                          <p className="text-[10px] text-gray-500 text-center py-4">Nenhuma notificação</p>
-                        )}
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
+            {/* Menu superior com ícones removido conforme solicitado para simplificar o cabeçalho */}
 
             <div className={cn("flex items-center gap-3 pl-2 md:pl-4 md:border-l relative", isDarkMode ? "border-white/10" : "border-black/10")} ref={profileMenuRef}>
               <div className="text-right hidden md:block">
@@ -5730,6 +5628,209 @@ const Admin = () => {
                   </div>
                 </Card>
               </div>
+            ) : activeTab === "chat" ? (
+              <div className="flex flex-col h-[600px] border rounded-[32px] overflow-hidden transition-colors relative" style={{ height: 'calc(100vh - 200px)', maxHeight: '800px' }}>
+                <div className="flex h-full">
+                  {/* Left panel: Chat list or members */}
+                  <div className={cn("w-full md:w-80 border-r flex flex-col", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
+                    <div className="p-4 border-b border-white/5 flex gap-2">
+                       <Button 
+                         variant="ghost" 
+                         className={cn("flex-1 text-[10px] font-black uppercase tracking-widest", chatListSubTab === "chats" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500")}
+                         onClick={() => setChatListSubTab("chats")}
+                       >
+                         Conversas
+                       </Button>
+                       <Button 
+                         variant="ghost" 
+                         className={cn("flex-1 text-[10px] font-black uppercase tracking-widest", chatListSubTab === "contacts" ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "text-gray-500")}
+                         onClick={() => setChatListSubTab("contacts")}
+                       >
+                         Contatos
+                       </Button>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto scrollbar-hide">
+                      {chatListSubTab === "chats" ? (
+                        <div className="p-2 space-y-1">
+                          {activeChats.length > 0 ? (
+                            activeChats.map(chat => {
+                              const otherParticipantId = chat.participants.find((id: string) => id !== profile?.id);
+                              const otherUser = members.find(m => m.id === otherParticipantId);
+                              const unread = chat.unreadCount?.[profile?.id || ''] || 0;
+                              
+                              if (!otherUser) return null;
+
+                              return (
+                                <button
+                                  key={chat.id}
+                                  onClick={() => setActiveChatUser(otherUser)}
+                                  className={cn(
+                                    "w-full flex items-center gap-3 p-3 rounded-2xl transition-all group",
+                                    activeChatUser?.id === otherUser.id 
+                                      ? "bg-[#BF76FF]/10" 
+                                      : isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5"
+                                  )}
+                                >
+                                  <div className="relative">
+                                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#BF76FF]/20 flex items-center justify-center border border-[#BF76FF]/30">
+                                      {otherUser.photoURL ? (
+                                        <img src={otherUser.photoURL} alt="" className="w-full h-full object-cover" />
+                                      ) : (
+                                        <User className="w-5 h-5 text-[#BF76FF]" />
+                                      )}
+                                    </div>
+                                    {unread > 0 && (
+                                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-black flex items-center justify-center text-[10px] text-white font-black">
+                                        {unread}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 text-left">
+                                    <p className={cn("text-xs font-black uppercase tracking-tighter truncate", isDarkMode ? "text-white" : "text-black")}>{otherUser.name}</p>
+                                    <p className="text-[10px] text-gray-500 truncate">{chat.lastMessage || "Nenhuma mensagem"}</p>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="py-20 text-center flex flex-col items-center justify-center">
+                              <MessageSquare className="w-10 h-10 text-gray-700 mb-4 opacity-20" />
+                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-4">Nenhuma conversa ativa</p>
+                              <Button variant="ghost" className="mt-4 text-[#BF76FF] text-[10px]" onClick={() => setChatListSubTab("contacts")}>Ver contatos</Button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-2 space-y-1">
+                          <div className="px-3 py-2">
+                             <input 
+                               placeholder="Procurar contato..."
+                               className={cn("w-full h-9 rounded-xl px-4 text-xs outline-none border transition-colors", isDarkMode ? "bg-white/5 border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
+                               onChange={(e) => setChatSearch(e.target.value)}
+                             />
+                          </div>
+                          {members
+                             .filter(m => m.id !== profile?.id && m.status !== "pending")
+                             .filter(m => !chatSearch || m.name?.toLowerCase().includes(chatSearch.toLowerCase()))
+                             .map(member => (
+                            <button
+                              key={`contact-${member.id}`}
+                              onClick={() => {
+                                setActiveChatUser(member);
+                                setChatListSubTab("chats");
+                              }}
+                              className={cn(
+                                "w-full flex items-center gap-3 p-3 rounded-2xl transition-all group",
+                                isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5"
+                              )}
+                            >
+                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#BF76FF]/20 flex items-center justify-center border border-[#BF76FF]/30">
+                                {member.photoURL ? (
+                                  <img src={member.photoURL} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <User className="w-5 h-5 text-[#BF76FF]" />
+                                )}
+                              </div>
+                              <div className="flex-1 text-left">
+                                <p className={cn("text-xs font-black uppercase tracking-tighter truncate", isDarkMode ? "text-white" : "text-black")}>{member.name}</p>
+                                <p className="text-[9px] text-[#BF76FF] font-black uppercase tracking-widest leading-none">{member.role}</p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right panel: Active chat window */}
+                  <div className={cn("flex-1 flex flex-col relative", isDarkMode ? "bg-[#161616]" : "bg-gray-50")}>
+                    {activeChatUser ? (
+                      <div className="flex-1 flex flex-col h-full overflow-hidden">
+                        {/* Header */}
+                        <div className={cn("p-4 border-b flex items-center justify-between", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
+                           <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#BF76FF]/20 flex items-center justify-center border border-[#BF76FF]/30">
+                                {activeChatUser.photoURL ? (
+                                  <img src={activeChatUser.photoURL} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <User className="w-5 h-5 text-[#BF76FF]" />
+                                )}
+                              </div>
+                              <div>
+                                <h3 className={cn("text-xs font-black uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>{activeChatUser.name}</h3>
+                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">{activeChatUser.role}</p>
+                              </div>
+                           </div>
+                           <Button variant="ghost" size="icon" onClick={() => setActiveChatUser(null)} className="md:hidden">
+                             <X className="w-5 h-5" />
+                           </Button>
+                        </div>
+
+                        {/* Messages Area - this would use the same message display logic as the sidebar */}
+                        <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-hide">
+                          {chatMessages.length > 0 ? (
+                            chatMessages.map((msg, idx) => {
+                              const isMe = msg.senderId === profile?.id;
+                              return (
+                                <div key={msg.id || idx} className={cn("flex flex-col max-w-[80%] space-y-1", isMe ? "ml-auto items-end" : "mr-auto items-start")}>
+                                  <div className={cn(
+                                    "px-4 py-2 rounded-2xl text-[11px] font-bold",
+                                    isMe 
+                                      ? "bg-[#BF76FF] text-white rounded-tr-none" 
+                                      : isDarkMode ? "bg-white/10 text-white rounded-tl-none" : "bg-white text-black border border-black/5 shadow-sm rounded-tl-none"
+                                  )}>
+                                    {msg.text}
+                                  </div>
+                                  <span className="text-[8px] text-gray-500 font-black uppercase">{msg.createdAt?.toDate ? format(msg.createdAt.toDate(), "HH:mm") : ""}</span>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="flex-1 flex flex-col items-center justify-center opacity-30">
+                              <MessageSquare className="w-12 h-12 mb-4" />
+                              <p className="text-[10px] font-black uppercase tracking-widest">Inicie a conversa</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Input Area */}
+                        <div className={cn("p-4 border-t", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5")}>
+                          <form onSubmit={(e) => {
+                            e.preventDefault();
+                            sendChatMessage();
+                          }} className="flex gap-2">
+                             <input 
+                               value={chatInput}
+                               onChange={(e) => setChatInput(e.target.value)}
+                               placeholder="Digite sua mensagem..."
+                               className={cn("flex-1 h-11 rounded-2xl px-4 text-xs outline-none border transition-colors", isDarkMode ? "bg-white/5 border-white/5 text-white" : "bg-gray-50 border-black/5 text-black")}
+                             />
+                             <Button 
+                               type="submit"
+                               size="icon" 
+                               disabled={!chatInput.trim()}
+                               className="w-11 h-11 rounded-2xl bg-[#BF76FF] hover:bg-[#BF76FF]/80 text-white shadow-lg shadow-[#BF76FF]/20 shrink-0"
+                             >
+                               <Send className="w-4 h-4" />
+                             </Button>
+                          </form>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center text-center p-12 space-y-4">
+                        <div className="w-20 h-20 rounded-[32px] bg-[#BF76FF]/10 flex items-center justify-center mb-4">
+                          <MessageSquare className="w-10 h-10 text-[#BF76FF]" />
+                        </div>
+                        <h3 className={cn("text-xl font-black uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Chat do Ministério</h3>
+                        <p className="text-sm text-gray-500 max-w-xs leading-relaxed">
+                          Selecione um contato ao lado para iniciar uma conversa.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             ) : activeTab === "logs" ? (
               <div className="p-4 md:p-8">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -6130,14 +6231,12 @@ const Admin = () => {
               onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
               isDark={isDarkMode} 
             />
-            {currentRole !== "Direção" && (
-              <ActionIcon 
-                icon={Users} 
-                active={rightSidebarView === "team"}
-                onClick={() => setRightSidebarView(rightSidebarView === "team" ? "hidden" : "team")}
-                isDark={isDarkMode} 
-              />
-            )}
+            <ActionIcon 
+              icon={Users} 
+              active={rightSidebarView === "team"}
+              onClick={() => setRightSidebarView(rightSidebarView === "team" ? "hidden" : "team")}
+              isDark={isDarkMode} 
+            />
           </div>
         </div>
 
