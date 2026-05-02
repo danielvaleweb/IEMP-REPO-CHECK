@@ -1031,11 +1031,21 @@ const Admin = () => {
   useEffect(() => {
     if (rightSidebarView === "chat-active" && activeChatUser?.id && profile?.id) {
       const chatId = [profile.id, activeChatUser.id].sort().join('_');
-      updateDoc(doc(db, "chats", chatId), {
-        [`unreadCount.${profile.id}`]: 0
-      }).catch(err => console.error("Error resetting unread count", err));
+      // Only attempt to reset if the chat actually exists in the local list
+      const chat = activeChats.find(c => c.id === chatId);
+      
+      if (chat && chat.unreadCount?.[profile.id] > 0) {
+        updateDoc(doc(db, "chats", chatId), {
+          [`unreadCount.${profile.id}`]: 0
+        }).catch(err => {
+          // Silent for not-found errors as they are expected for brand new chats
+          if (err.code !== 'not-found') {
+            console.error("Error resetting unread count", err);
+          }
+        });
+      }
     }
-  }, [rightSidebarView, activeChatUser?.id, profile?.id, chatMessages.length]);
+  }, [rightSidebarView, activeChatUser?.id, profile?.id, chatMessages.length, activeChats]);
 
   const renderMessageWithMentions = (text: string) => {
     if (!text) return null;
