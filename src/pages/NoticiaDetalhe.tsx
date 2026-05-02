@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import Markdown from "react-markdown";
+import { getImageUrl } from "@/lib/utils";
 
 declare global {
   interface Window {
@@ -262,7 +263,7 @@ export default function NoticiaDetalhe() {
             {/* Main Photo with Caption */}
           <div className="flex flex-col gap-3">
              <div className="relative aspect-video rounded-3xl overflow-hidden shadow-2xl group cursor-pointer" onClick={() => setActiveImage(post.image)}>
-              <img src={post.image} alt={post.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+              <img src={getImageUrl(post.image)} alt={post.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
               <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
             </div>
             {(post.imageCaption || post.source) && (
@@ -326,7 +327,7 @@ export default function NoticiaDetalhe() {
                     className="aspect-square rounded-2xl overflow-hidden cursor-pointer shadow-md group"
                     onClick={() => setActiveImage(img)}
                   >
-                    <img src={img} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={`Galeria ${idx}`} />
+                    <img src={getImageUrl(img)} className="w-full h-full object-cover transition-transform group-hover:scale-110" alt={`Galeria ${idx}`} />
                   </motion.div>
                 ))}
               </div>
@@ -347,7 +348,7 @@ export default function NoticiaDetalhe() {
               {christianNews.map((news) => (
                 <Link key={news.id} to={`/noticia/${news.id}`} className="group flex flex-col gap-4">
                   <div className="aspect-video rounded-3xl overflow-hidden shadow-lg">
-                    <img src={news.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={news.title} />
+                    <img src={getImageUrl(news.image)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={news.title} />
                   </div>
                   <div className="flex flex-col gap-2">
                     <h3 className="text-lg font-black leading-tight group-hover:text-[#BF76FF] transition-colors">{news.title}</h3>
@@ -366,7 +367,7 @@ export default function NoticiaDetalhe() {
                 {relatedPosts.map((rel) => (
                   <Link key={rel.id} to={`/noticia/${rel.id}`} className="group flex flex-col gap-4">
                     <div className="aspect-video rounded-3xl overflow-hidden shadow-lg">
-                      <img src={rel.image} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={rel.title} />
+                      <img src={getImageUrl(rel.image)} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={rel.title} />
                     </div>
                     <div className="flex flex-col gap-2">
                       <h3 className="text-lg font-black leading-tight group-hover:text-[#BF76FF] transition-colors">{rel.title}</h3>

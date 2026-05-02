@@ -81,6 +81,7 @@ import { VideosView } from "@/components/admin/VideosView";
 import { EventosView } from "@/components/admin/EventosView";
 import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { getImageUrl } from "@/lib/utils";
 import { updateProfile } from "firebase/auth";
 import { 
   Dialog, 
@@ -505,7 +506,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
       <div className={cn("rounded-[40px] overflow-hidden border transition-all", isDark ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-2xl")}>
         <div className="relative min-h-[500px] md:h-80">
           <img 
-            src={member.coverImage || "https://picsum.photos/seed/church/1200/400"} 
+            src={getImageUrl(member.coverImage || "https://picsum.photos/seed/church/1200/400")} 
             className="w-full h-full object-cover opacity-60"
             alt=""
           />
@@ -515,7 +516,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6 w-full md:w-auto">
               <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-8 border-[#111] bg-[#1a1a1a] overflow-hidden shadow-2xl relative z-10">
                 {member.photoURL ? (
-                  <img src={member.photoURL} alt="" className="w-full h-full object-cover" />
+                  <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-[#BF76FF]">
                     {member.name?.[0] || "M"}
@@ -917,6 +918,7 @@ const Admin = () => {
     { id: 'visao-geral', label: 'Início', icon: Home },
     { id: 'eventos', label: 'Eventos', icon: PartyPopper },
     { id: 'noticias', label: 'Notícias', icon: Newspaper },
+    { id: 'videos', label: 'Vídeos', icon: Youtube },
     { id: 'membros', label: 'Membros', icon: Users },
     { id: 'visitantes', label: 'Visitantes', icon: UserSearch },
     { id: 'avisos', label: 'Central de Avisos', icon: Megaphone },
@@ -2869,6 +2871,7 @@ const Admin = () => {
               {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
@@ -3296,7 +3299,7 @@ const Admin = () => {
                 <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] p-0.5 shadow-lg shadow-[#BF76FF]/20 group-hover:scale-105 transition-transform">
                   <div className={cn("w-full h-full rounded-full flex items-center justify-center overflow-hidden transition-colors relative", isDarkMode ? "bg-[#0a0a0a]" : "bg-white")}>
                     {user?.photoURL ? (
-                      <img src={user.photoURL} alt="" className="w-full h-full object-cover" />
+                      <img src={getImageUrl(user.photoURL)} alt="" className="w-full h-full object-cover" />
                     ) : (
                       <span className={cn("font-bold text-xs uppercase", isDarkMode ? "text-white" : "text-black")}>
                         {(user?.displayName || "A")[0]}
@@ -3494,7 +3497,7 @@ const Admin = () => {
                         {/* Header Section */}
                         {activeTab === "eventos" && formData.image && (
                           <div className="relative aspect-video w-full rounded-[40px] overflow-hidden shadow-2xl mb-12">
-                            <img src={formData.image} alt="" className="w-full h-full object-cover" />
+                            <img src={getImageUrl(formData.image)} alt="" className="w-full h-full object-cover" />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                             <div className="absolute top-8 left-8">
                               <span className="bg-primary px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
@@ -3577,7 +3580,7 @@ const Admin = () => {
                             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
                                {formData.gallery.map((url: string, i: number) => (
                                  <div key={`gallery-preview-${url}-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                                   <img src={url} alt="" className="w-full h-full object-cover" />
+                                   <img src={getImageUrl(url)} alt="" className="w-full h-full object-cover" />
                                  </div>
                                ))}
                             </div>
@@ -3624,7 +3627,7 @@ const Admin = () => {
                                        <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                                           <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
                                             {m.photo ? (
-                                              <img src={m.photo} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+                                              <img src={getImageUrl(m.photo)} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
                                             ) : (
                                               <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
                                                  <Users className="w-10 h-10" />
@@ -3660,7 +3663,7 @@ const Admin = () => {
                                        <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                                           <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
                                             {guest.image ? (
-                                              <img src={guest.image} alt={guest.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
+                                              <img src={getImageUrl(guest.image)} alt={guest.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" referrerPolicy="no-referrer" />
                                             ) : (
                                               <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
                                                  <Users className="w-10 h-10" />
@@ -3728,7 +3731,7 @@ const Admin = () => {
                                 />
                                 {formData.image && (
                                   <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                    <img src={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                                    <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" />
                                   </div>
                                 )}
                               </div>
@@ -3889,7 +3892,7 @@ const Admin = () => {
                                     </div>
                                     {formData.image && (
                                       <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/10 group">
-                                        <img src={formData.image} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
+                                        <img src={getImageUrl(formData.image)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
                                         <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md p-3 rounded-2xl border border-white/10">
                                            <p className="text-[10px] text-white/80 italic">{formData.imageCaption || "Sem legenda"}</p>
                                         </div>
@@ -3974,7 +3977,7 @@ const Admin = () => {
                                             </div>
                                             {url.trim() && (
                                               <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20 group-hover:scale-[1.02] transition-transform duration-300">
-                                                <img src={url.trim()} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                <img src={getImageUrl(url.trim())} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
                                               </div>
                                             )}
                                           </div>
@@ -6431,7 +6434,7 @@ const Admin = () => {
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl overflow-hidden bg-gray-200 shrink-0">
                           {member.photoURL ? (
-                            <img src={member.photoURL} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
+                            <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold">
                               {member.name?.[0]}
@@ -6771,7 +6774,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
         <div className="relative">
           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors overflow-hidden", isDark ? "bg-gradient-to-tr from-gray-700 to-gray-800 text-white" : "bg-gray-200 text-black")}>
             {member.photoURL ? (
-              <img src={member.photoURL} alt="" className="w-full h-full object-cover" />
+              <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
             ) : (
               name[0]
             )}
@@ -6837,7 +6840,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
                   <div className="flex items-end justify-between mb-4">
                     <div className="w-16 h-16 rounded-full border-4 border-[#0a0a0a] bg-[#1a1a1a] overflow-hidden shadow-xl">
                       {member.photoURL ? (
-                        <img src={member.photoURL} alt="" className="w-full h-full object-cover" />
+                        <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xl font-bold text-[#BF76FF]">
                           {name[0]}

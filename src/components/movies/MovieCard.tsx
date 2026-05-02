@@ -9,7 +9,7 @@ import {
   Camera,
   ThumbsUp
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 
 interface MovieCardProps {
   item: any;
@@ -74,13 +74,13 @@ export const MovieCard = ({
   }, []);
 
   const isVideo = type === 'video';
-  let displayImage = item.thumbnail;
+  let displayImage = getImageUrl(item.thumbnail);
   
   if (type === 'event') {
     if (useGalleryImage && item.gallery && item.gallery.length > 0) {
-      displayImage = typeof item.gallery[0] === 'string' ? item.gallery[0] : item.gallery[0].url;
+      displayImage = getImageUrl(typeof item.gallery[0] === 'string' ? item.gallery[0] : item.gallery[0].url);
     } else {
-      displayImage = item.image;
+      displayImage = getImageUrl(item.image);
     }
   }
 

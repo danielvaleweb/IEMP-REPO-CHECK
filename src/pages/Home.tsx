@@ -23,7 +23,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { collection, query, orderBy, limit, onSnapshot, doc, getDocs, setDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -787,7 +787,7 @@ export default function Home() {
                         onClick={() => navigate(`/evento/${currentEvent.id}`)}
                       >
                         <img 
-                          src={currentEvent.image} 
+                          src={getImageUrl(currentEvent.image)} 
                           alt={currentEvent.title}
                           className="w-full h-full object-cover opacity-100 transition-transform duration-[10s] ease-linear group-hover:scale-110"
                         />
@@ -964,7 +964,7 @@ export default function Home() {
                 onClick={() => navigate(`/noticia/${blogPosts[0].id}`)}
               >
                 <img 
-                  src={blogPosts[0].image} 
+                  src={getImageUrl(blogPosts[0].image)} 
                   alt={blogPosts[0].title}
                   className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                 />
@@ -991,7 +991,7 @@ export default function Home() {
                 onClick={() => navigate(`/noticia/${blogPosts[1].id}`)}
               >
                 <img 
-                  src={blogPosts[1].image} 
+                  src={getImageUrl(blogPosts[1].image)} 
                   alt={blogPosts[1].title}
                   className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
                 />
@@ -1019,7 +1019,7 @@ export default function Home() {
                     onClick={() => navigate(`/noticia/${post.id}`)}
                   >
                     <img 
-                      src={post.image} 
+                      src={getImageUrl(post.image)} 
                       alt={post.title}
                       className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110"
                     />

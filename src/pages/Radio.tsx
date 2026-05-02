@@ -105,18 +105,33 @@ export default function RadioPage() {
             className="lg:col-span-8 bg-white/5 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] p-6 md:p-12 shadow-2xl overflow-hidden relative group"
           >
             {/* Hidden Player Engine */}
-            <div className="absolute opacity-0 pointer-events-none">
+            <div className="absolute -top-10 -left-10 w-1 h-1 opacity-[0.01] pointer-events-none overflow-hidden">
               {currentVideoUrl && (
                 <Player
+                  key={currentVideoUrl}
                   ref={playerRef}
                   url={currentVideoUrl}
                   playing={isPlaying}
                   volume={volume}
                   muted={isMuted}
                   onReady={() => console.log('Radio: Player Ready')}
-                  onStart={() => console.log('Radio: Player Started')}
-                  onPlay={() => setIsPlaying(true)}
+                  onStart={() => {
+                    console.log('Radio: Player Started');
+                    // Force volume refresh on start
+                    if (playerRef.current) {
+                      const internal = playerRef.current.getInternalPlayer();
+                      if (internal && typeof internal.setVolume === 'function') {
+                        internal.setVolume(volume * 100);
+                      }
+                    }
+                  }}
+                  onPlay={() => {
+                    console.log('Radio: Playing');
+                    setIsPlaying(true);
+                  }}
                   onPause={() => setIsPlaying(false)}
+                  onBuffer={() => console.log('Radio: Buffering...')}
+                  onBufferEnd={() => console.log('Radio: Buffering Ended')}
                   onEnded={handleNext}
                   onProgress={(p: any) => setProgress(p.played * 100)}
                   onError={(e: any) => {
@@ -126,11 +141,12 @@ export default function RadioPage() {
                   config={{
                     youtube: {
                       playerVars: { 
-                        autoplay: 1,
+                        autoplay: 0,
                         controls: 0,
                         showinfo: 0,
                         rel: 0,
-                        modestbranding: 1
+                        modestbranding: 1,
+                        origin: window.location.origin
                       }
                     }
                   } as any}

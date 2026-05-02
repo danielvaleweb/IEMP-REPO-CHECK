@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "@/lib/firebase";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
-import { cn } from "@/lib/utils";
+import { cn, getImageUrl } from "@/lib/utils";
 
 interface Album {
   id: string;
@@ -119,7 +119,7 @@ export default function Gallery() {
                     <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-xl border border-black/5">
                       <WatermarkOverlay title={album.title} />
                       <img 
-                        src={album.cover} 
+                        src={getImageUrl(album.cover)} 
                         alt={album.title} 
                         className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                         referrerPolicy="no-referrer"
@@ -173,7 +173,7 @@ export default function Gallery() {
                 >
                   <WatermarkOverlay title={selectedAlbum.title} />
                   <img 
-                    src={photo} 
+                    src={getImageUrl(photo)} 
                     alt={`Foto ${idx + 1}`} 
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                     referrerPolicy="no-referrer"
@@ -209,7 +209,7 @@ export default function Gallery() {
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.9, opacity: 0 }}
-                src={selectedPhoto}
+                src={getImageUrl(selectedPhoto)}
                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl"
                 referrerPolicy="no-referrer"
               />

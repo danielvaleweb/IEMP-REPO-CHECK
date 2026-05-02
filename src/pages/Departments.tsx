@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { Users, Camera, Shield, Heart } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { getImageUrl } from "@/lib/utils";
 
 const DEPT_INFO: Record<string, any> = {
   secretaria: {
@@ -46,7 +47,7 @@ export default function Departments() {
 
         <div className="rounded-[3rem] overflow-hidden mb-16 shadow-2xl border border-black/5 aspect-video">
           <img 
-            src={info.image} 
+            src={getImageUrl(info.image)} 
             alt={info.title} 
             className="w-full h-full object-cover"
             referrerPolicy="no-referrer"
