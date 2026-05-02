@@ -6120,6 +6120,7 @@ const Admin = () => {
               onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
               isDark={isDarkMode} 
               hasNotification={activeChats.some(chat => chat.unreadCount?.[profile?.id || ''] > 0)}
+              notificationCount={activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)}
             />
             <ActionIcon 
               icon={Users} 
