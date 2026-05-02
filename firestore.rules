@@ -196,7 +196,8 @@ service cloud.firestore {
       );
       allow create: if isMasterAdmin() || isAdmin() || 
                     incoming().type == 'registration' || 
-                    incoming().type == 'chat';
+                    incoming().type == 'chat' ||
+                    incoming().type == 'activity';
       allow update, delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
