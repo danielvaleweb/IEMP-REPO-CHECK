@@ -7,6 +7,9 @@ import {
   LogOut,
   Plus,
   Trash2,
+  RefreshCcw,
+  FolderOpen,
+  Loader2,
   Edit,
   Save,
   Youtube,
@@ -902,6 +905,7 @@ const Admin = () => {
     });
   }, [user, isAdmin, loading, profile]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1280);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [viewingMember, setViewingMember] = useState<any>(null);
@@ -911,6 +915,7 @@ const Admin = () => {
   const [activeChats, setActiveChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
+  const [showClearGalleryDialog, setShowClearGalleryDialog] = useState(false);
   const [mentionSearch, setMentionSearch] = useState("");
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
 
@@ -1657,7 +1662,7 @@ const Admin = () => {
       "visitantes": !["Membro", "Visitante", "Direção"].includes(currentRole),
       "avisos": currentRole === "Administradores" || currentRole === "Desenvolvedor",
       "agenda": !["Membro", "Visitante", "Direção"].includes(currentRole),
-      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção"
+      "agenda-direcao": currentRole === "Administradores" || currentRole === "Desenvolvedor" || currentRole === "Direção" || currentRole === "Secretaria"
     };
 
     if (!rolePerms) {
@@ -1678,6 +1683,7 @@ const Admin = () => {
   const canEdit = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.edit ?? defaultEditPerm);
   const canDelete = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.delete ?? defaultEditPerm);
   const canEditProfiles = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.editProfiles ?? defaultEditProfilesPerm);
+  const canDeletePhotos = isEffectivelyAdmin || (settings.permissions?.[currentRole]?.deletePhotos ?? defaultEditPerm);
 
   // Real-time listeners
   useEffect(() => {
@@ -1846,6 +1852,120 @@ const Admin = () => {
     if (activeTab === "agenda-direcao") return agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     return [];
   }, [activeTab, searchQuery, posts, members, agenda, agendaDirecao, vignettes, radioTracks, radioSubTab]);
+
+  const syncDriveFolder = async () => {
+    if (!formData.driveFolderId) {
+      alert("Por favor, cole o link da pasta do Google Drive primeiro.");
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      // Extração robusta do ID a partir do link
+      let folderId = formData.driveFolderId.trim();
+      
+      // Se for um link completo, extrai o ID
+      if (folderId.includes("drive.google.com")) {
+        // Tenta vários padrões de link do Drive
+        const folderPatterns = [
+          /\/folders\/([a-zA-Z0-9-_]+)/,
+          /[?&]id=([a-zA-Z0-9-_]+)/,
+          /\/open\?id=([a-zA-Z0-9-_]+)/,
+          /\/drive\/mobile\/folders\/([a-zA-Z0-9-_]+)/
+        ];
+
+        for (const pattern of folderPatterns) {
+          const match = folderId.match(pattern);
+          if (match) {
+            folderId = match[1];
+            break;
+          }
+        }
+      }
+      
+      // Tenta usar o proxy local para evitar NetworkError (CORS) e falhas de serviços externos
+      const response = await fetch(`/api/drive-proxy?id=${folderId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
+      }
+      
+      const content = await response.text();
+      
+      if (content.includes("Google Drive - Vírus") || content.includes("Login de Contas do Google")) {
+        throw new Error("A pasta parece não estar pública. Verifique as permissões de compartilhamento.");
+      }
+
+      const ids: string[] = [];
+      
+      // Lógica 1: Padrão JSON interno [ "ID", "Name", ..., "image/jpeg" ]
+      // Este é o mais confiável para pastas públicas
+      const jsonPattern = /"([a-zA-Z0-9-_]{25,})","[^"]+",\d+[^\]]+?"image\/[a-z]+"/g;
+      const jsonMatches = content.match(jsonPattern);
+      if (jsonMatches) {
+        jsonMatches.forEach(m => {
+          const idMatch = m.match(/"([a-zA-Z0-9-_]{25,})"/);
+          if (idMatch && !idMatch[1].includes('-header') && !idMatch[1].includes('flip-list')) {
+            ids.push(idMatch[1]);
+          }
+        });
+      }
+
+      // Lógica 2: Fallback se a Lógica 1 não encontrar nada
+      if (ids.length === 0) {
+        // Procure por strings que pareçam IDs (28-35 chars) mas que NÃO sejam classes CSS conhecidas do Drive
+        const genericIdRegex = /"([a-zA-Z0-9-_]{28,35})"/g;
+        let m;
+        const blacklist = [
+          'flip-list', 'last-modified', 'header', 'view-header', 'folder-view', 
+          'accessibility', 'selection', 'grid-view', 'list-view', 'caption'
+        ];
+        
+        while ((m = genericIdRegex.exec(content)) !== null) {
+          const id = m[1];
+          const isBlacklisted = blacklist.some(term => id.includes(term));
+          
+          if (id !== folderId && !isBlacklisted && id.length >= 28) {
+            ids.push(id);
+          }
+        }
+      }
+      
+      // Lógica 3: Buscar IDs em URLs de miniatura ou preview (comum em listagens públicas)
+      if (ids.length === 0) {
+        // Padrão do Drive para thumbnails: /d/ID=... ou ?id=ID
+        const thumbRegex = /\/d\/([a-zA-Z0-9-_]{25,})/g;
+        let m;
+        while ((m = thumbRegex.exec(content)) !== null) {
+          if (m[1] !== folderId) ids.push(m[1]);
+        }
+      }
+      
+      const uniqueIds = Array.from(new Set(ids)).filter((id: string) => 
+        id !== folderId && 
+        !["drive-sdk", "docs-python", "googledrive"].includes(id) &&
+        (!id.includes('-') || id.length > 30)
+      );
+
+      // Filtro extra: PDFs ou outros arquivos às vezes aparecem. 
+      // Em pastas públicas de galeria, os IDs costumam ter um padrão similar.
+      if (uniqueIds.length > 0) {
+        setFormData({
+          ...formData,
+          gallery: uniqueIds
+        });
+        alert(`${uniqueIds.length} fotos detectadas com sucesso!`);
+      } else {
+        alert("Nenhuma foto encontrada. Certifique-se de que:\n1. O link é de uma PASTA (não uma foto individual).\n2. A pasta está como 'Qualquer pessoa com o link pode ver'.\n3. Existem fotos (JPG/PNG) dentro da pasta.");
+      }
+    } catch (err) {
+      console.error("Erro ao sincronizar pasta:", err);
+      alert("Erro ao conectar com o Google Drive. Verifique se o link está correto e se a pasta é pública.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleSave = async () => {
     if (isSubmitting) return;
@@ -2764,7 +2884,7 @@ const Admin = () => {
             </button>
           </div>
 
-          {!isSidebarCollapsed && (isMasterAdmin || profile?.role === "Desenvolvedor") && (
+          {!isSidebarCollapsed && canViewSettings && (isMasterAdmin || profile?.role === "Desenvolvedor") && (
             <div className="relative">
               <div 
                 onClick={() => isMasterAdmin ? setIsWorkspaceOpen(!isWorkspaceOpen) : setActiveTab("config")}
@@ -3179,13 +3299,15 @@ const Admin = () => {
             </div>
 
             <div className="relative flex items-center gap-2" ref={notificationRef}>
-              <button 
-                className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
-                onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }}
-                title="Configurações"
-              >
-                <Settings className="w-5 h-5" />
-              </button>
+              {canViewSettings && (
+                <button 
+                  className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
+                  onClick={() => { setActiveTab("config"); setRightSidebarView("team"); }}
+                  title="Configurações"
+                >
+                  <Settings className="w-5 h-5" />
+                </button>
+              )}
 
               <button 
                 className={cn("p-2 rounded-xl relative transition-all group", isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-500 hover:text-black")}
@@ -4387,37 +4509,78 @@ const Admin = () => {
                             </div>
                           )}
 
-                          {activeTab === "eventos" && (
-                            <div className="space-y-8 pt-6 border-t border-white/5">
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do Vídeo do YouTube</label>
-                                <div className="relative">
-                                  <Youtube className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500" />
-                                  <Input 
-                                    className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                                    placeholder="https://www.youtube.com/watch?v=..."
-                                    value={formData.youtubeLink || ""}
-                                    onChange={(e) => setFormData({...formData, youtubeLink: e.target.value})}
-                                    readOnly={isReadOnly}
-                                  />
-                                </div>
-                              </div>
+                              {activeTab === "eventos" && (
+                                <div className="space-y-8 pt-6 border-t border-white/5">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link do Vídeo do YouTube</label>
+                                      <div className="relative">
+                                        <Youtube className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500" />
+                                        <Input 
+                                          className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                          placeholder="https://www.youtube.com/watch?v=..."
+                                          value={formData.youtubeLink || ""}
+                                          onChange={(e) => setFormData({...formData, youtubeLink: e.target.value})}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Link da Pasta do Google Drive (Galeria)</label>
+                                      <div className="flex gap-2">
+                                        <div className="relative flex-1">
+                                          <FolderOpen className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-500" />
+                                          <Input 
+                                            className={cn("border h-14 rounded-full pl-14 pr-6 transition-all", isDarkMode ? "bg-[#000] border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                            placeholder="https://drive.google.com/drive/folders/..."
+                                            value={formData.driveFolderId || ""}
+                                            onChange={(e) => setFormData({...formData, driveFolderId: e.target.value})}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                        {!isReadOnly && (
+                                          <Button 
+                                            type="button"
+                                            onClick={syncDriveFolder}
+                                            disabled={isSyncing || !formData.driveFolderId}
+                                            className="h-14 px-6 rounded-full bg-amber-500 hover:bg-amber-600 text-white font-black uppercase transition-all shadow-lg flex items-center gap-2"
+                                          >
+                                            {isSyncing ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCcw className="w-5 h-5" />}
+                                            {isSyncing ? "Sincronizando..." : "Sincronizar Pasta"}
+                                          </Button>
+                                        )}
+                                      </div>
+                                      <p className="text-[10px] text-gray-500 px-6">Isso preencherá a galeria abaixo automaticamente.</p>
+                                    </div>
+                                  </div>
 
                               <div className="space-y-6">
                                 <div className="flex items-center justify-between">
                                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Galeria de Fotos</label>
-                                  {!isReadOnly && (
-                                    <Button 
-                                      type="button"
-                                      onClick={() => {
-                                        const current = Array.isArray(formData.gallery) ? formData.gallery : [];
-                                        setFormData({ ...formData, gallery: [...current, ""] });
-                                      }}
-                                      className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all text-[10px] font-black uppercase px-4"
-                                    >
-                                      <Plus className="w-3 h-3 mr-2" /> Adicionar Foto
-                                    </Button>
-                                  )}
+                                  <div className="flex gap-2">
+                                    {!isReadOnly && canDeletePhotos && Array.isArray(formData.gallery) && formData.gallery.length > 0 && (
+                                      <Button 
+                                        type="button"
+                                        onClick={() => setShowClearGalleryDialog(true)}
+                                        className={cn("h-8 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-all text-[10px] font-black uppercase px-4 shadow-lg shadow-red-500/20 shadow-red-500/20")}
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-2" /> Limpar Tudo
+                                      </Button>
+                                    )}
+                                    {!isReadOnly && (
+                                      <Button 
+                                        type="button"
+                                        onClick={() => {
+                                          const current = Array.isArray(formData.gallery) ? formData.gallery : [];
+                                          setFormData({ ...formData, gallery: [...current, ""] });
+                                        }}
+                                        className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all text-[10px] font-black uppercase px-4"
+                                      >
+                                        <Plus className="w-3 h-3 mr-2" /> Adicionar Foto
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -4428,11 +4591,16 @@ const Admin = () => {
                                           <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
                                           <Input 
                                             className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-[#000] border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
-                                            placeholder="URL da imagem..."
+                                            placeholder="URL ou ID da imagem..."
                                             value={url}
                                             onChange={(e) => {
+                                              let val = e.target.value;
+                                              if (val.includes('drive.google.com')) {
+                                                const driveIdMatch = val.match(/\/d\/([a-zA-Z0-9-_]{25,})/) || val.match(/id=([a-zA-Z0-9-_]{25,})/);
+                                                if (driveIdMatch) val = driveIdMatch[1];
+                                              }
                                               const newGallery = [...formData.gallery];
-                                              newGallery[i] = e.target.value;
+                                              newGallery[i] = val;
                                               setFormData({ ...formData, gallery: newGallery });
                                             }}
                                             readOnly={isReadOnly}
@@ -4454,7 +4622,24 @@ const Admin = () => {
                                       </div>
                                       {url && (
                                         <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20 group-hover:scale-[1.02] transition-transform duration-300">
-                                          <img src={url} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                          <img 
+                                            src={url.startsWith('http') ? url : `https://lh3.googleusercontent.com/d/${url}=s600`} 
+                                            alt="" 
+                                            className="w-full h-full object-cover" 
+                                            referrerPolicy="no-referrer"
+                                            onError={(e) => {
+                                              const target = e.currentTarget;
+                                              if (url.startsWith('http')) {
+                                                target.style.display = 'none';
+                                              } else {
+                                                if (target.src.includes('/d/')) {
+                                                  target.src = `https://lh3.googleusercontent.com/u/0/d/${url}=s600`;
+                                                } else {
+                                                  target.style.display = 'none';
+                                                }
+                                              }
+                                            }} 
+                                          />
                                         </div>
                                       )}
                                     </div>
@@ -4463,7 +4648,7 @@ const Admin = () => {
                                   {(Array.isArray(formData.gallery) ? formData.gallery : []).length === 0 && (
                                     <div className={cn("col-span-full py-12 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center text-gray-500 gap-3 opacity-50", isDarkMode ? "border-white/10" : "border-black/10")}>
                                        <ImageIcon className="w-10 h-10 opacity-20" />
-                                       <p className="text-[10px] font-black uppercase tracking-widest text-center">Cole o link de uma imagem para ver a miniatura</p>
+                                       <p className="text-[10px] font-black uppercase tracking-widest text-center">A Galeria está vazia. Adicione fotos ou sincronize uma pasta do Drive.</p>
                                     </div>
                                   )}
                                 </div>
@@ -5422,6 +5607,7 @@ const Admin = () => {
                                 {[
                                   { label: "Criar/Editar", key: "edit" },
                                   { label: "Excluir", key: "delete" },
+                                  { label: "Apagar fotos", key: "deletePhotos" },
                                   { label: "Gerenciar Perfis", key: "editProfiles" }
                                 ].map(perm => {
                                   let defaultPerm = true;
@@ -5447,6 +5633,7 @@ const Admin = () => {
                                                 ...(settings.permissions?.[role] || { 
                                                   edit: !["Membro", "Visitante"].includes(role), 
                                                   delete: !["Membro", "Visitante"].includes(role), 
+                                                  deletePhotos: !["Membro", "Visitante"].includes(role), 
                                                   editProfiles: role === "Administradores" || role === "Desenvolvedor", 
                                                   tabs: {} 
                                                 }),
@@ -5494,7 +5681,7 @@ const Admin = () => {
                                       "noticias": !["Membro", "Visitante", "Direção"].includes(role),
                                       "membros": !["Membro", "Visitante", "Direção"].includes(role),
                                       "agenda": !["Membro", "Visitante", "Direção"].includes(role),
-                                      "agenda-direcao": ["Administradores", "Desenvolvedor", "Direção"].includes(role),
+                                      "agenda-direcao": ["Administradores", "Desenvolvedor", "Direção", "Secretaria"].includes(role),
                                       "videos": !["Membro", "Visitante", "Direção"].includes(role),
                                       "visitantes": !["Membro", "Visitante", "Direção"].includes(role),
                                       "avisos": ["Administradores", "Desenvolvedor"].includes(role),
@@ -6483,6 +6670,43 @@ const Admin = () => {
             >
               Concluir
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação para Limpar Galeria */}
+      <Dialog open={showClearGalleryDialog} onOpenChange={setShowClearGalleryDialog}>
+        <DialogContent className={cn("border sm:max-w-[400px] p-0 overflow-hidden transition-colors rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
+          <div className="p-8 space-y-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto text-red-500">
+              <Trash2 className="w-8 h-8" />
+            </div>
+            
+            <div className="space-y-2">
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight">Tem certeza?</DialogTitle>
+              <DialogDescription className="text-gray-500 font-medium">
+                Esta ação irá remover permanentemente todas as fotos desta galeria. Você terá que adicioná-las novamente ou sincronizar com o Drive.
+              </DialogDescription>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="ghost" 
+                className={cn("flex-1 h-12 rounded-2xl font-bold uppercase tracking-widest text-[10px]", isDarkMode ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
+                onClick={() => setShowClearGalleryDialog(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-red-500/20"
+                onClick={() => {
+                  setFormData({...formData, gallery: []});
+                  setShowClearGalleryDialog(false);
+                }}
+              >
+                Sim, Limpar Tudo
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
