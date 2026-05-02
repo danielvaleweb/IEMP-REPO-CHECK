@@ -1150,6 +1150,7 @@ const Admin = () => {
         participants: [profile.id, activeChatUser.id],
         lastMessage: msgText,
         lastMessageTime: serverTimestamp(),
+        lastSenderId: profile.id,
         [`unreadCount.${activeChatUser.id}`]: increment(1)
       }, { merge: true });
 
@@ -1431,6 +1432,8 @@ const Admin = () => {
       
       // Personal notifications (targeted to current user)
       if (n.userId === user?.uid) {
+        // Exclude chat notifications from bell dropdown
+        if (n.type === "chat") return false;
         return true;
       }
 
@@ -1889,6 +1892,10 @@ const Admin = () => {
         let chats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         // In-memory sort to avoid requiring composite indexes
         chats.sort((a: any, b: any) => {
+           const hasUnreadA = a.unreadCount?.[profile.id] > 0 ? 1 : 0;
+           const hasUnreadB = b.unreadCount?.[profile.id] > 0 ? 1 : 0;
+           if (hasUnreadA !== hasUnreadB) return hasUnreadB - hasUnreadA;
+
            const timeA = a.lastMessageTime?.toMillis?.() || 0;
            const timeB = b.lastMessageTime?.toMillis?.() || 0;
            return timeB - timeA;
@@ -2102,6 +2109,7 @@ const Admin = () => {
         dataToSave.isLeader = dataToSave.ministries.some((m: any) => typeof m === 'object' && m.isLeader);
       }
 
+      let itemDocId = selectedItem?.id;
       if (selectedItem?.id) {
         await setDoc(doc(db, collectionName, selectedItem.id), {
           ...dataToSave,
@@ -2137,6 +2145,7 @@ const Admin = () => {
           authorId: user?.uid || profile?.id || "admin",
           authorName: user?.displayName || profile?.name || "Admin"
         });
+        itemDocId = newDoc.id;
 
         logAction("criar", collectionName, `Criou ${activeTab === 'eventos' ? 'evento' : activeTab === 'agenda' ? 'item na agenda' : activeTab === 'agenda-direcao' ? 'compromisso na direção' : activeTab === 'radio' ? 'vinheta' : 'registro'}: ${dataToSave.title || dataToSave.name} (ID: ${newDoc.id})`, null, dataToSave);
 
@@ -2155,13 +2164,17 @@ const Admin = () => {
       if (newInvitedMembers.length > 0 && profile?.id && dataToSave.title) {
         for (const member of newInvitedMembers) {
           const chatId = [profile.id, member.id].sort().join('_');
-          const autoMsg = `Você foi escalado para o compromisso: "${dataToSave.title}"`;
+          const isAgendaDirecao = activeTab === "agenda-direcao";
+          const shortTabStr = isAgendaDirecao ? "agenda-direcao" : "eventos";
+          const verbStr = isAgendaDirecao ? "o compromisso da Direção" : "o evento";
+          const autoMsg = `Você foi convocado para ${verbStr} [${dataToSave.title}](${shortTabStr}:${itemDocId})`;
           
           try {
             await setDoc(doc(db, "chats", chatId), {
               participants: [profile.id, member.id],
               lastMessage: autoMsg,
               lastMessageTime: serverTimestamp(),
+              lastSenderId: profile.id,
               [`unreadCount.${member.id}`]: increment(1)
             }, { merge: true });
 
@@ -4547,6 +4560,63 @@ const Admin = () => {
                                   </div>
                                 </div>
 
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local</label>
+                                    <Input 
+                                      className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      placeholder="Ex: Igreja Local..."
+                                      value={formData.location || ""}
+                                      onChange={(e) => setFormData({...formData, location: e.target.value})}
+                                      readOnly={isReadOnly}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Organizador</label>
+                                    <Input 
+                                      className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                      placeholder="Ex: Ministério de Louvor..."
+                                      value={formData.organization || ""}
+                                      onChange={(e) => setFormData({...formData, organization: e.target.value})}
+                                      readOnly={isReadOnly}
+                                    />
+                                  </div>
+                                </div>
+                                {activeTab === "agenda-direcao" && (
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                      A igreja foi convidada?
+                                      {!isReadOnly && (
+                                        <div className="flex gap-2 ml-4">
+                                          <button
+                                            type="button"
+                                            className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all", formData.inviteChurch ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500")}
+                                            onClick={() => {
+                                              setFormData({...formData, inviteChurch: true});
+                                              setIsMemberSelectorOpen(true);
+                                            }}
+                                          >
+                                            Sim
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all", !formData.inviteChurch ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500")}
+                                            onClick={() => setFormData({...formData, inviteChurch: false, invitedMembers: []})}
+                                          >
+                                            Não
+                                          </button>
+                                        </div>
+                                      )}
+                                    </label>
+                                    {isReadOnly && (
+                                      <p className="text-sm font-medium mt-1">{formData.inviteChurch ? "Sim" : "Não"}</p>
+                                    )}
+                                    {formData.inviteChurch && formData.invitedMembers?.length > 0 && (
+                                      <p className="text-xs text-[#BF76FF] mt-2 italic font-medium">{formData.invitedMembers.length} membro(s) convidado(s). {(!isReadOnly) && (<span className="cursor-pointer underline" onClick={() => setIsMemberSelectorOpen(true)}>Editar Lista</span>)}</p>
+                                    )}
+                                  </div>
+                                )}
+
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/5 p-6 rounded-[32px] border border-white/5">
                                   <div className="space-y-3">
                                     <label className="text-xs font-black text-[#BF76FF] uppercase tracking-[0.2em] flex items-center gap-2">
@@ -6023,6 +6093,7 @@ const Admin = () => {
               active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
               onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
               isDark={isDarkMode} 
+              hasNotification={activeChats.some(chat => chat.unreadCount?.[profile?.id] > 0)}
             />
             <ActionIcon 
               icon={Users} 
@@ -6210,6 +6281,11 @@ const Admin = () => {
                           )}
                         </div>
                         <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
+                          {chat.lastSenderId && chat.lastSenderId !== profile?.id ? (
+                            <i className="font-bold">{m.name?.[0]?.toUpperCase()}: </i>
+                          ) : chat.lastSenderId === profile?.id ? (
+                            <i>Você: </i>
+                          ) : null}
                           {stripMentions(chat.lastMessage) || "Toque para abrir a conversa"}
                         </p>
                       </div>
@@ -7161,18 +7237,21 @@ function FileCategory({ icon: Icon, label, count, active, isDark }: { icon: any,
   );
 }
 
-function ActionIcon({ icon: Icon, onClick, active, isDark }: { icon: any, onClick?: () => void, active?: boolean, isDark?: boolean }) {
+function ActionIcon({ icon: Icon, onClick, active, isDark, hasNotification }: { icon: any, onClick?: () => void, active?: boolean, isDark?: boolean, hasNotification?: boolean }) {
   return (
     <button 
       onClick={onClick}
       className={cn(
-        "w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+        "relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
         active 
           ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" 
           : isDark ? "bg-transparent text-[#BF76FF] hover:bg-[#BF76FF]/10" : "bg-transparent text-[#BF76FF] hover:bg-[#BF76FF]/5"
       )}
     >
       <Icon className="w-5 h-5" />
+      {hasNotification && (
+        <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-[#0a0a0a]" />
+      )}
     </button>
   );
 }
