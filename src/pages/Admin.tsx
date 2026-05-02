@@ -135,7 +135,8 @@ import {
   addMonths, 
   subMonths,
   parseISO,
-  isAfter
+  isAfter,
+  subDays
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import {
@@ -6971,84 +6972,62 @@ function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) 
     );
   }
 
-  const groupedEvents = upcoming.reduce((acc, event) => {
-    try {
-      const monthKey = format(new Date(event.date), "MMMM yyyy", { locale: ptBR });
-      if (!acc[monthKey]) acc[monthKey] = [];
-      acc[monthKey].push(event);
-    } catch(e) {}
-    return acc;
-  }, {} as Record<string, typeof upcoming>);
-
-  let globalIndex = 0;
-
   return (
-    <div className="space-y-10 md:space-y-16">
-      {Object.entries(groupedEvents).map(([monthName, events]) => (
-        <div key={monthName} className="space-y-6 md:space-y-10">
-          <h3 className={cn(
-            "text-lg md:text-xl font-black uppercase tracking-widest pl-4 md:pl-28 py-2 md:py-0 border-l-4 md:border-none", 
-            isDark ? "text-[#BF76FF] border-[#BF76FF]" : "text-[#BF76FF] border-[#BF76FF]"
-          )}>
-            {monthName}
-          </h3>
-          {events.map((event) => {
-            const date = new Date(event.date);
-            const day = format(date, "dd");
-            const weekDay = format(date, "EEE", { locale: ptBR });
-            const monthShort = format(date, "MMM", { locale: ptBR });
-            const time = format(date, "HH:mm");
-            
-            const colors = ["bg-green-500", "bg-[#BF76FF]", "bg-orange-500", "bg-pink-500", "bg-blue-500"];
-            const colorClass = colors[globalIndex % colors.length];
-            globalIndex++;
+    <div className="space-y-6 md:space-y-10">
+      {upcoming.map((event, index) => {
+        const date = new Date(event.date);
+        const day = format(date, "dd");
+        const weekDay = format(date, "EEE", { locale: ptBR });
+        const monthShort = format(date, "MMM", { locale: ptBR });
+        const time = format(date, "HH:mm");
+        
+        const colors = ["bg-green-500", "bg-[#BF76FF]", "bg-orange-500", "bg-pink-500", "bg-blue-500"];
+        const colorClass = colors[index % colors.length];
 
-            return (
-              <div key={event.id} className="flex gap-4 md:gap-8 group">
-                {/* Date Section */}
-                <div className="flex flex-col items-center shrink-0 w-12 md:w-20">
-                  <span className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-1", isDark ? "text-gray-500" : "text-gray-400")}>
-                    {weekDay}
-                  </span>
-                  <span className={cn("text-2xl md:text-5xl font-black tracking-tighter leading-none transition-colors", isDark ? "text-white" : "text-black")}>
-                    {day}
-                  </span>
-                  <span className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1", isDark ? "text-[#BF76FF]" : "text-[#BF76FF]")}>
-                    {monthShort}
-                  </span>
+        return (
+          <div key={event.id} className="flex gap-4 md:gap-8 group">
+            {/* Date Section */}
+            <div className="flex flex-col items-center shrink-0 w-12 md:w-20">
+              <span className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-1", isDark ? "text-gray-500" : "text-gray-400")}>
+                {weekDay}
+              </span>
+              <span className={cn("text-2xl md:text-5xl font-black tracking-tighter leading-none transition-colors", isDark ? "text-white" : "text-black")}>
+                {day}
+              </span>
+              <span className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest mt-1", isDark ? "text-[#BF76FF]" : "text-[#BF76FF]")}>
+                {monthShort}
+              </span>
+            </div>
+
+            {/* Content Section */}
+            <div className={cn(
+              "flex-1 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border transition-all relative overflow-hidden group-hover:-translate-y-1 group-hover:shadow-2xl",
+              isDark ? "bg-white/[0.03] border-white/5 hover:bg-white/5" : "bg-white border-black/5 shadow-sm hover:shadow-lg"
+            )}>
+              <div className={cn("absolute top-0 left-0 bottom-0 w-1.5 md:w-2", colorClass)} />
+              
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <h5 className={cn("text-sm md:text-xl font-bold transition-colors line-clamp-1", isDark ? "text-white/90" : "text-black")}>
+                    {event.title}
+                  </h5>
+                  <p className={cn("text-[10px] md:text-sm flex items-center gap-2", isDark ? "text-white/40" : "text-gray-500")}>
+                    <MapPin className="w-3 h-3 md:w-4 h-4" />
+                    <span className="truncate">{event.location || "Local em breve"}</span>
+                  </p>
                 </div>
-
-                {/* Content Section */}
-                <div className={cn(
-                  "flex-1 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border transition-all relative overflow-hidden group-hover:-translate-y-1 group-hover:shadow-2xl",
-                  isDark ? "bg-white/[0.03] border-white/5 hover:bg-white/5" : "bg-white border-black/5 shadow-sm hover:shadow-lg"
-                )}>
-                  <div className={cn("absolute top-0 left-0 bottom-0 w-1.5 md:w-2", colorClass)} />
-                  
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <h5 className={cn("text-sm md:text-xl font-bold transition-colors line-clamp-1", isDark ? "text-white/90" : "text-black")}>
-                        {event.title}
-                      </h5>
-                      <p className={cn("text-[10px] md:text-sm flex items-center gap-2", isDark ? "text-white/40" : "text-gray-500")}>
-                        <MapPin className="w-3 h-3 md:w-4 h-4" />
-                        <span className="truncate">{event.location || "Local em breve"}</span>
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 md:gap-4">
-                      <div className={cn("flex items-center gap-1.5 px-2.5 py-1 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-600")}>
-                        <Clock className="w-3 h-3 md:w-4 h-4 text-[#BF76FF]" />
-                        {time}
-                      </div>
-                    </div>
+                
+                <div className="flex items-center gap-2 md:gap-4">
+                  <div className={cn("flex items-center gap-1.5 px-2.5 py-1 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-600")}>
+                    <Clock className="w-3 h-3 md:w-4 h-4 text-[#BF76FF]" />
+                    {time}
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
