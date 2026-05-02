@@ -3141,6 +3141,16 @@ const Admin = () => {
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
+              <SidebarItem 
+                icon={MessageSquare} 
+                active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} 
+                onClick={() => { setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list"); }} 
+                label="Chat" 
+                collapsed={true} 
+                isDark={isDarkMode} 
+                mobile 
+                notificationCount={activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)}
+              />
               
               <Sheet>
                 <SheetTrigger
@@ -6093,7 +6103,8 @@ const Admin = () => {
               active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
               onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
               isDark={isDarkMode} 
-              hasNotification={activeChats.some(chat => chat.unreadCount?.[profile?.id] > 0)}
+              hasNotification={activeChats.some(chat => chat.unreadCount?.[profile?.id || ''] > 0)}
+              notificationCount={activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)}
             />
             <ActionIcon 
               icon={Users} 
@@ -6771,8 +6782,8 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
         )}>
           <Icon className={cn("w-6 h-6", iconClassName)} />
           {notificationCount ? (
-             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] w-4 h-4 rounded-full flex items-center justify-center font-black shadow-md border border-white dark:border-[#0a0a0a]">
-               {notificationCount}
+             <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center font-black shadow-md border border-white dark:border-[#0a0a0a]">
+               {notificationCount > 99 ? '99+' : notificationCount}
              </span>
           ) : null}
         </div>
@@ -7237,7 +7248,7 @@ function FileCategory({ icon: Icon, label, count, active, isDark }: { icon: any,
   );
 }
 
-function ActionIcon({ icon: Icon, onClick, active, isDark, hasNotification }: { icon: any, onClick?: () => void, active?: boolean, isDark?: boolean, hasNotification?: boolean }) {
+function ActionIcon({ icon: Icon, onClick, active, isDark, hasNotification, notificationCount }: { icon: any, onClick?: () => void, active?: boolean, isDark?: boolean, hasNotification?: boolean, notificationCount?: number }) {
   return (
     <button 
       onClick={onClick}
@@ -7249,8 +7260,13 @@ function ActionIcon({ icon: Icon, onClick, active, isDark, hasNotification }: { 
       )}
     >
       <Icon className="w-5 h-5" />
-      {hasNotification && (
+      {hasNotification && !notificationCount && (
         <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-[#0a0a0a]" />
+      )}
+      {notificationCount !== undefined && notificationCount > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 bg-red-500 rounded-full border-[2px] border-white dark:border-[#0f0f0f] text-[9px] font-bold text-white flex items-center justify-center shadow-sm">
+          {notificationCount > 99 ? '99+' : notificationCount}
+        </span>
       )}
     </button>
   );
