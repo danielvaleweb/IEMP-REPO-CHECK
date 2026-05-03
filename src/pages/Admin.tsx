@@ -1461,12 +1461,12 @@ const Admin = () => {
   const displayNotifications = useMemo(() => {
     return notifications.filter(n => {
       // Administrative notifications (only for Master Admin and Dev)
-      if (n.type === "registration" || n.type === "activity" || n.type === "system") {
+      if (n.type === "registration" || n.type === "activity" || n.type === "system" || n.type === "gallery_removal") {
         return isAdminOrDev;
       }
       
       // Personal notifications (targeted to current user)
-      if (n.userId === user?.uid) {
+      if (n.userId === user?.uid || n.userId === "all" || (n.userId === "admin" && isAdminOrDev)) {
         // Exclude chat notifications from bell dropdown
         if (n.type === "chat") return false;
         return true;
@@ -3558,10 +3558,12 @@ const Admin = () => {
                             "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                             n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
                             n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
+                            n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
                             'bg-green-500/20 text-green-500'
                           )}>
                             {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                              n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
+                             n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
                              <Bell className="w-4 h-4" />
                             }
                           </div>
@@ -3645,10 +3647,12 @@ const Admin = () => {
                               "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                               n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
                               n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
+                              n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
                               'bg-green-500/20 text-green-500'
                             )}>
                               {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                                n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
+                               n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
                                <Bell className="w-4 h-4" />
                               }
                             </div>

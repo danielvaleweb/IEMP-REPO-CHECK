@@ -107,10 +107,14 @@ export default function Gallery() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [removalRequests, setRemovalRequests] = useState<RemovalRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(stateAlbumId || null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"todos" | "favoritos">("todos");
+
+  const selectedAlbum = useMemo(() => {
+    return albums.find(a => a.id === selectedAlbumId) || null;
+  }, [albums, selectedAlbumId]);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -184,13 +188,6 @@ export default function Gallery() {
       
       setAlbums(fetchedAlbums);
       setLoading(false);
-
-      if (stateAlbumId) {
-        const targetAlbum = fetchedAlbums.find(a => a.id === stateAlbumId);
-        if (targetAlbum) {
-          setSelectedAlbum(targetAlbum);
-        }
-      }
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, "posts");
     });
@@ -224,7 +221,9 @@ export default function Gallery() {
     if (!user) return;
     
     try {
-      const requestId = `${user.uid}_${btoa(photoUrl).substring(0, 50)}`;
+      // Use a simpler hashing or just a random ID if we don't care about uniqueness per photo/user
+      // But let's try a safer btoa-like approach or just use addDoc for removals too
+      const requestId = `${user.uid}_${Date.now()}`;
       await setDoc(doc(db, "photo_removals", requestId), {
         photoUrl,
         albumId,
@@ -446,7 +445,7 @@ export default function Gallery() {
                       whileHover={{ y: -10 }}
                       className="group cursor-pointer"
                       onClick={() => {
-                        setSelectedAlbum(album);
+                        setSelectedAlbumId(album.id);
                         setCurrentPage(1);
                       }}
                     >
@@ -516,7 +515,7 @@ export default function Gallery() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
               <Button 
                 variant="ghost" 
-                onClick={() => setSelectedAlbum(null)}
+                onClick={() => setSelectedAlbumId(null)}
                 className="text-gray-400 hover:text-white hover:bg-white/5 rounded-2xl flex items-center gap-2 px-6 h-12 self-start font-bold uppercase tracking-widest text-[10px]"
               >
                 <ArrowRight className="w-4 h-4 rotate-180" /> Voltar
