@@ -531,7 +531,7 @@ export default function Gallery() {
             {isMobile ? (
               /* Mobile Carousel Mode */
               <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-8">
-                {paginatedPhotos.map((photo, idx) => {
+                {visiblePhotos.map((photo, idx) => {
                   const req = getPhotoRemovalRequest(photo);
                   return (
                     <div 
