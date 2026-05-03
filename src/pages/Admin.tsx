@@ -228,6 +228,9 @@ function CalendarView({
   isDark,
   canEdit = false,
   canDelete = false,
+  canCreateDirectly = true,
+  canRequestDate = true,
+  onRequestDate,
   modalTitle = "Compromissos do Dia",
   emptyMessage = "Nenhum evento cadastrado para este dia.",
   newEventButtonLabel = "Cadastrar novo evento",
@@ -241,6 +244,9 @@ function CalendarView({
   isDark?: boolean,
   canEdit?: boolean,
   canDelete?: boolean,
+  canCreateDirectly?: boolean,
+  canRequestDate?: boolean,
+  onRequestDate?: (date: Date) => void,
   modalTitle?: string,
   emptyMessage?: string,
   newEventButtonLabel?: string,
@@ -341,7 +347,9 @@ function CalendarView({
                       key={`calendar-event-${day.toISOString()}-${j}-${event.id || 'no-id'}`}
                       className={cn(
                         "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded-lg truncate transition-colors relative group/event font-bold",
-                        day.getDay() === 6 
+                        event.status === 'pending'
+                          ? "bg-yellow-500/20 text-yellow-500"
+                          : day.getDay() === 6 
                           ? "bg-green-500/10 text-green-500" 
                           : "bg-[#BF76FF]/10 text-[#BF76FF]"
                       )}
@@ -400,7 +408,12 @@ function CalendarView({
                   return (
                     <div key={`day-event-detail-${selectedDay?.toISOString()}-${idx}-${event.id || 'no-id'}`} className={cn("p-5 rounded-[24px] border space-y-4 transition-all hover:scale-[1.02]", isDark ? "bg-[#222] border-white/5" : "bg-gray-50 border-black/5")}>
                       <div>
-                        <h4 className="font-black text-xl leading-tight uppercase tracking-tight">{event.title}</h4>
+                        <div className="flex items-center justify-between gap-2">
+                          <h4 className="font-black text-xl leading-tight uppercase tracking-tight">{event.title}</h4>
+                          {event.status === 'pending' && (
+                            <span className="bg-yellow-500/20 text-yellow-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shrink-0">Em Análise</span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-3 mt-2">
                            <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
                              <Clock className="w-3.5 h-3.5 text-[#BF76FF]" /> {safeFormatTime(event.date)}
@@ -449,17 +462,21 @@ function CalendarView({
                 </div>
               )}
               
-              {canEdit && (
+              {(canEdit || (canRequestDate && !canCreateDirectly)) && (
                 <Button 
-                  className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white font-black uppercase tracking-widest shadow-xl mt-6"
+                  className={cn("w-full h-14 rounded-2xl text-white font-black uppercase tracking-widest shadow-xl mt-6", canCreateDirectly ? "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF]" : "bg-gradient-to-r from-amber-500 to-orange-500")}
                   onClick={() => {
                     if (selectedDay) {
-                      onNewEvent(selectedDay);
+                      if (canCreateDirectly) {
+                        onNewEvent(selectedDay);
+                      } else if (onRequestDate) {
+                        onRequestDate(selectedDay);
+                      }
                       setSelectedDay(null);
                     }
                   }}
                 >
-                  <Plus className="w-5 h-5 mr-2" /> {newEventButtonLabel}
+                  <Plus className="w-5 h-5 mr-2" /> {canCreateDirectly ? newEventButtonLabel : "Solicitar Data"}
                 </Button>
               )}
             </div>
@@ -1637,6 +1654,11 @@ const Admin = () => {
   // Form States
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, collection: string, item?: any } | null>(null);
   const [formData, setFormData] = useState<any>({});
+  const [showOrganizerDropdown, setShowOrganizerDropdown] = useState(false);
+  const [organizerSearch, setOrganizerSearch] = useState("");
+
+  const [isRequestingDate, setIsRequestingDate] = useState(false);
+  const [requestFormData, setRequestFormData] = useState<any>({});
 
   // Split location into fields for editing
   useEffect(() => {
@@ -1754,8 +1776,12 @@ const Admin = () => {
       return true;
     }
     
-    if (tab === "agenda-direcao" && (rName === "Mídia" || rName === "Secretaria" || rName === "Secretário")) {
-      if (!rIsLeader) return false;
+    if (tab === "agenda-direcao") {
+      const rNameLower = (rName || "").toLowerCase();
+      const isMediaOrSec = rNameLower === "mídia" || rNameLower === "midia" || rNameLower.includes("secretaria") || rNameLower.includes("secretário") || rNameLower.includes("secretario");
+      if (isMediaOrSec) {
+        if (!rIsLeader) return false;
+      }
     }
 
     const rolePerms = settings.permissions?.[rName];
@@ -1789,6 +1815,14 @@ const Admin = () => {
   const canEdit = isEffectivelyAdmin || userRolesArray.some(r => {
     const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
     return settings.permissions?.[r.name]?.edit ?? defaultEditPerm;
+  });
+
+  const canCreateEventDirectly = isEffectivelyAdmin || userRolesArray.some(r => {
+    return r.name === "Desenvolvedor" || 
+           r.name === "Administradores" || 
+           r.name === "Secretaria" || 
+           r.name === "Secretário" || 
+           (r.name === "Mídia" && r.isLeader);
   });
   
   const canDelete = isEffectivelyAdmin || userRolesArray.some(r => {
@@ -2216,21 +2250,73 @@ const Admin = () => {
       }
 
       // Send auto chat messages to newly invited members
-      if (newInvitedMembers.length > 0 && profile?.id && dataToSave.title) {
-        for (const member of newInvitedMembers) {
-          const chatId = [profile.id, member.id].sort().join('_');
-          const isAgendaDirecao = activeTab === "agenda-direcao";
-          const shortTabStr = isAgendaDirecao ? "agenda-direcao" : "eventos";
-          const verbStr = isAgendaDirecao ? "o compromisso da Direção" : "o evento";
-          const autoMsg = `Você foi convocado para ${verbStr} [${dataToSave.title}](${shortTabStr}:${itemDocId})`;
+      try {
+        if (newInvitedMembers.length > 0 && profile?.id && dataToSave.title) {
+          let dateStr = "";
+          try {
+            if (dataToSave.date) {
+              dateStr = ` para ${format(new Date(dataToSave.date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`;
+            }
+          } catch (e) {}
+
+          for (const member of newInvitedMembers) {
+            const chatId = [profile.id, member.id].sort().join('_');
+            const isAgendaDirecao = activeTab === "agenda-direcao";
+            const verbStr = isAgendaDirecao ? "o compromisso da Direção" : "o evento";
+            const autoMsg = `Você foi convocado para ${verbStr} "${dataToSave.title}"${dateStr}.`;
+            
+            try {
+              await setDoc(doc(db, "chats", chatId), {
+                participants: [profile.id, member.id],
+                lastMessage: autoMsg,
+                lastMessageTime: serverTimestamp(),
+                lastSenderId: profile.id,
+                [`unreadCount.${member.id}`]: increment(1)
+              }, { merge: true });
+
+              await addDoc(collection(db, "chats", chatId, "messages"), {
+                text: autoMsg,
+                senderId: profile.id,
+                timestamp: serverTimestamp()
+              });
+
+              await addDoc(collection(db, "notifications"), {
+                userId: member.id,
+                title: "Escala de Compromisso",
+                message: `${profile.name || user?.displayName || 'Admin'} escalou você: ${dataToSave.title}`,
+                read: false,
+                type: "chat",
+                senderId: profile.id,
+                createdAt: serverTimestamp()
+              });
+            } catch (e) {
+              console.error("Error sending auto chat message:", e);
+            }
+          }
+        }
+      } catch(err) {
+        console.error("Error processing invited members:", err);
+      }
+
+      // Send auto chat message to the new organizer if set
+      try {
+        if (dataToSave.organizerId && dataToSave.organizerId !== selectedItem?.organizerId && profile?.id && dataToSave.title) {
+          const chatId = [profile.id, dataToSave.organizerId].sort().join('_');
+          let dateStr = "";
+          try {
+            if (dataToSave.date) {
+              dateStr = ` para ${format(new Date(dataToSave.date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}`;
+            }
+          } catch (e) {}
+          const autoMsg = `Você foi escalado como organizador de "${dataToSave.title}"${dateStr}.`;
           
           try {
             await setDoc(doc(db, "chats", chatId), {
-              participants: [profile.id, member.id],
+              participants: [profile.id, dataToSave.organizerId],
               lastMessage: autoMsg,
               lastMessageTime: serverTimestamp(),
               lastSenderId: profile.id,
-              [`unreadCount.${member.id}`]: increment(1)
+              [`unreadCount.${dataToSave.organizerId}`]: increment(1)
             }, { merge: true });
 
             await addDoc(collection(db, "chats", chatId, "messages"), {
@@ -2240,18 +2326,20 @@ const Admin = () => {
             });
 
             await addDoc(collection(db, "notifications"), {
-              userId: member.id,
-              title: "Escala de Compromisso",
-              message: `${profile.name || user?.displayName || 'Admin'} escalou você: ${dataToSave.title}`,
+              userId: dataToSave.organizerId,
+              title: "Organizador de Compromisso",
+              message: `${profile.name || user?.displayName || 'Admin'} colocou você como organizador: ${dataToSave.title}`,
               read: false,
               type: "chat",
               senderId: profile.id,
               createdAt: serverTimestamp()
             });
           } catch (e) {
-            console.error("Error sending auto chat message:", e);
+            console.error("Erro ao notificar organizador", e);
           }
         }
+      } catch(err) {
+        console.error("Error processing new organizer:", err);
       }
 
         // Gatilho: Notificação de Novo Evento/Notícia se solicitado
@@ -4787,15 +4875,51 @@ const Admin = () => {
                                       readOnly={isReadOnly}
                                     />
                                   </div>
-                                  <div className="space-y-2">
+                                  <div className="space-y-2 relative">
                                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Organizador</label>
-                                    <Input 
-                                      className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                                      placeholder="Ex: Ministério de Louvor..."
-                                      value={formData.organization || ""}
-                                      onChange={(e) => setFormData({...formData, organization: e.target.value})}
-                                      readOnly={isReadOnly}
-                                    />
+                                    <div className="relative">
+                                      <Input 
+                                        className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                                        placeholder="Selecionar membro ou digitar nome..."
+                                        value={formData.organization || ""}
+                                        onChange={(e) => {
+                                          setFormData({...formData, organization: e.target.value, organizerId: null});
+                                          setOrganizerSearch(e.target.value);
+                                        }}
+                                        onFocus={() => setShowOrganizerDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowOrganizerDropdown(false), 200)}
+                                        readOnly={isReadOnly}
+                                      />
+                                      {showOrganizerDropdown && !isReadOnly && (
+                                        <div className={cn("absolute top-full left-0 right-0 mt-2 rounded-xl border shadow-xl z-50 max-h-48 overflow-y-auto", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5")}>
+                                          {members.filter(m => (m.name || '').toLowerCase().includes((organizerSearch || '').toLowerCase())).map(member => (
+                                            <div 
+                                              key={member.id}
+                                              className={cn("px-4 py-3 cursor-pointer text-sm font-bold flex items-center gap-3 transition-colors", isDarkMode ? "hover:bg-white/5 text-white" : "hover:bg-gray-50 text-black")}
+                                              onClick={() => {
+                                                setFormData({
+                                                  ...formData, 
+                                                  organization: member.name, 
+                                                  organizerId: member.id,
+                                                  organizerImage: member.photoURL || ""
+                                                });
+                                                setOrganizerSearch("");
+                                                setShowOrganizerDropdown(false);
+                                              }}
+                                            >
+                                              {member.photoURL ? (
+                                                <img src={member.photoURL} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
+                                              ) : (
+                                                <div className="w-6 h-6 rounded-full bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
+                                                  <User className="w-3 h-3" />
+                                                </div>
+                                              )}
+                                              {member.name}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 </div>
                                 {activeTab === "agenda-direcao" && (
@@ -5183,6 +5307,103 @@ const Admin = () => {
                                   </Button>
                                 )}
 
+                                {activeTab === "agenda" && selectedItem?.status === "pending" && canCreateEventDirectly && (
+                                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                    <Button 
+                                      className="bg-green-500 hover:bg-green-600 text-white rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
+                                      onClick={async () => {
+                                        try {
+                                          await setDoc(doc(db, "agenda", selectedItem.id), { status: "approved", updatedAt: serverTimestamp() }, { merge: true });
+                                          
+                                          // Notificar criador
+                                          if (selectedItem.authorId) {
+                                            await addDoc(collection(db, "notifications"), {
+                                              userId: selectedItem.authorId,
+                                              title: "Solicitação Aprovada",
+                                              message: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
+                                              type: "agenda",
+                                              read: false,
+                                              createdAt: serverTimestamp()
+                                            });
+
+                                            // Send chat message
+                                            await addDoc(collection(db, "chats"), {
+                                              participants: ["system", selectedItem.authorId],
+                                              lastMessage: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
+                                              lastMessageTime: serverTimestamp(),
+                                              systemChat: true,
+                                              updatedAt: serverTimestamp()
+                                            });
+                                            const chatQuery = query(collection(db, "chats"), where("systemChat", "==", true), where("participants", "array-contains", selectedItem.authorId));
+                                            const chatSnapshot = await getDocs(chatQuery);
+                                            let chatId = null;
+                                            if (!chatSnapshot.empty) chatId = chatSnapshot.docs[0].id;
+                                            if (chatId) {
+                                              await addDoc(collection(db, "chats", chatId, "messages"), {
+                                                text: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
+                                                senderId: "system",
+                                                timestamp: serverTimestamp()
+                                              });
+                                            }
+                                          }
+                                          setIsEditing(false);
+                                        } catch (error) {
+                                          console.error("Error approving request: ", error);
+                                        }
+                                      }}
+                                    >
+                                      <CheckCheck className="w-4 h-4 mr-2" /> Aprovar
+                                    </Button>
+                                    <Button 
+                                      variant="ghost"
+                                      className="bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
+                                      onClick={async () => {
+                                        const reason = prompt("Deseja informar o motivo da reprovação?");
+                                        if (reason === null) return; // Cancelado
+                                        try {
+                                          await setDoc(doc(db, "agenda", selectedItem.id), { status: "rejected", rejectReason: reason, updatedAt: serverTimestamp() }, { merge: true });
+                                          
+                                          // Notificar criador
+                                          if (selectedItem.authorId) {
+                                            await addDoc(collection(db, "notifications"), {
+                                              userId: selectedItem.authorId,
+                                              title: "Solicitação Reprovada",
+                                              message: `Seu compromisso ${selectedItem.title} foi recusado, motivo: ${reason || "Sem motivo informado"}.`,
+                                              type: "agenda",
+                                              read: false,
+                                              createdAt: serverTimestamp()
+                                            });
+
+                                            // Send chat message
+                                            await addDoc(collection(db, "chats"), {
+                                              participants: ["system", selectedItem.authorId],
+                                              lastMessage: `Seu compromisso ${selectedItem.title} foi recusado, motivo: ${reason || "Sem motivo informado"}.`,
+                                              lastMessageTime: serverTimestamp(),
+                                              systemChat: true,
+                                              updatedAt: serverTimestamp()
+                                            });
+                                            const chatQuery = query(collection(db, "chats"), where("systemChat", "==", true), where("participants", "array-contains", selectedItem.authorId));
+                                            const chatSnapshot = await getDocs(chatQuery);
+                                            let chatId = null;
+                                            if (!chatSnapshot.empty) chatId = chatSnapshot.docs[0].id;
+                                            if (chatId) {
+                                              await addDoc(collection(db, "chats", chatId, "messages"), {
+                                                text: `Seu compromisso ${selectedItem.title} foi recusado, motivo: ${reason || "Sem motivo informado"}.`,
+                                                senderId: "system",
+                                                timestamp: serverTimestamp()
+                                              });
+                                            }
+                                          }
+                                          setIsEditing(false);
+                                        } catch (error) {
+                                          console.error("Error rejecting request: ", error);
+                                        }
+                                      }}
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" /> Reprovar
+                                    </Button>
+                                  </div>
+                                )}
                                 {activeTab === "eventos" && canEdit && (
                                   <Button 
                                     className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer"
@@ -5487,8 +5708,14 @@ const Admin = () => {
                 <CalendarView 
                   agenda={mergedAgenda} 
                   isDark={isDarkMode}
-                  canEdit={canEdit}
+                  canEdit={canEdit || canCreateEventDirectly}
                   canDelete={canDelete}
+                  canCreateDirectly={canCreateEventDirectly}
+                  canRequestDate={true}
+                  onRequestDate={(date) => {
+                    setRequestFormData({ date: format(date, "yyyy-MM-dd") });
+                    setIsRequestingDate(true);
+                  }}
                   onNewEvent={(date) => {
                     setSelectedItem(null);
                     setFormData({ date: format(date, "yyyy-MM-dd'T'19:00") });
@@ -6283,6 +6510,124 @@ const Admin = () => {
             )}
           </div>
         </div>
+
+        {/* Modal de Solicitação de Data */}
+        <Dialog open={isRequestingDate} onOpenChange={setIsRequestingDate}>
+          <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-6 transition-colors shadow-2xl", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight">Solicitar Agendamento</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Assunto do evento</label>
+                <Input 
+                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                  placeholder="Ex: Ensaio do Ministério..."
+                  value={requestFormData.title || ""}
+                  onChange={(e) => setRequestFormData({...requestFormData, title: e.target.value})}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data</label>
+                  <Input 
+                    type="date"
+                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                    value={requestFormData.date || ""}
+                    onChange={(e) => setRequestFormData({...requestFormData, date: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Hora</label>
+                  <Input 
+                    type="time"
+                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                    value={requestFormData.time || ""}
+                    onChange={(e) => setRequestFormData({...requestFormData, time: e.target.value})}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local</label>
+                <Input 
+                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                  placeholder="Ex: Igreja"
+                  value={requestFormData.location || ""}
+                  onChange={(e) => setRequestFormData({...requestFormData, location: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Telefone pra contato</label>
+                <Input 
+                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                  placeholder="Ex: (00) 00000-0000"
+                  value={requestFormData.phone || ""}
+                  onChange={(e) => setRequestFormData({...requestFormData, phone: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Observações</label>
+                <Textarea 
+                  className={cn("border min-h-[100px] rounded-2xl p-6 transition-all resize-none", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                  placeholder="Qualquer detalhe extra..."
+                  value={requestFormData.observations || ""}
+                  onChange={(e) => setRequestFormData({...requestFormData, observations: e.target.value})}
+                />
+              </div>
+              
+              <Button 
+                className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black uppercase tracking-widest shadow-xl mt-6"
+                onClick={async () => {
+                  if (!requestFormData.title || !requestFormData.date || !requestFormData.time) {
+                    alert("Preencha o assunto, data e hora.");
+                    return;
+                  }
+                  if (!confirm("Ao agendar não poderá ser desfeito. Tem certeza?")) return;
+                  
+                  const eventDate = `${requestFormData.date}T${requestFormData.time}`;
+                  const dataToSave = {
+                    title: requestFormData.title,
+                    date: eventDate,
+                    location: requestFormData.location || "Igreja Local",
+                    phone: requestFormData.phone || "",
+                    observations: requestFormData.observations || "",
+                    status: "pending",
+                    authorId: profile?.id || user?.uid || "",
+                    authorName: profile?.name || "Membro",
+                    createdAt: serverTimestamp(),
+                  };
+
+                  try {
+                    await addDoc(collection(db, "agenda"), dataToSave);
+                    
+                    const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
+                    const usersToNotify = members.filter(m => rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader));
+
+                    for (const u of usersToNotify) {
+                      await addDoc(collection(db, "notifications"), {
+                         userId: u.id,
+                         title: "Nova Solicitação de Agendamento",
+                         message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
+                         type: "request",
+                         read: false,
+                         createdAt: serverTimestamp()
+                      });
+                    }
+
+                    setIsRequestingDate(false);
+                    setRequestFormData({});
+                    alert("Solicitação enviada com sucesso!");
+                  } catch (e) {
+                    console.error("Erro ao solicitar agendamento", e);
+                    alert("Ocorreu um erro ao enviar a solicitação.");
+                  }
+                }}
+              >
+                Solicitar Agendamento
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
       </main>
 
