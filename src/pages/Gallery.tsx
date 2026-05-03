@@ -9,7 +9,7 @@ import {
   Search, 
   Download, 
   Heart, 
-  Info, 
+  Copyright, 
   ChevronLeft, 
   ChevronRight,
   ShieldCheck,
@@ -94,7 +94,7 @@ const useMediaQuery = (query: string) => {
 };
 
 export default function Gallery() {
-  const { user, profile, isAdmin } = useAuth();
+  const { user, profile, isAdmin, loading: authLoading } = useAuth();
   const { favoriteIds, toggleFavorite: toggleFavoriteCtx } = useFavorites();
   const location = useLocation();
   const navigate = useNavigate();
@@ -111,6 +111,13 @@ export default function Gallery() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"todos" | "favoritos">("todos");
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/admin");
+    }
+  }, [user, authLoading, navigate]);
 
   const selectedAlbum = useMemo(() => {
     return albums.find(a => a.id === selectedAlbumId) || null;
@@ -167,7 +174,7 @@ export default function Gallery() {
   const [watermarkConfig] = useState({
     type: "automatic", // automatic, disabled, image
     text: "Ministério Profecia",
-    opacity: 0.2
+    opacity: 0.15
   });
 
   useEffect(() => {
@@ -300,26 +307,28 @@ export default function Gallery() {
       ctx.drawImage(img, 0, 0);
 
       if (watermarkConfig.type !== "disabled") {
-        const fontSize = Math.max(img.width * 0.03, 20);
+        const fontSize = Math.max(img.width * 0.015, 12);
         ctx.globalAlpha = watermarkConfig.opacity;
         ctx.fillStyle = "white";
         ctx.font = `black ${fontSize}px "Inter", sans-serif`;
-        ctx.textAlign = "right";
+        ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
 
-        const margin = fontSize;
+        const margin = fontSize * 1.5;
         const text = albumTitle.toUpperCase();
+        const x = canvas.width / 2;
+        const y = canvas.height - margin;
         
         // Draw Shadow for readability
         ctx.shadowColor = "rgba(0,0,0,0.5)";
         ctx.shadowBlur = 4;
         
         // Draw Text
-        ctx.fillText(text, canvas.width - margin, canvas.height - margin);
+        ctx.fillText(text, x, y);
         
         // Small Subtitle
         ctx.font = `300 ${fontSize * 0.5}px "Inter", sans-serif`;
-        ctx.fillText("MINISTÉRIO PROFECIA", canvas.width - margin, canvas.height - margin + (fontSize * 0.6));
+        ctx.fillText("MINISTÉRIO PROFECIA", x, y + (fontSize * 0.6));
       }
 
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
@@ -364,18 +373,18 @@ export default function Gallery() {
     
     return (
       <div className={cn(
-        "absolute pointer-events-none select-none text-white z-10 w-full flex flex-col items-end",
-        size === "large" ? "bottom-12 right-12" : "bottom-8 right-8"
+        "absolute pointer-events-none select-none text-white z-10 w-full flex flex-col items-center",
+        size === "large" ? "bottom-8" : "bottom-4"
       )} style={{ opacity: watermarkConfig.opacity }}>
         <p className={cn(
-          "font-black uppercase tracking-tighter text-white whitespace-nowrap text-right leading-none",
-          size === "large" ? "text-3xl md:text-5xl" : "text-[10px] md:text-sm"
+          "font-black uppercase tracking-tighter text-white whitespace-nowrap text-center leading-none",
+          size === "large" ? "text-xl md:text-2xl" : "text-[7px] md:text-[9px]"
         )}>
           {title}
         </p>
         <div className={cn(
-          "flex items-center mt-1",
-          size === "large" ? "text-lg md:text-xl" : "text-[6px] md:text-[8px]"
+          "flex items-center mt-0.5",
+          size === "large" ? "text-sm md:text-md" : "text-[4px] md:text-[6px]"
         )}>
           <span className="text-white/40 font-light tracking-widest uppercase">Ministério</span>
           <span className="text-white font-black tracking-widest ml-1 uppercase">Profecia</span>
@@ -388,10 +397,17 @@ export default function Gallery() {
 
   const totalPages = Math.ceil(visiblePhotos.length / itemsPerPage);
 
+  if (authLoading || (!user && !authLoading)) {
+    return (
+      <div className="pt-24 pb-12 min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="pt-24 pb-12 min-h-screen bg-black text-white">
       <div className="max-w-7xl mx-auto px-4">
-        
         {!selectedAlbum ? (
           <div className="space-y-8">
             {/* Header with Search and Categories */}
@@ -564,7 +580,7 @@ export default function Gallery() {
                           }}
                           className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
                         >
-                          <Info className="w-5 h-5" />
+                          <Copyright className="w-5 h-5" />
                         </Button>
                       </div>
                       
@@ -838,7 +854,7 @@ export default function Gallery() {
                   onClick={() => setShowInfoModal(true)}
                   className="w-14 h-14 rounded-2xl backdrop-blur-md border border-white/10 text-white/60 hover:text-white hover:bg-white/10"
                 >
-                  <Info className="w-6 h-6" />
+                  <Copyright className="w-6 h-6" />
                 </Button>
 
                 <div className="w-[1px] h-10 bg-white/10 mx-2" />
