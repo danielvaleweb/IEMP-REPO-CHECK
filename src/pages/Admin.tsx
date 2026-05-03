@@ -40,6 +40,7 @@ import {
   MapPin,
   X,
   XCircle,
+  Camera,
   AlertCircle,
   AlertTriangle,
   ShieldCheck,
@@ -875,6 +876,7 @@ const Admin = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const messageParam = searchParams.get('message');
+  const reasonParam = searchParams.get('reason');
 
   // Guest Login State
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
@@ -2607,6 +2609,18 @@ const Admin = () => {
               <div className="flex items-center gap-3">
                 <ShieldCheck className="w-5 h-5 shrink-0" />
                 <span className="font-medium">{messageParam}</span>
+              </div>
+            </div>
+          )}
+
+          {reasonParam === 'gallery' && !authError && !user && (
+            <div className="bg-primary/10 border border-primary/20 text-primary text-sm p-4 rounded-2xl mb-6 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+              <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center shrink-0">
+                <Camera className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <p className="font-black uppercase tracking-widest text-[10px]">Acesso à Galeria</p>
+                <p className="text-white/60 text-xs font-bold">Faça login para ver as fotos dos eventos.</p>
               </div>
             </div>
           )}

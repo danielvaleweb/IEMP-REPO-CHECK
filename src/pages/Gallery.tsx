@@ -9,6 +9,9 @@ import {
   Search, 
   Download, 
   Heart, 
+  Share2,
+  Copy,
+  MessageCircle,
   Copyright, 
   ChevronLeft, 
   ChevronRight,
@@ -115,7 +118,7 @@ export default function Gallery() {
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/admin");
+      navigate("/admin?redirect=galeria&reason=gallery");
     }
   }, [user, authLoading, navigate]);
 
@@ -223,6 +226,52 @@ export default function Gallery() {
       link: photoUrl,
       category: "photo"
     });
+  };
+
+  const [sharingPhotoUrl, setSharingPhotoUrl] = useState<string | null>(null);
+  const shareMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
+        setSharingPhotoUrl(null);
+      }
+    };
+
+    if (sharingPhotoUrl) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [sharingPhotoUrl]);
+
+  const handleSharePhoto = (photoUrl: string) => {
+    if (sharingPhotoUrl === photoUrl) {
+      setSharingPhotoUrl(null);
+    } else {
+      setSharingPhotoUrl(photoUrl);
+    }
+  };
+
+  const copyToClipboard = async (url: string) => {
+    if (!selectedAlbum) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?album=${selectedAlbum.id}&photo=${encodeURIComponent(url)}`;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setSharingPhotoUrl(null);
+    } catch (err) {
+      console.error("Erro ao copiar link:", err);
+    }
+  };
+
+  const shareToWhatsApp = (url: string) => {
+    if (!selectedAlbum) return;
+    const shareUrl = `${window.location.origin}${window.location.pathname}?album=${selectedAlbum.id}&photo=${encodeURIComponent(url)}`;
+    const text = `Confira esta foto do álbum "${selectedAlbum.title}" no Ministério Profecia: ${shareUrl}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    setSharingPhotoUrl(null);
   };
 
   const handleRequestRemoval = async (photoUrl: string, albumId: string) => {
@@ -572,16 +621,69 @@ export default function Gallery() {
                         )}
 
                         {/* Corner Actions */}
-                        <div className="absolute bottom-6 right-6 flex items-center gap-3">
+                        <div className="absolute bottom-6 right-6 flex items-center gap-2">
+                          <div className="relative">
+                            <Button 
+                              size="icon" 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSharePhoto(photo);
+                              }}
+                              className={cn(
+                                "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 shadow-xl transition-all",
+                                sharingPhotoUrl === photo ? "bg-primary text-black" : "bg-black/40 text-white"
+                              )}
+                            >
+                              <Share2 className="w-4 h-4" />
+                            </Button>
+
+                            <AnimatePresence>
+                              {sharingPhotoUrl === photo && (
+                                <div 
+                                  ref={shareMenuRef}
+                                  className="absolute bottom-full mb-3 right-0 z-50"
+                                >
+                                  <motion.div
+                                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                                    className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl min-w-[140px]"
+                                  >
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        shareToWhatsApp(photo);
+                                      }}
+                                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                                    >
+                                      <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        copyToClipboard(photo);
+                                      }}
+                                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                                    >
+                                      <Copy className="w-3.5 h-3.5 text-blue-500" />
+                                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                                    </button>
+                                    <div className="absolute -bottom-1.5 right-4 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
+                                  </motion.div>
+                                </div>
+                              )}
+                            </AnimatePresence>
+                          </div>
                           <Button 
                             size="icon" 
                             onClick={(e) => {
                               e.stopPropagation();
                               downloadWithWatermark(photo, selectedAlbum.title);
                             }}
-                            className="w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
+                            className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
                           >
-                            <Download className="w-5 h-5" />
+                            <Download className="w-4 h-4" />
                           </Button>
                           <Button 
                             size="icon" 
@@ -590,9 +692,9 @@ export default function Gallery() {
                               setSelectedPhotoIndex(actualIdx);
                               setShowInfoModal(true);
                             }}
-                            className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
+                            className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
                           >
-                            <Copyright className="w-5 h-5" />
+                            <Copyright className="w-4 h-4" />
                           </Button>
                         </div>
                         
@@ -605,7 +707,7 @@ export default function Gallery() {
                             }}
                             className={cn(
                               "w-12 h-12 rounded-2xl backdrop-blur-md border border-white/20 transition-all",
-                              favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500" : "bg-white/5 text-white"
+                              favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : "bg-black/20 text-white"
                             )}
                           >
                             <Heart className={cn("w-5 h-5", favoriteIds.includes(photo) && "fill-current")} />
@@ -652,7 +754,7 @@ export default function Gallery() {
                         <img 
                           src={getImageUrl(photo)} 
                           alt={`Foto ${actualIdx + 1}`} 
-                          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                          className="w-full h-full object-cover transition-all duration-[1500ms] grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110"
                         />
                         
                         {isAdmin && req && (
@@ -661,10 +763,87 @@ export default function Gallery() {
                           </div>
                         )}
 
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <Button size="icon" className="w-14 h-14 rounded-full bg-primary text-black transform scale-0 group-hover:scale-100 transition-transform duration-300">
-                            <ImageIcon className="w-6 h-6" />
-                          </Button>
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <div className="flex items-center gap-2 scale-90 group-hover:scale-100 transition-transform duration-300">
+                             <div className="relative">
+                                <Button 
+                                  size="icon" 
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleSharePhoto(photo);
+                                  }}
+                                  className={cn(
+                                    "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 shadow-xl transition-all",
+                                    sharingPhotoUrl === photo ? "bg-primary text-black" : "bg-black/40 text-white"
+                                  )}
+                                >
+                                  <Share2 className="w-4 h-4" />
+                                </Button>
+
+                                <AnimatePresence>
+                                  {sharingPhotoUrl === photo && (
+                                    <div 
+                                      ref={shareMenuRef}
+                                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50"
+                                    >
+                                      <motion.div
+                                        initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                                        className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl min-w-[140px]"
+                                      >
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            shareToWhatsApp(photo);
+                                          }}
+                                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                                        >
+                                          <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                                          <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            copyToClipboard(photo);
+                                          }}
+                                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                                        >
+                                          <Copy className="w-3.5 h-3.5 text-blue-500" />
+                                          <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                                        </button>
+                                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
+                                      </motion.div>
+                                    </div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+
+                              <Button 
+                                size="icon" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleToggleFavorite(selectedAlbum, photo);
+                                }}
+                                className={cn(
+                                  "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 transition-all",
+                                  favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : "bg-black/20 text-white"
+                                )}
+                              >
+                                <Heart className={cn("w-4 h-4", favoriteIds.includes(photo) && "fill-current")} />
+                              </Button>
+
+                              <Button 
+                                size="icon" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  downloadWithWatermark(photo, selectedAlbum.title);
+                                }}
+                                className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl hover:bg-primary hover:text-black transition-all"
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -710,6 +889,7 @@ export default function Gallery() {
           </div>
         )}
       </div>
+
 
       {/* Info Modal / Privacy Policy */}
       <AnimatePresence>
@@ -773,10 +953,10 @@ export default function Gallery() {
                 <div className="flex flex-col gap-4">
                   {selectedPhotoIndex !== null && selectedAlbum && (
                     <Button 
-                      className="w-full bg-red-500 hover:bg-red-600 text-white h-14 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 group"
+                      className="w-full bg-red-500 hover:bg-red-600 text-white h-14 rounded-2xl font-black uppercase tracking-wider text-[10px] md:text-xs flex items-center justify-center gap-2 md:gap-3 px-4 group"
                       onClick={() => handleRequestRemoval(visiblePhotos[selectedPhotoIndex], selectedAlbum.id)}
                     >
-                      <AlertCircle className="w-5 h-5 group-hover:animate-pulse" /> Pedir para remover minha imagem
+                      <AlertCircle className="w-4 h-4 md:w-5 md:h-5 shrink-0 group-hover:animate-pulse" /> Pedir para remover minha imagem
                     </Button>
                   )}
                   <Button 
@@ -871,6 +1051,52 @@ export default function Gallery() {
                 >
                   <Heart className={cn("w-6 h-6", favoriteIds.includes(visiblePhotos[selectedPhotoIndex]) && "fill-current")} />
                 </Button>
+
+                <div className="relative">
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    onClick={() => handleSharePhoto(visiblePhotos[selectedPhotoIndex])}
+                    className={cn(
+                      "w-14 h-14 rounded-2xl backdrop-blur-md border border-white/10 transition-all",
+                      sharingPhotoUrl === visiblePhotos[selectedPhotoIndex] ? "bg-primary text-black" : "text-white/60 hover:text-white hover:bg-white/10"
+                    )}
+                  >
+                    <Share2 className="w-6 h-6" />
+                  </Button>
+
+                  <AnimatePresence>
+                    {sharingPhotoUrl === visiblePhotos[selectedPhotoIndex] && (
+                      <div 
+                        ref={shareMenuRef}
+                        className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 z-50"
+                      >
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                          animate={{ opacity: 1, scale: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                          className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-2xl min-w-[160px]"
+                        >
+                          <button
+                            onClick={() => shareToWhatsApp(visiblePhotos[selectedPhotoIndex])}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left"
+                          >
+                            <MessageCircle className="w-4 h-4 text-green-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                          </button>
+                          <button
+                            onClick={() => copyToClipboard(visiblePhotos[selectedPhotoIndex])}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left"
+                          >
+                            <Copy className="w-4 h-4 text-blue-500" />
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                          </button>
+                          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-transparent border-t-[#1a1a1a]" />
+                        </motion.div>
+                      </div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 
                 <Button 
                   variant="ghost" 
