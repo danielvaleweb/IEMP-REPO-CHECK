@@ -101,6 +101,7 @@ export default function Gallery() {
   const queryParams = new URLSearchParams(location.search);
   const queryAlbumId = queryParams.get('album');
   const stateAlbumId = location.state?.selectedAlbumId || queryAlbumId;
+  const queryPhotoUrl = queryParams.get('photo');
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const [albums, setAlbums] = useState<Album[]>([]);
@@ -118,6 +119,45 @@ export default function Gallery() {
   // Modals
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showRemovedFeedback, setShowRemovedFeedback] = useState(false);
+  
+  const isPhotoMarkedForRemoval = useCallback((photoUrl: string) => {
+    return removalRequests.find(r => r.photoUrl === photoUrl);
+  }, [removalRequests]);
+
+  const visiblePhotos = useMemo(() => {
+    if (!selectedAlbum) return [];
+    return selectedAlbum.photos.filter(photo => {
+      const request = isPhotoMarkedForRemoval(photo);
+      
+      // If approved removal, hide for EVERYONE
+      if (request && request.status === 'removed') return false;
+      
+      // If pending, hide for standard users, keep visible for admins (so they can approve)
+      if (request && request.status === 'pending') {
+        return isAdmin;
+      }
+
+      return true;
+    });
+  }, [selectedAlbum, removalRequests, isAdmin, isPhotoMarkedForRemoval]);
+
+  // Deep link to photo
+  useEffect(() => {
+    if (selectedAlbum && queryPhotoUrl && visiblePhotos.length > 0) {
+      const idx = visiblePhotos.indexOf(queryPhotoUrl);
+      if (idx !== -1) {
+        // Calcular a página correta
+        const page = Math.floor(idx / itemsPerPage) + 1;
+        setCurrentPage(page);
+        setSelectedPhotoIndex(idx);
+        
+        // Limpar a query para não reabrir
+        const newParams = new URLSearchParams(location.search);
+        newParams.delete('photo');
+        navigate({ search: newParams.toString() }, { replace: true, state: location.state });
+      }
+    }
+  }, [selectedAlbum, queryPhotoUrl, visiblePhotos, location.search, navigate, location.state]);
   
   // Watermark Settings (State could be moved to global if needed)
   const [watermarkConfig] = useState({
@@ -151,6 +191,8 @@ export default function Gallery() {
           setSelectedAlbum(targetAlbum);
         }
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, "posts");
     });
 
     const qRemovals = query(collection(db, "photo_removals"));
@@ -192,11 +234,11 @@ export default function Gallery() {
         createdAt: serverTimestamp()
       });
 
-      // Notificar Administradores
+      // Notificar Administradores (usando 'admin' para que todos vejam no dashboard)
       await addDoc(collection(db, "notifications"), {
-        userId: "admin", // Isto deve ser capturado pelos admins no dashboard
+        userId: "admin",
         title: "Solicitação de Remoção de Foto",
-        message: `${profile?.name || "Um usuário"} solicitou a remoção de uma foto na galeria.`,
+        message: `${profile?.name || "Um usuário"} solicitou a remoção de uma foto no álbum "${selectedAlbum?.title}".`,
         type: "gallery_removal",
         photoUrl,
         albumId,
@@ -213,8 +255,23 @@ export default function Gallery() {
 
   const handleAdminAction = async (requestId: string, action: 'approve' | 'reject') => {
     try {
+      const request = removalRequests.find(r => r.id === requestId);
+      if (!request) return;
+
       if (action === 'approve') {
+        const { updateDoc, arrayRemove } = await import("firebase/firestore");
+        
+        // 1. Atualizar o status da solicitação
         await setDoc(doc(db, "photo_removals", requestId), { status: 'removed', updatedAt: serverTimestamp() }, { merge: true });
+        
+        // 2. Remover a foto do álbum (post)
+        const postRef = doc(db, "posts", request.albumId);
+        await updateDoc(postRef, {
+          gallery: arrayRemove(request.photoUrl)
+        });
+
+        // 3. Opcional: Se a foto removida for a capa, poderíamos atualizar a capa também, 
+        // mas vamos focar na remoção da galeria por agora.
       } else {
         await deleteDoc(doc(db, "photo_removals", requestId));
       }
@@ -285,10 +342,6 @@ export default function Gallery() {
     }
   };
 
-  const isPhotoMarkedForRemoval = (photoUrl: string) => {
-    return removalRequests.find(r => r.photoUrl === photoUrl);
-  };
-
   const filteredAlbums = useMemo(() => {
     return albums.filter(album => 
       album.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -332,16 +385,6 @@ export default function Gallery() {
       </div>
     );
   };
-
-  const visiblePhotos = useMemo(() => {
-    if (!selectedAlbum) return [];
-    return selectedAlbum.photos.filter(photo => {
-      const request = isPhotoMarkedForRemoval(photo);
-      if (isAdmin) return true; // Admin vê tudo
-      if (request && (request.status === 'pending' || request.status === 'removed')) return false;
-      return true;
-    });
-  }, [selectedAlbum, removalRequests, isAdmin]);
 
   const paginatedPhotos = visiblePhotos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -749,12 +792,12 @@ export default function Gallery() {
 
               <div className="flex items-center gap-3">
                  {/* Admin Actions */}
-                 {isAdmin && isPhotoMarkedForRemoval(selectedAlbum.photos[selectedPhotoIndex]) && (
+                 {isAdmin && isPhotoMarkedForRemoval(visiblePhotos[selectedPhotoIndex]) && (
                    <div className="flex bg-white/5 p-1 rounded-2xl gap-1 mr-4 border border-white/10">
                      <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(selectedAlbum.photos[selectedPhotoIndex])!.id, 'approve')}
+                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(visiblePhotos[selectedPhotoIndex])!.id, 'approve')}
                         className="h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-black uppercase text-[8px] tracking-widest"
                      >
                        <Trash2 className="w-3.5 h-3.5 mr-2" /> Aceitar Remoção
@@ -762,7 +805,7 @@ export default function Gallery() {
                      <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(selectedAlbum.photos[selectedPhotoIndex])!.id, 'reject')}
+                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(visiblePhotos[selectedPhotoIndex])!.id, 'reject')}
                         className="h-10 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white font-black uppercase text-[8px] tracking-widest"
                      >
                        <Check className="w-3.5 h-3.5 mr-2" /> Recusar e Manter
@@ -773,19 +816,19 @@ export default function Gallery() {
                  <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => handleToggleFavorite(selectedAlbum, selectedAlbum.photos[selectedPhotoIndex])}
+                  onClick={() => handleToggleFavorite(selectedAlbum, visiblePhotos[selectedPhotoIndex])}
                   className={cn(
                     "w-14 h-14 rounded-2xl backdrop-blur-md border border-white/10 transition-all",
-                    favoriteIds.includes(selectedAlbum.photos[selectedPhotoIndex]) ? "bg-red-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
+                    favoriteIds.includes(visiblePhotos[selectedPhotoIndex]) ? "bg-red-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
                   )}
                 >
-                  <Heart className={cn("w-6 h-6", favoriteIds.includes(selectedAlbum.photos[selectedPhotoIndex]) && "fill-current")} />
+                  <Heart className={cn("w-6 h-6", favoriteIds.includes(visiblePhotos[selectedPhotoIndex]) && "fill-current")} />
                 </Button>
                 
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => downloadWithWatermark(selectedAlbum.photos[selectedPhotoIndex], selectedAlbum.title)}
+                  onClick={() => downloadWithWatermark(visiblePhotos[selectedPhotoIndex], selectedAlbum.title)}
                   className="w-14 h-14 rounded-2xl backdrop-blur-md border border-white/10 text-white/60 hover:text-white hover:bg-white/10"
                 >
                   <Download className="w-6 h-6" />

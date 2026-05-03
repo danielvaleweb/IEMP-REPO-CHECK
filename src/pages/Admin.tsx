@@ -1494,7 +1494,7 @@ const Admin = () => {
       } else if (notif.type === "chat") {
         setActiveTab("chats");
       } else if (notif.type === "gallery_removal") {
-        navigate(`/galeria?album=${notif.albumId}`);
+        navigate(`/galeria?album=${notif.albumId}&photo=${encodeURIComponent(notif.photoUrl)}`);
       }
       
       // Fechar o menu de notificações se necessário (o dropdown costuma fechar sozinho, mas se for modal...)
