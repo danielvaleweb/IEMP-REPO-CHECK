@@ -40,6 +40,7 @@ import {
   MapPin,
   X,
   XCircle,
+  AlertCircle,
   AlertTriangle,
   ShieldCheck,
   Facebook,
@@ -1474,6 +1475,32 @@ const Admin = () => {
     });
   }, [notifications, isAdminOrDev, user?.uid]);
 
+  const handleNotificationClick = async (notif: any) => {
+    try {
+      // 1. Marcar como lida se ainda não estiver
+      if (!notif.read) {
+        await updateDoc(doc(db, "notifications", notif.id), { read: true });
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+      }
+
+      // 2. Redirecionar baseado no tipo
+      if (notif.type === "request" || notif.type === "agenda") {
+        setActiveTab("agenda");
+        // Se houver lógica de filtragem na agenda por status, poderíamos ativar o filtro de pendentes aqui
+      } else if (notif.type === "registration") {
+        setActiveTab("membros");
+        setShowPending(true); // Se for solicitação de cadastro, mostra os pendentes
+      } else if (notif.type === "chat") {
+        setActiveTab("chats");
+      }
+      
+      // Fechar o menu de notificações se necessário (o dropdown costuma fechar sozinho, mas se for modal...)
+      // No caso do DropdownMenu do Shadcn, ele costuma fechar ao clicar, mas se quiser garantir:
+    } catch (err) {
+      console.error("Erro ao processar clique na notificação:", err);
+    }
+  };
+
   const handleMarkAllAsRead = async () => {
     try {
       const unreadNotifications = displayNotifications.filter(n => !n.read);
@@ -1659,6 +1686,8 @@ const Admin = () => {
 
   const [isRequestingDate, setIsRequestingDate] = useState(false);
   const [requestFormData, setRequestFormData] = useState<any>({});
+  const [isConfirmRequestOpen, setIsConfirmRequestOpen] = useState(false);
+  const [requestStatusMessage, setRequestStatusMessage] = useState<{ type: 'success' | 'error' | 'warning', title: string, message: string } | null>(null);
   
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -3601,8 +3630,9 @@ const Admin = () => {
                       displayNotifications.map((n) => (
                         <div 
                           key={n.id} 
+                          onClick={() => handleNotificationClick(n)}
                           className={cn(
-                            "p-4 rounded-xl mb-1 last:mb-0 transition-all border border-transparent",
+                            "p-4 rounded-xl mb-1 last:mb-0 transition-all border border-transparent cursor-pointer",
                             !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600"),
                             "group"
                           )}
@@ -6544,54 +6574,16 @@ const Admin = () => {
               
               <Button 
                 className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black uppercase tracking-widest shadow-xl mt-6"
-                onClick={async () => {
+                onClick={() => {
                   if (!requestFormData.title || !requestFormData.date || !requestFormData.time) {
-                    alert("Preencha o assunto, data e hora.");
+                    setRequestStatusMessage({
+                      type: 'warning',
+                      title: 'Campos Incompletos',
+                      message: 'Por favor, preencha o assunto, data e hora para continuar.'
+                    });
                     return;
                   }
-                  if (!confirm("Ao agendar não poderá ser desfeito. Tem certeza?")) return;
-                  
-                  const eventDate = `${requestFormData.date}T${requestFormData.time}`;
-                  const dataToSave = {
-                    title: requestFormData.title,
-                    date: eventDate,
-                    location: requestFormData.location || "Igreja Local",
-                    phone: requestFormData.phone || "",
-                    observations: requestFormData.observations || "",
-                    status: "pending",
-                    authorId: profile?.id || user?.uid || "",
-                    authorName: profile?.name || "Membro",
-                    createdAt: serverTimestamp(),
-                  };
-
-                  try {
-                    await addDoc(collection(db, "agenda"), dataToSave);
-                    
-                    const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
-                    const usersToNotify = (members || []).filter(m => rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader));
-
-                    for (const u of usersToNotify) {
-                      try {
-                        await addDoc(collection(db, "notifications"), {
-                           userId: u.id,
-                           title: "Nova Solicitação de Agendamento",
-                           message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
-                           type: "request",
-                           read: false,
-                           createdAt: serverTimestamp()
-                        });
-                      } catch (err) {
-                        console.error("Erro ao notificar admin:", u.id, err);
-                      }
-                    }
-
-                    setIsRequestingDate(false);
-                    setRequestFormData({});
-                    alert("Solicitação enviada com sucesso!");
-                  } catch (e) {
-                    console.error("Erro ao solicitar agendamento:", e);
-                    handleFirestoreError(e, OperationType.WRITE, "agenda");
-                  }
+                  setIsConfirmRequestOpen(true);
                 }}
               >
                 Solicitar Agendamento
@@ -6630,15 +6622,16 @@ const Admin = () => {
                   onClick={async () => {
                     if (!itemToReject) return;
                     try {
-                      await setDoc(doc(db, "agenda", itemToReject.id), { status: "rejected", rejectReason: rejectReason, updatedAt: serverTimestamp() }, { merge: true });
+                      // Delete the document instead of just marking as rejected
+                      await deleteDoc(doc(db, "agenda", itemToReject.id));
                       
                       // Notificar criador
                       if (itemToReject.authorId) {
                         try {
                           await addDoc(collection(db, "notifications"), {
                             userId: itemToReject.authorId,
-                            title: "Solicitação Reprovada",
-                            message: `Seu compromisso ${itemToReject.title} foi recusado, motivo: ${rejectReason || "Sem motivo informado"}.`,
+                            title: "Solicitação Recusada",
+                            message: `Seu compromisso "${itemToReject.title}" foi recusado e removido da agenda. Motivo: ${rejectReason || "Sem motivo informado"}.`,
                             type: "agenda",
                             read: false,
                             createdAt: serverTimestamp()
@@ -6646,16 +6639,17 @@ const Admin = () => {
 
                           // Mensagem no chat do sistema
                           const chatId = ["system", itemToReject.authorId].sort().join('_');
+                          // Garantir que o chat existe
                           await setDoc(doc(db, "chats", chatId), {
                             participants: ["system", itemToReject.authorId],
-                            lastMessage: `Seu compromisso ${itemToReject.title} foi recusado, motivo: ${rejectReason || "Sem motivo informado"}.`,
+                            lastMessage: `Seu compromisso "${itemToReject.title}" foi recusado. Motivo: ${rejectReason || "Sem motivo informado"}.`,
                             lastMessageTime: serverTimestamp(),
                             systemChat: true,
                             updatedAt: serverTimestamp()
                           }, { merge: true });
                           
                           await addDoc(collection(db, "chats", chatId, "messages"), {
-                            text: `Seu compromisso ${itemToReject.title} foi recusado, motivo: ${rejectReason || "Sem motivo informado"}.`,
+                            text: `Seu compromisso "${itemToReject.title}" foi recusado e removido da agenda. Motivo: ${rejectReason || "Sem motivo informado"}.`,
                             senderId: "system",
                             timestamp: serverTimestamp()
                           });
@@ -6684,6 +6678,133 @@ const Admin = () => {
                 </Button>
               </div>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Confirmação de Solicitação */}
+        <Dialog open={isConfirmRequestOpen} onOpenChange={setIsConfirmRequestOpen}>
+          <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-6 transition-colors shadow-2xl", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight">Confirmar Solicitação</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="p-6 rounded-3xl bg-amber-500/10 border border-amber-500/20 text-center">
+                <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
+                  <CalendarDays className="w-8 h-8 text-amber-500" />
+                </div>
+                <h3 className="text-lg font-black uppercase tracking-tight mb-2">Atenção!</h3>
+                <p className="text-sm opacity-70">
+                  Ao solicitar este agendamento ele passará por uma análise. Uma vez enviado, o pedido não poderá ser cancelado diretamente.
+                </p>
+                <div className="mt-4 p-4 rounded-2xl bg-black/5 dark:bg-white/5 text-left space-y-1">
+                  <div className="text-[10px] uppercase font-bold opacity-40">Compromisso</div>
+                  <div className="font-bold">{requestFormData.title}</div>
+                  <div className="text-[10px] uppercase font-bold opacity-40 mt-2">Data e Hora</div>
+                  <div className="font-bold">{requestFormData.date && format(new Date(requestFormData.date + "T00:00:00"), "dd/MM/yyyy")} às {requestFormData.time}</div>
+                </div>
+              </div>
+              
+              <div className="flex flex-col gap-3 pt-2">
+                <Button 
+                  className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black uppercase tracking-widest shadow-xl"
+                  onClick={async () => {
+                    const eventDate = `${requestFormData.date}T${requestFormData.time}`;
+                    const dataToSave = {
+                      title: requestFormData.title,
+                      date: eventDate,
+                      location: requestFormData.location || "Igreja Local",
+                      phone: requestFormData.phone || "",
+                      observations: requestFormData.observations || "",
+                      status: "pending",
+                      authorId: profile?.id || user?.uid || "",
+                      authorName: profile?.name || "Membro",
+                      createdAt: serverTimestamp(),
+                    };
+
+                    try {
+                      await addDoc(collection(db, "agenda"), dataToSave);
+                      
+                      const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
+                      const usersToNotify = (members || []).filter(m => rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader));
+
+                      for (const u of usersToNotify) {
+                        try {
+                          await addDoc(collection(db, "notifications"), {
+                             userId: u.id,
+                             title: "Nova Solicitação de Agendamento",
+                             message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
+                             type: "request",
+                             read: false,
+                             createdAt: serverTimestamp()
+                          });
+                        } catch (err) {
+                          console.error("Erro ao notificar admin:", u.id, err);
+                        }
+                      }
+
+                      setIsConfirmRequestOpen(false);
+                      setIsRequestingDate(false);
+                      setRequestFormData({});
+                      setRequestStatusMessage({
+                        type: 'success',
+                        title: 'Enviado!',
+                        message: 'Sua solicitação foi enviada com sucesso e está em análise.'
+                      });
+                    } catch (e) {
+                      console.error("Erro ao solicitar agendamento:", e);
+                      setIsConfirmRequestOpen(false);
+                      setRequestStatusMessage({
+                        type: 'error',
+                        title: 'Erro no Envio',
+                        message: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.'
+                      });
+                    }
+                  }}
+                >
+                  Confirmar Envio
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full h-14 rounded-2xl font-bold uppercase tracking-widest"
+                  onClick={() => setIsConfirmRequestOpen(false)}
+                >
+                  Voltar e Editar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Feedback de Status */}
+        <Dialog open={!!requestStatusMessage} onOpenChange={(open) => !open && setRequestStatusMessage(null)}>
+          <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-8 transition-colors shadow-2xl text-center", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+             <div className="flex flex-col items-center gap-6">
+                <div className={cn(
+                  "w-20 h-20 rounded-full flex items-center justify-center animate-in zoom-in duration-500",
+                  requestStatusMessage?.type === 'success' ? "bg-green-500/20 text-green-500" : 
+                  requestStatusMessage?.type === 'error' ? "bg-red-500/20 text-red-500" :
+                  "bg-amber-500/20 text-amber-500"
+                )}>
+                  {requestStatusMessage?.type === 'success' ? <CheckCheck className="w-10 h-10" /> : 
+                   requestStatusMessage?.type === 'error' ? <XCircle className="w-10 h-10" /> :
+                   <AlertCircle className="w-10 h-10" />}
+                </div>
+                
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-black uppercase tracking-tight">{requestStatusMessage?.title}</h2>
+                  <p className="text-gray-500 font-medium leading-relaxed">{requestStatusMessage?.message}</p>
+                </div>
+                
+                <Button 
+                  className={cn(
+                    "w-full h-14 rounded-2xl text-white font-black uppercase tracking-widest shadow-xl",
+                    requestStatusMessage?.type === 'error' ? "bg-red-500" : "bg-[#7300FF]"
+                  )}
+                  onClick={() => setRequestStatusMessage(null)}
+                >
+                  Entendi
+                </Button>
+             </div>
           </DialogContent>
         </Dialog>
 
@@ -7340,11 +7461,7 @@ const Admin = () => {
       )}>
         <div className="flex items-center gap-8">
            <div className={cn("text-[9px] uppercase font-black tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>
-             © 2026 PROFECIA <span className="opacity-20">|</span> TODOS OS DIREITOS RESERVADOS
-           </div>
-           <div className="flex items-center gap-4">
-              <a href="#" className="text-[9px] font-bold uppercase tracking-widest text-[#BF76FF] hover:opacity-80">Privacidade</a>
-              <a href="#" className="text-[9px] font-bold uppercase tracking-widest text-[#BF76FF] hover:opacity-80">Termos</a>
+             © 2026 IGREJA EVANGELICA MINISTERIO PROFECIA <span className="opacity-20">|</span> TODOS OS DIREITOS RESERVADOS
            </div>
         </div>
 
