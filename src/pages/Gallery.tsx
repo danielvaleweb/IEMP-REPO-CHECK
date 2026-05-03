@@ -153,22 +153,23 @@ export default function Gallery() {
   }, [selectedAlbum, removalRequests, isAdmin]);
 
   // Deep link to photo
+  const deepLinkProcessed = useRef(false);
   useEffect(() => {
-    if (selectedAlbum && queryPhotoUrl && visiblePhotos.length > 0) {
+    if (selectedAlbum && queryPhotoUrl && visiblePhotos.length > 0 && !deepLinkProcessed.current) {
       const idx = visiblePhotos.indexOf(queryPhotoUrl);
       if (idx !== -1) {
-        // Calcular a página correta
+        deepLinkProcessed.current = true;
         const page = Math.floor(idx / itemsPerPage) + 1;
         setCurrentPage(page);
         setSelectedPhotoIndex(idx);
         
-        // Limpar a query para não reabrir
-        const newParams = new URLSearchParams(location.search);
+        const newParams = new URLSearchParams(window.location.search);
         newParams.delete('photo');
-        navigate({ search: newParams.toString() }, { replace: true, state: location.state });
+        const newSearch = newParams.toString();
+        navigate({ search: newSearch ? `?${newSearch}` : "" }, { replace: true });
       }
     }
-  }, [selectedAlbum, queryPhotoUrl, visiblePhotos, location.search, navigate, location.state]);
+  }, [selectedAlbum, queryPhotoUrl, visiblePhotos, navigate]);
   
   // Watermark Settings (State could be moved to global if needed)
   const [watermarkConfig] = useState({
@@ -545,60 +546,92 @@ export default function Gallery() {
             </div>
 
             {isMobile ? (
-              /* Mobile Carousel Mode */
-              <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-8">
-                {visiblePhotos.map((photo, idx) => {
-                  const req = getPhotoRemovalRequest(photo);
-                  return (
-                    <div 
-                      key={`mobile-photo-${idx}`}
-                      className="min-w-[85vw] aspect-[3/4] rounded-[2.5rem] overflow-hidden snap-center relative shadow-2xl bg-white/5 border border-white/10"
-                    >
-                      <WatermarkOverlay title={selectedAlbum.title} />
-                      <img src={getImageUrl(photo)} alt="" className="w-full h-full object-cover" />
-                      
-                      {isAdmin && req && (
-                        <div className="absolute top-4 left-4 z-20 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-[10px] uppercase flex items-center gap-2">
-                          <AlertCircle className="w-3 h-3" /> Solicitação de Remoção
-                        </div>
-                      )}
+              /* Mobile Carousel Mode - Optimized with Pagination to prevent crashes */
+              <div className="space-y-6">
+                <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-4">
+                  {paginatedPhotos.map((photo, idx) => {
+                    const actualIdx = (currentPage - 1) * itemsPerPage + idx;
+                    const req = getPhotoRemovalRequest(photo);
+                    return (
+                      <div 
+                        key={`mobile-photo-${actualIdx}`}
+                        className="min-w-[85vw] aspect-[3/4] rounded-[2.5rem] overflow-hidden snap-center relative shadow-2xl bg-white/5 border border-white/10"
+                      >
+                        <WatermarkOverlay title={selectedAlbum.title} />
+                        <img 
+                          src={getImageUrl(photo)} 
+                          alt="" 
+                          loading="lazy"
+                          className="w-full h-full object-cover" 
+                        />
+                        
+                        {isAdmin && req && (
+                          <div className="absolute top-4 left-4 z-20 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-[10px] uppercase flex items-center gap-2">
+                            <AlertCircle className="w-3 h-3" /> Solicitação de Remoção
+                          </div>
+                        )}
 
-                      {/* Corner Actions */}
-                      <div className="absolute bottom-6 right-6 flex items-center gap-3">
-                        <Button 
-                          size="icon" 
-                          onClick={() => downloadWithWatermark(photo, selectedAlbum.title)}
-                          className="w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
-                        >
-                          <Download className="w-5 h-5" />
-                        </Button>
-                        <Button 
-                          size="icon" 
-                          onClick={() => {
-                            setSelectedPhotoIndex(idx);
-                            setShowInfoModal(true);
-                          }}
-                          className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
-                        >
-                          <Copyright className="w-5 h-5" />
-                        </Button>
+                        {/* Corner Actions */}
+                        <div className="absolute bottom-6 right-6 flex items-center gap-3">
+                          <Button 
+                            size="icon" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              downloadWithWatermark(photo, selectedAlbum.title);
+                            }}
+                            className="w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
+                          >
+                            <Download className="w-5 h-5" />
+                          </Button>
+                          <Button 
+                            size="icon" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedPhotoIndex(actualIdx);
+                              setShowInfoModal(true);
+                            }}
+                            className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
+                          >
+                            <Copyright className="w-5 h-5" />
+                          </Button>
+                        </div>
+                        
+                        <div className="absolute top-6 right-6">
+                          <Button 
+                            size="icon" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleToggleFavorite(selectedAlbum, photo);
+                            }}
+                            className={cn(
+                              "w-12 h-12 rounded-2xl backdrop-blur-md border border-white/20 transition-all",
+                              favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500" : "bg-white/5 text-white"
+                            )}
+                          >
+                            <Heart className={cn("w-5 h-5", favoriteIds.includes(photo) && "fill-current")} />
+                          </Button>
+                        </div>
                       </div>
-                      
-                      <div className="absolute top-6 right-6">
-                        <Button 
-                          size="icon" 
-                          onClick={() => handleToggleFavorite(selectedAlbum, photo)}
-                          className={cn(
-                            "w-12 h-12 rounded-2xl backdrop-blur-md border border-white/20 transition-all",
-                            favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500" : "bg-white/5 text-white"
-                          )}
-                        >
-                          <Heart className={cn("w-5 h-5", favoriteIds.includes(photo) && "fill-current")} />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
+
+                {totalPages > 1 && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                    {Array.from({ length: totalPages }).map((_, i) => (
+                      <button
+                        key={`page-mobile-${i}`}
+                        onClick={() => setCurrentPage(i + 1)}
+                        className={cn(
+                          "w-8 h-8 rounded-lg transition-all font-black text-[10px] uppercase tracking-tighter",
+                          currentPage === i + 1 ? "bg-primary text-black" : "bg-white/5 text-gray-500"
+                        )}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             ) : (
               /* Desktop Grid Mode */
