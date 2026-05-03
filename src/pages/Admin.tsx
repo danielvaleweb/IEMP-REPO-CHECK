@@ -6725,7 +6725,10 @@ const Admin = () => {
                       await addDoc(collection(db, "agenda"), dataToSave);
                       
                       const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
-                      const usersToNotify = (members || []).filter(m => rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader));
+                      const usersToNotify = (members || []).filter(m => 
+                        (rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader)) && 
+                        m.id !== (profile?.id || user?.uid)
+                      );
 
                       for (const u of usersToNotify) {
                         try {
@@ -6740,6 +6743,18 @@ const Admin = () => {
                         } catch (err) {
                           console.error("Erro ao notificar admin:", u.id, err);
                         }
+                      }
+
+                      // Notificação para o próprio solicitante
+                      if (profile?.id || user?.uid) {
+                        await addDoc(collection(db, "notifications"), {
+                          userId: profile?.id || user?.uid,
+                          title: "Solicitação em Análise",
+                          message: "Sua solicitação foi enviada para administração, Agora é só aguardar...",
+                          type: "agenda",
+                          read: false,
+                          createdAt: serverTimestamp()
+                        });
                       }
 
                       setIsConfirmRequestOpen(false);
