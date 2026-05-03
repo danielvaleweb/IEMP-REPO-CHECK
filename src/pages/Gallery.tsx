@@ -124,26 +124,26 @@ export default function Gallery() {
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [showRemovedFeedback, setShowRemovedFeedback] = useState(false);
   
-  const isPhotoMarkedForRemoval = useCallback((photoUrl: string) => {
+  const getPhotoRemovalRequest = useCallback((photoUrl: string) => {
     return removalRequests.find(r => r.photoUrl === photoUrl);
   }, [removalRequests]);
 
   const visiblePhotos = useMemo(() => {
     if (!selectedAlbum) return [];
     return selectedAlbum.photos.filter(photo => {
-      const request = isPhotoMarkedForRemoval(photo);
+      const request = removalRequests.find(r => r.photoUrl === photo);
       
-      // If approved removal, hide for EVERYONE
+      // Se removida, esconde para TODOS
       if (request && request.status === 'removed') return false;
       
-      // If pending, hide for standard users, keep visible for admins (so they can approve)
+      // Se pendente, esconde para usuários comuns, mantém para admins
       if (request && request.status === 'pending') {
         return isAdmin;
       }
 
       return true;
     });
-  }, [selectedAlbum, removalRequests, isAdmin, isPhotoMarkedForRemoval]);
+  }, [selectedAlbum, removalRequests, isAdmin]);
 
   // Deep link to photo
   useEffect(() => {
@@ -221,10 +221,9 @@ export default function Gallery() {
     if (!user) return;
     
     try {
-      // Use a simpler hashing or just a random ID if we don't care about uniqueness per photo/user
-      // But let's try a safer btoa-like approach or just use addDoc for removals too
-      const requestId = `${user.uid}_${Date.now()}`;
-      await setDoc(doc(db, "photo_removals", requestId), {
+      const photoUrl = visiblePhotos[selectedPhotoIndex];
+      
+      await addDoc(collection(db, "photo_removals"), {
         photoUrl,
         albumId,
         requestedBy: user.uid,
@@ -533,7 +532,7 @@ export default function Gallery() {
               /* Mobile Carousel Mode */
               <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-8">
                 {paginatedPhotos.map((photo, idx) => {
-                  const req = isPhotoMarkedForRemoval(photo);
+                  const req = getPhotoRemovalRequest(photo);
                   return (
                     <div 
                       key={`mobile-photo-${idx}`}
@@ -591,7 +590,7 @@ export default function Gallery() {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {paginatedPhotos.map((photo, idx) => {
                     const actualIdx = (currentPage - 1) * itemsPerPage + idx;
-                    const req = isPhotoMarkedForRemoval(photo);
+                    const req = getPhotoRemovalRequest(photo);
                     return (
                       <motion.div
                         key={`photo-${selectedAlbum.id}-${actualIdx}`}
@@ -726,7 +725,7 @@ export default function Gallery() {
                   {selectedPhotoIndex !== null && selectedAlbum && (
                     <Button 
                       className="w-full bg-red-500 hover:bg-red-600 text-white h-14 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 group"
-                      onClick={() => handleRequestRemoval(selectedAlbum.photos[selectedPhotoIndex], selectedAlbum.id)}
+                      onClick={() => handleRequestRemoval(visiblePhotos[selectedPhotoIndex], selectedAlbum.id)}
                     >
                       <AlertCircle className="w-5 h-5 group-hover:animate-pulse" /> Pedir para remover minha imagem
                     </Button>
@@ -791,12 +790,12 @@ export default function Gallery() {
 
               <div className="flex items-center gap-3">
                  {/* Admin Actions */}
-                 {isAdmin && isPhotoMarkedForRemoval(visiblePhotos[selectedPhotoIndex]) && (
+                 {isAdmin && getPhotoRemovalRequest(visiblePhotos[selectedPhotoIndex]) && (
                    <div className="flex bg-white/5 p-1 rounded-2xl gap-1 mr-4 border border-white/10">
                      <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(visiblePhotos[selectedPhotoIndex])!.id, 'approve')}
+                        onClick={() => handleAdminAction(getPhotoRemovalRequest(visiblePhotos[selectedPhotoIndex])!.id, 'approve')}
                         className="h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-black uppercase text-[8px] tracking-widest"
                      >
                        <Trash2 className="w-3.5 h-3.5 mr-2" /> Aceitar Remoção
@@ -804,7 +803,7 @@ export default function Gallery() {
                      <Button 
                         variant="ghost" 
                         size="sm" 
-                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(visiblePhotos[selectedPhotoIndex])!.id, 'reject')}
+                        onClick={() => handleAdminAction(getPhotoRemovalRequest(visiblePhotos[selectedPhotoIndex])!.id, 'reject')}
                         className="h-10 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white font-black uppercase text-[8px] tracking-widest"
                      >
                        <Check className="w-3.5 h-3.5 mr-2" /> Recusar e Manter
