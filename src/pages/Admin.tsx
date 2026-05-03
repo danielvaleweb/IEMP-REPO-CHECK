@@ -903,14 +903,15 @@ const Admin = () => {
       return;
     }
     
+    setIsGuestModalOpen(false);
     setIsSubmitting(true);
     setGuestError("");
     try {
       await loginAsGuest(guestData.name, guestData.phone);
-      setIsGuestModalOpen(false);
       navigate('/');
     } catch (err: any) {
       console.error(err);
+      setIsGuestModalOpen(true); // Re-open if error to show message
       setGuestError(err.message || "Erro ao entrar como visitante");
     } finally {
       setIsSubmitting(false);
@@ -1492,6 +1493,8 @@ const Admin = () => {
         setShowPending(true); // Se for solicitação de cadastro, mostra os pendentes
       } else if (notif.type === "chat") {
         setActiveTab("chats");
+      } else if (notif.type === "gallery_removal") {
+        navigate(`/galeria?album=${notif.albumId}`);
       }
       
       // Fechar o menu de notificações se necessário (o dropdown costuma fechar sozinho, mas se for modal...)
@@ -6621,6 +6624,7 @@ const Admin = () => {
                   className="w-full h-14 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black uppercase tracking-widest shadow-xl"
                   onClick={async () => {
                     if (!itemToReject) return;
+                    setIsRejectModalOpen(false);
                     try {
                       // Delete the document instead of just marking as rejected
                       await deleteDoc(doc(db, "agenda", itemToReject.id));
@@ -6658,7 +6662,6 @@ const Admin = () => {
                         }
                       }
                       
-                      setIsRejectModalOpen(false);
                       setIsEditing(false);
                       setItemToReject(null);
                     } catch (error) {
@@ -6708,6 +6711,7 @@ const Admin = () => {
                 <Button 
                   className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black uppercase tracking-widest shadow-xl"
                   onClick={async () => {
+                    setIsConfirmRequestOpen(false);
                     const eventDate = `${requestFormData.date}T${requestFormData.time}`;
                     const dataToSave = {
                       title: requestFormData.title,
@@ -6757,7 +6761,6 @@ const Admin = () => {
                         });
                       }
 
-                      setIsConfirmRequestOpen(false);
                       setIsRequestingDate(false);
                       setRequestFormData({});
                       setRequestStatusMessage({
@@ -6767,7 +6770,6 @@ const Admin = () => {
                       });
                     } catch (e) {
                       console.error("Erro ao solicitar agendamento:", e);
-                      setIsConfirmRequestOpen(false);
                       setRequestStatusMessage({
                         type: 'error',
                         title: 'Erro no Envio',

@@ -112,6 +112,14 @@ service cloud.firestore {
              data.authorId is string;
     }
 
+    function isValidPhotoRemoval(data) {
+      return data.keys().hasAll(['photoUrl', 'albumId', 'requestedBy', 'status']) &&
+             data.photoUrl is string &&
+             data.albumId is string &&
+             data.requestedBy is string &&
+             data.status in ['pending', 'removed', 'kept'];
+    }
+
     // --- Collection Rules ---
 
     match /test/connection {
@@ -202,7 +210,8 @@ service cloud.firestore {
                     incoming().type == 'registration' || 
                     incoming().type == 'chat' ||
                     incoming().type == 'activity' ||
-                    incoming().type == 'request'
+                    incoming().type == 'request' ||
+                    incoming().type == 'gallery_removal'
       );
       allow update, delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
@@ -254,6 +263,12 @@ service cloud.firestore {
       match /{subcollection=**} {
         allow read, write: if isSignedIn() && request.auth.uid == userId;
       }
+    }
+
+    match /photo_removals/{removalId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidPhotoRemoval(incoming());
+      allow update, delete: if isMasterAdmin() || isAdmin();
     }
 
     // Default deny

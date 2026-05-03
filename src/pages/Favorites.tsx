@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Heart, X, Play, ArrowLeft, ExternalLink } from "lucide-react";
+import { Heart, X, Play, ArrowLeft, ExternalLink, Image as ImageIcon } from "lucide-react";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
@@ -98,6 +98,21 @@ export default function Favorites() {
                 </div>
               </section>
             )}
+
+            {/* Fotos Favoritas */}
+            {favorites.some(f => f.category === "photo") && (
+              <section>
+                <div className="flex items-center gap-3 mb-8">
+                  <div className="w-1 h-6 bg-yellow-500 rounded-full" />
+                  <h2 className="text-2xl font-bold tracking-tight text-white">Fotos Favoritas</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {favorites.filter(f => f.category === "photo").map((item, index) => (
+                    <FavoriteCard key={`photo-${item.id}`} item={item} index={index} toggleFavorite={toggleFavorite} />
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
@@ -134,12 +149,20 @@ function FavoriteCard({ item, index, toggleFavorite }: { item: any, index: numbe
             onClick={() => {
               if (item.category === 'event') {
                 window.location.href = item.link;
+              } else if (item.category === 'photo') {
+                window.open(item.link, '_blank');
               } else {
                 window.open(item.link.startsWith('http') ? item.link : `https://www.youtube.com/watch?v=${item.id}`, '_blank');
               }
             }}
           >
-            {item.category === 'event' ? <ExternalLink className="w-5 h-5" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+            {item.category === 'event' ? (
+              <ExternalLink className="w-5 h-5" />
+            ) : item.category === 'photo' ? (
+              <ImageIcon className="w-5 h-5" />
+            ) : (
+              <Play className="w-5 h-5 fill-current ml-1" />
+            )}
           </Button>
           <Button 
             variant="ghost"
@@ -158,7 +181,7 @@ function FavoriteCard({ item, index, toggleFavorite }: { item: any, index: numbe
         </h3>
         <div className="flex items-center justify-between text-[11px] text-white/40 font-medium uppercase tracking-widest">
           <span>
-            {item.category === 'music' ? 'Música' : item.category === 'event' ? 'Evento' : 'Vídeo'}
+            {item.category === 'music' ? 'Música' : item.category === 'event' ? 'Evento' : item.category === 'photo' ? 'Foto' : 'Vídeo'}
           </span>
           <span>
             {(() => {

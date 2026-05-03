@@ -180,12 +180,31 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "youtubeId"]
+    },
+    "PhotoRemoval": {
+      "title": "PhotoRemoval",
+      "description": "Solicitações de remoção de fotos da galeria",
+      "type": "object",
+      "properties": {
+        "photoUrl": { "type": "string" },
+        "albumId": { "type": "string" },
+        "requestedBy": { "type": "string" },
+        "requestedByName": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "removed", "kept"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["photoUrl", "albumId", "requestedBy", "status"]
     }
   },
   "firestore": {
     "/radio-playlist/{trackId}": {
       "schema": "RadioTrack",
       "description": "Lista de reprodução da rádio"
+    },
+    "/photo_removals/{removalId}": {
+      "schema": "PhotoRemoval",
+      "description": "Solicitações de remoção de imagens por privacidade"
     },
     "/posts/{postId}": {
       "schema": "Post",

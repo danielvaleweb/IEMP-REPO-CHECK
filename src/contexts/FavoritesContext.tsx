@@ -3,7 +3,7 @@ import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { collection, onSnapshot, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
 
-export type FavoriteCategory = "music" | "event" | "video";
+export type FavoriteCategory = "music" | "event" | "video" | "photo";
 
 export interface FavoriteItem {
   id: string;

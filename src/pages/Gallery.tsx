@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { 
   Camera, 
@@ -14,13 +14,55 @@ import {
   ChevronRight,
   ShieldCheck,
   AlertCircle,
-  Clock
+  Clock,
+  Trash2,
+  Check,
+  Slash
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
-import { db } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+    },
+    operationType,
+    path
+  }
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 import { cn, getImageUrl } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFavorites } from "@/contexts/FavoritesContext";
 
 interface Album {
   id: string;
@@ -28,6 +70,14 @@ interface Album {
   date: string;
   cover: string;
   photos: string[];
+}
+
+interface RemovalRequest {
+  id: string;
+  photoUrl: string;
+  albumId: string;
+  requestedBy: string;
+  status: 'pending' | 'removed' | 'kept';
 }
 
 // Custom hook for responsive detection
@@ -44,6 +94,8 @@ const useMediaQuery = (query: string) => {
 };
 
 export default function Gallery() {
+  const { user, profile, isAdmin } = useAuth();
+  const { favoriteIds, toggleFavorite: toggleFavoriteCtx } = useFavorites();
   const location = useLocation();
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
@@ -52,10 +104,12 @@ export default function Gallery() {
   const isMobile = useMediaQuery("(max-width: 768px)");
 
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [removalRequests, setRemovalRequests] = useState<RemovalRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAlbum, setSelectedAlbum] = useState<Album | null>(null);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState<"todos" | "favoritos">("todos");
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -63,7 +117,7 @@ export default function Gallery() {
 
   // Modals
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [showRemovedFeedback, setShowRemovedFeedback] = useState(false);
   
   // Watermark Settings (State could be moved to global if needed)
   const [watermarkConfig] = useState({
@@ -99,21 +153,74 @@ export default function Gallery() {
       }
     });
 
-    return () => unsubscribe();
+    const qRemovals = query(collection(db, "photo_removals"));
+    const unsubRemovals = onSnapshot(qRemovals, (snapshot) => {
+      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as RemovalRequest[];
+      setRemovalRequests(data);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, "photo_removals");
+    });
+
+    return () => {
+      unsubscribe();
+      unsubRemovals();
+    };
   }, [stateAlbumId]);
 
-  // Load favorites from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("gallery_favorites");
-    if (saved) setFavorites(JSON.parse(saved));
-  }, []);
+  const handleToggleFavorite = (album: Album, photoUrl: string) => {
+    toggleFavoriteCtx({
+      id: photoUrl,
+      title: album.title,
+      thumbnail: photoUrl,
+      published: album.date,
+      link: photoUrl,
+      category: "photo"
+    });
+  };
 
-  const toggleFavorite = (photoUrl: string) => {
-    const newFavs = favorites.includes(photoUrl) 
-      ? favorites.filter(f => f !== photoUrl) 
-      : [...favorites, photoUrl];
-    setFavorites(newFavs);
-    localStorage.setItem("gallery_favorites", JSON.stringify(newFavs));
+  const handleRequestRemoval = async (photoUrl: string, albumId: string) => {
+    if (!user) return;
+    
+    try {
+      const requestId = `${user.uid}_${btoa(photoUrl).substring(0, 50)}`;
+      await setDoc(doc(db, "photo_removals", requestId), {
+        photoUrl,
+        albumId,
+        requestedBy: user.uid,
+        requestedByName: profile?.name || "Visitante",
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+
+      // Notificar Administradores
+      await addDoc(collection(db, "notifications"), {
+        userId: "admin", // Isto deve ser capturado pelos admins no dashboard
+        title: "Solicitação de Remoção de Foto",
+        message: `${profile?.name || "Um usuário"} solicitou a remoção de uma foto na galeria.`,
+        type: "gallery_removal",
+        photoUrl,
+        albumId,
+        read: false,
+        createdAt: serverTimestamp()
+      });
+
+      setShowInfoModal(false);
+      setShowRemovedFeedback(true);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, "photo_removals / notifications");
+    }
+  };
+
+  const handleAdminAction = async (requestId: string, action: 'approve' | 'reject') => {
+    try {
+      if (action === 'approve') {
+        await setDoc(doc(db, "photo_removals", requestId), { status: 'removed', updatedAt: serverTimestamp() }, { merge: true });
+      } else {
+        await deleteDoc(doc(db, "photo_removals", requestId));
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `photo_removals / ${requestId}`);
+    }
   };
 
   const downloadWithWatermark = async (photoUrl: string, albumTitle: string) => {
@@ -178,10 +285,28 @@ export default function Gallery() {
     }
   };
 
-  const filteredAlbums = albums.filter(album => 
-    album.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    album.date.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const isPhotoMarkedForRemoval = (photoUrl: string) => {
+    return removalRequests.find(r => r.photoUrl === photoUrl);
+  };
+
+  const filteredAlbums = useMemo(() => {
+    return albums.filter(album => 
+      album.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      album.date.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [albums, searchTerm]);
+
+  const favoritePhotos = useMemo(() => {
+    const photos: { url: string, album: Album }[] = [];
+    albums.forEach(album => {
+      album.photos.forEach(photo => {
+        if (favoriteIds.includes(photo)) {
+          photos.push({ url: photo, album });
+        }
+      });
+    });
+    return photos;
+  }, [albums, favoriteIds]);
 
   const WatermarkOverlay = ({ title, size = "normal" }: { title: string, size?: "normal" | "large" }) => {
     if (watermarkConfig.type === "disabled") return null;
@@ -208,89 +333,139 @@ export default function Gallery() {
     );
   };
 
-  const paginatedPhotos = selectedAlbum 
-    ? selectedAlbum.photos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-    : [];
+  const visiblePhotos = useMemo(() => {
+    if (!selectedAlbum) return [];
+    return selectedAlbum.photos.filter(photo => {
+      const request = isPhotoMarkedForRemoval(photo);
+      if (isAdmin) return true; // Admin vê tudo
+      if (request && (request.status === 'pending' || request.status === 'removed')) return false;
+      return true;
+    });
+  }, [selectedAlbum, removalRequests, isAdmin]);
 
-  const totalPages = selectedAlbum ? Math.ceil(selectedAlbum.photos.length / itemsPerPage) : 0;
+  const paginatedPhotos = visiblePhotos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const totalPages = Math.ceil(visiblePhotos.length / itemsPerPage);
 
   return (
     <div className="pt-24 pb-12 min-h-screen bg-black text-white">
       <div className="max-w-7xl mx-auto px-4">
-        {/* Removed Title and Description as requested */}
-
+        
         {!selectedAlbum ? (
           <div className="space-y-8">
-            {/* Search Filter */}
-            <div className="max-w-xl mx-auto relative mb-16 px-4">
-              <div className="relative group">
-                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary w-5 h-5 z-10 transition-colors group-focus-within:text-white" />
+            {/* Header with Search and Categories */}
+            <div className="flex flex-col md:flex-row items-center gap-6 mb-16">
+              <div className="flex bg-white/5 p-1.5 rounded-2xl gap-1">
+                <button 
+                  onClick={() => setActiveCategory("todos")}
+                  className={cn(
+                    "px-6 h-11 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all",
+                    activeCategory === "todos" ? "bg-primary text-black" : "text-gray-400 hover:text-white"
+                  )}
+                >
+                  Álbuns
+                </button>
+                <button 
+                  onClick={() => setActiveCategory("favoritos")}
+                  className={cn(
+                    "px-6 h-11 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all flex items-center gap-2",
+                    activeCategory === "favoritos" ? "bg-red-500 text-white" : "text-gray-400 hover:text-white"
+                  )}
+                >
+                  <Heart className={cn("w-3.5 h-3.5", activeCategory === "favoritos" && "fill-current")} /> Favoritos
+                </button>
+              </div>
+
+              <div className="flex-1 w-full relative">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-primary w-5 h-5 z-10" />
                 <input 
                   type="text"
-                  placeholder="Pesquisar por nome do evento ou data (ex: Março 2026)..."
+                  placeholder={activeCategory === "todos" ? "Pesquisar por álbum..." : "Pesquisar em favoritos..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-cinza-input border-2 border-white/10 rounded-2xl h-16 pl-14 pr-14 text-white text-lg placeholder:text-gray-500 focus:outline-none focus:border-primary focus:bg-[#1a1a1a] transition-all shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] placeholder-shown:border-white/5"
+                  className="w-full bg-cinza-input border-2 border-white/5 rounded-2xl h-14 pl-14 pr-12 text-white placeholder:text-gray-600 focus:outline-none focus:border-primary/50 transition-all font-medium"
                 />
-                {searchTerm && (
-                  <button 
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors p-1"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                )}
               </div>
             </div>
 
-            {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 animate-pulse">
-                {[1, 2, 3].map(i => (
-                  <div key={i} className="aspect-[4/3] bg-white/5 rounded-3xl" />
-                ))}
-              </div>
-            ) : filteredAlbums.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
-                {filteredAlbums.map((album) => (
-                  <motion.div
-                    key={album.id}
-                    whileHover={{ y: -10 }}
-                    className="group cursor-pointer"
-                    onClick={() => {
-                      setSelectedAlbum(album);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border border-white/5">
-                      <WatermarkOverlay title={album.title} />
-                      <img 
-                        src={getImageUrl(album.cover)} 
-                        alt={album.title} 
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-                      />
-                      {/* Deep black gradient for text readability */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
-                      
-                      <div className="absolute bottom-4 left-6 right-6 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
-                        <div className="flex items-center gap-2 text-primary mb-1">
-                          <Calendar className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-black uppercase tracking-widest">{album.date}</span>
-                        </div>
-                        <h3 className="text-2xl font-black text-white group-hover:text-primary transition-colors leading-tight uppercase tracking-tighter">
-                          {album.title}
-                        </h3>
-                        <div className="mt-4 flex items-center gap-2 text-white/50 text-[10px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-all">
-                          Explorar Álbum <ArrowRight className="w-3 h-3" />
+            {activeCategory === "todos" ? (
+              loading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8 animate-pulse">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="aspect-[4/3] bg-white/5 rounded-3xl" />
+                  ))}
+                </div>
+              ) : filteredAlbums.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                  {filteredAlbums.map((album) => (
+                    <motion.div
+                      key={album.id}
+                      whileHover={{ y: -10 }}
+                      className="group cursor-pointer"
+                      onClick={() => {
+                        setSelectedAlbum(album);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border border-white/5">
+                        <WatermarkOverlay title={album.title} />
+                        <img 
+                          src={getImageUrl(album.cover)} 
+                          alt={album.title} 
+                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
+                        
+                        <div className="absolute bottom-4 left-6 right-6 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
+                          <div className="flex items-center gap-2 text-primary mb-1">
+                            <Calendar className="w-3.5 h-3.5" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">{album.date}</span>
+                          </div>
+                          <h3 className="text-2xl font-black text-white group-hover:text-primary transition-colors leading-tight uppercase tracking-tighter">
+                            {album.title}
+                          </h3>
                         </div>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-white/5 rounded-[40px] border border-dashed border-white/10">
+                  <Camera className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                  <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Nenhum álbum encontrado.</p>
+                </div>
+              )
             ) : (
-              <div className="text-center py-20">
-                <p className="text-muted-foreground">Nenhum evento com fotos encontrado.</p>
-              </div>
+              /* Favorites View */
+              favoritePhotos.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                  {favoritePhotos.map(({ url, album }, idx) => (
+                    <motion.div
+                      key={`fav-${idx}`}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="aspect-square rounded-[2rem] overflow-hidden border border-white/10 relative group"
+                    >
+                      <WatermarkOverlay title={album.title} />
+                      <img src={getImageUrl(url)} alt="" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-3">
+                        <Button 
+                          onClick={() => handleToggleFavorite(album, url)}
+                          className="bg-red-500 hover:bg-red-600 text-white rounded-full w-12 h-12 p-0"
+                        >
+                          <Heart className="w-5 h-5 fill-current" />
+                        </Button>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-white/60">{album.title}</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-white/5 rounded-[40px] border border-dashed border-white/10">
+                  <Heart className="w-12 h-12 text-white/20 mx-auto mb-4" />
+                  <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Você não tem fotos favoritas.</p>
+                </div>
+              )
             )}
           </div>
         ) : (
@@ -301,7 +476,7 @@ export default function Gallery() {
                 onClick={() => setSelectedAlbum(null)}
                 className="text-gray-400 hover:text-white hover:bg-white/5 rounded-2xl flex items-center gap-2 px-6 h-12 self-start font-bold uppercase tracking-widest text-[10px]"
               >
-                <ArrowRight className="w-4 h-4 rotate-180" /> Galeria de Álbuns
+                <ArrowRight className="w-4 h-4 rotate-180" /> Voltar
               </Button>
               <div className="text-right">
                 <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">{selectedAlbum.title}</h2>
@@ -315,53 +490,66 @@ export default function Gallery() {
             {isMobile ? (
               /* Mobile Carousel Mode */
               <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-8">
-                {selectedAlbum.photos.map((photo, idx) => (
-                  <div 
-                    key={`mobile-photo-${idx}`}
-                    className="min-w-[85vw] aspect-[3/4] rounded-[2.5rem] overflow-hidden snap-center relative shadow-2xl bg-white/5 border border-white/10"
-                  >
-                    <WatermarkOverlay title={selectedAlbum.title} />
-                    <img src={getImageUrl(photo)} alt="" className="w-full h-full object-cover" />
-                    
-                    {/* Corner Actions for Mobile */}
-                    <div className="absolute bottom-6 right-6 flex items-center gap-3">
-                      <Button 
-                        size="icon" 
-                        onClick={() => downloadWithWatermark(photo, selectedAlbum.title)}
-                        className="w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
-                      >
-                        <Download className="w-5 h-5" />
-                      </Button>
-                      <Button 
-                        size="icon" 
-                        onClick={() => setShowInfoModal(true)}
-                        className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
-                      >
-                        <Info className="w-5 h-5" />
-                      </Button>
+                {paginatedPhotos.map((photo, idx) => {
+                  const req = isPhotoMarkedForRemoval(photo);
+                  return (
+                    <div 
+                      key={`mobile-photo-${idx}`}
+                      className="min-w-[85vw] aspect-[3/4] rounded-[2.5rem] overflow-hidden snap-center relative shadow-2xl bg-white/5 border border-white/10"
+                    >
+                      <WatermarkOverlay title={selectedAlbum.title} />
+                      <img src={getImageUrl(photo)} alt="" className="w-full h-full object-cover" />
+                      
+                      {isAdmin && req && (
+                        <div className="absolute top-4 left-4 z-20 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-[10px] uppercase flex items-center gap-2">
+                          <AlertCircle className="w-3 h-3" /> Solicitação de Remoção
+                        </div>
+                      )}
+
+                      {/* Corner Actions */}
+                      <div className="absolute bottom-6 right-6 flex items-center gap-3">
+                        <Button 
+                          size="icon" 
+                          onClick={() => downloadWithWatermark(photo, selectedAlbum.title)}
+                          className="w-12 h-12 rounded-2xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
+                        >
+                          <Download className="w-5 h-5" />
+                        </Button>
+                        <Button 
+                          size="icon" 
+                          onClick={() => {
+                            setSelectedPhotoIndex(idx);
+                            setShowInfoModal(true);
+                          }}
+                          className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
+                        >
+                          <Info className="w-5 h-5" />
+                        </Button>
+                      </div>
+                      
+                      <div className="absolute top-6 right-6">
+                        <Button 
+                          size="icon" 
+                          onClick={() => handleToggleFavorite(selectedAlbum, photo)}
+                          className={cn(
+                            "w-12 h-12 rounded-2xl backdrop-blur-md border border-white/20 transition-all",
+                            favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500" : "bg-white/5 text-white"
+                          )}
+                        >
+                          <Heart className={cn("w-5 h-5", favoriteIds.includes(photo) && "fill-current")} />
+                        </Button>
+                      </div>
                     </div>
-                    
-                    <div className="absolute top-6 right-6">
-                       <Button 
-                        size="icon" 
-                        onClick={() => toggleFavorite(photo)}
-                        className={cn(
-                          "w-12 h-12 rounded-2xl backdrop-blur-md border border-white/20 transition-all",
-                          favorites.includes(photo) ? "bg-red-500 text-white border-red-500" : "bg-white/5 text-white"
-                        )}
-                      >
-                        <Heart className={cn("w-5 h-5", favorites.includes(photo) && "fill-current")} />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
-              /* Desktop Grid Mode with Pagination */
+              /* Desktop Grid Mode */
               <div className="space-y-12">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                   {paginatedPhotos.map((photo, idx) => {
                     const actualIdx = (currentPage - 1) * itemsPerPage + idx;
+                    const req = isPhotoMarkedForRemoval(photo);
                     return (
                       <motion.div
                         key={`photo-${selectedAlbum.id}-${actualIdx}`}
@@ -376,7 +564,14 @@ export default function Gallery() {
                           alt={`Foto ${actualIdx + 1}`} 
                           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                         />
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        
+                        {isAdmin && req && (
+                           <div className="absolute top-4 left-4 z-20 bg-amber-500 text-black px-3 py-1 rounded-full font-black text-[8px] uppercase flex items-center gap-1.5 shadow-xl">
+                            <AlertCircle className="w-2.5 h-2.5" /> Remoção Pendente
+                          </div>
+                        )}
+
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <Button size="icon" className="w-14 h-14 rounded-full bg-primary text-black transform scale-0 group-hover:scale-100 transition-transform duration-300">
                             <ImageIcon className="w-6 h-6" />
                           </Button>
@@ -386,7 +581,6 @@ export default function Gallery() {
                   })}
                 </div>
 
-                {/* Pagination Controls */}
                 {totalPages > 1 && (
                   <div className="flex items-center justify-center gap-6 pt-8">
                     <Button
@@ -404,7 +598,7 @@ export default function Gallery() {
                           onClick={() => setCurrentPage(i + 1)}
                           className={cn(
                             "w-10 h-10 rounded-xl transition-all font-black text-xs",
-                            currentPage === i + 1 ? "bg-primary text-black shadow-lg shadow-primary/20" : "text-gray-500 hover:text-white hover:bg-white/5"
+                            currentPage === i + 1 ? "bg-primary text-black" : "text-gray-500 hover:text-white"
                           )}
                         >
                           {i + 1}
@@ -450,31 +644,51 @@ export default function Gallery() {
                   <ShieldCheck className="w-7 h-7 text-primary" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-black uppercase tracking-tighter">Termos de Uso e Imagem</h3>
-                  <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Direitos Autorais e Privacidade</p>
+                  <h3 className="text-2xl font-black uppercase tracking-tighter">Termos do Site</h3>
+                  <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Direitos de Imagem e Autorização</p>
                 </div>
               </div>
 
               <div className="space-y-6 text-gray-300">
-                <div className="p-6 rounded-3xl bg-white/5 border border-white/5 shadow-inner">
-                  <p className="text-sm leading-relaxed mb-4">
-                    Todas as fotografias exibidas nesta galeria são de propriedade exclusiva do <span className="text-white font-bold tracking-tight">Ministério Profecia</span>. O download é permitido apenas para uso pessoal em redes sociais, devendo ser mantida a marca d'água oficial.
-                  </p>
-                  <p className="text-sm leading-relaxed">
-                    Ao utilizar este serviço, você reconhece que a igreja possui autorização implícita (conforme regras internas de eventos públicos) para o registro fotográfico dos cultos e eventos.
-                  </p>
+                <div className="p-6 rounded-3xl bg-white/5 border border-white/5 shadow-inner max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+                  <div className="space-y-4">
+                    <p className="text-sm leading-relaxed">
+                      Todas as fotografias exibidas nesta galeria são de propriedade exclusiva do <span className="text-white font-bold">Ministério Profecia</span>. O download é permitido apenas para uso pessoal em redes sociais pelo proprietário, devendo ser mantida a marca d'água oficial.
+                    </p>
+                    <p className="text-sm leading-relaxed text-red-400 font-medium">
+                      O uso de imagem de terceiros sem a devida permissão pode configurar violação de direitos de personalidade, conforme o Artigo 20 do Código Civil Brasileiro, sujeitando o infrator às sanções legais.
+                    </p>
+                    <p className="text-sm leading-relaxed">
+                      Ao utilizar este serviço, você reconhece que a igreja possui autorização implícita para o registro fotográfico dos cultos e eventos públicos.
+                    </p>
+                    
+                    <div className="h-[1px] bg-white/10 my-4" />
+                    
+                    <h4 className="font-bold text-white uppercase text-xs tracking-widest flex items-center gap-2">
+                       Termo de autorização da igreja
+                    </h4>
+                    
+                    <p className="text-[13px] leading-relaxed opacity-70">
+                      Informamos que, ao participar das programações e eventos, poderão ser realizadas captação de imagens e vídeos para divulgação institucional e evangelística em nossos meios de comunicação. Ao permanecer no local, o participante autoriza o uso de sua imagem e voz nos termos descritos, conforme a <span className="text-white font-bold">LGPD (Lei nº 13.709/2018)</span>.
+                    </p>
+                    <p className="text-[13px] leading-relaxed font-black text-white">
+                      Mesmo assim você pode pedir para que retiraremos sua foto!
+                    </p>
+                    <p className="text-[11px] leading-relaxed font-light italic opacity-50">
+                      A solicitação de remoção de fotos ou vídeos poderá ser realizada exclusivamente pela própria pessoa que aparece na imagem. Pedidos feitos por terceiros não serão atendidos.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-4">
-                  <Button 
-                    className="w-full bg-red-500 hover:bg-red-600 text-white h-14 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 group"
-                    onClick={() => {
-                      alert("Sua solicitação será enviada para nossa equipe técnica analisar a remoção da imagem. Por favor, anote o ID do álbum.");
-                      setShowInfoModal(false);
-                    }}
-                  >
-                    <AlertCircle className="w-5 h-5 group-hover:animate-pulse" /> Pedir para remover minha imagem
-                  </Button>
+                  {selectedPhotoIndex !== null && selectedAlbum && (
+                    <Button 
+                      className="w-full bg-red-500 hover:bg-red-600 text-white h-14 rounded-2xl font-black uppercase tracking-widest text-xs flex items-center justify-center gap-3 group"
+                      onClick={() => handleRequestRemoval(selectedAlbum.photos[selectedPhotoIndex], selectedAlbum.id)}
+                    >
+                      <AlertCircle className="w-5 h-5 group-hover:animate-pulse" /> Pedir para remover minha imagem
+                    </Button>
+                  )}
                   <Button 
                     variant="ghost"
                     onClick={() => setShowInfoModal(false)}
@@ -489,6 +703,35 @@ export default function Gallery() {
         )}
       </AnimatePresence>
 
+      {/* Feedback Remoção */}
+      <AnimatePresence>
+        {showRemovedFeedback && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[11000] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 text-center"
+            onClick={() => setShowRemovedFeedback(false)}
+          >
+            <div className="space-y-6">
+              <div className="w-24 h-24 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto animate-bounce">
+                <Trash2 className="w-10 h-10 text-red-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-3xl font-black uppercase tracking-tighter">Sua foto foi excluída!</h3>
+                <p className="text-gray-500 font-medium">Sua solicitação foi enviada. A imagem ficará oculta até a análise final de um administrador.</p>
+              </div>
+              <Button 
+                onClick={() => setShowRemovedFeedback(false)}
+                className="bg-red-500 hover:bg-red-600 text-white h-14 w-full rounded-2xl font-black uppercase tracking-widest text-xs"
+              >
+                Entendi
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Desktop Lightbox */}
       <AnimatePresence>
         {selectedPhotoIndex !== null && !isMobile && selectedAlbum && (
@@ -498,7 +741,6 @@ export default function Gallery() {
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[9999] bg-black/98 flex flex-col cursor-default select-none"
           >
-            {/* Top Toolbar */}
             <div className="h-24 px-12 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent relative z-20">
               <div className="flex flex-col">
                 <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">{selectedAlbum.date}</span>
@@ -506,16 +748,38 @@ export default function Gallery() {
               </div>
 
               <div className="flex items-center gap-3">
+                 {/* Admin Actions */}
+                 {isAdmin && isPhotoMarkedForRemoval(selectedAlbum.photos[selectedPhotoIndex]) && (
+                   <div className="flex bg-white/5 p-1 rounded-2xl gap-1 mr-4 border border-white/10">
+                     <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(selectedAlbum.photos[selectedPhotoIndex])!.id, 'approve')}
+                        className="h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white font-black uppercase text-[8px] tracking-widest"
+                     >
+                       <Trash2 className="w-3.5 h-3.5 mr-2" /> Aceitar Remoção
+                     </Button>
+                     <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => handleAdminAction(isPhotoMarkedForRemoval(selectedAlbum.photos[selectedPhotoIndex])!.id, 'reject')}
+                        className="h-10 rounded-xl bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white font-black uppercase text-[8px] tracking-widest"
+                     >
+                       <Check className="w-3.5 h-3.5 mr-2" /> Recusar e Manter
+                     </Button>
+                   </div>
+                 )}
+
                  <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={() => toggleFavorite(selectedAlbum.photos[selectedPhotoIndex])}
+                  onClick={() => handleToggleFavorite(selectedAlbum, selectedAlbum.photos[selectedPhotoIndex])}
                   className={cn(
                     "w-14 h-14 rounded-2xl backdrop-blur-md border border-white/10 transition-all",
-                    favorites.includes(selectedAlbum.photos[selectedPhotoIndex]) ? "bg-red-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
+                    favoriteIds.includes(selectedAlbum.photos[selectedPhotoIndex]) ? "bg-red-500 text-white" : "text-white/60 hover:text-white hover:bg-white/10"
                   )}
                 >
-                  <Heart className={cn("w-6 h-6", favorites.includes(selectedAlbum.photos[selectedPhotoIndex]) && "fill-current")} />
+                  <Heart className={cn("w-6 h-6", favoriteIds.includes(selectedAlbum.photos[selectedPhotoIndex]) && "fill-current")} />
                 </Button>
                 
                 <Button 
@@ -549,19 +813,17 @@ export default function Gallery() {
               </div>
             </div>
 
-            {/* Main Area with Navigation */}
             <div className="flex-1 relative flex items-center justify-center p-8 group">
-              {/* Navigation Arrows */}
               <button 
                 className="absolute left-12 top-1/2 -translate-y-1/2 w-20 h-20 rounded-full flex items-center justify-center text-white/20 hover:text-white hover:bg-white/5 transition-all opacity-0 group-hover:opacity-100 z-30"
-                onClick={() => setSelectedPhotoIndex(i => i !== null && i > 0 ? i - 1 : (selectedAlbum?.photos.length || 1) - 1)}
+                onClick={() => setSelectedPhotoIndex(i => i !== null && i > 0 ? i - 1 : (visiblePhotos.length - 1))}
               >
                 <ChevronLeft className="w-12 h-12" />
               </button>
 
               <button 
                 className="absolute right-12 top-1/2 -translate-y-1/2 w-20 h-20 rounded-full flex items-center justify-center text-white/20 hover:text-white hover:bg-white/5 transition-all opacity-0 group-hover:opacity-100 z-30"
-                onClick={() => setSelectedPhotoIndex(i => i !== null && i < (selectedAlbum?.photos.length || 1) - 1 ? i + 1 : 0)}
+                onClick={() => setSelectedPhotoIndex(i => i !== null && i < (visiblePhotos.length - 1) ? i + 1 : 0)}
               >
                 <ChevronRight className="w-12 h-12" />
               </button>
@@ -573,13 +835,13 @@ export default function Gallery() {
                   initial={{ scale: 0.9, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                  src={getImageUrl(selectedAlbum.photos[selectedPhotoIndex])}
+                  src={getImageUrl(visiblePhotos[selectedPhotoIndex])}
                   className="max-w-full max-h-[75vh] object-contain rounded-3xl shadow-[0_50px_100px_-20px_rgba(0,0,0,0.8)] border border-white/5"
                 />
                 
                 {/* Photo Counter */}
                 <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 px-6 py-2 rounded-full bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
-                  {selectedPhotoIndex + 1} <span className="mx-2 opacity-30">/</span> {selectedAlbum.photos.length} fotos
+                  {selectedPhotoIndex + 1} <span className="mx-2 opacity-30">/</span> {visiblePhotos.length} fotos
                 </div>
               </div>
             </div>
