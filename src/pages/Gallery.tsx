@@ -307,7 +307,7 @@ export default function Gallery() {
       ctx.drawImage(img, 0, 0);
 
       if (watermarkConfig.type !== "disabled") {
-        const fontSize = Math.max(img.width * 0.015, 12);
+        const fontSize = Math.max(img.width * 0.04, 60);
         ctx.globalAlpha = watermarkConfig.opacity;
         ctx.fillStyle = "white";
         ctx.font = `black ${fontSize}px "Inter", sans-serif`;
@@ -321,14 +321,14 @@ export default function Gallery() {
         
         // Draw Shadow for readability
         ctx.shadowColor = "rgba(0,0,0,0.5)";
-        ctx.shadowBlur = 4;
+        ctx.shadowBlur = 10;
         
         // Draw Text
         ctx.fillText(text, x, y);
         
         // Small Subtitle
-        ctx.font = `300 ${fontSize * 0.5}px "Inter", sans-serif`;
-        ctx.fillText("MINISTÉRIO PROFECIA", x, y + (fontSize * 0.6));
+        ctx.font = `300 ${fontSize * 0.4}px "Inter", sans-serif`;
+        ctx.fillText("MINISTÉRIO PROFECIA", x, y + (fontSize * 0.5));
       }
 
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
@@ -374,20 +374,20 @@ export default function Gallery() {
     return (
       <div className={cn(
         "absolute pointer-events-none select-none text-white z-10 w-full flex flex-col items-center",
-        size === "large" ? "bottom-8" : "bottom-4"
+        size === "large" ? "bottom-20" : "bottom-6"
       )} style={{ opacity: watermarkConfig.opacity }}>
         <p className={cn(
-          "font-black uppercase tracking-tighter text-white whitespace-nowrap text-center leading-none",
-          size === "large" ? "text-xl md:text-2xl" : "text-[7px] md:text-[9px]"
+          "font-black uppercase tracking-tighter text-white whitespace-nowrap text-center leading-none mb-2",
+          size === "large" ? "text-6xl md:text-8xl" : "text-[14px] md:text-[18px]"
         )}>
           {title}
         </p>
         <div className={cn(
-          "flex items-center mt-0.5",
-          size === "large" ? "text-sm md:text-md" : "text-[4px] md:text-[6px]"
+          "flex items-center",
+          size === "large" ? "text-2xl md:text-3xl" : "text-[8px] md:text-[10px]"
         )}>
           <span className="text-white/40 font-light tracking-widest uppercase">Ministério</span>
-          <span className="text-white font-black tracking-widest ml-1 uppercase">Profecia</span>
+          <span className="text-white font-black tracking-widest ml-2 uppercase">Profecia</span>
         </div>
       </div>
     );
