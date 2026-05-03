@@ -167,7 +167,10 @@ service cloud.firestore {
 
     match /agenda/{eventId} {
       allow read, list, get: if true;
-      allow create, update: if (isMasterAdmin() || isEditor()) && isValidAgenda(incoming());
+      allow create: if isSignedIn() && (
+        isMasterAdmin() || isEditor() || incoming().status == 'pending'
+      ) && isValidAgenda(incoming());
+      allow update: if (isMasterAdmin() || isEditor()) && isValidAgenda(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
@@ -194,10 +197,13 @@ service cloud.firestore {
         isMasterAdmin() || 
         isAdmin()
       );
-      allow create: if isMasterAdmin() || isAdmin() || 
+      allow create: if isSignedIn() && (
+                    isMasterAdmin() || isAdmin() || 
                     incoming().type == 'registration' || 
                     incoming().type == 'chat' ||
-                    incoming().type == 'activity';
+                    incoming().type == 'activity' ||
+                    incoming().type == 'request'
+      );
       allow update, delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 

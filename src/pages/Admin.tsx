@@ -1659,6 +1659,10 @@ const Admin = () => {
 
   const [isRequestingDate, setIsRequestingDate] = useState(false);
   const [requestFormData, setRequestFormData] = useState<any>({});
+  
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
+  const [itemToReject, setItemToReject] = useState<any>(null);
 
   // Split location into fields for editing
   useEffect(() => {
@@ -3212,7 +3216,7 @@ const Admin = () => {
               </Dialog>
 
               {canViewLogs && (
-                <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => { setActiveTab("logs"); setRightSidebarView("hidden"); }} label="Audit Logs" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
+                <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => { setActiveTab("logs"); setRightSidebarView("hidden"); }} label="Auditoria" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
               )}
               {canViewTab("logins") && (
                 <SidebarItem icon={Key} active={activeTab === "logins"} onClick={() => { setActiveTab("logins"); setRightSidebarView("hidden"); }} label="Logins Salvos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
@@ -5357,47 +5361,10 @@ const Admin = () => {
                                     <Button 
                                       variant="ghost"
                                       className="bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
-                                      onClick={async () => {
-                                        const reason = prompt("Deseja informar o motivo da reprovação?");
-                                        if (reason === null) return; // Cancelado
-                                        try {
-                                          await setDoc(doc(db, "agenda", selectedItem.id), { status: "rejected", rejectReason: reason, updatedAt: serverTimestamp() }, { merge: true });
-                                          
-                                          // Notificar criador
-                                          if (selectedItem.authorId) {
-                                            await addDoc(collection(db, "notifications"), {
-                                              userId: selectedItem.authorId,
-                                              title: "Solicitação Reprovada",
-                                              message: `Seu compromisso ${selectedItem.title} foi recusado, motivo: ${reason || "Sem motivo informado"}.`,
-                                              type: "agenda",
-                                              read: false,
-                                              createdAt: serverTimestamp()
-                                            });
-
-                                            // Send chat message
-                                            await addDoc(collection(db, "chats"), {
-                                              participants: ["system", selectedItem.authorId],
-                                              lastMessage: `Seu compromisso ${selectedItem.title} foi recusado, motivo: ${reason || "Sem motivo informado"}.`,
-                                              lastMessageTime: serverTimestamp(),
-                                              systemChat: true,
-                                              updatedAt: serverTimestamp()
-                                            });
-                                            const chatQuery = query(collection(db, "chats"), where("systemChat", "==", true), where("participants", "array-contains", selectedItem.authorId));
-                                            const chatSnapshot = await getDocs(chatQuery);
-                                            let chatId = null;
-                                            if (!chatSnapshot.empty) chatId = chatSnapshot.docs[0].id;
-                                            if (chatId) {
-                                              await addDoc(collection(db, "chats", chatId, "messages"), {
-                                                text: `Seu compromisso ${selectedItem.title} foi recusado, motivo: ${reason || "Sem motivo informado"}.`,
-                                                senderId: "system",
-                                                timestamp: serverTimestamp()
-                                              });
-                                            }
-                                          }
-                                          setIsEditing(false);
-                                        } catch (error) {
-                                          console.error("Error rejecting request: ", error);
-                                        }
+                                      onClick={() => {
+                                        setItemToReject(selectedItem);
+                                        setRejectReason("");
+                                        setIsRejectModalOpen(true);
                                       }}
                                     >
                                       <Trash2 className="w-4 h-4 mr-2" /> Reprovar
@@ -6601,30 +6568,121 @@ const Admin = () => {
                     await addDoc(collection(db, "agenda"), dataToSave);
                     
                     const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
-                    const usersToNotify = members.filter(m => rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader));
+                    const usersToNotify = (members || []).filter(m => rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader));
 
                     for (const u of usersToNotify) {
-                      await addDoc(collection(db, "notifications"), {
-                         userId: u.id,
-                         title: "Nova Solicitação de Agendamento",
-                         message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
-                         type: "request",
-                         read: false,
-                         createdAt: serverTimestamp()
-                      });
+                      try {
+                        await addDoc(collection(db, "notifications"), {
+                           userId: u.id,
+                           title: "Nova Solicitação de Agendamento",
+                           message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
+                           type: "request",
+                           read: false,
+                           createdAt: serverTimestamp()
+                        });
+                      } catch (err) {
+                        console.error("Erro ao notificar admin:", u.id, err);
+                      }
                     }
 
                     setIsRequestingDate(false);
                     setRequestFormData({});
                     alert("Solicitação enviada com sucesso!");
                   } catch (e) {
-                    console.error("Erro ao solicitar agendamento", e);
-                    alert("Ocorreu um erro ao enviar a solicitação.");
+                    console.error("Erro ao solicitar agendamento:", e);
+                    handleFirestoreError(e, OperationType.WRITE, "agenda");
                   }
                 }}
               >
                 Solicitar Agendamento
               </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal de Motivo da Recusa */}
+        <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
+          <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-6 transition-colors shadow-2xl", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight">Motivo da Recusa</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest text-red-500">Atenção</label>
+                <div className={cn("p-4 rounded-2xl text-sm", isDarkMode ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600")}>
+                  Você está recusando o compromisso: <span className="font-bold">{itemToReject?.title}</span>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Informe o motivo (opcional)</label>
+                <Textarea 
+                  className={cn("border min-h-[120px] rounded-2xl p-6 transition-all resize-none", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                  placeholder="Ex: Data já ocupada por outro evento prioritário..."
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                />
+              </div>
+              
+              <div className="flex flex-col gap-2 pt-2">
+                <Button 
+                  className="w-full h-14 rounded-2xl bg-red-500 hover:bg-red-600 text-white font-black uppercase tracking-widest shadow-xl"
+                  onClick={async () => {
+                    if (!itemToReject) return;
+                    try {
+                      await setDoc(doc(db, "agenda", itemToReject.id), { status: "rejected", rejectReason: rejectReason, updatedAt: serverTimestamp() }, { merge: true });
+                      
+                      // Notificar criador
+                      if (itemToReject.authorId) {
+                        try {
+                          await addDoc(collection(db, "notifications"), {
+                            userId: itemToReject.authorId,
+                            title: "Solicitação Reprovada",
+                            message: `Seu compromisso ${itemToReject.title} foi recusado, motivo: ${rejectReason || "Sem motivo informado"}.`,
+                            type: "agenda",
+                            read: false,
+                            createdAt: serverTimestamp()
+                          });
+
+                          // Mensagem no chat do sistema
+                          const chatId = ["system", itemToReject.authorId].sort().join('_');
+                          await setDoc(doc(db, "chats", chatId), {
+                            participants: ["system", itemToReject.authorId],
+                            lastMessage: `Seu compromisso ${itemToReject.title} foi recusado, motivo: ${rejectReason || "Sem motivo informado"}.`,
+                            lastMessageTime: serverTimestamp(),
+                            systemChat: true,
+                            updatedAt: serverTimestamp()
+                          }, { merge: true });
+                          
+                          await addDoc(collection(db, "chats", chatId, "messages"), {
+                            text: `Seu compromisso ${itemToReject.title} foi recusado, motivo: ${rejectReason || "Sem motivo informado"}.`,
+                            senderId: "system",
+                            timestamp: serverTimestamp()
+                          });
+                        } catch (err) {
+                           console.error("Error sending rejection notifications:", err);
+                        }
+                      }
+                      
+                      setIsRejectModalOpen(false);
+                      setIsEditing(false);
+                      setItemToReject(null);
+                    } catch (error) {
+                      console.error("Error rejecting request: ", error);
+                      alert("Erro ao reprovar solicitação.");
+                    }
+                  }}
+                >
+                  Confirmar Reprovação
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  className="w-full h-14 rounded-2xl font-bold uppercase tracking-widest"
+                  onClick={() => setIsRejectModalOpen(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
             </div>
           </DialogContent>
         </Dialog>
