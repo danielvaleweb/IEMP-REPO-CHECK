@@ -77,7 +77,7 @@ import {
   Music,
   HardDrive,
   Key,
-  LifeBuoy
+  MessageCircle
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -601,9 +601,10 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
               )}
               <Button 
                 variant="outline"
+                onClick={onChat}
                 className={cn("rounded-2xl h-14 px-6 border-white/10 transition-colors", isDark ? "bg-white/5 text-white hover:bg-white/10" : "bg-black/5 text-black hover:bg-black/10")}
               >
-                <Bookmark className="w-4 h-4" />
+                <MessageSquare className="w-4 h-4" />
               </Button>
             </div>
           </div>
@@ -2244,12 +2245,14 @@ const Admin = () => {
           updatedAt: serverTimestamp()
         }, { merge: true });
         
-        if (activeTab === "membros" && selectedItem?.id === user?.uid && auth.currentUser) {
+        if (activeTab === "membros" && (selectedItem?.id === user?.uid || selectedItem?.email === user?.email) && auth.currentUser) {
           try {
             await updateProfile(auth.currentUser, {
               displayName: dataToSave.name || auth.currentUser.displayName,
               photoURL: dataToSave.photoURL || auth.currentUser.photoURL
             });
+            // Update local profile state to reflect changes immediately
+            if (setProfile) setProfile({ ...profile, ...dataToSave });
           } catch (profileErr) {
             console.error("Erro ao sincronizar perfil Auth:", profileErr);
           }
@@ -2582,18 +2585,15 @@ const Admin = () => {
                 <>Área de <span className="text-[#BF76FF]">Membros</span></>
               )}
             </h1>
-            {isSignUpMode && (
-              <button 
-                onClick={() => window.open('https://wa.me/5532998288650?text=Ol%C3%A1%20estou%20tendo%20dificuldades%20para%20logar%20no%20site%2C%20poderia%20me%20ajudar%3F', '_blank')}
-                className="flex items-center justify-center h-10 px-4 rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all cursor-pointer font-bold text-[10px] gap-2 uppercase tracking-widest"
-                title="Ajuda via WhatsApp"
-              >
-                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
-                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.878-.788-1.47-1.761-1.643-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/>
-                </svg>
-                Suporte
-              </button>
-            )}
+            {/* Support button always visible in header */}
+            <button 
+              onClick={() => window.open('https://wa.me/5532998288650?text=Ol%C3%A1%20estou%20tendo%20dificuldades%20para%20acessar%20ou%20cadastrar%20no%20site%2C%20poderia%20me%20ajudar%3F', '_blank')}
+              className="flex items-center justify-center h-10 px-4 rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all cursor-pointer font-bold text-[10px] gap-2 uppercase tracking-widest"
+              title="Ajuda via WhatsApp"
+            >
+              <MessageCircle className="w-5 h-5 text-current" />
+              Suporte
+            </button>
           </div>
 
           {authError && (
@@ -2735,14 +2735,6 @@ const Admin = () => {
               >
                 <Users className="w-5 h-5 text-white" />
                 <span className="text-white">Logar como Visitante</span>
-              </Button>
-
-              <Button 
-                className="w-full h-16 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4 border border-white/10"
-                onClick={() => window.open('https://wa.me/5532998288650?text=Olá,%20preciso%20de%20suporte%20no%20painel%20administrativo.', '_blank')}
-              >
-                <LifeBuoy className="w-5 h-5 text-[#BF76FF]" />
-                <span className="text-white">Suporte Técnico</span>
               </Button>
 
 
@@ -2896,50 +2888,26 @@ const Admin = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Você é?</label>
-                    <div className="flex bg-cinza-input rounded-2xl p-1 h-14">
-                      <button 
-                        type="button"
-                        onClick={() => setSignUpData({...signUpData, memberType: "Visitante", churchRole: "Visitante"})}
-                        className={cn("flex-1 rounded-xl text-sm font-bold transition-all cursor-pointer py-3", 
-                          signUpData.memberType === "Visitante" 
-                            ? "bg-[#7300FF] text-white shadow-[0_0_20px_rgba(115,0,255,0.5)] ring-2 ring-[#7300FF]/50" 
-                            : "text-gray-500 hover:text-gray-400"
-                        )}
-                      >
-                        Visitante
-                      </button>
-                      <button 
-                        type="button"
-                        onClick={() => setSignUpData({...signUpData, memberType: "Membro", churchRole: ""})}
-                        className={cn("flex-1 rounded-xl text-sm font-bold transition-all cursor-pointer py-3", 
-                          signUpData.memberType === "Membro" 
-                            ? "bg-[#7300FF] text-white shadow-[0_0_20px_rgba(115,0,255,0.5)] ring-2 ring-[#7300FF]/50" 
-                            : "text-gray-500 hover:text-gray-400"
-                        )}
-                      >
-                        Membro
-                      </button>
-                    </div>
-                  </div>
-
-                  {signUpData.memberType === "Membro" && (
-                  <div className="space-y-2 animate-in fade-in zoom-in duration-300">
-                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Cargo na igreja</label>
-                    <select 
-                      className="w-full bg-[#000] border-none h-14 rounded-2xl px-4 text-white focus:ring-0 appearance-none cursor-pointer" 
-                      value={signUpData.churchRole}
-                      onChange={(e) => setSignUpData({...signUpData, churchRole: e.target.value})}
-                    >
-                      <option value="">Selecione...</option>
-                      {allRoles.filter(r => r !== "Visitante" && r !== "Administradores").map(role => (
-                        <option key={role} value={role}>{role}</option>
-                      ))}
-                    </select>
-                  </div>
-                  )}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Você é?</label>
+                  <select 
+                    className="w-full bg-[#1a1a1a] border border-white/5 h-14 rounded-2xl px-4 text-white focus:ring-0 appearance-none cursor-pointer font-bold" 
+                    value={signUpData.churchRole}
+                    onChange={(e) => {
+                      const role = e.target.value;
+                      setSignUpData({
+                        ...signUpData, 
+                        churchRole: role,
+                        memberType: "Membro"
+                      });
+                    }}
+                  >
+                    <option value="">Selecione seu cargo/função...</option>
+                    <option value="Membro">Membro</option>
+                    {allRoles.filter(r => !["Visitante", "Administradores", "Membro"].includes(r)).map(role => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -2989,9 +2957,9 @@ const Admin = () => {
                       name: `${signUpData.firstName} ${signUpData.lastName}`,
                       phone: signUpData.phone,
                       birthDate: signUpData.birthDate,
-                      churchRole: signUpData.memberType === "Visitante" ? "Visitante" : signUpData.churchRole,
-                      role: signUpData.memberType === "Visitante" ? "Visitante" : "Membro",
-                      status: signUpData.memberType === "Visitante" ? "approved" : "pending"
+                      churchRole: signUpData.churchRole,
+                      role: "Membro", // Forcing Member role for all signups that require approval
+                      status: "pending" // All signups now require approval as per request
                     };
 
                     console.log("DEBUG: Iniciando cadastro...");
@@ -3000,16 +2968,8 @@ const Admin = () => {
                     const isVisitor = signUpData.memberType === "Visitante";
                     const firstNameToUse = signUpData.firstName;
                     
-                    if (isVisitor) {
-                      setSignUpSuccessMessage(`Seu cadastro foi realizado ${firstNameToUse}!\nAgora você pode visualizar as imagens da nossa galeria!\nSeja bem vindo! 🔥`);
-                      setNeedsLogoutOnModalClose(false);
-                      setShowSignUpSuccessModal(true);
-                      setIsSubmitting(false);
-                    } else {
-                      console.log("DEBUG: Cadastro de membro, redirecionando...");
-                      navigate("/solicitacao");
-                      setIsSubmitting(false);
-                    }
+                    console.log("DEBUG: Cadastro realizado, redirecionando para aprovação...");
+                    navigate("/solicitacao");
 
                     setIsSignUpMode(false);
                     setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Visitante", churchRole: "Visitante", phone: "", password: "", confirmPassword: "" });
@@ -5775,46 +5735,48 @@ const Admin = () => {
             ) : activeTab === "visao-geral" ? (
               <div className="space-y-8 md:space-y-12 flex flex-col">
                 {/* Section: Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-4">
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
-                    </div>
-                    <div>
-                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Membros</p>
-                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>
-                        {members.filter(m => m.status !== "visitor" && m.status !== "visitor_session" && m.role !== "Visitante" && m.status !== "pending").length}
-                      </h4>
-                    </div>
-                  </Card>
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
-                      <UserSearch className="w-5 h-5 md:w-6 md:h-6 text-[#BF76FF]" />
-                    </div>
-                    <div>
-                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Visitantes</p>
-                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{visitors.length}</h4>
-                    </div>
-                  </Card>
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
-                      <Calendar className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
-                    </div>
-                    <div>
-                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Agenda</p>
-                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.agenda}</h4>
-                    </div>
-                  </Card>
-                  <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Avisos</p>
-                      <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
-                    </div>
-                  </Card>
-                </div>
+                {isAdminOrDev && (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-4">
+                    <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
+                        <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
+                      </div>
+                      <div>
+                        <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Membros</p>
+                        <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>
+                          {members.filter(m => m.status !== "visitor" && m.status !== "visitor_session" && m.role !== "Visitante" && m.status !== "pending").length}
+                        </h4>
+                      </div>
+                    </Card>
+                    <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
+                        <UserSearch className="w-5 h-5 md:w-6 md:h-6 text-[#BF76FF]" />
+                      </div>
+                      <div>
+                        <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Visitantes</p>
+                        <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{visitors.length}</h4>
+                      </div>
+                    </Card>
+                    <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
+                        <Calendar className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
+                      </div>
+                      <div>
+                        <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Agenda</p>
+                        <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.agenda}</h4>
+                      </div>
+                    </Card>
+                    <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
+                        <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Avisos</p>
+                        <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
+                      </div>
+                    </Card>
+                  </div>
+                )}
 
                 {/* Section: Próximos Eventos */}
                 <div className="space-y-6 md:space-y-8 mt-8">
