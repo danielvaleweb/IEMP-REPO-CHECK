@@ -966,6 +966,7 @@ const Admin = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1280);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [viewingMember, setViewingMember] = useState<any>(null);
+  const [collapsedTeamCategories, setCollapsedTeamCategories] = useState<Record<string, boolean>>({});
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden">("hidden");
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
@@ -1678,8 +1679,8 @@ const Admin = () => {
     lastName: "", 
     email: "", 
     birthDate: "", 
-    memberType: "Visitante",
-    churchRole: "Visitante", 
+    memberType: "Membro",
+    churchRole: "", 
     phone: "",
     password: "",
     confirmPassword: ""
@@ -2972,7 +2973,7 @@ const Admin = () => {
                     navigate("/solicitacao");
 
                     setIsSignUpMode(false);
-                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Visitante", churchRole: "Visitante", phone: "", password: "", confirmPassword: "" });
+                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Membro", churchRole: "", phone: "", password: "", confirmPassword: "" });
 
                   } catch (error: any) {
                     setIsSubmitting(false);
@@ -6913,34 +6914,48 @@ const Admin = () => {
                         {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
                           const roleMembers = groupedMembers.get(role) || [];
                           if (roleMembers.length === 0 && rightSidebarSearch) return null;
+                          const isCollapsed = collapsedTeamCategories[role] || false;
+                          
                           return (
                             <div key={`role-group-${role}`} className="space-y-3">
-                              <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
-                                <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
-                                {role === "Administradores" ? "Administrador Master" : role}
-                              </h5>
-                              <div className="space-y-4">
-                                {roleMembers.length > 0 ? (
-                                  roleMembers.slice(0, rightSidebarSearch ? undefined : 3).map((member, i) => (
-                                    <TeamMember 
-                                      key={`role-member-${role}-${member.id || i}`} 
-                                      member={member}
-                                      active={member.email === user?.email}
-                                      onWhatsApp={() => openWhatsApp(member)}
-                                      onViewProfile={() => {
-                                        setActiveTab("membros");
-                                        setViewingMember(member);
-                                      }}
-                                      onDelete={() => handleDelete(member, "members")}
-                                      isDark={isDarkMode}
-                                      isAdmin={isAdmin}
-                                      logAction={logAction}
-                                    />
-                                  ))
-                                ) : (
-                                  <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
-                                )}
-                              </div>
+                              <button 
+                                onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, [role]: !isCollapsed }))}
+                                className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between", isDarkMode ? "text-gray-500" : "text-gray-400")}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
+                                  <h5 className="text-[10px] font-bold uppercase tracking-widest">
+                                    {role === "Administradores" ? "Administrador Master" : role}
+                                  </h5>
+                                  <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-500">{roleMembers.length}</span>
+                                </div>
+                                {isCollapsed ? <ChevronRight className="w-3 h-3 transition-transform" /> : <ChevronDown className="w-3 h-3 transition-transform" />}
+                              </button>
+                              
+                              {!isCollapsed && (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                  {roleMembers.length > 0 ? (
+                                    roleMembers.map((member, i) => (
+                                      <TeamMember 
+                                        key={`role-member-${role}-${member.id || i}`} 
+                                        member={member}
+                                        active={member.email === user?.email}
+                                        onWhatsApp={() => openWhatsApp(member)}
+                                        onViewProfile={() => {
+                                          setActiveTab("membros");
+                                          setViewingMember(member);
+                                        }}
+                                        onDelete={() => handleDelete(member, "members")}
+                                        isDark={isDarkMode}
+                                        isAdmin={isAdmin}
+                                        logAction={logAction}
+                                      />
+                                    ))
+                                  ) : (
+                                    <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -6949,30 +6964,44 @@ const Admin = () => {
                         {(() => {
                           const standardMembers = groupedMembers.get("Membro") || [];
                           if (standardMembers.length === 0) return null;
+                          const isCollapsed = collapsedTeamCategories["Membro"] || false;
+                          
                           return (
                             <div className="space-y-3">
-                              <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>
-                                <div className="w-1 h-2 bg-gray-600 rounded-full" />
-                                Membros
-                              </h5>
-                              <div className="space-y-4">
-                                {standardMembers.slice(0, rightSidebarSearch ? undefined : 5).map((member, i) => (
-                                  <TeamMember 
-                                    key={`sidebar-standard-${member.id || i}`} 
-                                    member={member}
-                                    active={member.email === user?.email}
-                                    onWhatsApp={() => openWhatsApp(member)}
-                                    onViewProfile={() => {
-                                      setActiveTab("membros");
-                                      setViewingMember(member);
-                                    }}
-                                    onDelete={() => handleDelete(member.id, "members")}
-                                    isDark={isDarkMode}
-                                    isAdmin={isAdmin}
-                                    logAction={logAction}
-                                  />
-                                ))}
-                              </div>
+                              <button 
+                                onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, ["Membro"]: !isCollapsed }))}
+                                className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between", isDarkMode ? "text-gray-500" : "text-gray-400")}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1 h-2 bg-gray-600 rounded-full" />
+                                  <h5 className="text-[10px] font-bold uppercase tracking-widest">
+                                    Membros
+                                  </h5>
+                                  <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-500">{standardMembers.length}</span>
+                                </div>
+                                {isCollapsed ? <ChevronRight className="w-3 h-3 transition-transform" /> : <ChevronDown className="w-3 h-3 transition-transform" />}
+                              </button>
+                              
+                              {!isCollapsed && (
+                                <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                  {standardMembers.map((member, i) => (
+                                    <TeamMember 
+                                      key={`sidebar-standard-${member.id || i}`} 
+                                      member={member}
+                                      active={member.email === user?.email}
+                                      onWhatsApp={() => openWhatsApp(member)}
+                                      onViewProfile={() => {
+                                        setActiveTab("membros");
+                                        setViewingMember(member);
+                                      }}
+                                      onDelete={() => handleDelete(member.id, "members")}
+                                      isDark={isDarkMode}
+                                      isAdmin={isAdmin}
+                                      logAction={logAction}
+                                    />
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           );
                         })()}
@@ -6986,30 +7015,44 @@ const Admin = () => {
                       return (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
                     });
                     if (sidebarVisitors.length === 0) return null;
+                    const isCollapsed = collapsedTeamCategories["Visitantes"] || false;
+                    
                     return (
                       <div className={cn("space-y-3 mt-6 pt-6 border-t", isDarkMode ? "border-white/5" : "border-black/5")}>
-                        <h5 className={cn("text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 text-blue-400")}>
-                          <div className="w-1 h-2 bg-blue-400 rounded-full" />
-                          Visitantes
-                        </h5>
-                        <div className="space-y-4">
-                          {sidebarVisitors.map((member, i) => (
-                            <TeamMember 
-                              key={`sidebar-visitor-${member.id || i}`} 
-                              member={member}
-                              active={member.email === user?.email}
-                              onWhatsApp={() => openWhatsApp(member)}
-                              onViewProfile={() => {
-                                setActiveTab("visitantes");
-                                setViewingMember(member);
-                              }}
-                              onDelete={() => handleDelete(member.id, "members")}
-                              isDark={isDarkMode}
-                              isAdmin={isAdmin}
-                              logAction={logAction}
-                            />
-                          ))}
-                        </div>
+                        <button 
+                          onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, ["Visitantes"]: !isCollapsed }))}
+                          className="w-full transition-opacity hover:opacity-70 group flex items-center justify-between text-blue-400"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-1 h-2 bg-blue-400 rounded-full" />
+                            <h5 className="text-[10px] font-bold uppercase tracking-widest">
+                              Visitantes
+                            </h5>
+                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/10 text-blue-400">{sidebarVisitors.length}</span>
+                          </div>
+                          {isCollapsed ? <ChevronRight className="w-3 h-3 transition-transform" /> : <ChevronDown className="w-3 h-3 transition-transform" />}
+                        </button>
+                        
+                        {!isCollapsed && (
+                          <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                            {sidebarVisitors.map((member, i) => (
+                              <TeamMember 
+                                key={`sidebar-visitor-${member.id || i}`} 
+                                member={member}
+                                active={member.email === user?.email}
+                                onWhatsApp={() => openWhatsApp(member)}
+                                onViewProfile={() => {
+                                  setActiveTab("visitantes");
+                                  setViewingMember(member);
+                                }}
+                                onDelete={() => handleDelete(member.id, "members")}
+                                isDark={isDarkMode}
+                                isAdmin={isAdmin}
+                                logAction={logAction}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
@@ -7820,149 +7863,6 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
         >
           <MessageSquare className="w-4 h-4" />
         </button>
-        {onEditProfile && (
-          <button 
-            onClick={onEditProfile}
-            className="p-2 rounded-lg bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all cursor-pointer"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-        )}
-        <div className="relative">
-          <button 
-            onClick={() => setShowTooltip(!showTooltip)}
-            onBlur={() => setTimeout(() => setShowTooltip(false), 300)}
-            className={cn("hover:text-[#BF76FF] p-2 transition-colors cursor-pointer", isDark ? "text-gray-600" : "text-gray-400")}
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-          
-          <AnimatePresence>
-            {showTooltip && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.9, x: 20 }}
-                animate={{ opacity: 1, y: 0, scale: 1, x: 0 }}
-                exit={{ opacity: 0, y: 10, scale: 0.9, x: 20 }}
-                className={cn(
-                  "absolute right-0 top-full mt-2 w-64 md:w-72 rounded-[32px] shadow-2xl border overflow-hidden z-[100] p-1",
-                  isDark ? "bg-[#0a0a0a] border-white/10" : "bg-white border-black/10"
-                )}
-              >
-                <div className="relative h-24 rounded-[28px] overflow-hidden">
-                  <img 
-                    src={member.coverImage || "https://picsum.photos/seed/church/400/200"} 
-                    className="w-full h-full object-cover opacity-60"
-                    alt=""
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] to-transparent" />
-                  <div className="absolute top-3 right-3">
-                    <div className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/10">
-                      <Bookmark className="w-4 h-4 text-white/70" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="px-6 -mt-8 relative z-10">
-                  <div className="flex items-end justify-between mb-4">
-                    <div className="w-16 h-16 rounded-full border-4 border-[#0a0a0a] bg-[#1a1a1a] overflow-hidden shadow-xl">
-                      {member.photoURL ? (
-                        <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xl font-bold text-[#BF76FF]">
-                          {name[0]}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                    <div className="mb-6">
-                      <h5 className="text-lg font-bold text-white leading-tight">{name}</h5>
-                      <p className="text-xs text-gray-500 font-medium">{formatRoles(member)}</p>
-                    </div>
-
-                  <div className="grid grid-cols-3 gap-2 mb-6 py-4 border-y border-white/5">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1 text-white font-bold text-sm">
-                        <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
-                        <span>4.8</span>
-                      </div>
-                      <p className="text-[9px] text-gray-500 uppercase font-black tracking-tighter">Rating</p>
-                    </div>
-                    <div className="text-center border-x border-white/5">
-                      <p className="text-white font-bold text-sm">2 Anos</p>
-                      <p className="text-[9px] text-gray-500 uppercase font-black tracking-tighter">Membro</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-white font-bold text-sm">Ativo</p>
-                      <p className="text-[9px] text-gray-500 uppercase font-black tracking-tighter">Status</p>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setShowTooltip(false);
-                      if (onViewProfile) onViewProfile();
-                    }}
-                    className="w-full bg-white text-black h-12 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-200 transition-all mb-2 cursor-pointer"
-                  >
-                    Ver perfil
-                  </button>
-                  {isAdmin && (member.status === "pending" || member.status === "pending_approval") ? (
-                    <div className="flex gap-2">
-                       <button
-                         onClick={async () => {
-                            setShowTooltip(false);
-                            try {
-                              const updateData: any = { status: "active", updatedAt: serverTimestamp() };
-                              if (member.signupPassword) {
-                                updateData.signupPassword = deleteField();
-                                try {
-                                  await addDoc(collection(db, "saved-logins"), {
-                                    title: `Cadastro - ${member.name}`,
-                                    username: member.email,
-                                    password: member.signupPassword,
-                                    createdAt: serverTimestamp(),
-                                    updatedAt: serverTimestamp()
-                                  });
-                                } catch (e) {
-                                  console.error("Failed to save login password", e);
-                                }
-                              }
-                              await updateDoc(doc(db, "members", member.id), updateData);
-                            } catch(err) {
-                              console.error(err);
-                            }
-                         }}
-                         className="flex-1 bg-green-500/10 text-green-500 h-10 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-green-500 hover:text-white transition-all cursor-pointer"
-                       >
-                         Aprovar
-                       </button>
-                       <button
-                         onClick={() => {
-                            setShowTooltip(false);
-                            if (onDelete) onDelete();
-                         }}
-                         className="flex-1 bg-red-500/10 text-red-500 h-10 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer"
-                       >
-                         Recusar
-                       </button>
-                    </div>
-                  ) : onDelete && (
-                    <button
-                      onClick={() => {
-                        setShowTooltip(false);
-                        onDelete();
-                      }}
-                      className="w-full bg-red-500/10 text-red-500 h-10 rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all cursor-pointer"
-                    >
-                      Excluir Membro
-                    </button>
-                  )}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
       </div>
     </div>
 
