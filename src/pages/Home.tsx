@@ -19,7 +19,8 @@ import {
   Plus,
   Check,
   ThumbsUp,
-  ChevronDown
+  ChevronDown,
+  Hammer
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
@@ -1061,67 +1062,21 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Próximos Cultos Section */}
-      <section className="py-24 px-4 md:px-12 bg-[#0A0A0A]">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid lg:grid-cols-2 gap-16 items-center">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-            >
-              <h2 className="text-4xl md:text-5xl font-black mb-8 tracking-tighter uppercase text-white">
-                Venha nos <span className="text-primary">Visitar</span>
-              </h2>
-              <p className="text-white text-lg mb-12 leading-relaxed opacity-80">
-                Nossa igreja é um lugar de acolhimento e transformação. Junte-se a nós em um de nossos cultos presenciais e experimente o poder de Deus em comunidade.
-              </p>
-              
-              <div className="space-y-6">
-                {[
-                  { day: "Ter", title: "Culto de Oração", detail: "Terça-feira às ", time: "19:30h" },
-                  { day: "Sex", title: "Culto de Libertação", detail: "Sexta-feira às ", time: "19:30h" },
-                  { day: "Dom", title: "Culto da Família", detail: "Domingo às ", time: "19:00h" }
-                ].map((item, i) => (
-                  <div key={`link-card-${i}`} className="flex items-center gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 hover:border-primary/30 transition-colors group">
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <span className="text-primary font-black text-xs uppercase">{item.day}</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-white">{item.title}</h4>
-                      <p className="text-white/40 text-sm">
-                        {item.detail}
-                        <span className="font-black text-white/90">{item.time}</span>
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-            
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              className="relative aspect-square rounded-3xl overflow-hidden border border-white/10 shadow-2xl"
-            >
-              <iframe 
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3705.518608226019!2d-43.3888365!3d-21.7513077!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x989b5c39a3f2d9%3A0x7d6f5c8e3c8e3c8e!2sR.%20Cleonice%20Rainho%2C%2019%20-%20Aeroporto%2C%20Juiz%20de%20Fora%20-%20MG%2C%2036038-250!5e0!3m2!1spt-BR!2sbr!4v1713560000000!5m2!1spt-BR!2sbr" 
-                className="w-full h-full border-0" 
-                allowFullScreen={true} 
-                loading="lazy" 
-                referrerPolicy="no-referrer-when-downgrade"
-              />
-              <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-black via-transparent to-transparent" />
-              <div className="absolute bottom-8 left-8 right-8">
-                <Button 
-                  onClick={() => window.open('https://www.google.com/maps/search/?api=1&query=Ministério+Profecia+Juiz+de+Fora', '_blank')}
-                  className="w-full bg-white text-black hover:bg-white/90 rounded-xl h-14 font-bold text-lg"
-                >
-                  Me leve até lá
-                </Button>
-              </div>
-            </motion.div>
+      {/* Localização / Venha nos Visitar Section */}
+      <section id="localizacao" className="py-24 px-4 md:px-12 bg-[#0A0A0A]">
+        <div className="max-w-7xl mx-auto flex flex-col items-center text-center">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-8">
+            <Hammer className="w-10 h-10 text-primary animate-bounce shadow-glow" />
+          </div>
+          <h2 className="text-4xl md:text-5xl font-black mb-8 tracking-tighter uppercase text-white">
+            Localização em <span className="text-primary">Desenvolvimento</span>
+          </h2>
+          <p className="text-white text-lg mb-12 leading-relaxed opacity-80 max-w-2xl">
+            Estamos preparando um mapa interativo e informações detalhadas sobre como chegar até nós. Em breve você poderá conferir tudo aqui!
+          </p>
+          <div className="w-full h-[400px] md:h-[500px] bg-white/5 rounded-3xl border border-white/10 flex items-center justify-center relative overflow-hidden">
+             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent animate-pulse" />
+             <p className="text-white/20 font-black uppercase tracking-[1em] text-sm md:text-lg">Mapa Indisponível</p>
           </div>
         </div>
       </section>

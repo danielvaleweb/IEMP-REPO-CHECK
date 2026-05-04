@@ -1,9 +1,22 @@
 import { useParams } from "react-router-dom";
 import { Shield, FileText, Mail, Lock } from "lucide-react";
+import ConstructionView from "@/components/ConstructionView";
 
 export default function StaticPages() {
   const { page } = useParams();
   
+  if (page === "oracao" || page === "contato") {
+    const titles: Record<string, string> = {
+      oracao: "Pedidos de Oração",
+      contato: "Contato"
+    };
+    return (
+      <div className="pt-24 min-h-screen bg-background">
+        <ConstructionView title={titles[page] || "Em Construção"} />
+      </div>
+    );
+  }
+
   const content: Record<string, any> = {
     estatuto: {
       title: "Estatuto da Igreja",
