@@ -129,6 +129,14 @@ export default function Gallery() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
+  const mobileCarouselRef = useRef<HTMLDivElement>(null);
+
+  // Reset mobile carousel scroll when page changes
+  useEffect(() => {
+    if (isMobile && mobileCarouselRef.current) {
+      mobileCarouselRef.current.scrollTo({ left: 0, behavior: 'instant' });
+    }
+  }, [currentPage, isMobile]);
 
   // Modals
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -597,7 +605,10 @@ export default function Gallery() {
             {isMobile ? (
               /* Mobile Carousel Mode - Optimized with Pagination to prevent crashes */
               <div className="space-y-6">
-                <div className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-4">
+                <div 
+                  ref={mobileCarouselRef}
+                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-4"
+                >
                   {paginatedPhotos.map((photo, idx) => {
                     const actualIdx = (currentPage - 1) * itemsPerPage + idx;
                     const req = getPhotoRemovalRequest(photo);
