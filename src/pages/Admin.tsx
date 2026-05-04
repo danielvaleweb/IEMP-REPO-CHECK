@@ -7581,38 +7581,44 @@ const Admin = () => {
 
       {/* Modal para Editar Cargo (Pendentes) */}
       <Dialog open={isRoleEditModalOpen} onOpenChange={setIsRoleEditModalOpen}>
-        <DialogContent className={cn("border sm:max-w-[400px] p-0 overflow-hidden transition-colors rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
-          <div className="p-8 space-y-6">
+        <DialogContent className={cn("border sm:max-w-[440px] w-[95vw] p-0 transition-colors rounded-[32px] border-none shadow-2xl overflow-visible", isDarkMode ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
+          <div className="p-6 sm:p-8 space-y-6">
             <div className="text-center">
               <div className="w-16 h-16 rounded-full bg-[#BF76FF]/10 flex items-center justify-center mx-auto text-[#BF76FF]">
                 <Edit className="w-8 h-8" />
               </div>
               <DialogTitle className="text-2xl font-black uppercase tracking-tight mt-4">Alterar Cargo</DialogTitle>
               <DialogDescription className="text-gray-500 font-medium">
-                Selecione o cargo correto para {memberToProcess?.name}
+                Selecione o cargo correto para <span className="font-bold text-[#BF76FF]">{memberToProcess?.name}</span>
               </DialogDescription>
             </div>
 
             <div className="space-y-4">
-              <Label className="text-[10px] uppercase font-black tracking-widest text-gray-500">Novo Cargo</Label>
+              <Label className="text-[10px] uppercase font-black tracking-widest text-gray-500 ml-1">Novo Cargo</Label>
               <Select 
                 value={selectedRoleForEdit} 
                 onValueChange={setSelectedRoleForEdit}
               >
-                <SelectTrigger className={cn("h-12 rounded-2xl border-none", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}>
+                <SelectTrigger className={cn("w-full h-14 rounded-2xl border-none flex items-center justify-between px-4 text-xs font-bold uppercase tracking-widest", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}>
                   <SelectValue placeholder="Selecione o cargo" />
                 </SelectTrigger>
-                <SelectContent className={cn("rounded-2xl border-none", isDarkMode ? "bg-[#222] text-white" : "bg-white text-black")}>
-                  {allRoles.map(role => (
-                    <SelectItem key={role} value={role} className="rounded-xl focus:bg-primary focus:text-white uppercase font-bold text-[10px] tracking-widest py-3 cursor-pointer">
-                      {role}
-                    </SelectItem>
-                  ))}
+                <SelectContent 
+                  className={cn("rounded-2xl border-none min-w-[var(--anchor-width)] shadow-2xl z-[100]", isDarkMode ? "bg-[#222] text-white" : "bg-white text-black")}
+                  align="start"
+                  sideOffset={8}
+                >
+                  <div className="p-1.5 space-y-1">
+                    {allRoles.map(role => (
+                      <SelectItem key={role} value={role} className="rounded-xl focus:bg-[#BF76FF] focus:text-white uppercase font-bold text-[10px] tracking-widest py-3.5 px-4 cursor-pointer transition-colors">
+                        {role}
+                      </SelectItem>
+                    ))}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3 pt-2">
               <Button 
                 variant="ghost" 
                 className={cn("flex-1 h-12 rounded-2xl font-bold uppercase tracking-widest text-[10px]", isDarkMode ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
