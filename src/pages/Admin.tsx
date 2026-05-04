@@ -1046,6 +1046,7 @@ const Admin = () => {
   const [viewingMember, setViewingMember] = useState<any>(null);
   const [collapsedTeamCategories, setCollapsedTeamCategories] = useState<Record<string, boolean>>({});
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [settings, setSettings] = useState<any>({ enableHeaderVideos: true, videoCardsEnabled: true });
   const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden">("hidden");
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
   const [activeChats, setActiveChats] = useState<any[]>([]);
@@ -1304,6 +1305,7 @@ const Admin = () => {
   const [vignettes, setVignettes] = useState<any[]>([]);
   const [radioTracks, setRadioTracks] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [videos, setVideos] = useState<any[]>([]);
   
   // Stats state to avoid full-collection reads
   const [counts, setCounts] = useState({
@@ -1333,6 +1335,192 @@ const Admin = () => {
 
   const [activeTab, setActiveTab] = useState("visao-geral");
   const [radioSubTab, setRadioSubTab] = useState<"vignettes" | "tracks">("tracks");
+
+  const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
+  const isAdminOrDev = profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || isMasterAdmin;
+
+  const [activeViewRole, setActiveViewRole] = useState<string | null>(null);
+
+  const userRolesArray = useMemo(() => {
+    if (activeViewRole) {
+      if (isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor") {
+         return [{ name: activeViewRole, isLeader: true }];
+      }
+    }
+    if (isMasterAdmin) return [{ name: "Administradores", isLeader: true }];
+
+    const rolesMap = new Map<string, boolean>();
+    
+    if (profile?.role) {
+      rolesMap.set(profile.role, profile.isLeader || false);
+    }
+    
+    if (profile?.ministries && Array.isArray(profile.ministries)) {
+      profile.ministries.forEach((m: any) => {
+        const name = typeof m === 'object' ? m.name : m;
+        const isLeader = typeof m === 'object' ? m.isLeader : false;
+        if (name) {
+          rolesMap.set(name, rolesMap.get(name) || isLeader);
+          if (name === profile?.role && isLeader) {
+            rolesMap.set(profile.role, true);
+          }
+        }
+      });
+    }
+    
+    if (rolesMap.size === 0) rolesMap.set("Membro", false);
+    
+    return Array.from(rolesMap.entries()).map(([name, isLeader]) => ({ name, isLeader }));
+  }, [profile, activeViewRole, isMasterAdmin]);
+
+  const canRoleViewTab = (rName: string, rIsLeader: boolean, tab: string) => {
+    if (rName === "Administradores" || rName === "Desenvolvedor" || isMasterAdmin) return true;
+    
+    if (tab === "logins") return false; // Strictly restricted to above roles
+    
+    if (rName === "Direção") {
+      if (tab !== "agenda-direcao" && tab !== "chat" && tab !== "visao-geral") return false;
+      return true;
+    }
+    
+    if (tab === "agenda-direcao") {
+      const rNameLower = (rName || "").toLowerCase();
+      const isMediaOrSec = rNameLower === "mídia" || rNameLower === "midia" || rNameLower.includes("secretaria") || rNameLower.includes("secretário") || rNameLower.includes("secretario");
+      if (isMediaOrSec) {
+        if (!rIsLeader) return false;
+      }
+    }
+
+    const rolePerms = settings.permissions?.[rName];
+    
+    // Default values logic
+    const getDefVal = () => {
+      if (tab === "visao-geral") return true;
+      if (tab === "avisos") return ["Administradores", "Desenvolvedor"].includes(rName);
+      if (tab === "agenda-direcao") {
+        const isSpecLeader = (rName === "Mídia" || rName === "Secretaria" || rName === "Secretário") && rIsLeader;
+        return ["Administradores", "Desenvolvedor", "Direção"].includes(rName) || isSpecLeader;
+      }
+      return !["Membro", "Visitante", "Direção"].includes(rName);
+    };
+
+    if (!rolePerms) return getDefVal();
+    if (rolePerms.tabs && tab in rolePerms.tabs) return rolePerms.tabs[tab];
+    return getDefVal();
+  };
+
+  const isEffectivelyAdmin = (isMasterAdmin || profile?.role === "Administradores") && (!activeViewRole || activeViewRole === "Administradores");
+  
+  const canViewSettings = userRolesArray.some(r => r.name === "Desenvolvedor" || r.name === "Administradores");
+  const canViewLogs = canViewSettings;
+
+  const canViewTab = (tab: string) => {
+    if ((tab === "config" || tab === "logs") && !canViewSettings) return false;
+    return userRolesArray.some(r => canRoleViewTab(r.name, r.isLeader, tab));
+  };
+
+  const canEdit = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
+    return settings.permissions?.[r.name]?.edit ?? defaultEditPerm;
+  });
+
+  const canCreateEventDirectly = isEffectivelyAdmin || userRolesArray.some(r => {
+    return r.name === "Desenvolvedor" || 
+           r.name === "Administradores" || 
+           r.name === "Secretaria" || 
+           r.name === "Secretário" || 
+           (r.name === "Mídia" && r.isLeader);
+  });
+  
+  const canDelete = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
+    return settings.permissions?.[r.name]?.delete ?? defaultEditPerm;
+  });
+  
+  const canEditProfiles = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditProfilesPerm = r.name === "Administradores" || r.name === "Desenvolvedor";
+    return settings.permissions?.[r.name]?.editProfiles ?? defaultEditProfilesPerm;
+  });
+  
+  const canDeletePhotos = isEffectivelyAdmin || userRolesArray.some(r => {
+    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
+    return settings.permissions?.[r.name]?.deletePhotos ?? defaultEditPerm;
+  });
+
+  const [hasLoggedLogin, setHasLoggedLogin] = useState(false);
+  const [authError, setAuthError] = useState("");
+
+  useEffect(() => {
+    setAuthError(contextAuthError || "");
+  }, [contextAuthError]);
+
+  useEffect(() => {
+    if (user && !hasLoggedLogin && logAction) {
+      logAction("login", "auth", `Usuário ${user.displayName || user.email} entrou no sistema`);
+      setHasLoggedLogin(true);
+    }
+  }, [user]);
+
+  const handleLogoutAction = async () => {
+    if (user) {
+      await logAction("logout", "auth", `Usuário ${user.displayName || user.email} encerrou a sessão`);
+    }
+    await auth.signOut();
+    navigate("/");
+  };
+
+  useEffect(() => {
+    if (user && profile && isGuest) {
+      navigate("/");
+    }
+  }, [user, profile, isGuest, navigate]);
+
+  // Notifications Filtering Logic
+  const displayNotifications = useMemo(() => {
+    return notifications.filter(n => {
+      // Administrative notifications (only for Master Admin and Dev)
+      if (n.type === "registration" || n.type === "activity" || n.type === "system" || n.type === "gallery_removal") {
+        return isAdminOrDev;
+      }
+      
+      // Personal notifications (targeted to current user)
+      if (n.userId === user?.uid || n.userId === "all" || (n.userId === "admin" && isAdminOrDev)) {
+        // Exclude chat notifications from bell dropdown
+        if (n.type === "chat") return false;
+        return true;
+      }
+
+      return false;
+    });
+  }, [notifications, isAdminOrDev, user?.uid]);
+
+  const handleNotificationClick = async (notif: any) => {
+    try {
+      // 1. Marcar como lida se ainda não estiver
+      if (!notif.read) {
+        await updateDoc(doc(db, "notifications", notif.id), { read: true });
+        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+      }
+
+      // 2. Redirecionar baseado no tipo
+      if (notif.type === "request" || notif.type === "agenda") {
+        setActiveTab("agenda");
+        // Se houver lógica de filtragem na agenda por status, poderíamos ativar o filtro de pendentes aqui
+      } else if (notif.type === "registration") {
+        setActiveTab("membros");
+        setShowPending(true); // Se for solicitação de cadastro, mostra os pendentes
+      } else if (notif.type === "chat") {
+        setActiveTab("chats");
+      } else if (notif.type === "gallery_removal") {
+        navigate(`/galeria?album=${notif.albumId}&photo=${encodeURIComponent(notif.photoUrl)}`);
+      }
+      
+      // Fechar o menu de notificações se necessário (o dropdown costuma fechar sozinho, mas se for modal...)
+      // No caso do DropdownMenu do Shadcn, ele costuma fechar ao clicar, mas se quiser garantir:
+    } catch (err) {
+      console.error("Erro ao processar clique na notificação:", err);
+    }
+  };
   
   // Close right sidebar when changing tabs
   useEffect(() => {
@@ -1392,6 +1580,7 @@ const Admin = () => {
   // Refs for click outside
   const notificationRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const searchBarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -1400,6 +1589,9 @@ const Admin = () => {
       }
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setShowProfileMenu(false);
+      }
+      if (searchBarRef.current && !searchBarRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -1416,28 +1608,6 @@ const Admin = () => {
       scrollToBottom();
     }
   }, [chatMessages, rightSidebarView]);
-
-  const [hasLoggedLogin, setHasLoggedLogin] = useState(false);
-  const [authError, setAuthError] = useState("");
-
-  useEffect(() => {
-    setAuthError(contextAuthError || "");
-  }, [contextAuthError]);
-
-  useEffect(() => {
-    if (user && !hasLoggedLogin && logAction) {
-      logAction("login", "auth", `Usuário ${user.displayName || user.email} entrou no sistema`);
-      setHasLoggedLogin(true);
-    }
-  }, [user]);
-
-  const handleLogoutAction = async () => {
-    if (user) {
-      await logAction("logout", "auth", `Usuário ${user.displayName || user.email} encerrou a sessão`);
-    }
-    await auth.signOut();
-    navigate("/");
-  };
 
   const userStatus = profile?.status_online || "online";
 
@@ -1529,49 +1699,6 @@ const Admin = () => {
     }
   };
 
-  const globalSearchResults = useMemo(() => {
-    if (!searchQuery || searchQuery.length < 2) return [];
-    const query = searchQuery.toLowerCase();
-    
-    const results: any[] = [];
-
-    vignettes.forEach(v => {
-      if (v.title?.toLowerCase().includes(query)) {
-        results.push({ type: 'radio', item: v, title: v.title, sub: "Vinheta de Rádio", icon: Mic });
-      }
-    });
-    
-    members.forEach(m => {
-      if (m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query)) {
-        results.push({ type: 'membros', item: m, title: m.name, sub: formatRoles(m), icon: Users });
-      }
-    });
-    
-    posts.forEach(p => {
-      const isMatch = p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query);
-      if (isMatch) {
-        results.push({ type: 'eventos', item: p, title: p.title, sub: `Evento • ${p.date || "Sem data"}`, icon: PartyPopper });
-      }
-    });
-
-    blog.forEach(b => {
-      const isMatch = b.title?.toLowerCase().includes(query) || b.content?.toLowerCase().includes(query);
-      if (isMatch) {
-        results.push({ type: 'noticias', item: b, title: b.title, sub: `Notícia • ${b.date || "Sem data"}`, icon: Newspaper });
-      }
-    });
-
-    agenda.forEach(a => {
-      if (a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query)) {
-        results.push({ type: 'agenda', item: a, title: a.title, sub: a.date || "Sem data", icon: Calendar });
-      }
-    });
-    
-    return results.slice(0, 8);
-  }, [searchQuery, members, posts, agenda]);
-
-  // Removed seedNotifs logic as it causes permission errors for normal users
-
   const allRoles = useMemo(() => [
     "Administradores", 
     "Direção", 
@@ -1586,61 +1713,80 @@ const Admin = () => {
     "Membro"
   ], []);
 
-  const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
-  const isAdminOrDev = profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || isMasterAdmin;
+  const globalSearchResults = useMemo(() => {
+    if (!searchQuery || searchQuery.length < 2) return [];
+    const query = searchQuery.toLowerCase();
+    
+    const results: any[] = [];
 
-  useEffect(() => {
-    if (user && profile && isGuest) {
-      navigate("/");
+    if (canViewTab('radio')) {
+      vignettes.forEach(v => {
+        if (v.title?.toLowerCase().includes(query)) {
+          results.push({ type: 'radio', item: v, title: v.title, sub: "Vinheta de Rádio", icon: Mic });
+        }
+      });
     }
-  }, [user, profile, isGuest, navigate]);
-
-  // Notifications Filtering Logic
-  const displayNotifications = useMemo(() => {
-    return notifications.filter(n => {
-      // Administrative notifications (only for Master Admin and Dev)
-      if (n.type === "registration" || n.type === "activity" || n.type === "system" || n.type === "gallery_removal") {
-        return isAdminOrDev;
-      }
-      
-      // Personal notifications (targeted to current user)
-      if (n.userId === user?.uid || n.userId === "all" || (n.userId === "admin" && isAdminOrDev)) {
-        // Exclude chat notifications from bell dropdown
-        if (n.type === "chat") return false;
-        return true;
-      }
-
-      return false;
-    });
-  }, [notifications, isAdminOrDev, user?.uid]);
-
-  const handleNotificationClick = async (notif: any) => {
-    try {
-      // 1. Marcar como lida se ainda não estiver
-      if (!notif.read) {
-        await updateDoc(doc(db, "notifications", notif.id), { read: true });
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
-      }
-
-      // 2. Redirecionar baseado no tipo
-      if (notif.type === "request" || notif.type === "agenda") {
-        setActiveTab("agenda");
-        // Se houver lógica de filtragem na agenda por status, poderíamos ativar o filtro de pendentes aqui
-      } else if (notif.type === "registration") {
-        setActiveTab("membros");
-        setShowPending(true); // Se for solicitação de cadastro, mostra os pendentes
-      } else if (notif.type === "chat") {
-        setActiveTab("chats");
-      } else if (notif.type === "gallery_removal") {
-        navigate(`/galeria?album=${notif.albumId}&photo=${encodeURIComponent(notif.photoUrl)}`);
-      }
-      
-      // Fechar o menu de notificações se necessário (o dropdown costuma fechar sozinho, mas se for modal...)
-      // No caso do DropdownMenu do Shadcn, ele costuma fechar ao clicar, mas se quiser garantir:
-    } catch (err) {
-      console.error("Erro ao processar clique na notificação:", err);
+    
+    if (canViewTab('membros')) {
+      members.filter(m => 
+        m.status !== "pending" && 
+        m.status !== "pending_approval" && 
+        m.status !== "visitor" && 
+        m.status !== "visitor_session" && 
+        m.role !== "Visitante"
+      ).forEach(m => {
+        if (m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query)) {
+          results.push({ type: 'membros', item: m, title: m.name, sub: formatRoles(m), icon: Users });
+        }
+      });
     }
-  };
+
+    if (canViewTab('visitantes')) {
+      visitors.forEach(v => {
+        if (v.name?.toLowerCase().includes(query) || v.phone?.includes(query)) {
+          results.push({ type: 'visitantes', item: v, title: v.name, sub: "Visitante", icon: UserSearch });
+        }
+      });
+    }
+    
+    if (canViewTab('eventos')) {
+      posts.forEach(p => {
+        const isMatch = p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query);
+        if (isMatch) {
+          results.push({ type: 'eventos', item: p, title: p.title, sub: `Evento • ${p.date || "Sem data"}`, icon: PartyPopper });
+        }
+      });
+    }
+
+    if (canViewTab('noticias')) {
+      blog.forEach(b => {
+        const isMatch = b.title?.toLowerCase().includes(query) || b.content?.toLowerCase().includes(query);
+        if (isMatch) {
+          results.push({ type: 'noticias', item: b, title: b.title, sub: `Notícia • ${b.date || "Sem data"}`, icon: Newspaper });
+        }
+      });
+    }
+
+    if (canViewTab('agenda')) {
+      agenda.forEach(a => {
+        if (a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query)) {
+          results.push({ type: 'agenda', item: a, title: a.title, sub: a.date || "Sem data", icon: Calendar });
+        }
+      });
+    }
+
+    if (canViewTab('videos')) {
+      videos.forEach(v => {
+        if (v.title?.toLowerCase().includes(query) || v.description?.toLowerCase().includes(query)) {
+          results.push({ type: 'videos', item: v, title: v.title, sub: "Vídeo", icon: Youtube });
+        }
+      });
+    }
+    
+    return results.slice(0, 8);
+  }, [searchQuery, members, visitors, posts, blog, agenda, videos, vignettes, canViewTab]);
+
+  // Removed seedNotifs logic as it causes permission errors for normal users
 
   const handleMarkAllAsRead = async () => {
     try {
@@ -1708,40 +1854,6 @@ const Admin = () => {
     };
     migrateRoles();
   }, [isMasterAdmin, members]);
-
-  const [activeViewRole, setActiveViewRole] = useState<string | null>(null);
-
-  const userRolesArray = useMemo(() => {
-    if (activeViewRole) {
-      if (isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor") {
-         return [{ name: activeViewRole, isLeader: true }];
-      }
-    }
-    if (isMasterAdmin) return [{ name: "Administradores", isLeader: true }];
-
-    const rolesMap = new Map<string, boolean>();
-    
-    if (profile?.role) {
-      rolesMap.set(profile.role, profile.isLeader || false);
-    }
-    
-    if (profile?.ministries && Array.isArray(profile.ministries)) {
-      profile.ministries.forEach((m: any) => {
-        const name = typeof m === 'object' ? m.name : m;
-        const isLeader = typeof m === 'object' ? m.isLeader : false;
-        if (name) {
-          rolesMap.set(name, rolesMap.get(name) || isLeader);
-          if (name === profile?.role && isLeader) {
-            rolesMap.set(profile.role, true);
-          }
-        }
-      });
-    }
-    
-    if (rolesMap.size === 0) rolesMap.set("Membro", false);
-    
-    return Array.from(rolesMap.entries()).map(([name, isLeader]) => ({ name, isLeader }));
-  }, [activeViewRole, isMasterAdmin, profile]);
 
   const currentRole = activeViewRole || profile?.role || "Membro";
   
@@ -1867,7 +1979,6 @@ const Admin = () => {
   const [tempStartTime, setTempStartTime] = useState("");
   const [tempEndTime, setTempEndTime] = useState("");
 
-  const [settings, setSettings] = useState<any>({ enableHeaderVideos: true, videoCardsEnabled: true });
   const [localSettings, setLocalSettings] = useState<any>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
@@ -1939,80 +2050,6 @@ const Admin = () => {
       console.error("Erro ao registrar log:", error);
     }
   };
-
-  const canRoleViewTab = (rName: string, rIsLeader: boolean, tab: string) => {
-    if (rName === "Administradores" || rName === "Desenvolvedor" || isMasterAdmin) return true;
-    
-    if (tab === "logins") return false; // Strictly restricted to above roles
-    
-    if (rName === "Direção") {
-      if (tab !== "agenda-direcao" && tab !== "chat" && tab !== "visao-geral") return false;
-      return true;
-    }
-    
-    if (tab === "agenda-direcao") {
-      const rNameLower = (rName || "").toLowerCase();
-      const isMediaOrSec = rNameLower === "mídia" || rNameLower === "midia" || rNameLower.includes("secretaria") || rNameLower.includes("secretário") || rNameLower.includes("secretario");
-      if (isMediaOrSec) {
-        if (!rIsLeader) return false;
-      }
-    }
-
-    const rolePerms = settings.permissions?.[rName];
-    
-    // Default values logic
-    const getDefVal = () => {
-      if (tab === "visao-geral") return true;
-      if (tab === "avisos") return ["Administradores", "Desenvolvedor"].includes(rName);
-      if (tab === "agenda-direcao") {
-        const isSpecLeader = (rName === "Mídia" || rName === "Secretaria" || rName === "Secretário") && rIsLeader;
-        return ["Administradores", "Desenvolvedor", "Direção"].includes(rName) || isSpecLeader;
-      }
-      return !["Membro", "Visitante", "Direção"].includes(rName);
-    };
-
-    if (!rolePerms) return getDefVal();
-    if (rolePerms.tabs && tab in rolePerms.tabs) return rolePerms.tabs[tab];
-    return getDefVal();
-  };
-
-  const isEffectivelyAdmin = (isMasterAdmin || profile?.role === "Administradores") && (!activeViewRole || activeViewRole === "Administradores");
-  
-  const canViewSettings = userRolesArray.some(r => r.name === "Desenvolvedor" || r.name === "Administradores");
-  const canViewLogs = canViewSettings;
-
-  const canViewTab = (tab: string) => {
-    if ((tab === "config" || tab === "logs") && !canViewSettings) return false;
-    return userRolesArray.some(r => canRoleViewTab(r.name, r.isLeader, tab));
-  };
-
-  const canEdit = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
-    return settings.permissions?.[r.name]?.edit ?? defaultEditPerm;
-  });
-
-  const canCreateEventDirectly = isEffectivelyAdmin || userRolesArray.some(r => {
-    return r.name === "Desenvolvedor" || 
-           r.name === "Administradores" || 
-           r.name === "Secretaria" || 
-           r.name === "Secretário" || 
-           (r.name === "Mídia" && r.isLeader);
-  });
-  
-  const canDelete = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
-    return settings.permissions?.[r.name]?.delete ?? defaultEditPerm;
-  });
-  
-  const canEditProfiles = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditProfilesPerm = r.name === "Administradores" || r.name === "Desenvolvedor";
-    return settings.permissions?.[r.name]?.editProfiles ?? defaultEditProfilesPerm;
-  });
-  
-  const canDeletePhotos = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
-    return settings.permissions?.[r.name]?.deletePhotos ?? defaultEditPerm;
-  });
 
   // Real-time listeners
   useEffect(() => {
@@ -2131,6 +2168,10 @@ const Admin = () => {
       }
     }, (err) => console.error("Error loading skills settings:", err));
 
+    const unsubVideos = onSnapshot(query(collection(db, "videos"), orderBy("createdAt", "desc")), (snap) => {
+      setVideos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => console.error("Error loading videos:", err));
+
     return () => {
       unsubSettings();
       unsubPosts();
@@ -2143,6 +2184,7 @@ const Admin = () => {
       unsubLogs();
       unsubNotifs();
       unsubSkills();
+      unsubVideos();
     };
   }, [user, isAdmin]);
 
@@ -3716,8 +3758,91 @@ const Admin = () => {
           {/* Desktop Header */}
           <header className={cn("hidden md:flex h-[90px] px-8 items-center justify-between border-b transition-colors shrink-0", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
             <div className="flex items-center gap-4">
-              {/* The title has been removed as requested */}
+              {/* Left spacer if needed */}
             </div>
+
+            {/* Global Search Bar (Desktop) */}
+            <div className="flex-1 max-w-2xl mx-12 relative group" ref={searchBarRef}>
+              <div className="relative">
+                <Search className={cn("absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors", isDarkMode ? "text-gray-500 group-focus-within:text-[#BF76FF]" : "text-gray-400 group-focus-within:text-[#BF76FF]")} />
+                <input 
+                  type="text" 
+                  placeholder="Pesquisar evento, membro, visitante, notícia, vídeo ou agenda..." 
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (e.target.value.length >= 2) setIsSearchOpen(true);
+                    else setIsSearchOpen(false);
+                  }}
+                  onFocus={() => {
+                    if (searchQuery.length >= 2) setIsSearchOpen(true);
+                  }}
+                  className={cn(
+                    "w-full h-14 rounded-3xl pl-14 pr-6 text-sm font-medium transition-all outline-none border shadow-sm",
+                    isDarkMode 
+                      ? "bg-white/5 border-white/5 focus:bg-white/10 focus:border-[#BF76FF]/30 text-white placeholder:text-gray-600" 
+                      : "bg-gray-100 border-transparent focus:bg-white focus:border-[#BF76FF]/30 focus:shadow-xl text-black placeholder:text-gray-400"
+                  )}
+                />
+              </div>
+
+              {/* Search Results Dropdown */}
+              <AnimatePresence>
+                {isSearchOpen && searchQuery.length >= 2 && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.98 }}
+                    className={cn(
+                      "absolute top-full left-0 right-0 mt-4 rounded-3xl p-3 border shadow-2xl z-[100] max-h-[480px] overflow-y-auto scrollbar-hide",
+                      isDarkMode ? "bg-[#1A1A1A] border-white/5" : "bg-white border-black/5"
+                    )}
+                  >
+                    {globalSearchResults.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-1">
+                        {globalSearchResults.map((res, i) => (
+                          <button
+                            key={`search-global-${res.type}-${res.item?.id || i}`}
+                            onClick={() => {
+                              if (res.type === 'membros') setViewingMember(res.item);
+                              setSelectedItem(res.item);
+                              setFormData({ ...res.item });
+                              setActiveTab(res.type);
+                              setIsEditing(!(res.type === 'membros' || res.type === 'agenda' || res.type === 'visitantes'));
+                              setIsReadOnly(true);
+                              setSearchQuery("");
+                              setIsSearchOpen(false);
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-4 p-4 rounded-2xl transition-all text-left",
+                              isDarkMode ? "hover:bg-white/5" : "hover:bg-gray-50"
+                            )}
+                          >
+                            <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center shrink-0", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                              <res.icon className="w-6 h-6 text-[#BF76FF]" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className={cn("font-black tracking-tight text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{res.title}</p>
+                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{res.sub}</p>
+                            </div>
+                            <div className="p-2 rounded-xl bg-[#BF76FF]/10 text-[#BF76FF]">
+                              <ChevronRight className="w-4 h-4" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
+                        <Search className="w-12 h-12 mb-4" />
+                        <p className="text-xs font-black uppercase tracking-widest">Nenhum resultado encontrado</p>
+                        <p className="text-[10px] mt-1">Tente pesquisar por termos diferentes</p>
+                      </div>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
             <div className="flex items-center gap-6">
               {/* Notifications Bell */}
             <DropdownMenu>
@@ -6849,7 +6974,6 @@ const Admin = () => {
                 <Button 
                   className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black uppercase tracking-widest shadow-xl"
                   onClick={async () => {
-                    setIsConfirmRequestOpen(false);
                     const eventDate = `${requestFormData.date}T${requestFormData.time}`;
                     const dataToSave = {
                       title: requestFormData.title,
@@ -6864,54 +6988,66 @@ const Admin = () => {
                     };
 
                     try {
+                      // Fechar o modal de confirmação antes de começar o processo
+                      setIsConfirmRequestOpen(false);
+                      
                       await addDoc(collection(db, "agenda"), dataToSave);
                       
-                      const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
-                      const usersToNotify = (members || []).filter(m => 
-                        (rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader)) && 
-                        m.id !== (profile?.id || user?.uid)
-                      );
-
-                      for (const u of usersToNotify) {
-                        try {
-                          await addDoc(collection(db, "notifications"), {
-                             userId: u.id,
-                             title: "Nova Solicitação de Agendamento",
-                             message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
-                             type: "request",
-                             read: false,
-                             createdAt: serverTimestamp()
-                          });
-                        } catch (err) {
-                          console.error("Erro ao notificar admin:", u.id, err);
-                        }
-                      }
-
-                      // Notificação para o próprio solicitante
-                      if (profile?.id || user?.uid) {
-                        await addDoc(collection(db, "notifications"), {
-                          userId: profile?.id || user?.uid,
-                          title: "Solicitação em Análise",
-                          message: "Sua solicitação foi enviada para administração, Agora é só aguardar...",
-                          type: "agenda",
-                          read: false,
-                          createdAt: serverTimestamp()
-                        });
-                      }
-
+                      // Marcar como sucesso logue após salvar na agenda
                       setIsRequestingDate(false);
                       setRequestFormData({});
                       setRequestStatusMessage({
                         type: 'success',
-                        title: 'Enviado!',
-                        message: 'Sua solicitação foi enviada com sucesso e está em análise.'
+                        title: 'Enviado com Sucesso!',
+                        message: 'Sua solicitação foi enviada e agora aguarda análise da administração.'
                       });
+
+                      // Processar notificações em background para não travar o feedback
+                      (async () => {
+                        try {
+                          const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
+                          const usersToNotify = (members || []).filter(m => 
+                            (rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader)) && 
+                            m.id !== (profile?.id || user?.uid)
+                          );
+
+                          for (const u of usersToNotify) {
+                            try {
+                              await addDoc(collection(db, "notifications"), {
+                                userId: u.id,
+                                title: "Nova Solicitação de Agendamento",
+                                message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
+                                type: "request",
+                                read: false,
+                                createdAt: serverTimestamp()
+                              });
+                            } catch (err) {
+                              console.error("Erro ao notificar admin:", u.id, err);
+                            }
+                          }
+
+                          if (profile?.id || user?.uid) {
+                            await addDoc(collection(db, "notifications"), {
+                              userId: profile?.id || user?.uid,
+                              title: "Solicitação em Análise",
+                              message: "Sua solicitação foi enviada para administração, Agora é só aguardar...",
+                              type: "agenda",
+                              read: false,
+                              createdAt: serverTimestamp()
+                            });
+                          }
+                        } catch (notifErr) {
+                          console.error("Erro no processamento secundário de notificações:", notifErr);
+                        }
+                      })();
+
                     } catch (e) {
                       console.error("Erro ao solicitar agendamento:", e);
+                      // Reabrir o modal ou mostrar erro se falhar o salvamento principal
                       setRequestStatusMessage({
                         type: 'error',
                         title: 'Erro no Envio',
-                        message: 'Ocorreu um erro ao processar sua solicitação. Tente novamente.'
+                        message: 'Não foi possível enviar sua solicitação. Por favor, verifique sua conexão e tente novamente.'
                       });
                     }
                   }}
@@ -6932,32 +7068,39 @@ const Admin = () => {
 
         {/* Modal de Feedback de Status */}
         <Dialog open={!!requestStatusMessage} onOpenChange={(open) => !open && setRequestStatusMessage(null)}>
-          <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-8 transition-colors shadow-2xl text-center", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
-             <div className="flex flex-col items-center gap-6">
-                <div className={cn(
-                  "w-20 h-20 rounded-full flex items-center justify-center animate-in zoom-in duration-500",
-                  requestStatusMessage?.type === 'success' ? "bg-green-500/20 text-green-500" : 
-                  requestStatusMessage?.type === 'error' ? "bg-red-500/20 text-red-500" :
-                  "bg-amber-500/20 text-amber-500"
-                )}>
-                  {requestStatusMessage?.type === 'success' ? <CheckCheck className="w-10 h-10" /> : 
-                   requestStatusMessage?.type === 'error' ? <XCircle className="w-10 h-10" /> :
-                   <AlertCircle className="w-10 h-10" />}
-                </div>
+          <DialogContent className={cn("border rounded-[40px] sm:max-w-md p-10 transition-colors shadow-2xl text-center", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+             <div className="flex flex-col items-center gap-8">
+                <motion.div 
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", damping: 12, stiffness: 200 }}
+                  className={cn(
+                    "w-24 h-24 rounded-full flex items-center justify-center shadow-inner",
+                    requestStatusMessage?.type === 'success' ? "bg-green-500/10 text-green-500" : 
+                    requestStatusMessage?.type === 'error' ? "bg-red-500/10 text-red-500" :
+                    "bg-amber-500/10 text-amber-500"
+                  )}
+                >
+                  {requestStatusMessage?.type === 'success' ? <CheckCheck className="w-12 h-12" /> : 
+                   requestStatusMessage?.type === 'error' ? <XCircle className="w-12 h-12" /> :
+                   <AlertCircle className="w-12 h-12" />}
+                </motion.div>
                 
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-black uppercase tracking-tight">{requestStatusMessage?.title}</h2>
-                  <p className="text-gray-500 font-medium leading-relaxed">{requestStatusMessage?.message}</p>
+                <div className="space-y-3">
+                  <h2 className="text-3xl font-black uppercase tracking-tighter leading-tight">{requestStatusMessage?.title}</h2>
+                  <p className={cn("font-medium leading-relaxed px-4", isDarkMode ? "text-gray-400" : "text-gray-500")}>
+                    {requestStatusMessage?.message}
+                  </p>
                 </div>
                 
                 <Button 
                   className={cn(
-                    "w-full h-14 rounded-2xl text-white font-black uppercase tracking-widest shadow-xl",
-                    requestStatusMessage?.type === 'error' ? "bg-red-500" : "bg-[#7300FF]"
+                    "w-full h-16 rounded-[24px] text-white font-black uppercase tracking-[0.2em] shadow-xl hover:scale-[1.02] transition-all",
+                    requestStatusMessage?.type === 'error' ? "bg-red-500 hover:bg-red-600" : "bg-gradient-to-r from-[#BF76FF] to-[#7300FF] hover:opacity-90"
                   )}
                   onClick={() => setRequestStatusMessage(null)}
                 >
-                  Entendi
+                  Continuar
                 </Button>
              </div>
           </DialogContent>
