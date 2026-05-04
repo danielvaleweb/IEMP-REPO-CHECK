@@ -526,7 +526,7 @@ const formatRoles = (member: any) => {
   return mappedRoles[0];
 };
 
-function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }: { member: any, onBack: () => void, onEdit?: () => void, isDark: boolean, notifications: any[], onChat?: () => void }) {
+function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, agenda, onChat }: { member: any, onBack: () => void, onEdit?: () => void, isDark: boolean, notifications: any[], logs?: any[], agenda?: any[], onChat?: () => void }) {
   const isBirthdayToday = useMemo(() => {
     if (!member.birthDate) return false;
     try {
@@ -576,7 +576,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
             className="w-full h-full object-cover opacity-60"
             alt=""
           />
-          <div className={cn("absolute inset-0 bg-gradient-to-t", isDark ? "from-[#111] to-transparent" : "from-white/80 to-transparent")} />
+          <div className={cn("absolute inset-0 bg-gradient-to-t", isDark ? "from-roxo-bg to-transparent" : "from-white/80 to-transparent")} />
           
           <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6 w-full md:w-auto">
@@ -747,48 +747,117 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, onChat }
 
           <div className="space-y-8">
             <div className={cn("p-8 rounded-[32px] border transition-colors", isDark ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
-              <h3 className={cn("text-xl font-bold mb-6 transition-colors", isDark ? "text-white" : "text-black")}>Atividade Recente</h3>
+              <h3 className={cn("text-xl font-bold mb-6 transition-colors", isDark ? "text-white" : "text-black")}>Atividades Recentes</h3>
               <div className="space-y-6">
                 {(() => {
-                  const activities = (notifications || [])
-                    .filter(n => n.memberId === member.id && n.type === "activity")
-                    .slice(0, 5);
+                  const items: any[] = [];
+
+                  // 1. Cadastro
+                  if (member.createdAt) {
+                    items.push({
+                      id: 'signup',
+                      message: "Se cadastrou no ministério",
+                      date: member.createdAt,
+                      icon: <UserPlus className="w-4 h-4 text-green-500" />
+                    });
+                  }
+
+                  // 2. Notificações do tipo activity
+                  if (notifications) {
+                    notifications
+                      .filter(n => n.memberId === member.id && n.type === "activity")
+                      .forEach(n => items.push({
+                        id: n.id,
+                        message: n.message,
+                        date: n.createdAt || n.timestamp,
+                        icon: <Bell className="w-4 h-4 text-blue-500" />
+                      }));
+                  }
+
+                  // 3. Agenda (participações)
+                  if (agenda) {
+                    agenda.forEach(ev => {
+                      const isParticipant = ev.participants?.some((p: any) => p.id === member.id);
+                      if (isParticipant) {
+                        items.push({
+                          id: `event-${ev.id}`,
+                          message: `Confirmou participação no evento: ${ev.title}`,
+                          date: ev.date,
+                          icon: <CalendarDays className="w-4 h-4 text-[#BF76FF]" />
+                        });
+                      }
+                    });
+                  }
+
+                  // 4. Logs de Auditoria
+                  if (logs) {
+                    logs
+                      .filter(l => l.userId === member.id)
+                      .filter(l => {
+                        const action = l.action?.toLowerCase() || "";
+                        const details = l.details?.toLowerCase() || "";
+                        // Filtrar acessos e logins para não ficar repetitivo
+                        return !action.includes("login") && 
+                               !action.includes("access") && 
+                               !details.includes("entrou no") && 
+                               !details.includes("acessou");
+                      })
+                      .forEach(l => {
+                      let icon = <Clock className="w-4 h-4 text-gray-500" />;
+                      if (l.action?.includes("like")) icon = <Heart className="w-4 h-4 text-pink-500" />;
+                      if (l.action?.includes("bio")) icon = <FileText className="w-4 h-4 text-[#BF76FF]" />;
+                      if (l.action?.includes("nascimento") || l.action?.includes("entrada")) icon = <Calendar className="w-4 h-4 text-blue-500" />;
+                      
+                      items.push({
+                        id: l.id,
+                        message: l.details || l.action,
+                        date: l.timestamp || l.createdAt,
+                        icon
+                      });
+                    });
+                  }
+
+                  // Ordenar e processar
+                  const sortedActivities = items
+                    .sort((a, b) => {
+                      const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
+                      const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
+                      return dateB.getTime() - dateA.getTime();
+                    })
+                    .slice(0, 8);
                   
-                  if (activities.length === 0) {
+                  if (sortedActivities.length === 0) {
                     return (
-                      <div className="space-y-6">
-                        {[
-                          { action: "Participou do Culto de Domingo", time: "2 dias atrás" },
-                          { action: "Bio atualizada", time: "Hoje" }
-                        ].map((act, i) => (
-                          <div key={`act-primary-${act.action}-${i}`} className="flex gap-4">
-                            <div className="w-2 h-2 rounded-full bg-[#BF76FF] mt-1.5 shrink-0" />
-                            <div>
-                              <p className={cn("text-sm font-bold transition-colors", isDark ? "text-white" : "text-black")}>{act.action}</p>
-                              <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">{act.time}</p>
-                            </div>
-                          </div>
-                        ))}
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <div className="w-12 h-12 rounded-full bg-gray-500/10 flex items-center justify-center text-gray-500 mb-4">
+                          <Clock className="w-6 h-6" />
+                        </div>
+                        <p className="text-sm font-bold text-gray-500">Nenhuma atividade registrada ainda.</p>
                       </div>
                     );
                   }
 
-                  return activities.map((act, i) => (
-                    <div key={`act-list-${act.id || i}`} className="flex gap-4">
-                      <div className="w-2 h-2 rounded-full bg-[#BF76FF] mt-1.5 shrink-0" />
+                  return sortedActivities.map((act, i) => (
+                    <div key={`act-item-${act.id}-${i}`} className="flex gap-4 group">
+                      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center transition-colors shrink-0", isDark ? "bg-white/5" : "bg-white shadow-sm border border-black/5")}>
+                        {act.icon}
+                      </div>
                       <div>
-                        <p className={cn("text-sm font-bold transition-colors", isDark ? "text-white" : "text-black")}>{act.message}</p>
-                        <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest">
-                          {act.createdAt ? (() => {
+                        <p className={cn("text-sm font-bold transition-colors group-hover:text-[#BF76FF]", isDark ? "text-white" : "text-black")}>
+                          {act.message}
+                        </p>
+                        <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-0.5">
+                          {act.date ? (() => {
                             try {
-                              const date = typeof act.createdAt === 'string' ? parseISO(act.createdAt) : (act.createdAt.toDate ? act.createdAt.toDate() : new Date(act.createdAt));
+                              const date = typeof act.date === 'string' ? parseISO(act.date) : (act.date.toDate ? act.date.toDate() : new Date(act.date));
                               const diff = Math.floor((new Date().getTime() - date.getTime()) / 1000);
                               if (diff < 60) return "Agora mesmo";
                               if (diff < 3600) return `${Math.floor(diff / 60)} min atrás`;
                               if (diff < 86400) return `${Math.floor(diff / 3600)} horas atrás`;
-                              return date.toLocaleDateString();
+                              if (diff < 604800) return `${Math.floor(diff / 86400)} dias atrás`;
+                              return format(date, "dd MMM yyyy", { locale: ptBR });
                             } catch (e) { return "Recentemente"; }
-                          })() : "Hoje"}
+                          })() : "Recentemente"}
                         </p>
                       </div>
                     </div>
@@ -5535,6 +5604,8 @@ const Admin = () => {
                     member={viewingMember} 
                     isDark={isDarkMode}
                     notifications={notifications}
+                    logs={logs}
+                    agenda={agenda}
                     onBack={() => setViewingMember(null)}
                     onEdit={(canEditProfiles || viewingMember.email === user?.email) ? () => {
                       setSelectedItem(viewingMember);
