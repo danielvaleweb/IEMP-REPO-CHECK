@@ -237,12 +237,14 @@ function CalendarView({
   onViewEvent, 
   onEditEvent, 
   onDeleteEvent,
+  onNotifyOrganizer,
   isDark,
   canEdit = false,
   canDelete = false,
   canCreateDirectly = true,
   canRequestDate = true,
   onRequestDate,
+  canNotify = false,
   modalTitle = "Compromissos do Dia",
   emptyMessage = "Nenhum evento cadastrado para este dia.",
   newEventButtonLabel = "Cadastrar novo evento",
@@ -253,12 +255,14 @@ function CalendarView({
   onViewEvent: (item: any) => void, 
   onEditEvent: (item: any) => void, 
   onDeleteEvent: (item: any) => void,
+  onNotifyOrganizer?: (item: any) => void,
   isDark?: boolean,
   canEdit?: boolean,
   canDelete?: boolean,
   canCreateDirectly?: boolean,
   canRequestDate?: boolean,
   onRequestDate?: (date: Date) => void,
+  canNotify?: boolean,
   modalTitle?: string,
   emptyMessage?: string,
   newEventButtonLabel?: string,
@@ -422,9 +426,25 @@ function CalendarView({
                       <div>
                         <div className="flex items-center justify-between gap-2">
                           <h4 className="font-black text-xl leading-tight uppercase tracking-tight">{event.title}</h4>
-                          {event.status === 'pending' && (
-                            <span className="bg-yellow-500/20 text-yellow-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shrink-0">Em Análise</span>
-                          )}
+                          <div className="flex items-center gap-1">
+                            {event.status === 'pending' && (
+                              <span className="bg-yellow-500/20 text-yellow-500 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shrink-0">Em Análise</span>
+                            )}
+                            {canNotify && onNotifyOrganizer && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="w-8 h-8 rounded-full bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onNotifyOrganizer(event);
+                                }}
+                                title="Notificar Organizador"
+                              >
+                                <WhatsAppIcon className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-3 mt-2">
                            <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
@@ -1432,6 +1452,13 @@ const Admin = () => {
            (r.name === "Mídia" && r.isLeader);
   });
   
+  const canNotifyOrganizer = isMasterAdmin || userRolesArray.some(r => 
+    r.name === "Desenvolvedor" || 
+    r.name === "Administradores" || 
+    r.name === "Secretaria" || 
+    r.name === "Secretário"
+  );
+
   const canDelete = isEffectivelyAdmin || userRolesArray.some(r => {
     const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
     return settings.permissions?.[r.name]?.delete ?? defaultEditPerm;
@@ -2222,7 +2249,14 @@ const Admin = () => {
       if (radioSubTab === "vignettes") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
       return radioTracks.filter(t => t.title?.toLowerCase().includes(query));
     }
-    if (activeTab === "membros") return members.filter(m => m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query));
+    if (activeTab === "membros" || activeTab === "visitantes") {
+      const source = activeTab === "visitantes" ? visitors : members;
+      return source.filter(m => 
+        m.name?.toLowerCase().includes(query) || 
+        m.email?.toLowerCase().includes(query) ||
+        m.phone?.includes(query)
+      );
+    }
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     if (activeTab === "agenda-direcao") return agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     return [];
@@ -2348,7 +2382,7 @@ const Admin = () => {
     try {
       let collectionName = activeTab === "eventos" ? "posts" : 
                            activeTab === "noticias" ? "blog" : 
-                           activeTab === "membros" ? "members" : 
+                           activeTab === "membros" || activeTab === "visitantes" ? "members" : 
                            activeTab === "agenda-direcao" ? "agenda-direcao" : 
                            activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : "radio-playlist") :
                            "agenda";
@@ -2683,7 +2717,7 @@ const Admin = () => {
     if (!item) return;
     const id = typeof item === 'string' ? item : (item.id || item.uid);
     const itemData = typeof item === 'object' ? item : null;
-    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : "radio-playlist") : activeTab === "membros" ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
+    const colName = collectionOverride || (activeTab === "eventos" ? "posts" : activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : "radio-playlist") : (activeTab === "membros" || activeTab === "visitantes") ? "members" : activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda");
     
     if (!id) {
       console.error('Tentativa de excluir item sem ID:', item);
@@ -2718,6 +2752,52 @@ const Admin = () => {
     // Centralizando conversa no menu lateral direito
     setActiveChatUser(member);
     setRightSidebarView("chat-active");
+  };
+
+  const handleNotifyOrganizer = (event: any) => {
+    // Prioritize organizerId over authorId
+    const targetUserId = event.organizerId || event.authorId;
+    let organizer = null;
+    
+    if (targetUserId) {
+      organizer = members.find(m => m.id === targetUserId || m.uid === targetUserId);
+    }
+    
+    // Fallback search by name if not found by ID
+    if (!organizer && event.organizer) {
+      organizer = members.find(m => (m.name || "").toLowerCase() === event.organizer.toLowerCase());
+    }
+
+    if (!organizer) {
+      alert("Organizador não encontrado na lista de membros.");
+      return;
+    }
+
+    const phone = organizer.phone || organizer.whatsapp;
+    if (!phone) {
+      alert("Organizador não possui telefone ou WhatsApp cadastrado.");
+      return;
+    }
+
+    const cleanPhone = phone.replace(/\D/g, '');
+    let dateStr = "agendada";
+    
+    try {
+      const eventDate = typeof event.date === 'string' && event.date.includes('/') && event.date.includes(' - ')
+        ? parseISO(event.date.split(' - ')[0].split('/').reverse().join('-'))
+        : (event.date?.toDate ? event.date.toDate() : new Date(event.date));
+      
+      if (eventDate && !isNaN(eventDate.getTime())) {
+        dateStr = isSameDay(eventDate, new Date()) ? "hoje" : format(eventDate, "dd/MM/yyyy");
+      }
+    } catch (e) {
+      console.error("Erro ao formatar data para notificação:", e);
+    }
+
+    const message = `Paz do Senhor *${organizer.name}*, Passando para lembrar que seu compromisso *${event.title}* do dia ${dateStr}, está marcado em nossa agenda!\n\nCaso não consiga realizar ou será cancelado, responder aqui..`;
+    const encodedText = encodeURIComponent(message);
+    const finalPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+    window.open(`https://wa.me/${finalPhone}?text=${encodedText}`, '_blank');
   };
 
   const confirmWhatsApp = (member: any, message: string) => {
@@ -5718,7 +5798,7 @@ const Admin = () => {
                                       selectedItem.type === 'agenda' ? 'agenda' :
                                       selectedItem.type === 'agenda-direcao' ? 'agenda-direcao' :
                                       activeTab === "eventos" ? "posts" : 
-                                      activeTab === "membros" ? "members" : 
+                                      activeTab === "membros" || activeTab === "visitantes" ? "members" : 
                                       activeTab === "agenda-direcao" ? "agenda-direcao" :
                                       "agenda";
                           handleDelete(selectedItem, col);
@@ -5981,6 +6061,8 @@ const Admin = () => {
                   canDelete={canDelete}
                   canCreateDirectly={canCreateEventDirectly}
                   canRequestDate={true}
+                  canNotify={canNotifyOrganizer}
+                  onNotifyOrganizer={handleNotifyOrganizer}
                   onRequestDate={(date) => {
                     setRequestFormData({ date: format(date, "yyyy-MM-dd") });
                     setIsRequestingDate(true);
@@ -6063,20 +6145,6 @@ const Admin = () => {
                   
                   <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                     <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
-                    <div className="mt-8 flex justify-center md:hidden">
-                      <Button 
-                        variant="ghost" 
-                        className="w-full h-12 rounded-2xl bg-[#BF76FF]/10 text-[#BF76FF] font-bold text-xs uppercase tracking-widest hover:bg-[#BF76FF]/20 cursor-pointer" 
-                        onClick={() => setActiveTab("agenda")}
-                      >
-                        Ver agenda completa
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="hidden md:flex justify-end">
-                    <Button variant="ghost" className="text-xs text-[#BF76FF] hover:underline" onClick={() => setActiveTab("agenda")}>
-                      Ver agenda completa
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -6099,6 +6167,8 @@ const Admin = () => {
                   isDark={isDarkMode}
                   canEdit={canEdit}
                   canDelete={canDelete}
+                  canNotify={canNotifyOrganizer}
+                  onNotifyOrganizer={handleNotifyOrganizer}
                   modalTitle="Novo Compromisso"
                   emptyMessage="Não tem compromisso agendados para hoje."
                   newEventButtonLabel="Novo Compromisso"
