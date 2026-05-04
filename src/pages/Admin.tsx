@@ -106,6 +106,15 @@ import {
   DialogFooter,
   DialogTrigger
 } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
 import { 
   collection, 
   addDoc, 
@@ -1262,6 +1271,10 @@ const Admin = () => {
   }, [activeTab]);
 
   const [showPending, setShowPending] = useState(false);
+  const [isRoleEditModalOpen, setIsRoleEditModalOpen] = useState(false);
+  const [isMemberRejectModalOpen, setIsMemberRejectModalOpen] = useState(false);
+  const [memberToProcess, setMemberToProcess] = useState<any>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
   const [showVisitors, setShowVisitors] = useState(false);
   const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
@@ -1393,6 +1406,57 @@ const Admin = () => {
       }
     } catch (error) {
       console.error("Error updating status:", error);
+    }
+  };
+
+  const [selectedRoleForEdit, setSelectedRoleForEdit] = useState("");
+
+  useEffect(() => {
+    if (memberToProcess && isRoleEditModalOpen) {
+      setSelectedRoleForEdit(memberToProcess.role || "Membro");
+    }
+  }, [memberToProcess, isRoleEditModalOpen]);
+
+  const handleUpdateMemberRole = async () => {
+    if (!memberToProcess || !selectedRoleForEdit) return;
+    try {
+      await updateDoc(doc(db, "members", memberToProcess.id), {
+        role: selectedRoleForEdit,
+        ministries: [selectedRoleForEdit],
+        updatedAt: serverTimestamp()
+      });
+      setIsRoleEditModalOpen(false);
+      setMemberToProcess(null);
+      if (logAction) {
+        logAction("update_member_role", "members", `Alterado cargo de ${memberToProcess.name} para ${selectedRoleForEdit}`, memberToProcess, { ...memberToProcess, role: selectedRoleForEdit, ministries: [selectedRoleForEdit] });
+      }
+    } catch (err) {
+      console.error("Error updating member role", err);
+    }
+  };
+
+  const handleRejectMember = async () => {
+    if (!memberToProcess) return;
+    try {
+      const reason = rejectionReason || "Sem motivo especificado.";
+      
+      // WhatsApp Logic
+      const msg = `Paz do Senhor *${memberToProcess.name}*, Seu cadastro no site foi Reprovado⛔\nMotivo: ${reason}\nFicou algum dúvida? Só responder aqui!`;
+      const phone = memberToProcess.phone?.replace(/\D/g, "");
+      window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+
+      // Delete the pending member
+      await deleteDoc(doc(db, "members", memberToProcess.id));
+      
+      setIsMemberRejectModalOpen(false);
+      setRejectionReason("");
+      setMemberToProcess(null);
+      
+      if (logAction) {
+        logAction("member_rejection", "members", `Recusado cadastro de ${memberToProcess.name}. Motivo: ${reason}`, memberToProcess);
+      }
+    } catch (err) {
+      console.error("Error rejecting member", err);
     }
   };
 
@@ -5550,6 +5614,14 @@ const Admin = () => {
                               setIsEditing(true);
                               setViewingMember(null);
                             } : undefined}
+                            onUpdateRole={(m) => {
+                              setMemberToProcess(m);
+                              setIsRoleEditModalOpen(true);
+                            }}
+                            onReject={(m) => {
+                              setMemberToProcess(m);
+                              setIsMemberRejectModalOpen(true);
+                            }}
                             onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member, "members") : undefined}
                             isDark={isDarkMode}
                             isAdmin={isAdmin}
@@ -7506,6 +7578,102 @@ const Admin = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal para Editar Cargo (Pendentes) */}
+      <Dialog open={isRoleEditModalOpen} onOpenChange={setIsRoleEditModalOpen}>
+        <DialogContent className={cn("border sm:max-w-[400px] p-0 overflow-hidden transition-colors rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
+          <div className="p-8 space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-[#BF76FF]/10 flex items-center justify-center mx-auto text-[#BF76FF]">
+                <Edit className="w-8 h-8" />
+              </div>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight mt-4">Alterar Cargo</DialogTitle>
+              <DialogDescription className="text-gray-500 font-medium">
+                Selecione o cargo correto para {memberToProcess?.name}
+              </DialogDescription>
+            </div>
+
+            <div className="space-y-4">
+              <Label className="text-[10px] uppercase font-black tracking-widest text-gray-500">Novo Cargo</Label>
+              <Select 
+                value={selectedRoleForEdit} 
+                onValueChange={setSelectedRoleForEdit}
+              >
+                <SelectTrigger className={cn("h-12 rounded-2xl border-none", isDarkMode ? "bg-white/5 text-white" : "bg-gray-100 text-black")}>
+                  <SelectValue placeholder="Selecione o cargo" />
+                </SelectTrigger>
+                <SelectContent className={cn("rounded-2xl border-none", isDarkMode ? "bg-[#222] text-white" : "bg-white text-black")}>
+                  {allRoles.map(role => (
+                    <SelectItem key={role} value={role} className="rounded-xl focus:bg-primary focus:text-white uppercase font-bold text-[10px] tracking-widest py-3 cursor-pointer">
+                      {role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="ghost" 
+                className={cn("flex-1 h-12 rounded-2xl font-bold uppercase tracking-widest text-[10px]", isDarkMode ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
+                onClick={() => setIsRoleEditModalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 h-12 rounded-2xl bg-[#BF76FF] hover:bg-[#a656f0] text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-[#BF76FF]/20"
+                onClick={handleUpdateMemberRole}
+              >
+                Salvar Alteração
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para Motivo de Recusa */}
+      <Dialog open={isMemberRejectModalOpen} onOpenChange={setIsMemberRejectModalOpen}>
+        <DialogContent className={cn("border sm:max-w-[400px] p-0 overflow-hidden transition-colors rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
+          <div className="p-8 space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto text-red-500">
+                <XCircle className="w-8 h-8" />
+              </div>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight mt-4">Recusar Cadastro</DialogTitle>
+              <DialogDescription className="text-gray-500 font-medium">
+                Por que você está recusando a solicitação de {memberToProcess?.name}?
+              </DialogDescription>
+            </div>
+
+            <div className="space-y-4">
+              <Label className="text-[10px] uppercase font-black tracking-widest text-gray-500">Motivo da Recusa</Label>
+              <Textarea 
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Ex: Seu cargo na igreja não possui permissão de Diácono..."
+                className={cn("min-h-[120px] rounded-2xl border-none focus-visible:ring-offset-0", isDarkMode ? "bg-white/5 text-white placeholder:text-white/20" : "bg-gray-100 text-black placeholder:text-gray-400")}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                variant="ghost" 
+                className={cn("flex-1 h-12 rounded-2xl font-bold uppercase tracking-widest text-[10px]", isDarkMode ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
+                onClick={() => setIsMemberRejectModalOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                className="flex-1 h-12 rounded-2xl bg-red-600 hover:bg-red-700 text-white font-black uppercase tracking-widest text-[10px] shadow-lg shadow-red-500/20"
+                onClick={handleRejectMember}
+                disabled={!rejectionReason.trim()}
+              >
+                Confirmar Recusa
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
 
       {/* Global Footer (Desktop Only) */}
@@ -7816,12 +7984,14 @@ interface TeamMemberProps {
   onViewProfile?: () => void;
   onEditProfile?: () => void;
   onDelete?: () => void;
+  onUpdateRole?: (member: any) => void;
+  onReject?: (member: any) => void;
   isDark?: boolean;
   isAdmin?: boolean;
   logAction?: (action: string, target: string, details: string, oldData?: any, newData?: any) => void;
 }
 
-function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, isDark, isAdmin, logAction }: TeamMemberProps) {
+function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, onUpdateRole, onReject, isDark, isAdmin, logAction }: TeamMemberProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const name = member.name || "Membro";
   const status = member.status_online || "offline";
@@ -7850,15 +8020,27 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
           </div>
           <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 animate-pulse", isDark ? "border-[#0a0a0a]" : "border-white", getStatusColor(status))} />
         </div>
-        <div className="cursor-pointer group" onClick={onViewProfile}>
-          <p className={cn("text-sm font-bold transition-colors group-hover:text-[#BF76FF]", isDark ? "text-white" : "text-black")}>{name}</p>
-          <p className="text-[10px] text-gray-500">{formatRoles(member)}</p>
+        <div className="flex flex-col">
+          <div className="cursor-pointer group" onClick={onViewProfile}>
+            <p className={cn("text-sm font-bold transition-colors group-hover:text-[#BF76FF]", isDark ? "text-white" : "text-black")}>{name}</p>
+          </div>
+          {isPending ? (
+            <button 
+              onClick={() => onUpdateRole?.(member)}
+              className="text-[10px] text-[#BF76FF] font-bold hover:underline flex items-center gap-1 mt-0.5 uppercase tracking-widest text-left"
+            >
+              {formatRoles(member)}
+              <Edit className="w-2.5 h-2.5" />
+            </button>
+          ) : (
+            <p className="text-[10px] text-gray-500">{formatRoles(member)}</p>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-1.5 md:gap-2 mr-1">
         <button 
           onClick={onWhatsApp}
-          title="Chat Interno"
+          title="WhatsApp"
           className="p-2 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all cursor-pointer"
         >
           <MessageSquare className="w-4 h-4" />
@@ -7891,6 +8073,13 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
                     }
                   }
                   await updateDoc(doc(db, "members", member.id), updateData);
+                  
+                  // WhatsApp Logic
+                  const roleName = formatRoles(member);
+                  const msg = `Paz do Senhor *${member.name}*, Seu cadastro no site foi APROVADO ✅\nJá pode fazer login com seu email e senha.\nSeu cargo atualmente é *${roleName}*.\nFicou algum dúvida? Só responder aqui...`;
+                  const phone = member.phone?.replace(/\D/g, "");
+                  window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
+
                   confetti({
                     particleCount: 150,
                     spread: 70,
@@ -7913,7 +8102,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
             <button
               onClick={(e) => {
                 e.stopPropagation();
-                if (onDelete) onDelete();
+                if (onReject) onReject(member);
               }}
               title="Recusar Cadastro"
               className="px-4 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer flex items-center justify-center gap-2 font-bold text-xs uppercase tracking-tight"
