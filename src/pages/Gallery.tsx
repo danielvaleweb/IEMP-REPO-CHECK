@@ -639,39 +639,36 @@ export default function Gallery() {
 
                             <AnimatePresence>
                               {sharingPhotoUrl === photo && (
-                                <div 
+                                <motion.div
+                                  key={`share-menu-mobile-${photo}`}
                                   ref={shareMenuRef}
-                                  className="absolute bottom-full mb-3 right-0 z-50"
+                                  initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                                  className="absolute bottom-full mb-3 right-0 bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl z-50 min-w-[140px]"
                                 >
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                    className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl min-w-[140px]"
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      shareToWhatsApp(photo);
+                                    }}
+                                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
                                   >
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        shareToWhatsApp(photo);
-                                      }}
-                                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                    >
-                                      <MessageCircle className="w-3.5 h-3.5 text-green-500" />
-                                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
-                                    </button>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        copyToClipboard(photo);
-                                      }}
-                                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                    >
-                                      <Copy className="w-3.5 h-3.5 text-blue-500" />
-                                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
-                                    </button>
-                                    <div className="absolute -bottom-1.5 right-4 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
-                                  </motion.div>
-                                </div>
+                                    <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      copyToClipboard(photo);
+                                    }}
+                                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                                  >
+                                    <Copy className="w-3.5 h-3.5 text-blue-500" />
+                                    <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                                  </button>
+                                  <div className="absolute -bottom-1.5 right-4 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
+                                </motion.div>
                               )}
                             </AnimatePresence>
                           </div>
@@ -782,39 +779,36 @@ export default function Gallery() {
 
                                 <AnimatePresence>
                                   {sharingPhotoUrl === photo && (
-                                    <div 
+                                    <motion.div
+                                      key={`share-menu-grid-${photo}`}
                                       ref={shareMenuRef}
-                                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 z-50"
+                                      initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl z-50 min-w-[140px]"
                                     >
-                                      <motion.div
-                                        initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                                        exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                        className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl min-w-[140px]"
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          shareToWhatsApp(photo);
+                                        }}
+                                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
                                       >
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            shareToWhatsApp(photo);
-                                          }}
-                                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                        >
-                                          <MessageCircle className="w-3.5 h-3.5 text-green-500" />
-                                          <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
-                                        </button>
-                                        <button
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            copyToClipboard(photo);
-                                          }}
-                                          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                        >
-                                          <Copy className="w-3.5 h-3.5 text-blue-500" />
-                                          <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
-                                        </button>
-                                        <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
-                                      </motion.div>
-                                    </div>
+                                        <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          copyToClipboard(photo);
+                                        }}
+                                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                                      >
+                                        <Copy className="w-3.5 h-3.5 text-blue-500" />
+                                        <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                                      </button>
+                                      <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
+                                    </motion.div>
                                   )}
                                 </AnimatePresence>
                               </div>
@@ -1067,33 +1061,30 @@ export default function Gallery() {
 
                   <AnimatePresence>
                     {sharingPhotoUrl === visiblePhotos[selectedPhotoIndex] && (
-                      <div 
+                      <motion.div
+                        key={`share-menu-lightbox-${visiblePhotos[selectedPhotoIndex]}`}
                         ref={shareMenuRef}
-                        className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 z-50"
+                        initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                        className="absolute bottom-full mb-4 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-2xl z-50 min-w-[160px]"
                       >
-                        <motion.div
-                          initial={{ opacity: 0, scale: 0.9, y: 10 }}
-                          animate={{ opacity: 1, scale: 1, y: 0 }}
-                          exit={{ opacity: 0, scale: 0.9, y: 10 }}
-                          className="bg-[#1a1a1a] border border-white/10 rounded-2xl p-2 flex flex-col gap-1 shadow-2xl min-w-[160px]"
+                        <button
+                          onClick={() => shareToWhatsApp(visiblePhotos[selectedPhotoIndex])}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left"
                         >
-                          <button
-                            onClick={() => shareToWhatsApp(visiblePhotos[selectedPhotoIndex])}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left"
-                          >
-                            <MessageCircle className="w-4 h-4 text-green-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
-                          </button>
-                          <button
-                            onClick={() => copyToClipboard(visiblePhotos[selectedPhotoIndex])}
-                            className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left"
-                          >
-                            <Copy className="w-4 h-4 text-blue-500" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
-                          </button>
-                          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-transparent border-t-[#1a1a1a]" />
-                        </motion.div>
-                      </div>
+                          <MessageCircle className="w-4 h-4 text-green-500" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                        </button>
+                        <button
+                          onClick={() => copyToClipboard(visiblePhotos[selectedPhotoIndex])}
+                          className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-colors text-left"
+                        >
+                          <Copy className="w-4 h-4 text-blue-500" />
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                        </button>
+                        <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-l-8 border-r-8 border-t-8 border-transparent border-t-[#1a1a1a]" />
+                      </motion.div>
                     )}
                   </AnimatePresence>
                 </div>

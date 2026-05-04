@@ -1442,7 +1442,7 @@ const Admin = () => {
     "Secretaria", 
     "Desenvolvedor", 
     "Mídia", 
-    "Diácuno", 
+    "Diacono/Diaconisa", 
     "Minis. infantil", 
     "Minis. louvor", 
     "Minis. Jovens",
