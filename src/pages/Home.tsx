@@ -284,9 +284,16 @@ export default function Home() {
               neighborhood: data.neighborhood || "",
               rating: "5.0", // Fixed rating instead of random to look more professional
               gallery: data.gallery || [],
-              typeEvent: data.typeEvent || "evento"
+              typeEvent: data.typeEvent || "evento",
+              menuSource: data.menuSource,
+              status: data.status
             };
-          }).filter(e => e.title && e.title.trim() !== "");
+          }).filter(e => 
+            e.title && 
+            e.title.trim() !== "" && 
+            e.menuSource !== "agenda" && 
+            e.status !== "pending"
+          );
 
           localStorage.setItem(cacheKey, JSON.stringify(allEvents));
           localStorage.setItem(cacheTimeKey, Date.now().toString());

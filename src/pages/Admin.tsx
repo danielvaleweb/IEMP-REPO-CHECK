@@ -2377,6 +2377,19 @@ const Admin = () => {
       };
 
       let dataToSave = sanitizeData(formData);
+      
+      // Mark origin menu - Priority: Existing source > Item Type > Active Tab
+      const effectiveSource = selectedItem?.menuSource || 
+                              (selectedItem?.type === 'post' ? 'eventos' : 
+                               selectedItem?.type === 'agenda' ? 'agenda' : 
+                               (activeTab === "eventos" ? "eventos" : activeTab === "agenda" ? "agenda" : undefined));
+      
+      if (effectiveSource !== undefined) {
+        dataToSave.menuSource = effectiveSource;
+      }
+      dataToSave.updatedAt = serverTimestamp();
+      dataToSave.authorId = user?.uid;
+      dataToSave.organization = formData.organization || (profile?.ministerio ? profile.ministerio : null);
 
       // Identify newly added members to notify via chat
       const currentInvited = formData.invitedMembers || [];
@@ -2386,12 +2399,6 @@ const Admin = () => {
       // Merge address fields into location string if they exist
       if (formData.street || formData.city) {
         const streetNum = formData.street ? (formData.streetNumber ? `${formData.street}, ${formData.streetNumber}` : formData.street) : "";
-        const parts = [
-          streetNum,
-          formData.neighborhood,
-          formData.city,
-          formData.state
-        ].filter(Boolean);
         
         // Custom format: "Street, Num - Neighborhood, City - UF"
         let formattedLocation = streetNum;
@@ -2622,7 +2629,8 @@ const Admin = () => {
           originalDate: p.date,
           location: p.location || "Ver evento",
           description: p.content || p.bio || "",
-          type: 'post'
+          type: 'post',
+          status: p.status || 'approved'
         };
       });
     const fromAgenda = agenda.map(a => ({ ...a, type: 'agenda' }));
@@ -6982,6 +6990,7 @@ const Admin = () => {
                       phone: requestFormData.phone || "",
                       observations: requestFormData.observations || "",
                       status: "pending",
+                      menuSource: "agenda",
                       authorId: profile?.id || user?.uid || "",
                       authorName: profile?.name || "Membro",
                       createdAt: serverTimestamp(),
@@ -8099,6 +8108,9 @@ function ListItem({ title, subtitle, image, icon: Icon, active, status, onClick 
 function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) {
   const upcoming = agenda
     .filter(item => {
+      // Filter out pending items
+      if (item.status === 'pending') return false;
+      
       try {
         return isAfter(new Date(item.date), subDays(new Date(), 1));
       } catch (e) {
