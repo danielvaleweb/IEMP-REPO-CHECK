@@ -76,7 +76,8 @@ import {
   Radio,
   Music,
   HardDrive,
-  Key
+  Key,
+  LifeBuoy
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -2736,6 +2737,14 @@ const Admin = () => {
                 <span className="text-white">Logar como Visitante</span>
               </Button>
 
+              <Button 
+                className="w-full h-16 bg-white/5 hover:bg-white/10 text-white rounded-2xl text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4 border border-white/10"
+                onClick={() => window.open('https://wa.me/5532998288650?text=Olá,%20preciso%20de%20suporte%20no%20painel%20administrativo.', '_blank')}
+              >
+                <LifeBuoy className="w-5 h-5 text-[#BF76FF]" />
+                <span className="text-white">Suporte Técnico</span>
+              </Button>
+
 
 
               <div className="text-center mt-10">
@@ -2815,7 +2824,12 @@ const Admin = () => {
 
               <div className="mt-8 text-center space-y-4">
                 <p className="text-sm font-medium text-white">
-                  Esqueceu a senha? <button className="text-[#BF76FF] hover:underline transition-colors cursor-pointer">clique aqui</button>
+                  Esqueceu a senha? <button 
+                    onClick={() => window.open('https://wa.me/5532998288650?text=Esqueci%20minha%20senha,%20preciso%20de%20ajuda!', '_blank')}
+                    className="text-[#BF76FF] hover:underline transition-colors cursor-pointer"
+                  >
+                    clique aqui
+                  </button>
                 </p>
                 <p className="text-sm font-medium text-white">
                   Não tem uma conta? <button onClick={() => { setIsSignUpMode(true); setAuthError(""); }} className="text-[#BF76FF] hover:underline transition-colors cursor-pointer">Cadastre-se</button>
