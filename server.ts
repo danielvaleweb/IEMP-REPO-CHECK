@@ -461,10 +461,11 @@ async function startServer() {
     // SPA Fallback
     app.get("*", (req, res) => {
       const indexPath = path.join(distPath, "index.html");
+      console.log(`[Server] Searching for index.html at: ${indexPath}`);
       if (fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
       } else {
-        res.status(404).send("Build artifacts not found. Please run npm run build.");
+        res.status(404).send(`Build artifacts not found in ${distPath}. Please run npm run build.`);
       }
     });
   }

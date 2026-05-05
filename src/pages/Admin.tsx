@@ -1092,8 +1092,14 @@ const Admin = () => {
 
   const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
     const savedVisible = localStorage.getItem('admin_visible_tabs');
-    if (savedVisible) return JSON.parse(savedVisible);
-    return ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio'];
+    let tabs = ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio'];
+    
+    if (savedVisible) {
+      const parsed = JSON.parse(savedVisible);
+      return parsed.filter((t: string) => t !== 'gerador-arte');
+    }
+    
+    return tabs;
   });
 
   const sensors = useSensors(
@@ -1733,9 +1739,14 @@ const Admin = () => {
     "Desenvolvedor", 
     "Mídia", 
     "Diacono/Diaconisa", 
+    "Obreiro",
     "Minis. infantil", 
     "Minis. louvor", 
     "Minis. Jovens",
+    "Coord. Mulheres",
+    "Coord. Coreografia",
+    "Coord. Vist. Hospitalar",
+    "Recepcionista",
     "Visitante",
     "Membro"
   ], []);
@@ -3433,6 +3444,9 @@ const Admin = () => {
                         active={activeTab === item.id} 
                         onClick={() => {
                           setActiveTab(item.id);
+                          setIsEditing(false);
+                          setSelectedItem(null);
+                          setViewingMember(null);
                           if (item.id === "membros") setShowPending(false);
                         }} 
                         label={item.label} 
@@ -3512,14 +3526,14 @@ const Admin = () => {
               <div className="absolute top-0 right-4 -translate-y-full mb-1">
                 <span className="text-[8px] font-black text-[#BF76FF]/40 uppercase tracking-widest bg-[#BF76FF]/5 px-2 py-0.5 rounded-full border border-[#BF76FF]/10">V1.0</span>
               </div>
-              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
+              {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               <SidebarItem 
                 icon={MessageSquare} 
                 active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} 

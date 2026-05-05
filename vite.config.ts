@@ -22,9 +22,12 @@ export default defineConfig(({mode}) => {
     },
     build: {
       outDir: 'dist',
-      manifest: true,
-      sourcemap: false,
-      emptyOutDir: true
+      emptyOutDir: true,
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+        },
+      },
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.

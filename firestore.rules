@@ -120,6 +120,12 @@ service cloud.firestore {
              data.status in ['pending', 'removed', 'kept'];
     }
 
+    function isValidAvisoTemplate(data) {
+      return data.keys().hasAll(['type', 'title', 'description', 'format', 'bgColor']) &&
+             data.type is string && data.title is string && data.description is string &&
+             data.format in ['square', 'story'] && data.bgColor is string;
+    }
+
     // --- Collection Rules ---
 
     match /test/connection {
@@ -269,6 +275,12 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && isValidPhotoRemoval(incoming());
       allow update, delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /aviso-templates/{templateId} {
+      allow read: if isMasterAdmin() || isLeader() || isAdmin();
+      allow create, update: if (isMasterAdmin() || isLeader() || isAdmin()) && isValidAvisoTemplate(incoming());
+      allow delete: if isMasterAdmin() || isLeader() || isAdmin();
     }
 
     // Default deny

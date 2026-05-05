@@ -195,9 +195,29 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["photoUrl", "albumId", "requestedBy", "status"]
+    },
+    "AvisoTemplate": {
+      "title": "AvisoTemplate",
+      "description": "Modelos de avisos para geração de imagens",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "title": { "type": "string" },
+        "subtitle": { "type": "string" },
+        "description": { "type": "string" },
+        "format": { "type": "string", "enum": ["square", "story"] },
+        "bgColor": { "type": "string" },
+        "authorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["type", "title", "description", "format", "bgColor"]
     }
   },
   "firestore": {
+    "/aviso-templates/{templateId}": {
+      "schema": "AvisoTemplate",
+      "description": "Modelos salvos do gerador de avisos"
+    },
     "/radio-playlist/{trackId}": {
       "schema": "RadioTrack",
       "description": "Lista de reprodução da rádio"
