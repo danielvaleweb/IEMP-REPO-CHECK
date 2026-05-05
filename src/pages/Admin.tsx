@@ -601,19 +601,6 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
           <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6 w-full md:w-auto">
               <div className="relative">
-                {isBirthdayToday && (
-                  <div className="absolute -top-6 -right-4 z-20 drop-shadow-lg transform rotate-[15deg]">
-                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L4 18H20L12 2Z" fill="#FFC107"/>
-                        <path d="M12 2L4 18H20L12 2Z" stroke="#FF9800" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                        <circle cx="12" cy="2" r="2" fill="#F44336"/>
-                        <circle cx="6" cy="18" r="1.5" fill="#2196F3"/>
-                        <circle cx="10" cy="18" r="1.5" fill="#4CAF50"/>
-                        <circle cx="14" cy="18" r="1.5" fill="#E91E63"/>
-                        <circle cx="18" cy="18" r="1.5" fill="#9C27B0"/>
-                    </svg>
-                  </div>
-                )}
                 <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-8 border-[#111] bg-[#1a1a1a] overflow-hidden shadow-2xl relative z-10">
                   {member.photoURL ? (
                     <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
@@ -702,9 +689,6 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
                       <CandleIcon isDark={isDark} />
                     ) : (
                       <stat.icon className={cn("w-5 h-5", stat.color)} />
-                    )}
-                    {stat.label === "Aniversário" && isBirthdayToday && (
-                      <Cake className="w-8 h-8 absolute -top-1 -right-1 text-pink-500/20 rotate-12" />
                     )}
                   </div>
                   <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
@@ -1981,7 +1965,8 @@ const Admin = () => {
     churchRole: "", 
     phone: "",
     password: "",
-    confirmPassword: ""
+    confirmPassword: "",
+    profession: ""
   });
   
   // Form States
@@ -3202,6 +3187,16 @@ const Admin = () => {
                   </select>
                 </div>
 
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sua Profissão / Serviço</label>
+                  <Input 
+                    className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                    placeholder="Pedreiro, Design Gráfico, Contador..."
+                    value={signUpData.profession}
+                    onChange={(e) => setSignUpData({...signUpData, profession: e.target.value})}
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Senha</label>
@@ -3256,6 +3251,7 @@ const Admin = () => {
                       phone: signUpData.phone,
                       birthDate: signUpData.birthDate,
                       churchRole: signUpData.churchRole,
+                      profession: signUpData.profession,
                       role: "Membro", // Forcing Member role for all signups that require approval
                       status: "pending" // All signups now require approval as per request
                     };
@@ -3270,7 +3266,7 @@ const Admin = () => {
                     navigate("/solicitacao");
 
                     setIsSignUpMode(false);
-                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Membro", churchRole: "", phone: "", password: "", confirmPassword: "" });
+                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Membro", churchRole: "", phone: "", profession: "", password: "", confirmPassword: "" });
 
                   } catch (error: any) {
                     setIsSubmitting(false);
@@ -5619,6 +5615,76 @@ const Admin = () => {
                           onChange={(e) => setFormData({...formData, bio: e.target.value})}
                           readOnly={isReadOnly}
                         />
+                      </div>
+
+                      <div className="pt-6 border-t border-white/10 mt-8 space-y-6">
+                        <h4 className={cn("text-lg font-black uppercase tracking-widest", isDarkMode ? "text-white" : "text-black")}>Área Profissional / Serviços</h4>
+                        <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Estas informações aparecerão na página de /servicos</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Profissão / Serviço Oferecido</label>
+                            <Input 
+                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                              placeholder="Ex: Pedreiro, Contador, Design Gráfico..."
+                              value={formData.profession || ""}
+                              onChange={(e) => setFormData({...formData, profession: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Logo da Empresa (URL)</label>
+                            <Input 
+                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                              placeholder="https://exemplo.com/logo.jpg"
+                              value={formData.companyLogo || ""}
+                              onChange={(e) => setFormData({...formData, companyLogo: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Empresa (opcional)</label>
+                            <Input 
+                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                              placeholder="Ex: Construtora Silva"
+                              value={formData.companyName || ""}
+                              onChange={(e) => setFormData({...formData, companyName: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Profissional (com DDD)</label>
+                            <Input 
+                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                              placeholder="Ex: 11999999999"
+                              value={formData.servicePhone || ""}
+                              onChange={(e) => setFormData({...formData, servicePhone: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Endereço de Atendimento / Empresa</label>
+                          <Input 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Rua, Número, Bairro, Cidade - UF"
+                            value={formData.serviceAddress || ""}
+                            onChange={(e) => setFormData({...formData, serviceAddress: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Descrição do Serviço</label>
+                          <Textarea 
+                            className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Descreva detalhadamente os serviços que você oferece..."
+                            value={formData.serviceDescription || ""}
+                            onChange={(e) => setFormData({...formData, serviceDescription: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
                       </div>
                     </div>
                   )}

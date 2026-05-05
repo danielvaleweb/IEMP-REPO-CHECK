@@ -40,6 +40,7 @@ const menuGroups = [
       { name: "Quem Somos", path: "/quem-somos" },
       { name: "Discipulado", path: "/discipulado" },
       { name: "EBD", path: "/ebd" },
+      { name: "Serviços", path: "/servicos" },
     ]
   },
   {
