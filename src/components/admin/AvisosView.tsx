@@ -103,7 +103,7 @@ Instruções de tom (Variações):
 Escreva apenas a mensagem final pronta para copiar e colar no WhatsApp, use negrito nas palavras chave (ex: *Data*).`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-preview",
+        model: "gemini-3-flash-preview",
         contents: prompt
       });
       setGeneratedText(response.text?.trim() || "");
@@ -135,12 +135,11 @@ Descrição do usuário: ${bgRef}.
 Estilo: ${styleInstruction}`;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-flash-image-preview',
+        model: 'gemini-2.5-flash-image',
         contents: { parts: [{ text: prompt }] },
         config: {
           imageConfig: {
-            aspectRatio: formatType === "square" ? "1:1" : "9:16",
-            imageSize: "1K"
+            aspectRatio: formatType === "square" ? "1:1" : "9:16"
           }
         }
       });
