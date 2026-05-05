@@ -1000,8 +1000,8 @@ const Admin = () => {
       return;
     }
     const phoneDigits = guestData.phone.replace(/[^\d]/g, '');
-    if (phoneDigits.length < 11) {
-      setGuestError("Por favor, insira um telefone válido com DDD.");
+    if (phoneDigits.length < 10) {
+      setGuestError("Por favor, informe seu WhatsApp incluindo o DDD.");
       return;
     }
     
@@ -3212,8 +3212,14 @@ const Admin = () => {
                 disabled={isSubmitting}
                 onClick={async () => {
                   setAuthError("");
-                  if (!signUpData.firstName || !signUpData.email || !signUpData.password) {
-                    setAuthError("Por favor, preencha nome, e-mail e senha.");
+                  if (!signUpData.firstName || !signUpData.lastName || !signUpData.email || !signUpData.password || !signUpData.birthDate || !signUpData.phone || !signUpData.churchRole) {
+                    setAuthError("Por favor, preencha todos os campos corretamente, incluindo seu WhatsApp, Nome completo, Cargo, E-mail e Data de Nascimento.");
+                    return;
+                  }
+
+                  const phoneDigits = signUpData.phone.replace(/[^\d]/g, '');
+                  if (phoneDigits.length < 10) {
+                    setAuthError("Por favor, informe seu WhatsApp incluindo o DDD.");
                     return;
                   }
                   
