@@ -600,14 +600,29 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
           
           <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 flex flex-col md:flex-row items-center md:items-end justify-between gap-6">
             <div className="flex flex-col md:flex-row items-center md:items-end gap-6 w-full md:w-auto">
-              <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-8 border-[#111] bg-[#1a1a1a] overflow-hidden shadow-2xl relative z-10">
-                {member.photoURL ? (
-                  <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-[#BF76FF]">
-                    {member.name?.[0] || "M"}
+              <div className="relative">
+                {isBirthdayToday && (
+                  <div className="absolute -top-6 -right-4 z-20 drop-shadow-lg transform rotate-[15deg]">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L4 18H20L12 2Z" fill="#FFC107"/>
+                        <path d="M12 2L4 18H20L12 2Z" stroke="#FF9800" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <circle cx="12" cy="2" r="2" fill="#F44336"/>
+                        <circle cx="6" cy="18" r="1.5" fill="#2196F3"/>
+                        <circle cx="10" cy="18" r="1.5" fill="#4CAF50"/>
+                        <circle cx="14" cy="18" r="1.5" fill="#E91E63"/>
+                        <circle cx="18" cy="18" r="1.5" fill="#9C27B0"/>
+                    </svg>
                   </div>
                 )}
+                <div className="w-32 h-32 md:w-40 md:h-40 rounded-full border-8 border-[#111] bg-[#1a1a1a] overflow-hidden shadow-2xl relative z-10">
+                  {member.photoURL ? (
+                    <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-[#BF76FF]">
+                      {member.name?.[0] || "M"}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="text-center md:text-left pb-2">
                 <h2 className={cn("text-3xl md:text-5xl font-black tracking-tighter transition-colors", isDark ? "text-white" : "text-black")}>
@@ -2154,7 +2169,9 @@ const Admin = () => {
     }, (err) => console.error("Error loading blog:", err));
 
     const unsubMembers = onSnapshot(query(collection(db, "members"), limit(200)), (snap) => {
-      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setMembers(data);
     }, (err) => console.error("Error loading members:", err));
 
     const unsubAgenda = onSnapshot(query(collection(db, "agenda"), orderBy("date", "asc"), limit(200)), (snap) => {
@@ -6157,14 +6174,101 @@ const Admin = () => {
                   </div>
                 )}
 
-                {/* Section: Próximos Eventos */}
-                <div className="space-y-6 md:space-y-8 mt-8">
-                  <div className="flex items-center justify-between">
-                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda Geral</h4>
+                {/* Section: Aniversariantes da Semana e Próximos Eventos */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+                  <div className="lg:col-span-2 space-y-6 md:space-y-8">
+                    <div className="flex items-center justify-between">
+                      <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda Geral</h4>
+                    </div>
+                    
+                    <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                      <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
+                    </div>
                   </div>
-                  
-                  <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
+
+                  <div className="lg:col-span-1 space-y-6 md:space-y-8">
+                    <div className="flex items-center justify-between">
+                      <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors flex items-center gap-2", isDarkMode ? "text-white" : "text-black")}>
+                        <PartyPopper className="w-6 h-6 text-[#BF76FF]" />
+                        Aniversariantes
+                      </h4>
+                    </div>
+                    
+                    <div className={cn("border rounded-[32px] p-6 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                        {(() => {
+                           const now = new Date();
+                           const start = startOfWeek(now, { weekStartsOn: 0 }); // Sunday
+                           start.setHours(0, 0, 0, 0);
+                           const end = endOfWeek(now, { weekStartsOn: 0 }); // Saturday
+                           end.setHours(23, 59, 59, 999);
+                           
+                           const weekBirthdays = members.filter(m => {
+                               if (!m.birthDate || m.status === 'pending' || m.status === 'visitor_session') return false;
+                               try {
+                                   const birth = parseISO(m.birthDate);
+                                   const currentBirthday = new Date(now.getFullYear(), birth.getMonth(), birth.getDate());
+                                   return currentBirthday >= start && currentBirthday <= end;
+                               } catch (e) { return false; }
+                           }).sort((a, b) => {
+                               const dateA = new Date(now.getFullYear(), parseISO(a.birthDate).getMonth(), parseISO(a.birthDate).getDate());
+                               const dateB = new Date(now.getFullYear(), parseISO(b.birthDate).getMonth(), parseISO(b.birthDate).getDate());
+                               return dateA.getTime() - dateB.getTime();
+                           });
+
+                           if (weekBirthdays.length === 0) {
+                               return (
+                                   <div className="text-center py-8 text-gray-500 text-sm">
+                                       Nenhum aniversariante nesta semana.
+                                   </div>
+                               );
+                           }
+
+                           return (
+                               <div className="space-y-4">
+                                  {weekBirthdays.map(m => {
+                                      const isToday = (() => {
+                                          const birth = parseISO(m.birthDate);
+                                          return birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth();
+                                      })();
+                                      return (
+                                          <div key={m.id} className={cn("flex items-center gap-4 p-3 rounded-2xl transition-colors cursor-pointer", isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5")} onClick={() => { setActiveTab("membros"); setViewingMember(m); }}>
+                                              <div className="relative">
+                                                  {isToday && (
+                                                      <div className="absolute -top-3 -right-2 z-10 drop-shadow-md transform rotate-[15deg]">
+                                                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                              <path d="M12 2L4 18H20L12 2Z" fill="#FFC107"/>
+                                                              <path d="M12 2L4 18H20L12 2Z" stroke="#FF9800" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                                                              <circle cx="12" cy="2" r="2" fill="#F44336"/>
+                                                              <circle cx="6" cy="18" r="1.5" fill="#2196F3"/>
+                                                              <circle cx="10" cy="18" r="1.5" fill="#4CAF50"/>
+                                                              <circle cx="14" cy="18" r="1.5" fill="#E91E63"/>
+                                                              <circle cx="18" cy="18" r="1.5" fill="#9C27B0"/>
+                                                          </svg>
+                                                      </div>
+                                                  )}
+                                                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#BF76FF] to-[#7300FF] p-[2px]">
+                                                      <div className={cn("w-full h-full rounded-full overflow-hidden flex items-center justify-center", isDarkMode ? "bg-black" : "bg-white")}>
+                                                          {m.photoURL ? (
+                                                              <img src={m.photoURL} alt={m.name} className="w-full h-full object-cover" />
+                                                          ) : (
+                                                              <User className={cn("w-6 h-6", isDarkMode ? "text-gray-400" : "text-gray-300")} />
+                                                          )}
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                              <div className="flex-1 min-w-0">
+                                                  <p className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name}</p>
+                                                  <p className="text-xs text-[#BF76FF] font-medium">
+                                                      {isToday ? "É hoje! 🎉" : format(parseISO(m.birthDate), "dd 'de' MMMM", { locale: ptBR })}
+                                                  </p>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                               </div>
+                           );
+                        })()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -7297,7 +7401,14 @@ const Admin = () => {
                     return (
                       <>
                         {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
-                          const roleMembers = groupedMembers.get(role) || [];
+                          let roleMembers = groupedMembers.get(role) || [];
+                          roleMembers.sort((a, b) => {
+                            const isLeaderA = (a.ministries || []).some((min: any) => typeof min === 'object' && min.name === role && min.isLeader) || a.role === "Administradores" || a.role === "Desenvolvedor";
+                            const isLeaderB = (b.ministries || []).some((min: any) => typeof min === 'object' && min.name === role && min.isLeader) || b.role === "Administradores" || b.role === "Desenvolvedor";
+                            if (isLeaderA && !isLeaderB) return -1;
+                            if (!isLeaderA && isLeaderB) return 1;
+                            return (a.name || "").localeCompare(b.name || "");
+                          });
                           if (roleMembers.length === 0 && rightSidebarSearch) return null;
                           const isCollapsed = collapsedTeamCategories[role] || false;
                           
@@ -8319,6 +8430,15 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
   const status = member.status_online || "offline";
   const isPending = member.status === "pending" || member.status === "pending_approval";
 
+  const isBirthdayToday = (() => {
+    if (!member.birthDate) return false;
+    try {
+      const birth = parseISO(member.birthDate);
+      const now = new Date();
+      return birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth();
+    } catch (e) { return false; }
+  })();
+
   const getStatusColor = (s: string) => {
     switch (s) {
       case "online": return "bg-green-500";
@@ -8328,23 +8448,42 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
     }
   };
 
+  const isGlobalAdmin = member.role === "Administradores" || member.role === "Desenvolvedor";
+  const isLeader = isGlobalAdmin || (member.ministries || []).some((min: any) => typeof min === 'object' && min.isLeader);
+
   return (
     <div className={cn("flex flex-col", isPending ? "gap-4" : "gap-0")}>
       <div className="flex items-center justify-between w-full">
         <div className="flex items-center gap-3">
         <div className="relative">
+          {isBirthdayToday && (
+              <div className="absolute -top-3 -right-2 z-20 drop-shadow-md transform rotate-[15deg]">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2L4 18H20L12 2Z" fill="#FFC107"/>
+                      <path d="M12 2L4 18H20L12 2Z" stroke="#FF9800" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      <circle cx="12" cy="2" r="2" fill="#F44336"/>
+                      <circle cx="6" cy="18" r="1.5" fill="#2196F3"/>
+                      <circle cx="10" cy="18" r="1.5" fill="#4CAF50"/>
+                      <circle cx="14" cy="18" r="1.5" fill="#E91E63"/>
+                      <circle cx="18" cy="18" r="1.5" fill="#9C27B0"/>
+                  </svg>
+              </div>
+          )}
           <div className={cn("w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold transition-colors overflow-hidden", isDark ? "bg-gradient-to-tr from-gray-700 to-gray-800 text-white" : "bg-gray-200 text-black")}>
             {member.photoURL ? (
               <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
             ) : (
-              name[0]
+              name?.[0]
             )}
           </div>
           <div className={cn("absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 animate-pulse", isDark ? "border-[#0a0a0a]" : "border-white", getStatusColor(status))} />
         </div>
         <div className="flex flex-col">
-          <div className="cursor-pointer group" onClick={onViewProfile}>
+          <div className="cursor-pointer group flex items-center gap-2" onClick={onViewProfile}>
             <p className={cn("text-sm font-bold transition-colors group-hover:text-[#BF76FF]", isDark ? "text-white" : "text-black")}>{name}</p>
+            {isLeader && (
+               <span className="text-[8px] font-black uppercase tracking-widest text-white bg-gradient-to-r from-[#BF76FF] to-[#7300FF] px-1.5 py-0.5 rounded-sm">Líder</span>
+            )}
           </div>
           {isPending ? (
             <button 

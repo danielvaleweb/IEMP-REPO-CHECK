@@ -71,7 +71,9 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
     // Buscar Usuarios
     const fetchUsers = async () => {
       const snap = await getDocs(query(collection(db, "members")));
-      setMembers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
+      data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+      setMembers(data);
     };
     fetchUsers();
 
