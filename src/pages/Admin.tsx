@@ -6235,7 +6235,7 @@ const Admin = () => {
                                               <div className="relative">
                                                   {isToday && (
                                                       <div className="absolute -top-3 -right-2 z-10 drop-shadow-md transform rotate-[15deg]">
-                                                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-4 ml-1">
                                                               <path d="M12 2L4 18H20L12 2Z" fill="#FFC107"/>
                                                               <path d="M12 2L4 18H20L12 2Z" stroke="#FF9800" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                                                               <circle cx="12" cy="2" r="2" fill="#F44336"/>
@@ -8458,7 +8458,7 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
         <div className="relative">
           {isBirthdayToday && (
               <div className="absolute -top-3 -right-2 z-20 drop-shadow-md transform rotate-[15deg]">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-[15px] mt-1 ml-0 pl-0">
                       <path d="M12 2L4 18H20L12 2Z" fill="#FFC107"/>
                       <path d="M12 2L4 18H20L12 2Z" stroke="#FF9800" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       <circle cx="12" cy="2" r="2" fill="#F44336"/>
