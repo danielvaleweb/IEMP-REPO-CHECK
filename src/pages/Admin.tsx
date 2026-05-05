@@ -1507,6 +1507,9 @@ const Admin = () => {
     }
   }, [user, profile, isGuest, navigate]);
 
+  const [syntheticReadIds, setSyntheticReadIds] = useState<string[]>([]);
+  const [syntheticClearedIds, setSyntheticClearedIds] = useState<string[]>([]);
+
   // Notifications Filtering Logic
   const displayNotifications = useMemo(() => {
     let dsNotifs = notifications.filter(n => {
@@ -1531,27 +1534,35 @@ const Admin = () => {
       try {
         const birth = parseISO(m.birthDate);
         if (birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth()) {
-          dsNotifs.unshift({
-            id: `birthday-${m.id}`,
-            type: 'birthday',
-            title: `Aniversário de ${m.name}`,
-            message: `Hoje é aniversário de ${m.name} dê os parabéns!`,
-            timestamp: { toDate: () => now },
-            read: false, // Make it pop up unread
-            isSynthetic: true, // Don't try to update DB
-            memberPhone: m.phone,
-            memberName: m.name
-          });
+          const synthId = `birthday-${m.id}`;
+          if (!syntheticClearedIds.includes(synthId)) {
+            dsNotifs.unshift({
+              id: synthId,
+              type: 'birthday',
+              title: `Aniversário de ${m.name}`,
+              message: `Hoje é aniversário de ${m.name} dê os parabéns!`,
+              timestamp: { toDate: () => now },
+              read: syntheticReadIds.includes(synthId),
+              isSynthetic: true, // Don't try to update DB
+              memberPhone: m.phone,
+              memberName: m.name
+            });
+          }
         }
       } catch (e) {}
     });
 
     return dsNotifs;
-  }, [notifications, isAdminOrDev, user?.uid, members]);
+  }, [notifications, isAdminOrDev, user?.uid, members, syntheticReadIds, syntheticClearedIds]);
 
   const handleNotificationClick = async (notif: any) => {
     try {
-      if (notif.isSynthetic) return; // Don't update DB for synthetic notifications
+      if (notif.isSynthetic) {
+         if (!notif.read && !syntheticReadIds.includes(notif.id)) {
+           setSyntheticReadIds(prev => [...prev, notif.id]);
+         }
+         return;
+      }
       // 1. Marcar como lida se ainda não estiver
       if (!notif.read) {
         await updateDoc(doc(db, "notifications", notif.id), { read: true });
@@ -1586,6 +1597,7 @@ const Admin = () => {
   const [showPending, setShowPending] = useState(false);
   const [isRoleEditModalOpen, setIsRoleEditModalOpen] = useState(false);
   const [isMemberRejectModalOpen, setIsMemberRejectModalOpen] = useState(false);
+  const [noWhatsAppUser, setNoWhatsAppUser] = useState<any>(null);
   const [memberToProcess, setMemberToProcess] = useState<any>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [showVisitors, setShowVisitors] = useState(false);
@@ -1849,34 +1861,53 @@ const Admin = () => {
 
   // Removed seedNotifs logic as it causes permission errors for normal users
 
-  const handleMarkAllAsRead = async () => {
+  const handleMarkAllAsRead = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
-      const unreadNotifications = displayNotifications.filter(n => !n.read && !n.isSynthetic);
-      if (unreadNotifications.length === 0) return;
+      const unreadReal = displayNotifications.filter(n => !n.read && !n.isSynthetic);
+      const unreadSynthetic = displayNotifications.filter(n => !n.read && n.isSynthetic);
+      
+      if (unreadSynthetic.length > 0) {
+        setSyntheticReadIds(prev => [...prev, ...unreadSynthetic.map(n => n.id)]);
+      }
+
+      if (unreadReal.length === 0) return;
       
       // Optimistic update
       setNotifications(prev => prev.map(n => 
-        unreadNotifications.some(un => un.id === n.id) ? { ...n, read: true } : n
+        unreadReal.some(un => un.id === n.id) ? { ...n, read: true } : n
       ));
 
-      const updatePromises = unreadNotifications.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }));
+      const updatePromises = unreadReal.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }));
       await Promise.all(updatePromises);
     } catch (err) {
       console.error("Error marking notifications as read:", err);
     }
   };
 
-  const handleClearNotifications = async () => {
+  const handleClearNotifications = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
       if (displayNotifications.length === 0) return;
       
+      const syntheticIds = displayNotifications.filter(n => n.isSynthetic).map(n => n.id);
+      if (syntheticIds.length > 0) {
+        setSyntheticClearedIds(prev => [...prev, ...syntheticIds]);
+      }
+
       // Optimistic update
       const idsToDelete = displayNotifications.filter(n => !n.isSynthetic).map(n => n.id);
-      setNotifications(prev => prev.filter(n => !idsToDelete.includes(n.id)));
-
-      const deletePromises = idsToDelete.map(id => deleteDoc(doc(db, "notifications", id)));
-      await Promise.all(deletePromises);
-      setShowNotifications(false);
+      if (idsToDelete.length > 0) {
+        setNotifications(prev => prev.filter(n => !idsToDelete.includes(n.id)));
+        const deletePromises = idsToDelete.map(id => deleteDoc(doc(db, "notifications", id)));
+        await Promise.all(deletePromises);
+      }
     } catch (err) {
       console.error("Error clearing notifications:", err);
     }
@@ -3857,7 +3888,7 @@ const Admin = () => {
                     </button>
                   </div>
                 </div>
-                <ScrollArea className="max-h-[300px]">
+                <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                   <div className="p-2">
                     {displayNotifications.length > 0 ? (
                       displayNotifications.map((n) => (
@@ -3916,7 +3947,7 @@ const Admin = () => {
                       </div>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
           </header>
@@ -4042,7 +4073,7 @@ const Admin = () => {
                     </button>
                   </div>
                 </div>
-                <ScrollArea className="max-h-[400px]">
+                <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                   <div className="p-2">
                     {displayNotifications.length > 0 ? (
                       displayNotifications.map((n) => (
@@ -4104,7 +4135,7 @@ const Admin = () => {
                       </div>
                     )}
                   </div>
-                </ScrollArea>
+                </div>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -6050,6 +6081,7 @@ const Admin = () => {
                             member={member}
                             active={member.email === user?.email}
                             onWhatsApp={() => openWhatsApp(member)}
+                            onNoWhatsApp={() => setNoWhatsAppUser(member)}
                             onViewProfile={() => {
                               setViewingMember(member);
                             }}
@@ -7561,6 +7593,7 @@ const Admin = () => {
                                         member={member}
                                         active={member.email === user?.email}
                                         onWhatsApp={() => openWhatsApp(member)}
+                                        onNoWhatsApp={() => setNoWhatsAppUser(member)}
                                         onViewProfile={() => {
                                           setActiveTab("membros");
                                           setViewingMember(member);
@@ -7610,6 +7643,7 @@ const Admin = () => {
                                       member={member}
                                       active={member.email === user?.email}
                                       onWhatsApp={() => openWhatsApp(member)}
+                                      onNoWhatsApp={() => setNoWhatsAppUser(member)}
                                       onViewProfile={() => {
                                         setActiveTab("membros");
                                         setViewingMember(member);
@@ -7661,6 +7695,7 @@ const Admin = () => {
                                 member={member}
                                 active={member.email === user?.email}
                                 onWhatsApp={() => openWhatsApp(member)}
+                                onNoWhatsApp={() => setNoWhatsAppUser(member)}
                                 onViewProfile={() => {
                                   setActiveTab("visitantes");
                                   setViewingMember(member);
@@ -8228,6 +8263,32 @@ const Admin = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal para alerta de Sem WhatsApp */}
+      <Dialog open={noWhatsAppUser !== null} onOpenChange={(open) => !open && setNoWhatsAppUser(null)}>
+        <DialogContent className={cn("border sm:max-w-[400px] p-0 overflow-hidden transition-colors rounded-[32px] border-none shadow-2xl", isDarkMode ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
+          <div className="p-8 space-y-6">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto text-red-500">
+                <Phone className="w-8 h-8" />
+              </div>
+              <DialogTitle className="text-2xl font-black uppercase tracking-tight mt-4">WhatsApp indisponível</DialogTitle>
+              <DialogDescription className="text-gray-500 font-medium">
+                Este usuário não possui número de WhatsApp cadastrado.
+              </DialogDescription>
+            </div>
+            <div className="flex gap-4 pt-2">
+              <Button 
+                variant="ghost" 
+                className={cn("w-full h-12 rounded-2xl font-bold uppercase tracking-widest text-[10px]", isDarkMode ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
+                onClick={() => setNoWhatsAppUser(null)}
+              >
+                Voltar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
 
       {/* Global Footer (Desktop Only) */}
@@ -8538,6 +8599,7 @@ interface TeamMemberProps {
   member: any;
   active?: boolean;
   onWhatsApp: () => void;
+  onNoWhatsApp?: (member: any) => void;
   onViewProfile?: () => void;
   onEditProfile?: () => void;
   onDelete?: () => void;
@@ -8548,7 +8610,7 @@ interface TeamMemberProps {
   logAction?: (action: string, target: string, details: string, oldData?: any, newData?: any) => void;
 }
 
-function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, onDelete, onUpdateRole, onReject, isDark, isAdmin, logAction }: TeamMemberProps) {
+function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, onEditProfile, onDelete, onUpdateRole, onReject, isDark, isAdmin, logAction }: TeamMemberProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const name = member.name || "Membro";
   const status = member.status_online || "offline";
@@ -8625,11 +8687,36 @@ function TeamMember({ member, active, onWhatsApp, onViewProfile, onEditProfile, 
       <div className="flex items-center gap-1.5 md:gap-2 mr-1">
         <button 
           onClick={onWhatsApp}
-          title="WhatsApp"
+          title="Chat"
           className="p-2 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all cursor-pointer"
         >
           <MessageSquare className="w-4 h-4" />
         </button>
+        {isAdmin && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              const firstname = (member.name || "Membro").split(" ")[0];
+              const msg = `Paz do Senhor Jesus ${firstname}, esse telefone é o novo contato da secretaria, adicione aos seus contatos para não perder!\nQue Deus abençoe seu dia!`;
+              const phone = member.phone || "";
+              const cleanPhone = phone.replace(/\D/g, "");
+              const finalPhone = cleanPhone.startsWith('55') ? cleanPhone : `55${cleanPhone}`;
+              if (cleanPhone) {
+                window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+              } else {
+                if (onNoWhatsApp) {
+                  onNoWhatsApp(member);
+                } else {
+                  alert("Este usuário não possui WhatsApp cadastrado.");
+                }
+              }
+            }}
+            title="WhatsApp Secretaria"
+            className="p-2 rounded-lg bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all cursor-pointer"
+          >
+            <Phone className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </div>
 
