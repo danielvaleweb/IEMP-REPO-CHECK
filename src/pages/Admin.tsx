@@ -1507,12 +1507,28 @@ const Admin = () => {
     }
   }, [user, profile, isGuest, navigate]);
 
-  const [syntheticReadIds, setSyntheticReadIds] = useState<string[]>([]);
-  const [syntheticClearedIds, setSyntheticClearedIds] = useState<string[]>([]);
+  // Load synthetic (local) read/cleared states initially from localStorage
+  const [syntheticReadIds, setSyntheticReadIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('localReadNotifs') || '[]'); } catch { return []; }
+  });
+  const [syntheticClearedIds, setSyntheticClearedIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('localClearedNotifs') || '[]'); } catch { return []; }
+  });
+
+  // Save to localStorage whenever they change
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem('localReadNotifs', JSON.stringify(syntheticReadIds));
+      localStorage.setItem('localClearedNotifs', JSON.stringify(syntheticClearedIds));
+    }
+  }, [syntheticReadIds, syntheticClearedIds, user]);
 
   // Notifications Filtering Logic
   const displayNotifications = useMemo(() => {
     let dsNotifs = notifications.filter(n => {
+      // Clear if locally cleared
+      if (syntheticClearedIds.includes(n.id)) return false;
+
       // Administrative notifications (only for Master Admin and Dev)
       if (n.type === "registration" || n.type === "activity" || n.type === "system" || n.type === "gallery_removal") {
         return isAdminOrDev;
@@ -1526,6 +1542,16 @@ const Admin = () => {
       }
 
       return false;
+    }).map(n => {
+      // Treat global or admin notifications as synthetic to avoid updating for everyone
+      if (n.userId !== user?.uid) {
+        return {
+          ...n,
+          isSynthetic: true,
+          read: n.read || syntheticReadIds.includes(n.id)
+        };
+      }
+      return n;
     });
 
     const now = new Date();
@@ -1561,12 +1587,13 @@ const Admin = () => {
          if (!notif.read && !syntheticReadIds.includes(notif.id)) {
            setSyntheticReadIds(prev => [...prev, notif.id]);
          }
-         return;
-      }
-      // 1. Marcar como lida se ainda não estiver
-      if (!notif.read) {
-        await updateDoc(doc(db, "notifications", notif.id), { read: true });
-        setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+         // Do NOT return here, so it can still navigate!
+      } else {
+        // 1. Marcar como lida de verdade se ainda não estiver
+        if (!notif.read) {
+          await updateDoc(doc(db, "notifications", notif.id), { read: true });
+          setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
+        }
       }
 
       // 2. Redirecionar baseado no tipo
@@ -1874,7 +1901,10 @@ const Admin = () => {
         setSyntheticReadIds(prev => [...prev, ...unreadSynthetic.map(n => n.id)]);
       }
 
-      if (unreadReal.length === 0) return;
+      if (unreadReal.length === 0) {
+         if (unreadSynthetic.length === 0) alert("Nenhuma notificação não lida!");
+         return;
+      }
       
       // Optimistic update
       setNotifications(prev => prev.map(n => 
@@ -1883,7 +1913,8 @@ const Admin = () => {
 
       const updatePromises = unreadReal.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }));
       await Promise.all(updatePromises);
-    } catch (err) {
+    } catch (err: any) {
+      alert("Erro ao marcar como lido: " + err.message);
       console.error("Error marking notifications as read:", err);
     }
   };
@@ -1908,7 +1939,8 @@ const Admin = () => {
         const deletePromises = idsToDelete.map(id => deleteDoc(doc(db, "notifications", id)));
         await Promise.all(deletePromises);
       }
-    } catch (err) {
+    } catch (err: any) {
+      alert("Erro ao limpar notificações: " + err.message);
       console.error("Error clearing notifications:", err);
     }
   };
@@ -3063,6 +3095,8 @@ const Admin = () => {
                          console.error("Erro no login legado:", fallbackError);
                          setAuthError("Erro ao verificar conta antiga. Tente novamente.");
                        }
+                    } else if (error.code === 'auth/invalid-email') {
+                       setAuthError("E-mail inválido.");
                     } else {
                        setAuthError(error.message || "Erro ao fazer login. Tente novamente.");
                     }
@@ -3336,6 +3370,8 @@ const Admin = () => {
                       errorMessage = "Falha de conexão. Tente novamente em alguns segundos.";
                     } else if (error.code === 'auth/email-already-in-use') {
                       errorMessage = "Este e-mail já está em uso.";
+                    } else if (error.code === 'auth/invalid-email') {
+                       errorMessage = "E-mail inválido.";
                     } else {
                       errorMessage = error.message || "Tente novamente.";
                     }
@@ -3894,8 +3930,9 @@ const Admin = () => {
                       displayNotifications.map((n) => (
                         <div 
                           key={n.id} 
+                          onClick={() => handleNotificationClick(n)}
                           className={cn(
-                            "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent flex flex-col group block",
+                            "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent flex flex-col group cursor-pointer",
                             !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600")
                           )}
                         >
@@ -8706,8 +8743,6 @@ function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, o
               } else {
                 if (onNoWhatsApp) {
                   onNoWhatsApp(member);
-                } else {
-                  alert("Este usuário não possui WhatsApp cadastrado.");
                 }
               }
             }}

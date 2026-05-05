@@ -187,6 +187,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let msg = error.message || "Erro desconhecido no login";
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
          msg = "E-mail ou senha incorretos. Se você usava a versão antiga, pode ser necessário solicitar acesso novamente.";
+      } else if (error.code === 'auth/invalid-email') {
+         msg = "E-mail inválido.";
       }
       setError(msg);
       throw error;
@@ -231,6 +233,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let msg = error.message;
       if (error.code === 'auth/email-already-in-use') {
         msg = "E-mail já está em uso.";
+      } else if (error.code === 'auth/invalid-email') {
+        msg = "E-mail inválido.";
       } else if (error.code === 'auth/operation-not-allowed') {
         msg = "O login por email/senha está desabilitado no Firebase. Verifique as configurações.";
       }
