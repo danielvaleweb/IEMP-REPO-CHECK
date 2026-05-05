@@ -1305,7 +1305,7 @@ const Admin = () => {
       });
       
       // Gatilho: Push Notification para o chat
-      fetch("/services/push/broadcast", {
+      fetch("/backend/push/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1509,7 +1509,7 @@ const Admin = () => {
 
   // Notifications Filtering Logic
   const displayNotifications = useMemo(() => {
-    return notifications.filter(n => {
+    let dsNotifs = notifications.filter(n => {
       // Administrative notifications (only for Master Admin and Dev)
       if (n.type === "registration" || n.type === "activity" || n.type === "system" || n.type === "gallery_removal") {
         return isAdminOrDev;
@@ -1524,10 +1524,34 @@ const Admin = () => {
 
       return false;
     });
-  }, [notifications, isAdminOrDev, user?.uid]);
+
+    const now = new Date();
+    members.forEach(m => {
+      if (!m.birthDate || m.status === 'pending' || m.status === 'visitor_session') return;
+      try {
+        const birth = parseISO(m.birthDate);
+        if (birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth()) {
+          dsNotifs.unshift({
+            id: `birthday-${m.id}`,
+            type: 'birthday',
+            title: `Aniversário de ${m.name}`,
+            message: `Hoje é aniversário de ${m.name} dê os parabéns!`,
+            timestamp: { toDate: () => now },
+            read: false, // Make it pop up unread
+            isSynthetic: true, // Don't try to update DB
+            memberPhone: m.phone,
+            memberName: m.name
+          });
+        }
+      } catch (e) {}
+    });
+
+    return dsNotifs;
+  }, [notifications, isAdminOrDev, user?.uid, members]);
 
   const handleNotificationClick = async (notif: any) => {
     try {
+      if (notif.isSynthetic) return; // Don't update DB for synthetic notifications
       // 1. Marcar como lida se ainda não estiver
       if (!notif.read) {
         await updateDoc(doc(db, "notifications", notif.id), { read: true });
@@ -1827,7 +1851,7 @@ const Admin = () => {
 
   const handleMarkAllAsRead = async () => {
     try {
-      const unreadNotifications = displayNotifications.filter(n => !n.read);
+      const unreadNotifications = displayNotifications.filter(n => !n.read && !n.isSynthetic);
       if (unreadNotifications.length === 0) return;
       
       // Optimistic update
@@ -1847,10 +1871,10 @@ const Admin = () => {
       if (displayNotifications.length === 0) return;
       
       // Optimistic update
-      const idsToDelete = displayNotifications.map(n => n.id);
+      const idsToDelete = displayNotifications.filter(n => !n.isSynthetic).map(n => n.id);
       setNotifications(prev => prev.filter(n => !idsToDelete.includes(n.id)));
 
-      const deletePromises = displayNotifications.map(n => deleteDoc(doc(db, "notifications", n.id)));
+      const deletePromises = idsToDelete.map(id => deleteDoc(doc(db, "notifications", id)));
       await Promise.all(deletePromises);
       setShowNotifications(false);
     } catch (err) {
@@ -2616,7 +2640,7 @@ const Admin = () => {
 
         // Gatilho: Notificação de Novo Evento/Notícia se solicitado
         if (formData.notifyAll) {
-          fetch("/services/push/broadcast", {
+          fetch("/backend/push/broadcast", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
@@ -2630,7 +2654,7 @@ const Admin = () => {
         // Gatilho: Notificação para membros convidados/mencionados
         if (activeTab === "eventos" && formData.invitedMembers?.length > 0) {
           const invitedIds = formData.invitedMembers.map((m: any) => m.id);
-          fetch("/services/push/broadcast", {
+          fetch("/backend/push/broadcast", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -2936,7 +2960,11 @@ const Admin = () => {
                   <Input 
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
-                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                    className={cn(
+                      "h-16 border rounded-2xl px-6 text-lg transition-all outline-none", 
+                      isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black",
+                      authError ? "border-[#BF76FF] shadow-[0_0_15px_-3px_rgba(191,118,255,0.6)] focus:border-[#BF76FF]" : ""
+                    )}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
@@ -2946,6 +2974,15 @@ const Admin = () => {
                     className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+
+                <div className="flex justify-end pt-1">
+                  <button 
+                    onClick={() => window.open('https://wa.me/5532998288650?text=Esqueci%20minha%20senha,%20preciso%20de%20ajuda!', '_blank')}
+                    className="text-[#BF76FF] hover:underline transition-colors cursor-pointer text-sm font-bold uppercase"
+                  >
+                    LEMBRAR SENHA
                   </button>
                 </div>
               </div>
@@ -3006,21 +3043,27 @@ const Admin = () => {
                 {isSubmitting ? "Entrando..." : "Logar"}
               </Button>
 
-              <Button 
-                className="w-full h-16 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 mt-4 border-none"
-                onClick={() => setIsGuestModalOpen(true)}
-              >
-                <Users className="w-5 h-5 text-white" />
-                <span className="text-white">Logar como Visitante</span>
-              </Button>
-
-
+              <div className="mt-6 text-center">
+                <p className="text-sm font-medium text-white">
+                  Não tem uma conta? <button onClick={() => { setIsSignUpMode(true); setAuthError(""); }} className="text-[#BF76FF] hover:underline transition-colors cursor-pointer uppercase font-bold">CADASTRE-SE</button>
+                </p>
+              </div>
 
               <div className="text-center mt-10">
                 <p className="text-sm text-[#666666]">
                   Ao clicar, você concorda com termos da igreja Evangelica ministério Profecia.<br />
                   <Link to="/terms" className="underline hover:text-white">Termos de uso</Link> & <Link to="/privacy" className="underline hover:text-white">Política de privacidade</Link>
                 </p>
+              </div>
+
+              <div className="mt-8 border-t border-white/5 pt-8">
+                <Button 
+                  className="w-full h-16 bg-[#25D366] hover:bg-[#20bd5a] text-white rounded-2xl text-lg font-bold transition-all active:scale-[0.98] cursor-pointer flex items-center justify-center gap-3 border-none"
+                  onClick={() => setIsGuestModalOpen(true)}
+                >
+                  <Users className="w-5 h-5 text-white" />
+                  <span className="text-white">Logar como Visitante</span>
+                </Button>
               </div>
 
               <Dialog open={isGuestModalOpen} onOpenChange={setIsGuestModalOpen}>
@@ -3090,20 +3133,6 @@ const Admin = () => {
                   </div>
                 </DialogContent>
               </Dialog>
-
-              <div className="mt-8 text-center space-y-4">
-                <p className="text-sm font-medium text-white">
-                  Esqueceu a senha? <button 
-                    onClick={() => window.open('https://wa.me/5532998288650?text=Esqueci%20minha%20senha,%20preciso%20de%20ajuda!', '_blank')}
-                    className="text-[#BF76FF] hover:underline transition-colors cursor-pointer"
-                  >
-                    clique aqui
-                  </button>
-                </p>
-                <p className="text-sm font-medium text-white">
-                  Não tem uma conta? <button onClick={() => { setIsSignUpMode(true); setAuthError(""); }} className="text-[#BF76FF] hover:underline transition-colors cursor-pointer">Cadastre-se</button>
-                </p>
-              </div>
             </>
           ) : (
             <>
@@ -3835,32 +3864,48 @@ const Admin = () => {
                         <div 
                           key={n.id} 
                           className={cn(
-                            "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent flex gap-3 group",
+                            "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent flex flex-col group block",
                             !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600")
                           )}
                         >
-                          <div className={cn(
-                            "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                            n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
-                            n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
-                            n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
-                            'bg-green-500/20 text-green-500'
-                          )}>
-                            {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
-                             n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
-                             n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
-                             <Bell className="w-4 h-4" />
-                            }
+                          <div className="flex gap-3">
+                            <div className={cn(
+                              "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                              n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
+                              n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
+                              n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
+                              n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
+                              'bg-green-500/20 text-green-500'
+                            )}>
+                              {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
+                               n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
+                               n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
+                               n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
+                               <Bell className="w-4 h-4" />
+                              }
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold leading-tight line-clamp-2">{n.title}</p>
+                              <p className="text-xs opacity-70 mt-1 line-clamp-3">{n.message}</p>
+                              <p className="text-[10px] font-medium opacity-40 mt-1">
+                                {n.timestamp?.toDate ? format(n.timestamp.toDate(), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'Agora'}
+                              </p>
+                            </div>
+                            {!n.read && (
+                              <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
+                            )}
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold leading-tight line-clamp-2">{n.title}</p>
-                            <p className="text-xs opacity-70 mt-1 line-clamp-3">{n.message}</p>
-                            <p className="text-[10px] font-medium opacity-40 mt-1">
-                              {n.timestamp?.toDate ? format(n.timestamp.toDate(), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'Agora'}
-                            </p>
-                          </div>
-                          {!n.read && (
-                            <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
+                          {n.type === 'birthday' && n.memberPhone && (
+                            <button
+                               onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`https://wa.me/55${n.memberPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Parabéns ${n.memberName}! Que Deus te abençoe grandemente no seu aniversário!`)}`, '_blank');
+                               }}
+                               className="mt-3 w-full flex justify-center items-center gap-2 bg-[#25D366]/20 text-[#25D366] py-2 rounded-xl text-xs font-bold hover:bg-[#25D366]/30 transition-colors"
+                             >
+                               <Phone className="w-3 h-3" />
+                               Dar os Parabéns!
+                             </button>
                           )}
                         </div>
                       ))
@@ -4005,7 +4050,7 @@ const Admin = () => {
                           key={n.id} 
                           onClick={() => handleNotificationClick(n)}
                           className={cn(
-                            "p-4 rounded-xl mb-1 last:mb-0 transition-all border border-transparent cursor-pointer",
+                            "p-4 rounded-xl mb-1 last:mb-0 transition-all border border-transparent cursor-pointer flex flex-col group",
                             !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600"),
                             "group"
                           )}
@@ -4016,11 +4061,13 @@ const Admin = () => {
                               n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
                               n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
                               n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
+                              n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
                               'bg-green-500/20 text-green-500'
                             )}>
                               {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                                n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
                                n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
+                               n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
                                <Bell className="w-4 h-4" />
                               }
                             </div>
@@ -4035,6 +4082,18 @@ const Admin = () => {
                               <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
                             )}
                           </div>
+                          {n.type === 'birthday' && n.memberPhone && (
+                            <button
+                               onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`https://wa.me/55${n.memberPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Parabéns ${n.memberName}! Que Deus te abençoe grandemente no seu aniversário!`)}`, '_blank');
+                               }}
+                               className="mt-3 w-full flex justify-center items-center gap-2 bg-[#25D366]/20 text-[#25D366] py-2 rounded-xl text-xs font-bold hover:bg-[#25D366]/30 transition-colors"
+                             >
+                               <Phone className="w-3 h-3" />
+                               Dar os Parabéns!
+                             </button>
+                          )}
                         </div>
                       ))
                     ) : (
@@ -4251,7 +4310,7 @@ const Admin = () => {
                               
                               await updateDoc(doc(db, "members", selectedItem.id), updateData);
                               // Gatilho: Notificação de aprovação
-                              fetch("/services/push/broadcast", {
+                              fetch("/backend/push/broadcast", {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
                                 body: JSON.stringify({
