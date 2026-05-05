@@ -39,7 +39,8 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
   
   // Image Options
   const [formatType, setFormatType] = useState<"square" | "vertical">("square");
-  const [bgColor, setBgColor] = useState("#BF76FF");
+  const [artTheme, setArtTheme] = useState<"classic" | "modern" | "vibrant" | "abstract">("modern");
+  const [bgColor, setBgColor] = useState("#FF4500");
   const [bgRef, setBgRef] = useState("");
   const [generatedBgUrl, setGeneratedBgUrl] = useState<string | null>(null);
   
@@ -355,6 +356,40 @@ Estilo: ${styleInstruction}`;
                 </Button>
               </div>
 
+              <div className="pt-2">
+                <label className={cn("text-[10px] font-black uppercase tracking-widest mb-2 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Tema Visual</label>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  <Button 
+                    onClick={() => setArtTheme("modern")}
+                    variant={artTheme === "modern" ? "default" : "outline"}
+                    className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "modern" ? "bg-[#FF4500] hover:bg-[#E03E00] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
+                  >
+                    Modern
+                  </Button>
+                  <Button 
+                    onClick={() => setArtTheme("vibrant")}
+                    variant={artTheme === "vibrant" ? "default" : "outline"}
+                    className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "vibrant" ? "bg-[#00BFFF] hover:bg-[#00A8E0] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
+                  >
+                    Vibrant
+                  </Button>
+                  <Button 
+                    onClick={() => setArtTheme("abstract")}
+                    variant={artTheme === "abstract" ? "default" : "outline"}
+                    className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "abstract" ? "bg-[#8A2BE2] hover:bg-[#7A24C2] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
+                  >
+                    Abstract
+                  </Button>
+                  <Button 
+                    onClick={() => setArtTheme("classic")}
+                    variant={artTheme === "classic" ? "default" : "outline"}
+                    className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "classic" ? "bg-[#BF76FF] hover:bg-[#a656f0] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
+                  >
+                    Classic
+                  </Button>
+                </div>
+              </div>
+
               <div>
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Cor Principal</label>
                 <div className="flex gap-2">
@@ -434,45 +469,163 @@ Estilo: ${styleInstruction}`;
                   <div className="absolute inset-0 bg-gradient-to-b from-black/0 to-black/50 pointer-events-none" />
                 )}
                 
-                <div className="relative z-10 flex flex-col h-full">
-                  <div className="uppercase tracking-widest text-[10px] font-black opacity-80 mb-2">
-                    {type}
-                  </div>
-                  <h1 className={cn("font-black mb-4 leading-tight", 
-                    formatType === "square" ? "text-4xl" : "text-4xl mt-10",
-                    type === "Urgência" ? "text-red-400" : "text-white"
-                  )}>
-                    {title || "Escreva um Título"}
-                  </h1>
-                  
-                  <p className="text-sm opacity-90 mb-auto leading-relaxed overflow-hidden">
-                     {message ? (message.length > 150 ? message.substring(0, 150) + "..." : message) : "A mensagem ou os detalhes aparecerão aqui."}
-                  </p>
+                <div className="relative z-10 flex flex-col h-full w-full">
+                  {artTheme === "classic" && (
+                    <div className="flex flex-col h-full">
+                      <div className="uppercase tracking-widest text-[10px] font-black opacity-80 mb-2">
+                        {type}
+                      </div>
+                      <h1 className={cn("font-black mb-4 leading-tight", 
+                        formatType === "square" ? "text-4xl" : "text-4xl mt-10",
+                        type === "Urgência" ? "text-red-400" : "text-white"
+                      )}>
+                        {title || "Escreva um Título"}
+                      </h1>
+                      
+                      <p className="text-sm opacity-90 mb-auto leading-relaxed overflow-hidden">
+                         {message ? (message.length > 150 ? message.substring(0, 150) + "..." : message) : "A mensagem ou os detalhes aparecerão aqui."}
+                      </p>
 
-                  <div className="space-y-2 mt-4 bg-black/30 p-4 rounded-2xl backdrop-blur-md">
-                    {date && (
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-white/70" />
-                        <span className="text-sm font-bold">{format(new Date(date + "T00:00:00"), "dd 'de' MMMM", { locale: ptBR })}</span>
+                      <div className="space-y-2 mt-4 bg-black/30 p-4 rounded-2xl backdrop-blur-md">
+                        {date && (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4 text-white/70" />
+                            <span className="text-sm font-bold">{format(new Date(date + "T00:00:00"), "dd 'de' MMMM", { locale: ptBR })}</span>
+                          </div>
+                        )}
+                        {time && (
+                          <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-white/70" />
+                            <span className="text-sm font-bold">{time}</span>
+                          </div>
+                        )}
+                        {location && (
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-white/70" />
+                            <span className="text-sm font-bold truncate">{location}</span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                    {time && (
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-white/70" />
-                        <span className="text-sm font-bold">{time}</span>
+                      
+                      <div className="mt-6 text-[8px] uppercase tracking-widest font-bold opacity-50 text-center">
+                        Igreja Evangélica Ministério Profecia
                       </div>
-                    )}
-                    {location && (
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 text-white/70" />
-                        <span className="text-sm font-bold truncate">{location}</span>
+                    </div>
+                  )}
+
+                  {artTheme === "modern" && (
+                    <div className="flex flex-col h-full justify-between">
+                      <div className="space-y-4 relative z-10">
+                        <div className="inline-block bg-white text-black px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-xl">
+                          {type}
+                        </div>
+                        <h1 className="font-black text-white leading-[0.9] tracking-tighter" style={{ fontSize: formatType === "square" ? "48px" : "64px" }}>
+                          {title ? title.toUpperCase() : "ESCREVA UM TÍTULO"}
+                        </h1>
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="mt-6 text-[8px] uppercase tracking-widest font-bold opacity-50 text-center">
-                    Igreja Evangélica Ministério Profecia
-                  </div>
+                      
+                      <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-16 pb-6 -mx-8 -mb-8 px-8">
+                        <p className="text-white/90 text-[13px] font-medium leading-snug mb-5 border-l-4 border-white pl-3 max-w-[90%]">
+                           {message ? (message.length > 120 ? message.substring(0, 120) + "..." : message) : "A mensagem ou detalhes aparecerão aqui..."}
+                        </p>
+                        
+                        <div className="flex flex-wrap gap-2">
+                          {date && (
+                            <div className="bg-white text-black px-3 py-1.5 rounded-lg text-xs font-black shadow-lg uppercase tracking-wider">
+                              {format(new Date(date + "T00:00:00"), "dd/MM", { locale: ptBR })}
+                            </div>
+                          )}
+                          {time && (
+                            <div className="bg-black/50 text-white px-3 py-1.5 rounded-lg text-xs font-bold border border-white/20 backdrop-blur-md">
+                              {time}
+                            </div>
+                          )}
+                          {location && (
+                            <div className="bg-black/50 text-white px-3 py-1.5 rounded-lg text-xs font-bold border border-white/20 backdrop-blur-md truncate max-w-[150px]">
+                              {location}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Decorative elements */}
+                      <div className="absolute top-1/2 left-4 w-40 h-40 bg-white rounded-full blur-[100px] -z-0 opacity-20 mix-blend-overlay" />
+                    </div>
+                  )}
+
+                  {artTheme === "vibrant" && (
+                    <div className="flex flex-col h-full relative">
+                      <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/20 rounded-[100px] rotate-45 backdrop-blur-lg" />
+                      <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-black/20 rounded-[80px] -rotate-12 backdrop-blur-lg" />
+                      
+                      <div className="relative z-10 flex flex-col h-full justify-between pb-2">
+                        <div className="bg-white text-black rounded-[32px] p-6 shadow-2xl mt-4 relative border border-white/40">
+                           <div className="absolute -top-4 -right-2 text-[10px] font-black uppercase tracking-widest bg-yellow-400 text-black px-4 py-1.5 rounded-full shadow-lg border-2 border-white">
+                             {type}
+                           </div>
+                           <h1 className="font-black text-[32px] leading-[1.1] mb-3 tracking-tight">
+                             {title || "Escreva um Título"}
+                           </h1>
+                           <p className="text-gray-600 text-sm font-semibold leading-relaxed">
+                             {message ? (message.length > 120 ? message.substring(0, 120) + "..." : message) : "A mensagem aparecerá aqui. Adicione os detalhes importantes."}
+                           </p>
+                        </div>
+                        
+                        <div className="space-y-3 mt-auto">
+                           {date && (
+                             <div className="ml-8 mr-4 bg-white/20 backdrop-blur-xl border border-white/40 text-white rounded-3xl p-4 shadow-xl flex items-center gap-3">
+                               <div className="bg-white p-2.5 rounded-2xl shadow-sm"><Calendar className="w-5 h-5 text-black" /></div>
+                               <div>
+                                 <div className="text-[10px] uppercase font-black opacity-90 tracking-widest text-[#FFD700]">Data do Evento</div>
+                                 <div className="font-black text-lg">{format(new Date(date + "T00:00:00"), "dd 'de' MMMM", { locale: ptBR })}</div>
+                               </div>
+                             </div>
+                           )}
+                           
+                           {(time || location) && (
+                             <div className="mr-8 ml-4 bg-black/40 backdrop-blur-xl border border-white/20 text-white rounded-3xl p-4 shadow-xl flex justify-between items-center">
+                               {time && <div className="font-bold flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-400" /> {time}</div>}
+                               {location && <div className="font-bold flex items-center gap-2 text-sm max-w-[120px] truncate"><Users className="w-4 h-4 text-yellow-400" /> {location}</div>}
+                             </div>
+                           )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {artTheme === "abstract" && (
+                    <div className="flex flex-col h-full items-center justify-center text-center relative px-2">
+                       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95 pointer-events-none -mx-8 -my-8" />
+                       
+                       <div className="relative z-10 w-full mb-auto mt-6">
+                         <div className="text-[10px] font-black tracking-[0.4em] uppercase opacity-80 mb-6 text-[#FFD700] border-b border-white/20 pb-4 inline-block px-4">
+                           {type}
+                         </div>
+                       </div>
+                       
+                       <div className="relative z-10 mb-12 w-full">
+                         <h1 className="font-black text-5xl leading-[0.95] tracking-tighter mb-6 uppercase drop-shadow-2xl">
+                           {title || "TÍTULO AQUI"}
+                         </h1>
+                         <div className="w-16 h-[2px] bg-[#FFD700] mx-auto mb-6" />
+                         <p className="text-[13px] font-medium opacity-90 leading-relaxed max-w-[90%] mx-auto shadow-black drop-shadow-md">
+                           {message ? (message.length > 180 ? message.substring(0, 180) + "..." : message) : "A mensagem ou os detalhes aparecerão aqui."}
+                         </p>
+                       </div>
+                       
+                       <div className="relative z-10 mt-auto w-full border-t border-white/20 pt-5 pb-2 mb-2 flex justify-between items-center px-4 bg-black/20 backdrop-blur-sm rounded-xl">
+                         <div className="text-left">
+                           {date && <div className="font-black text-[15px] tracking-widest text-[#FFD700]">{format(new Date(date + "T00:00:00"), "dd.MM.yy")}</div>}
+                           {time && <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">{time}</div>}
+                         </div>
+                         {location && (
+                           <div className="text-right text-[10px] font-black uppercase tracking-widest opacity-90 max-w-[130px] leading-tight">
+                             {location}
+                           </div>
+                         )}
+                       </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

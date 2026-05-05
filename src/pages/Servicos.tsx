@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, where } from "react-firebase-hooks/firestore"; // We might use standard firestore
+import { collection, onSnapshot, query, where, getDocs, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Briefcase, MapPin, Phone, Building2, Search, Zap, ExternalLink } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
