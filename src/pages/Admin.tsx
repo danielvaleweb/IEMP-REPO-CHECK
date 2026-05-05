@@ -6174,25 +6174,25 @@ const Admin = () => {
                   </div>
                 )}
 
-                {/* Section: Aniversariantes da Semana e Próximos Eventos */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
-                  <div className="lg:col-span-2 space-y-6 md:space-y-8">
-                    <div className="flex items-center justify-between">
-                      <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda Geral</h4>
-                    </div>
-                    
-                    <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                      <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
-                    </div>
+                {/* Section: Próximos Eventos */}
+                <div className="space-y-6 md:space-y-8 mt-8">
+                  <div className="flex items-center justify-between">
+                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Agenda Geral</h4>
                   </div>
+                  
+                  <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
+                  </div>
+                </div>
 
-                  <div className="lg:col-span-1 space-y-6 md:space-y-8">
-                    <div className="flex items-center justify-between">
-                      <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors flex items-center gap-2", isDarkMode ? "text-white" : "text-black")}>
-                        <PartyPopper className="w-6 h-6 text-[#BF76FF]" />
-                        Aniversariantes
-                      </h4>
-                    </div>
+                {/* Section: Aniversariantes da Semana */}
+                <div className="space-y-6 md:space-y-8 mt-8">
+                  <div className="flex items-center justify-between">
+                    <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors flex items-center gap-2", isDarkMode ? "text-white" : "text-black")}>
+                      <PartyPopper className="w-6 h-6 text-[#BF76FF]" />
+                      Aniversariantes
+                    </h4>
+                  </div>
                     
                     <div className={cn("border rounded-[32px] p-6 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                         {(() => {
@@ -6269,7 +6269,6 @@ const Admin = () => {
                            );
                         })()}
                     </div>
-                  </div>
                 </div>
               </div>
             ) : activeTab === "agenda-direcao" ? (
