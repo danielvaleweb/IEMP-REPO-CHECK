@@ -536,11 +536,38 @@ const formatRoles = (member: any) => {
   const mappedRoles = uniqueRoles.map(r => {
     if (r === "Administradores") return "Administrador Master";
     if (r === "Desenvolvimento") return "Desenvolvedor";
+    
+    // Normalize diacono variants
+    if (typeof r === 'string') {
+        const low = r.toLowerCase();
+        // Check exact forms to be sure
+        if (low === 'diácono (homem)' || low === 'diacono' || low === 'diácono' || low === 'diacono/diaconisa') {
+            return 'Diácono';
+        }
+        if (low === 'diaconisa (mulher)' || low === 'diaconisa') {
+            return 'Diaconisa';
+        }
+        
+        // Catch-all just in case
+        if (low.includes('diác') || low.includes('diac')) {
+            return 'Diácono';
+        }
+    }
+    
     return r;
   });
 
-  // Remove duplicates again after mapping
-  const finalRoles = Array.from(new Set(mappedRoles));
+  // Remove duplicates again after mapping (so multiple old variants become just Diácono)
+  let finalRoles = Array.from(new Set(mappedRoles));
+
+  if (finalRoles.includes('Diaconisa') && finalRoles.includes('Diácono')) {
+      finalRoles = finalRoles.filter(r => r !== 'Diácono');
+  }
+
+  // Remove "Membro" if they have other roles
+  if (finalRoles.length > 1 && finalRoles.includes('Membro')) {
+      finalRoles = finalRoles.filter(r => r !== 'Membro');
+  }
 
   if (finalRoles.length > 1) {
     const last = finalRoles.pop();
@@ -6102,42 +6129,75 @@ const Admin = () => {
                           <Button 
                             className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg shadow-orange-500/20 text-xs hidden lg:flex"
                             onClick={async () => {
-                              if (!window.confirm("Deseja realmente corrigir os cargos Diácono/Diaconisa no banco de dados para evitar nomes duplos? O sistema tentará inferir o gênero.")) return;
+                              if (!window.confirm("Deseja realmente limpar todos os Diáconos e Diaconisas e redefini-los como Membros?")) return;
                               
                               try {
                                  let updated = 0;
                                  for (const m of members) {
                                     let changed = false;
-                                    let newTitle = "";
+                                    let newTitle = m.role || "";
                                     
-                                    const firstName = (m.name || "").split(" ")[0].toLowerCase();
-                                    const isFemale = /a$/i.test(firstName) || ["aline", "ester", "mirian", "miriam", "raquel", "ruth", "beatriz", "elisangela", "kelly", "emanuelle", "ellen", "caroline", "suelen", "shirley"].includes(firstName);
-                                    const correctRole = isFemale ? "Diaconisa" : "Diácono";
-                                    
-                                    const fixRoles = (roles: string[]) => {
+                                    const isDiaconoRole = (r: string) => {
+                                        if (typeof r !== 'string') return false;
+                                        const low = r.toLowerCase();
+                                        return low === 'diácono (homem)' || low === 'diaconisa (mulher)' || low === 'diacono' || low === 'diácono' || low === 'diaconisa' || low === 'diacono/diaconisa';
+                                    };
+
+                                    const fixRoles = (roles: any[]) => {
                                         let rls = Array.isArray(roles) ? roles : [roles];
-                                        return rls.map((r: string) => {
-                                            if (typeof r !== 'string') return r;
-                                            const low = r.toLowerCase();
-                                            if (low === 'diácono (homem)' || low === 'diaconisa (mulher)' || low === 'diacono' || low === 'diácono' || low === 'diaconisa' || low === 'diacono/diaconisa') {
-                                                changed = true; return correctRole;
+                                        const newRls = rls.filter(r => {
+                                            if (isDiaconoRole(r)) {
+                                                changed = true;
+                                                return false;
                                             }
-                                            return r;
+                                            return true;
                                         });
+                                        if (newRls.length === 0 && rls.length > 0) newRls.push("Membro");
+                                        return newRls;
                                     };
                                     
+                                    const fixMinistries = (mins: any[]) => {
+                                        let ms = Array.isArray(mins) ? mins : [mins];
+                                        return ms.filter(m => {
+                                            if (typeof m === 'string') {
+                                                if (isDiaconoRole(m)) {
+                                                    changed = true;
+                                                    return false;
+                                                }
+                                                return true;
+                                            } else if (m && typeof m === 'object' && m.name) {
+                                                if (isDiaconoRole(m.name)) {
+                                                    changed = true;
+                                                    return false;
+                                                }
+                                                return true;
+                                            }
+                                            return true;
+                                        });
+                                    };
+
                                     let roleList = fixRoles(m.roles || []);
+                                    let ministryList = fixMinistries(m.ministries || []);
+                                    
                                     if (m.role && typeof m.role === 'string') {
-                                        const lowOld = m.role.toLowerCase();
-                                        if (lowOld === 'diácono (homem)' || lowOld === 'diaconisa (mulher)' || lowOld === 'diacono' || lowOld === 'diácono' || lowOld === 'diaconisa' || lowOld === 'diacono/diaconisa') {
+                                        if (isDiaconoRole(m.role)) {
+                                            newTitle = "Membro";
                                             changed = true;
-                                            newTitle = correctRole;
                                         }
                                     }
 
                                     if (changed) {
                                         roleList = [...new Set(roleList)];
-                                        const updates: any = { roles: roleList };
+                                        
+                                        // Deduplicate ministries by name
+                                        const um = new Map();
+                                        for (const min of ministryList) {
+                                            const key = typeof min === 'string' ? min : min.name;
+                                            if (!um.has(key)) um.set(key, min);
+                                        }
+                                        ministryList = Array.from(um.values());
+
+                                        const updates: any = { roles: roleList, ministries: ministryList };
                                         if (newTitle) {
                                             updates.role = newTitle;
                                         }
@@ -6145,13 +6205,97 @@ const Admin = () => {
                                         updated++;
                                     }
                                  }
-                                 alert(`Correção concluída! ${updated} perfis atualizados.`);
+                                 alert(`Limpeza concluída! ${updated} perfis redefinidos para Membro.\nAtualize a página para ver as mudanças corretamente.`);
+                                 window.location.reload();
                               } catch(e) {
                                  alert("Erro: " + String(e));
                               }
                             }}
                           >
-                            <RefreshCcw className="w-4 h-4 mr-2" /> Corrigir Diáconos
+                            <RefreshCcw className="w-4 h-4 mr-2" /> Limpar Diáconos
+                          </Button>
+                        )}
+                        {!showPending && isAdminOrDev && (
+                          <Button 
+                            className="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 text-white rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg shadow-purple-500/20 text-xs hidden lg:flex"
+                            onClick={async () => {
+                              if (!window.confirm("Deseja realmente limpar o cargo 'Diácono' das pessoas que já têm o cargo 'Diaconisa'?")) return;
+                              
+                              try {
+                                 let updated = 0;
+                                 for (const m of members) {
+                                    let changed = false;
+                                    let newTitle = m.role || "";
+                                    
+                                    const hasDiaconisaRole = (r: string) => {
+                                        if (typeof r !== 'string') return false;
+                                        const low = r.toLowerCase();
+                                        return low === 'diaconisa (mulher)' || low === 'diaconisa';
+                                    };
+                                    
+                                    const isDiaconoOnly = (r: string) => {
+                                        if (typeof r !== 'string') return false;
+                                        const low = r.toLowerCase();
+                                        return low === 'diácono (homem)' || low === 'diacono' || low === 'diácono' || low === 'diacono/diaconisa';
+                                    };
+
+                                    let rls = m.roles && Array.isArray(m.roles) ? [...m.roles] : (m.roles ? [m.roles] : []);
+                                    let mins = m.ministries && Array.isArray(m.ministries) ? [...m.ministries] : (m.ministries ? [m.ministries] : []);
+                                    
+                                    // Check if they have diaconisa
+                                    const hasDiaconisa = rls.some(hasDiaconisaRole) || mins.some(min => typeof min === 'string' ? hasDiaconisaRole(min) : (min && hasDiaconisaRole(min.name))) || hasDiaconisaRole(m.role);
+                                    
+                                    if (hasDiaconisa) {
+                                        // Remove only diacono
+                                        const newRls = rls.filter(r => {
+                                            if (isDiaconoOnly(r)) {
+                                                changed = true;
+                                                return false;
+                                            }
+                                            return true;
+                                        });
+
+                                        const newMins = mins.filter(min => {
+                                            if (typeof min === 'string') {
+                                                if (isDiaconoOnly(min)) {
+                                                    changed = true;
+                                                    return false;
+                                                }
+                                                return true;
+                                            } else if (min && typeof min === 'object' && min.name) {
+                                                if (isDiaconoOnly(min.name)) {
+                                                    changed = true;
+                                                    return false;
+                                                }
+                                                return true;
+                                            }
+                                            return true;
+                                        });
+
+                                        if (isDiaconoOnly(m.role)) {
+                                            // Their main role was diacono, but they have diaconisa in ministries or roles. Let's set main role to Diaconisa.
+                                            newTitle = "Diaconisa";
+                                            changed = true;
+                                        }
+
+                                        if (changed) {
+                                            const updates: any = { roles: newRls, ministries: newMins };
+                                            if (newTitle !== m.role) {
+                                                updates.role = newTitle;
+                                            }
+                                            await updateDoc(doc(db, "members", m.id), updates);
+                                            updated++;
+                                        }
+                                    }
+                                 }
+                                 alert(`Limpeza concluída! ${updated} perfis corrigidos (Diácono removido de quem é Diaconisa).\nAtualize a página para ver as mudanças.`);
+                                 window.location.reload();
+                              } catch(e) {
+                                 alert("Erro: " + String(e));
+                              }
+                            }}
+                          >
+                            <RefreshCcw className="w-4 h-4 mr-2" /> Refinar Diaconisas
                           </Button>
                         )}
                         {!showPending && canEditProfiles && (
@@ -7659,7 +7803,7 @@ const Admin = () => {
                           const isDiaconia = rawRole === "Diácono";
                           const displayRole = isDiaconia ? "Diácono/Diaconisa" : rawRole;
                           const roleKey = isDiaconia ? "Diaconia" : rawRole;
-                          
+
                           let roleMembers = groupedMembers.get(rawRole) || [];
                           if (isDiaconia) {
                             roleMembers = [...roleMembers, ...(groupedMembers.get("Diaconisa") || [])];
