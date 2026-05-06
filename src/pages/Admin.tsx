@@ -539,11 +539,14 @@ const formatRoles = (member: any) => {
     return r;
   });
 
-  if (mappedRoles.length > 1) {
-    const last = mappedRoles.pop();
-    return `${mappedRoles.join(", ")} e ${last}`;
+  // Remove duplicates again after mapping
+  const finalRoles = Array.from(new Set(mappedRoles));
+
+  if (finalRoles.length > 1) {
+    const last = finalRoles.pop();
+    return `${finalRoles.join(", ")} e ${last}`;
   }
-  return mappedRoles[0];
+  return finalRoles[0] || "Membro";
 };
 
 function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, agenda, onChat }: { member: any, onBack: () => void, onEdit?: () => void, isDark: boolean, notifications: any[], logs?: any[], agenda?: any[], onChat?: () => void }) {
@@ -1800,7 +1803,8 @@ const Admin = () => {
     "Secretaria", 
     "Desenvolvedor", 
     "Mídia", 
-    "Diacono/Diaconisa", 
+    "Diácono", 
+    "Diaconisa", 
     "Obreiro",
     "Minis. infantil", 
     "Minis. louvor", 
@@ -6093,22 +6097,80 @@ const Admin = () => {
                         </div>
                       </div>
                       
-                      {!showPending && canEditProfiles && (
-                        <Button 
-                          className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-11 px-6 font-bold truncate"
-                          onClick={() => {
-                            setSelectedItem(null);
-                            setFormData({
-                              role: activeTab === "visitantes" ? "Visitante" : "Membro",
-                              status: activeTab === "visitantes" ? "approved" : "active"
-                            });
-                            setIsReadOnly(false);
-                            setIsEditing(true);
-                          }}
-                        >
-                          <Plus className="w-4 h-4 mr-2" /> {activeTab === "visitantes" ? "Novo Visitante" : "Novo Membro"}
-                        </Button>
-                      )}
+                      <div className="flex gap-2">
+                        {!showPending && isAdminOrDev && (
+                          <Button 
+                            className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg shadow-orange-500/20 text-xs hidden lg:flex"
+                            onClick={async () => {
+                              if (!window.confirm("Deseja realmente corrigir os cargos Diácono/Diaconisa no banco de dados para evitar nomes duplos? O sistema tentará inferir o gênero.")) return;
+                              
+                              try {
+                                 let updated = 0;
+                                 for (const m of members) {
+                                    let changed = false;
+                                    let newTitle = "";
+                                    
+                                    const firstName = (m.name || "").split(" ")[0].toLowerCase();
+                                    const isFemale = /a$/i.test(firstName) || ["aline", "ester", "mirian", "miriam", "raquel", "ruth", "beatriz", "elisangela", "kelly", "emanuelle", "ellen", "caroline", "suelen", "shirley"].includes(firstName);
+                                    const correctRole = isFemale ? "Diaconisa" : "Diácono";
+                                    
+                                    const fixRoles = (roles: string[]) => {
+                                        let rls = Array.isArray(roles) ? roles : [roles];
+                                        return rls.map((r: string) => {
+                                            if (typeof r !== 'string') return r;
+                                            const low = r.toLowerCase();
+                                            if (low === 'diácono (homem)' || low === 'diaconisa (mulher)' || low === 'diacono' || low === 'diácono' || low === 'diaconisa' || low === 'diacono/diaconisa') {
+                                                changed = true; return correctRole;
+                                            }
+                                            return r;
+                                        });
+                                    };
+                                    
+                                    let roleList = fixRoles(m.roles || []);
+                                    if (m.role && typeof m.role === 'string') {
+                                        const lowOld = m.role.toLowerCase();
+                                        if (lowOld === 'diácono (homem)' || lowOld === 'diaconisa (mulher)' || lowOld === 'diacono' || lowOld === 'diácono' || lowOld === 'diaconisa' || lowOld === 'diacono/diaconisa') {
+                                            changed = true;
+                                            newTitle = correctRole;
+                                        }
+                                    }
+
+                                    if (changed) {
+                                        roleList = [...new Set(roleList)];
+                                        const updates: any = { roles: roleList };
+                                        if (newTitle) {
+                                            updates.role = newTitle;
+                                        }
+                                        await updateDoc(doc(db, "members", m.id), updates);
+                                        updated++;
+                                    }
+                                 }
+                                 alert(`Correção concluída! ${updated} perfis atualizados.`);
+                              } catch(e) {
+                                 alert("Erro: " + String(e));
+                              }
+                            }}
+                          >
+                            <RefreshCcw className="w-4 h-4 mr-2" /> Corrigir Diáconos
+                          </Button>
+                        )}
+                        {!showPending && canEditProfiles && (
+                          <Button 
+                            className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-11 px-6 font-bold truncate"
+                            onClick={() => {
+                              setSelectedItem(null);
+                              setFormData({
+                                role: activeTab === "visitantes" ? "Visitante" : "Membro",
+                                status: activeTab === "visitantes" ? "approved" : "active"
+                              });
+                              setIsReadOnly(false);
+                              setIsEditing(true);
+                            }}
+                          >
+                            <Plus className="w-4 h-4 mr-2" /> {activeTab === "visitantes" ? "Novo Visitante" : "Novo Membro"}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {activeMembersForDisplay.map((member, i) => (
@@ -7593,28 +7655,36 @@ const Admin = () => {
 
                     return (
                       <>
-                        {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante").map(role => {
-                          let roleMembers = groupedMembers.get(role) || [];
+                        {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante" && r !== "Diaconisa").map(rawRole => {
+                          const isDiaconia = rawRole === "Diácono";
+                          const displayRole = isDiaconia ? "Diácono/Diaconisa" : rawRole;
+                          const roleKey = isDiaconia ? "Diaconia" : rawRole;
+                          
+                          let roleMembers = groupedMembers.get(rawRole) || [];
+                          if (isDiaconia) {
+                            roleMembers = [...roleMembers, ...(groupedMembers.get("Diaconisa") || [])];
+                          }
+                          
                           roleMembers.sort((a, b) => {
-                            const isLeaderA = (a.ministries || []).some((min: any) => typeof min === 'object' && min.name === role && min.isLeader) || a.role === "Administradores" || a.role === "Desenvolvedor";
-                            const isLeaderB = (b.ministries || []).some((min: any) => typeof min === 'object' && min.name === role && min.isLeader) || b.role === "Administradores" || b.role === "Desenvolvedor";
+                            const isLeaderA = (a.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || a.role === "Administradores" || a.role === "Desenvolvedor";
+                            const isLeaderB = (b.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || b.role === "Administradores" || b.role === "Desenvolvedor";
                             if (isLeaderA && !isLeaderB) return -1;
                             if (!isLeaderA && isLeaderB) return 1;
                             return (a.name || "").localeCompare(b.name || "");
                           });
                           if (roleMembers.length === 0 && rightSidebarSearch) return null;
-                          const isCollapsed = collapsedTeamCategories[role] || false;
+                          const isCollapsed = collapsedTeamCategories[roleKey] || false;
                           
                           return (
-                            <div key={`role-group-${role}`} className="space-y-3">
+                            <div key={`role-group-${roleKey}`} className="space-y-3">
                               <button 
-                                onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, [role]: !isCollapsed }))}
+                                onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, [roleKey]: !isCollapsed }))}
                                 className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between", isDarkMode ? "text-gray-500" : "text-gray-400")}
                               >
                                 <div className="flex items-center gap-2">
                                   <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
                                   <h5 className="text-[10px] font-bold uppercase tracking-widest">
-                                    {role === "Administradores" ? "Administrador Master" : role}
+                                    {displayRole === "Administradores" ? "Administrador Master" : displayRole}
                                   </h5>
                                   <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-500">{roleMembers.length}</span>
                                 </div>
@@ -7626,7 +7696,7 @@ const Admin = () => {
                                   {roleMembers.length > 0 ? (
                                     roleMembers.map((member, i) => (
                                       <TeamMember 
-                                        key={`role-member-${role}-${member.id || i}`} 
+                                        key={`role-member-${roleKey}-${member.id || i}`} 
                                         member={member}
                                         active={member.email === user?.email}
                                         onWhatsApp={() => openWhatsApp(member)}

@@ -22,7 +22,7 @@ import { doc, onSnapshot } from "firebase/firestore";
 
 const MOCK_RANKING = [
   { id: "1", name: "Irmão José", points: 1250, level: "Ancião", rank: 1 },
-  { id: "2", name: "Maria Oliveira", points: 1100, level: "Diácono", rank: 2 },
+  { id: "2", name: "Maria Oliveira", points: 1100, level: "Diaconisa", rank: 2 },
   { id: "3", name: "Carlos Souza", points: 950, level: "Obreiro", rank: 3 },
   { id: "4", name: "Ana Paula", points: 800, level: "Membro", rank: 4 },
   { id: "5", name: "Ricardo Lima", points: 750, level: "Membro", rank: 5 },
