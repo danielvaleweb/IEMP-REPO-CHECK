@@ -217,6 +217,7 @@ service cloud.firestore {
                     incoming().type == 'chat' ||
                     incoming().type == 'activity' ||
                     incoming().type == 'request' ||
+                    incoming().type == 'event_feedback' ||
                     incoming().type == 'gallery_removal'
       );
       allow update, delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);

@@ -1374,6 +1374,7 @@ const Admin = () => {
   const [vignettes, setVignettes] = useState<any[]>([]);
   const [radioTracks, setRadioTracks] = useState<any[]>([]);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [expandedNotifs, setExpandedNotifs] = useState<string[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   
   // Stats state to avoid full-collection reads
@@ -1627,36 +1628,40 @@ const Admin = () => {
 
   const handleNotificationClick = async (notif: any) => {
     try {
+      setExpandedNotifs(prev => prev.includes(notif.id) ? prev.filter(id => id !== notif.id) : [...prev, notif.id]);
+
       if (notif.isSynthetic) {
          if (!notif.read && !syntheticReadIds.includes(notif.id)) {
            setSyntheticReadIds(prev => [...prev, notif.id]);
          }
-         // Do NOT return here, so it can still navigate!
       } else {
-        // 1. Marcar como lida de verdade se ainda não estiver
         if (!notif.read) {
           await updateDoc(doc(db, "notifications", notif.id), { read: true });
           setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, read: true } : n));
         }
       }
+    } catch (err) {
+      console.error("Erro ao processar clique na notificação:", err);
+    }
+  };
 
-      // 2. Redirecionar baseado no tipo
+  const handleNotificationAction = (notif: any, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
       if (notif.type === "request" || notif.type === "agenda") {
         setActiveTab("agenda");
-        // Se houver lógica de filtragem na agenda por status, poderíamos ativar o filtro de pendentes aqui
       } else if (notif.type === "registration") {
         setActiveTab("membros");
-        setShowPending(true); // Se for solicitação de cadastro, mostra os pendentes
+        setShowPending(true); 
       } else if (notif.type === "chat") {
         setActiveTab("chats");
       } else if (notif.type === "gallery_removal") {
         navigate(`/galeria?album=${notif.albumId}&photo=${encodeURIComponent(notif.photoUrl)}`);
+      } else if (notif.type === "event_feedback") {
+        setActiveTab("eventos");
       }
-      
-      // Fechar o menu de notificações se necessário (o dropdown costuma fechar sozinho, mas se for modal...)
-      // No caso do DropdownMenu do Shadcn, ele costuma fechar ao clicar, mas se quiser garantir:
     } catch (err) {
-      console.error("Erro ao processar clique na notificação:", err);
+      console.error("Erro ao processar ação da notificação:", err);
     }
   };
   
@@ -4158,7 +4163,9 @@ const Admin = () => {
                 <div className="max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                   <div className="p-2">
                     {displayNotifications.length > 0 ? (
-                      displayNotifications.map((n) => (
+                      displayNotifications.map((n) => {
+                        const isExpanded = expandedNotifs.includes(n.id);
+                        return (
                         <div 
                           key={n.id} 
                           onClick={() => handleNotificationClick(n)}
@@ -4175,18 +4182,23 @@ const Admin = () => {
                               n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
                               n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
                               n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
+                              n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
                               'bg-green-500/20 text-green-500'
                             )}>
                               {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                                n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
                                n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
                                n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
+                               n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
                                <Bell className="w-4 h-4" />
                               }
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold leading-tight line-clamp-2">{n.title}</p>
-                              <p className="text-xs opacity-70 mt-1 line-clamp-3">{n.message}</p>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm font-bold leading-tight line-clamp-1">{n.title}</p>
+                                <ChevronDown className={cn("w-4 h-4 shrink-0 transition-transform opacity-50 group-hover:opacity-100", isExpanded ? "rotate-180" : "")} />
+                              </div>
+                              <p className={cn("text-xs opacity-70 mt-1 transition-all", isExpanded ? "whitespace-pre-wrap" : "line-clamp-1")}>{n.message}</p>
                               <p className="text-[10px] font-medium opacity-40 mt-2">
                                 {n.timestamp?.toDate ? format(n.timestamp.toDate(), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'Agora'}
                               </p>
@@ -4195,6 +4207,14 @@ const Admin = () => {
                               <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
                             )}
                           </div>
+                          {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback") && (
+                            <button
+                               onClick={(e) => handleNotificationAction(n, e)}
+                               className="mt-3 w-full flex justify-center items-center gap-2 bg-[#BF76FF]/10 text-[#BF76FF] py-2 rounded-xl text-xs font-bold hover:bg-[#BF76FF]/20 transition-colors"
+                             >
+                               Acessar Detalhes
+                             </button>
+                          )}
                           {n.type === 'birthday' && n.memberPhone && (
                             <button
                                onClick={(e) => {
@@ -4208,7 +4228,7 @@ const Admin = () => {
                              </button>
                           )}
                         </div>
-                      ))
+                      )})
                     ) : (
                       <div className="py-12 flex flex-col items-center justify-center text-center opacity-40">
                         <Bell className="w-12 h-12 mb-4" />

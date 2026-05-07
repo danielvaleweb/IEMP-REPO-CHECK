@@ -218,12 +218,27 @@ export default function EventDetails() {
         comment: feedbackComment,
         userId: user?.uid || "anonymous",
         userName: profile?.name || user?.displayName || "Anônimo",
-        userPhoto: profile?.photoURL || user?.photoURL || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon",
+        userPhoto: profile?.photoURL || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Anon'}`,
         createdAt: serverTimestamp(),
         date: new Date().toISOString()
       };
 
       await addDoc(collection(db, "event_feedbacks"), feedbackData);
+      
+      // Notify Administrators
+      try {
+        await addDoc(collection(db, "notifications"), {
+          userId: "admin",
+          title: "Nova Avaliação de Evento",
+          message: `${profile?.name || user?.displayName || "Um usuário"} avaliou o evento "${event?.title || 'um evento'}" com ${feedbackRating} estrelas.\n\n${feedbackComment ? `""${feedbackComment}""` : ""}`,
+          type: "event_feedback",
+          eventId: id,
+          read: false,
+          createdAt: serverTimestamp()
+        });
+      } catch (e) {
+        console.error("Error creating notification: ", e);
+      }
       
       setFeedbacks([{ id: Date.now().toString(), ...feedbackData, createdAt: { toDate: () => new Date() } }, ...feedbacks]);
       setHasGivenFeedback(true);
@@ -561,7 +576,7 @@ export default function EventDetails() {
                 <div className="space-y-4">
                   {feedbacks.map((f, idx) => (
                     <div key={idx} className="bg-black/40 rounded-2xl p-4 flex gap-4 items-start border border-white/5">
-                      <img src={getImageUrl(f.userPhoto || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon")} alt={f.userName} className="w-12 h-12 rounded-full object-cover shrink-0" />
+                      <img src={getImageUrl(f.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.userId || 'Anon'}`)} alt={f.userName} className="w-12 h-12 rounded-full object-cover shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-white font-bold text-sm truncate">{f.userName}</p>
                         <div className="flex text-yellow-400 mb-2 mt-1">
@@ -834,8 +849,17 @@ export default function EventDetails() {
                 >
                   <X className="w-5 h-5" />
                 </Button>
-                <h3 className="text-2xl font-black text-white text-center tracking-tighter uppercase mb-2">Avalie o Evento</h3>
-                <p className="text-gray-400 text-center text-sm mb-6">Como foi sua experiência?</p>
+                <div className="flex flex-col items-center">
+                  <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-[#BF76FF] mb-4">
+                    <img 
+                      src={getImageUrl(profile?.photoURL || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Anon'}`)} 
+                      alt={profile?.name || user?.displayName || "Sua foto"} 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <h3 className="text-2xl font-black text-white text-center tracking-tighter uppercase mb-2">Avalie o Evento</h3>
+                  <p className="text-gray-400 text-center text-sm mb-6">Como foi sua experiência?</p>
+                </div>
                 <div className="flex items-center justify-center gap-2 mb-6">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <button

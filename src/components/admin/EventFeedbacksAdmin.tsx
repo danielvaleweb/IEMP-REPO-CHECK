@@ -48,7 +48,7 @@ export function EventFeedbacksAdmin({ eventId, isDark }: { eventId: string; isDa
       <div className="space-y-4">
         {feedbacks.map((f, i) => (
           <div key={i} className={cn("p-4 rounded-xl border flex gap-4 items-start transition-colors", isDark ? "bg-white/[0.03] border-white/5" : "bg-white border-black/5 shadow-sm")}>
-            <img src={f.userPhoto || "https://api.dicebear.com/7.x/avataaars/svg?seed=Anon"} alt={f.userName} className="w-10 h-10 rounded-full shrink-0 object-cover border border-white/10" />
+            <img src={f.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.userId || 'Anon'}`} alt={f.userName} className="w-10 h-10 rounded-full shrink-0 object-cover border border-white/10" />
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
                 <span className={cn("font-bold text-sm", isDark ? "text-white/90" : "text-black")}>{f.userName}</span>
