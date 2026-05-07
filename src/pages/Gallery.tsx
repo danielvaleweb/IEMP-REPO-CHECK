@@ -73,6 +73,7 @@ interface Album {
   date: string;
   cover: string;
   photos: string[];
+  typeEvent?: string;
 }
 
 interface RemovalRequest {
@@ -82,6 +83,29 @@ interface RemovalRequest {
   requestedBy: string;
   status: 'pending' | 'removed' | 'kept';
 }
+
+const getCultoDaysLeft = (dateStr: string) => {
+  if (!dateStr) return -1;
+  const eventDateStr = dateStr.includes(' - ') ? dateStr.split(' - ')[0] : dateStr;
+  let eventDate = new Date(eventDateStr);
+  if (isNaN(eventDate.getTime())) {
+    const parts = eventDateStr.replace(/T.*$/, '').split(/[-/]/);
+    if (parts.length >= 3) {
+      if (parts[0].length === 4) {
+        eventDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      } else if (parts[2].length === 4) {
+        eventDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      }
+    }
+  }
+  if (isNaN(eventDate.getTime())) return -1;
+  
+  const now = new Date();
+  const expiryDate = new Date(eventDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const timeLeftMs = expiryDate.getTime() - now.getTime();
+  if (timeLeftMs <= 0) return 0;
+  return Math.ceil(timeLeftMs / (1000 * 60 * 60 * 24));
+};
 
 // Custom hook for responsive detection
 const useMediaQuery = (query: string) => {
@@ -200,7 +224,8 @@ export default function Gallery() {
             title: data.title || "",
             date: data.date || "",
             cover: data.image || "",
-            photos: data.gallery || []
+            photos: data.gallery || [],
+            typeEvent: data.typeEvent || ""
           };
         })
         .filter(album => album.photos.length > 0);
@@ -408,10 +433,14 @@ export default function Gallery() {
   };
 
   const filteredAlbums = useMemo(() => {
-    return albums.filter(album => 
-      album.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      album.date.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    return albums.filter(album => {
+      if (album.typeEvent === 'culto') {
+        const daysLeft = getCultoDaysLeft(album.date);
+        if (daysLeft === 0) return false;
+      }
+      return album.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+             album.date.toLowerCase().includes(searchTerm.toLowerCase());
+    });
   }, [albums, searchTerm]);
 
   const favoritePhotos = useMemo(() => {
@@ -532,9 +561,19 @@ export default function Gallery() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80 group-hover:opacity-100 transition-opacity duration-300" />
                         
                         <div className="absolute bottom-4 left-6 right-6 translate-y-2 group-hover:translate-y-0 transition-transform duration-500">
-                          <div className="flex items-center gap-2 text-primary mb-1">
-                            <Calendar className="w-3.5 h-3.5" />
-                            <span className="text-[10px] font-black uppercase tracking-widest">{album.date}</span>
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-2 text-primary">
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span className="text-[10px] font-black uppercase tracking-widest">{album.date}</span>
+                            </div>
+                            {album.typeEvent === 'culto' && (
+                              <div className="flex items-center gap-1.5 bg-red-500/20 px-2 py-0.5 rounded-full border border-red-500/30">
+                                <Clock className="w-3 h-3 text-red-500" />
+                                <span className="text-[9px] font-black uppercase tracking-widest text-red-500">
+                                  {getCultoDaysLeft(album.date)} dias restantes
+                               </span>
+                              </div>
+                            )}
                           </div>
                           <h3 className="text-2xl font-black text-white group-hover:text-primary transition-colors leading-tight uppercase tracking-tighter">
                             {album.title}
@@ -593,12 +632,23 @@ export default function Gallery() {
               >
                 <ArrowRight className="w-4 h-4 rotate-180" /> Voltar
               </Button>
-              <div className="text-right">
+              <div className="text-right flex flex-col items-end">
                 <h2 className="text-4xl font-black uppercase tracking-tighter leading-none">{selectedAlbum.title}</h2>
                 <div className="flex items-center justify-end gap-3 mt-2">
                   <span className="w-8 h-[1px] bg-primary" />
                   <p className="text-primary font-black uppercase tracking-[0.3em] text-[10px]">{selectedAlbum.date}</p>
                 </div>
+                {selectedAlbum.typeEvent === 'culto' && (() => {
+                  const daysLeft = getCultoDaysLeft(selectedAlbum.date);
+                  return (
+                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-4 py-2 mt-4 rounded-xl max-w-sm">
+                      <Clock className="w-4 h-4 text-red-400 shrink-0" />
+                      <p className="text-left text-[11px] font-bold text-red-500">
+                        Esta biblioteca será removida em <span className="font-black text-red-400">{daysLeft} dias</span>
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

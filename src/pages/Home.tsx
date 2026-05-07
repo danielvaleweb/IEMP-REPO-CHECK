@@ -734,26 +734,36 @@ export default function Home() {
       </div>
 
       {/* Clicks Recentes Section */}
-      <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 overflow-visible">
-        <div className="max-w-[1600px] mx-auto overflow-visible">
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <div className="w-1 h-8 bg-red-500 rounded-full" />
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Clicks Recentes</h2>
-            </div>
-            <Link to="/galeria" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
-              Ver Galeria <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
+      {(() => {
+        const recentClicksEvents = pastEvents.filter(event => {
+          const title = (event.title || "").toLowerCase();
+          if ((title.includes("blitz da oração") || title.includes("blitz da oracao")) && (!event.gallery || event.gallery.length === 0)) {
+            return false;
+          }
+          return true;
+        });
 
-          <div className="flex overflow-x-auto md:grid md:grid-cols-5 gap-4 mt-8 relative z-10 pb-4 snap-x snap-mandatory scrollbar-hide md:overflow-visible items-stretch"> {/** Grid de Cliques */}
-            {pastEvents.length === 0 ? (
-               Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="min-w-[85vw] md:min-w-0 md:w-auto shrink-0 snap-center aspect-video bg-white/5 rounded-md animate-pulse" />
-               ))
-            ) : (
-              <>
-                {pastEvents.slice(0, 5).map((event, idx) => (
+        return (
+          <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 overflow-visible">
+            <div className="max-w-[1600px] mx-auto overflow-visible">
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-1 h-8 bg-red-500 rounded-full" />
+                  <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Clicks Recentes</h2>
+                </div>
+                <Link to="/galeria" className="text-sm font-bold text-white/40 hover:text-white transition-colors flex items-center gap-2 group">
+                  Ver Galeria <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+
+              <div className="flex overflow-x-auto md:grid md:grid-cols-5 gap-4 mt-8 relative z-10 pb-4 snap-x snap-mandatory scrollbar-hide md:overflow-visible items-stretch"> {/** Grid de Cliques */}
+                {recentClicksEvents.length === 0 ? (
+                   Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="min-w-[85vw] md:min-w-0 md:w-auto shrink-0 snap-center aspect-video bg-white/5 rounded-md animate-pulse" />
+                   ))
+                ) : (
+                  <>
+                    {recentClicksEvents.slice(0, 5).map((event, idx) => (
                   <div key={`home-clique-wrap-${idx}`} className="w-[85vw] sm:w-[45vw] md:w-auto shrink-0 snap-center md:snap-align-none">
                     <MovieCard 
                       key={`home-clique-${idx}-${event.id}`}
@@ -783,6 +793,8 @@ export default function Home() {
           </div>
         </div>
       </div>
+      );
+      })()}
 
       {/* Eventos Section - Movie Style */}
       {(upcomingEvents.filter(e => e.typeEvent !== 'culto').length > 0 || pastEvents.filter(e => e.typeEvent !== 'culto').length > 0) && (
