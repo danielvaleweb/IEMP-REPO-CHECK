@@ -446,15 +446,28 @@ function CalendarView({
                             )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3 mt-2">
-                           <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
-                             <Clock className="w-3.5 h-3.5 text-[#BF76FF]" /> {safeFormatTime(event.date)}
-                           </span>
-                           <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
-                             <MapPin className="w-3.5 h-3.5 text-[#BF76FF]" /> {event.location || "Sem local"}
-                           </span>
+                        <div className="flex flex-col gap-3 mt-2">
+                           <div className="flex items-center gap-4">
+                             <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
+                               <Clock className="w-3.5 h-3.5 text-[#BF76FF]" /> 
+                               {safeFormatTime(event.date)}
+                               {event.endTime ? ` às ${event.endTime}` : ''}
+                             </span>
+                             <span className="flex items-center gap-1 text-xs font-bold text-gray-400">
+                               <MapPin className="w-3.5 h-3.5 text-[#BF76FF]" /> {event.location || "Sem local"}
+                             </span>
+                           </div>
+                           <div className="flex flex-col gap-1 min-w-0">
+                             <span className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]/60 flex items-center gap-1">
+                               Organizador: <span className="text-gray-500 font-bold normal-case truncate">{event.authorName || "Equipe"}</span>
+                             </span>
+                             {event.phone && canEdit && (
+                               <span className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]/60 flex items-center gap-1">
+                                 Telefone: <span className="text-gray-500 font-bold normal-case">{event.phone}</span>
+                               </span>
+                             )}
+                           </div>
                         </div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]/60 mt-3">Por: {event.authorName || "Equipe"}</p>
                       </div>
                       <div className={cn("flex gap-2 pt-4 border-t", isDark ? "border-white/5" : "border-black/5")}>
                         <Button 
@@ -7320,23 +7333,32 @@ const Admin = () => {
                   onChange={(e) => setRequestFormData({...requestFormData, title: e.target.value})}
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data do evento</label>
+                <Input 
+                  type="date"
+                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                  value={requestFormData.date || ""}
+                  onChange={(e) => setRequestFormData({...requestFormData, date: e.target.value})}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data</label>
-                  <Input 
-                    type="date"
-                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
-                    value={requestFormData.date || ""}
-                    onChange={(e) => setRequestFormData({...requestFormData, date: e.target.value})}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Hora</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Início</label>
                   <Input 
                     type="time"
                     className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
-                    value={requestFormData.time || ""}
-                    onChange={(e) => setRequestFormData({...requestFormData, time: e.target.value})}
+                    value={requestFormData.startTime || ""}
+                    onChange={(e) => setRequestFormData({...requestFormData, startTime: e.target.value})}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Término</label>
+                  <Input 
+                    type="time"
+                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                    value={requestFormData.endTime || ""}
+                    onChange={(e) => setRequestFormData({...requestFormData, endTime: e.target.value})}
                   />
                 </div>
               </div>
@@ -7350,7 +7372,9 @@ const Admin = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Telefone pra contato</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                  Telefone pra contato <span className="text-[9px] bg-amber-500/10 text-amber-500 px-2 py-0.5 rounded-full normal-case">Visível apenas para admins</span>
+                </label>
                 <Input 
                   className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
                   placeholder="Ex: (00) 00000-0000"
@@ -7371,11 +7395,11 @@ const Admin = () => {
               <Button 
                 className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black uppercase tracking-widest shadow-xl mt-6"
                 onClick={() => {
-                  if (!requestFormData.title || !requestFormData.date || !requestFormData.time) {
+                  if (!requestFormData.title || !requestFormData.date || !requestFormData.startTime || !requestFormData.endTime || !requestFormData.phone) {
                     setRequestStatusMessage({
                       type: 'warning',
                       title: 'Campos Incompletos',
-                      message: 'Por favor, preencha o assunto, data e hora para continuar.'
+                      message: 'Por favor, preencha o assunto, data, horários de início e término, e o telefone de contato para continuar.'
                     });
                     return;
                   }
@@ -7496,7 +7520,10 @@ const Admin = () => {
                   <div className="text-[10px] uppercase font-bold opacity-40">Compromisso</div>
                   <div className="font-bold">{requestFormData.title}</div>
                   <div className="text-[10px] uppercase font-bold opacity-40 mt-2">Data e Hora</div>
-                  <div className="font-bold">{requestFormData.date && format(new Date(requestFormData.date + "T00:00:00"), "dd/MM/yyyy")} às {requestFormData.time}</div>
+                  <div className="font-bold">
+                    {requestFormData.date && format(new Date(requestFormData.date + "T00:00:00"), "dd/MM/yyyy")} 
+                    {" "}das {requestFormData.startTime} às {requestFormData.endTime}
+                  </div>
                 </div>
               </div>
               
@@ -7504,17 +7531,18 @@ const Admin = () => {
                 <Button 
                   className="w-full h-14 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white font-black uppercase tracking-widest shadow-xl"
                   onClick={async () => {
-                    const eventDate = `${requestFormData.date}T${requestFormData.time}`;
+                    const eventDate = `${requestFormData.date}T${requestFormData.startTime}`;
                     const dataToSave = {
                       title: requestFormData.title,
                       date: eventDate,
+                      endTime: requestFormData.endTime, // New endTime field
                       location: requestFormData.location || "Igreja Local",
                       phone: requestFormData.phone || "",
                       observations: requestFormData.observations || "",
                       status: "pending",
                       menuSource: "agenda",
                       authorId: profile?.id || user?.uid || "",
-                      authorName: profile?.name || "Membro",
+                      authorName: profile?.name || "Membro", // Keep authorName
                       createdAt: serverTimestamp(),
                     };
 
@@ -8706,6 +8734,7 @@ function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) 
         const weekDay = format(date, "EEE", { locale: ptBR });
         const monthShort = format(date, "MMM", { locale: ptBR });
         const time = format(date, "HH:mm");
+        const formattedTime = event.endTime ? `${time} às ${event.endTime}` : time;
         
         const colors = ["bg-green-500", "bg-[#BF76FF]", "bg-orange-500", "bg-pink-500", "bg-blue-500"];
         const colorClass = colors[index % colors.length];
@@ -8741,12 +8770,19 @@ function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) 
                     <MapPin className="w-3 h-3 md:w-4 h-4" />
                     <span className="truncate">{event.location || "Local em breve"}</span>
                   </p>
+                  {(event.authorName || event.phone) && (
+                    <p className={cn("text-[9px] md:text-xs flex items-center gap-1 font-medium mt-1 truncate", isDark ? "text-[#BF76FF]/70" : "text-[#BF76FF]/80")}>
+                      {event.authorName ? `Org: ${event.authorName}` : ""}
+                      {event.authorName && event.phone ? " | " : ""}
+                      {event.phone ? `Tel: ${event.phone}` : ""}
+                    </p>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2 md:gap-4">
                   <div className={cn("flex items-center gap-1.5 px-2.5 py-1 md:px-4 md:py-2 rounded-full text-[10px] md:text-xs font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-600")}>
                     <Clock className="w-3 h-3 md:w-4 h-4 text-[#BF76FF]" />
-                    {time}
+                    {formattedTime}
                   </div>
                 </div>
               </div>
