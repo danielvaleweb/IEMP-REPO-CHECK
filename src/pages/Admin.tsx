@@ -462,8 +462,9 @@ function CalendarView({
                                Organizador: <span className="text-gray-500 font-bold normal-case truncate">{event.authorName || "Equipe"}</span>
                              </span>
                              {event.phone && canEdit && (
-                               <span className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]/60 flex items-center gap-1">
+                               <span className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]/60 flex items-center gap-1 mt-1">
                                  Telefone: <span className="text-gray-500 font-bold normal-case">{event.phone}</span>
+                                 <span className="text-[8px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-sm normal-case whitespace-nowrap ml-1 font-bold">Só admins</span>
                                </span>
                              )}
                            </div>
@@ -6523,7 +6524,7 @@ const Admin = () => {
                   </div>
                   
                   <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} />
+                    <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} isAdmin={isAdminOrDev} />
                   </div>
                 </div>
 
@@ -8699,7 +8700,7 @@ function ListItem({ title, subtitle, image, icon: Icon, active, status, onClick 
   );
 }
 
-function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) {
+function UpcomingEvents({ agenda, isDark, isAdmin }: { agenda: any[], isDark: boolean, isAdmin?: boolean }) {
   const upcoming = agenda
     .filter(item => {
       // Filter out pending items
@@ -8770,11 +8771,16 @@ function UpcomingEvents({ agenda, isDark }: { agenda: any[], isDark: boolean }) 
                     <MapPin className="w-3 h-3 md:w-4 h-4" />
                     <span className="truncate">{event.location || "Local em breve"}</span>
                   </p>
-                  {(event.authorName || event.phone) && (
-                    <p className={cn("text-[9px] md:text-xs flex items-center gap-1 font-medium mt-1 truncate", isDark ? "text-[#BF76FF]/70" : "text-[#BF76FF]/80")}>
-                      {event.authorName ? `Org: ${event.authorName}` : ""}
-                      {event.authorName && event.phone ? " | " : ""}
-                      {event.phone ? `Tel: ${event.phone}` : ""}
+                  {(event.authorName || (event.phone && isAdmin)) && (
+                    <p className={cn("text-[9px] md:text-[10px] flex items-center gap-1 font-medium mt-1 truncate", isDark ? "text-[#BF76FF]/70" : "text-[#BF76FF]/80")}>
+                      {event.authorName && <span className="uppercase tracking-widest font-black">Org: <span className="text-gray-500 font-bold normal-case">{event.authorName}</span></span>}
+                      {event.authorName && (event.phone && isAdmin) && <span className="opacity-50">|</span>}
+                      {(event.phone && isAdmin) && (
+                        <span className="flex items-center gap-1">
+                          <span className="uppercase tracking-widest font-black">Tel:</span> <span className="text-gray-500 font-bold normal-case">{event.phone}</span>
+                          <span className="text-[8px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-sm normal-case whitespace-nowrap ml-1 font-bold">Só admins</span>
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>
