@@ -1648,7 +1648,7 @@ const Admin = () => {
   const handleNotificationAction = (notif: any, e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      if (notif.type === "request" || notif.type === "agenda") {
+      if (notif.type === "request" || notif.type === "agenda" || notif.type === "agenda_rejected") {
         setActiveTab("agenda");
       } else if (notif.type === "registration") {
         setActiveTab("membros");
@@ -3620,6 +3620,8 @@ const Admin = () => {
                         notificationCount={
                           item.id === "membros" && (isMasterAdmin || profile?.role === "Desenvolvedor") 
                             ? pendingMembers.length 
+                            : item.id === "agenda" && canCreateEventDirectly
+                            ? agenda.filter(a => a.status === "pending").length
                             : 0
                         }
                       />
@@ -3696,7 +3698,7 @@ const Admin = () => {
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile notificationCount={canCreateEventDirectly ? agenda.filter(a => a.status === "pending").length : 0} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               <SidebarItem 
@@ -3991,14 +3993,17 @@ const Admin = () => {
                               "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                               n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
                               n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
-                              n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
+                              n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
                               n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
+                              n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
                               'bg-green-500/20 text-green-500'
                             )}>
                               {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                                n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
                                n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
+                               n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
                                n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
+                               n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
                                <Bell className="w-4 h-4" />
                               }
                             </div>
@@ -4180,7 +4185,7 @@ const Admin = () => {
                               "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                               n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
                               n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
-                              n.type === 'gallery_removal' ? 'bg-red-500/20 text-red-500' :
+                              n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
                               n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
                               n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
                               'bg-green-500/20 text-green-500'
@@ -4188,6 +4193,7 @@ const Admin = () => {
                               {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                                n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
                                n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
+                               n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
                                n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
                                n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
                                <Bell className="w-4 h-4" />
@@ -4207,7 +4213,7 @@ const Admin = () => {
                               <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
                             )}
                           </div>
-                          {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback") && (
+                          {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback" || n.type === "agenda_rejected") && (
                             <button
                                onClick={(e) => handleNotificationAction(n, e)}
                                className="mt-3 w-full flex justify-center items-center gap-2 bg-[#BF76FF]/10 text-[#BF76FF] py-2 rounded-xl text-xs font-bold hover:bg-[#BF76FF]/20 transition-colors"
@@ -7474,7 +7480,7 @@ const Admin = () => {
                             userId: itemToReject.authorId,
                             title: "Solicitação Recusada",
                             message: `Seu compromisso "${itemToReject.title}" foi recusado e removido da agenda. Motivo: ${rejectReason || "Sem motivo informado"}.`,
-                            type: "agenda",
+                            type: "agenda_rejected",
                             read: false,
                             createdAt: serverTimestamp()
                           });
