@@ -694,7 +694,7 @@ Estilo: ${styleInstruction}`;
                 <div className="space-y-3 pt-2">
                   <p className={cn("text-xs font-bold uppercase tracking-widest", isDark ? "text-white/50" : "text-gray-400")}>Selecione os membros</p>
                   <div className={cn("max-h-60 overflow-y-auto pr-2 space-y-2", isDark ? "scrollbar-dark" : "scrollbar-light")}>
-                    {members.filter(m => m.phone).map(m => (
+                    {members.filter(m => m.phone && !!m.name && m.name.trim() !== '').map(m => (
                       <div key={m.id} className={cn("flex items-center justify-between p-3 rounded-xl border", isDark ? "bg-black/50 border-white/5" : "bg-white border-black/5")}>
                         <div className="flex items-center gap-3">
                            <input 

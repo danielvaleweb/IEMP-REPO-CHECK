@@ -4944,17 +4944,17 @@ const Admin = () => {
                                     </div>
                                     <div className="space-y-3">
                                       {(formData.guests || []).map((guest: any, i: number) => (
-                                        <div key={`guest-${i}`} className="p-4 rounded-2xl border border-white/5 bg-white/5 relative group grid grid-cols-1 md:grid-cols-3 gap-3">
+                                        <div key={`guest-${i}`} className={cn("p-4 rounded-2xl border relative group grid grid-cols-1 md:grid-cols-3 gap-3", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5")}>
                                           <Input placeholder="Nome" value={guest.name} onChange={(e) => {
                                             const g = [...formData.guests]; g[i].name = e.target.value; setFormData({...formData, guests: g});
-                                          }} className="h-10 text-[11px] rounded-xl bg-cinza-input" />
+                                          }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
                                           <Input placeholder="Cargo" value={guest.role} onChange={(e) => {
                                             const g = [...formData.guests]; g[i].role = e.target.value; setFormData({...formData, guests: g});
-                                          }} className="h-10 text-[11px] rounded-xl bg-cinza-input" />
+                                          }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
                                           <Input placeholder="Foto URL" value={guest.image} onChange={(e) => {
                                             const g = [...formData.guests]; g[i].image = e.target.value; setFormData({...formData, guests: g});
-                                          }} className="h-10 text-[11px] rounded-xl bg-cinza-input" />
-                                          <Button type="button" variant="ghost" onClick={() => setFormData({...formData, guests: formData.guests.filter((_:any,idx:number)=>idx!==i)})} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white p-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                          }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
+                                          <Button type="button" variant="ghost" onClick={() => setFormData({...formData, guests: formData.guests.filter((_:any,idx:number)=>idx!==i)})} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xl">
                                             <X className="w-3 h-3" />
                                           </Button>
                                         </div>
@@ -5473,7 +5473,7 @@ const Admin = () => {
                                       />
                                       {showOrganizerDropdown && !isReadOnly && (
                                         <div className={cn("absolute top-full left-0 right-0 mt-2 rounded-xl border shadow-xl z-50 max-h-48 overflow-y-auto", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5")}>
-                                          {members.filter(m => (m.name || '').toLowerCase().includes((organizerSearch || '').toLowerCase())).map(member => (
+                                          {members.filter(m => !!m.name && m.name.trim() !== '' && m.status !== 'pending' && m.status !== 'visitor_session' && m.name.toLowerCase().includes((organizerSearch || '').toLowerCase())).map(member => (
                                             <div 
                                               key={member.id}
                                               className={cn("px-4 py-3 cursor-pointer text-sm font-bold flex items-center gap-3 transition-colors", isDarkMode ? "hover:bg-white/5 text-white" : "hover:bg-gray-50 text-black")}
@@ -7338,7 +7338,7 @@ const Admin = () => {
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data do evento</label>
                 <Input 
                   type="date"
-                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10 [color-scheme:dark]" : "bg-gray-50 border-black/5")}
                   value={requestFormData.date || ""}
                   onChange={(e) => setRequestFormData({...requestFormData, date: e.target.value})}
                 />
@@ -7348,7 +7348,7 @@ const Admin = () => {
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Início</label>
                   <Input 
                     type="time"
-                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10 [color-scheme:dark]" : "bg-gray-50 border-black/5")}
                     value={requestFormData.startTime || ""}
                     onChange={(e) => setRequestFormData({...requestFormData, startTime: e.target.value})}
                   />
@@ -7357,7 +7357,7 @@ const Admin = () => {
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Término</label>
                   <Input 
                     type="time"
-                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5")}
+                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-white/5 border-white/10 [color-scheme:dark]" : "bg-gray-50 border-black/5")}
                     value={requestFormData.endTime || ""}
                     onChange={(e) => setRequestFormData({...requestFormData, endTime: e.target.value})}
                   />
@@ -8053,7 +8053,7 @@ const Admin = () => {
                   isDarkMode ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10"
                 )}>
                   {members
-                    .filter(m => m.name?.toLowerCase().includes(mentionSearch.toLowerCase()))
+                    .filter(m => !!m.name && m.name.trim() !== '' && m.name.toLowerCase().includes(mentionSearch.toLowerCase()))
                     .slice(0, 10)
                     .map(m => (
                       <button
@@ -8086,7 +8086,7 @@ const Admin = () => {
                       </button>
                     ))
                   }
-                  {members.filter(m => m.name?.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
+                  {members.filter(m => !!m.name && m.name.trim() !== '' && m.name.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
                     <div className="p-4 text-[10px] text-center opacity-40 italic flex flex-col items-center gap-2">
                        <Users className="w-4 h-4" />
                        Nenhum membro encontrado
@@ -8264,7 +8264,7 @@ const Admin = () => {
           <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin scrollbar-thumb-[#BF76FF]/20">
             <div className="space-y-2 pt-4">
               {members
-                .filter(m => (m.name?.toLowerCase().includes(memberSearch.toLowerCase()) || m.role?.toLowerCase().includes(memberSearch.toLowerCase())) && m.status !== "pending")
+                .filter(m => !!m.name && m.name.trim() !== '' && (m.name?.toLowerCase().includes(memberSearch.toLowerCase()) || m.role?.toLowerCase().includes(memberSearch.toLowerCase())) && m.status !== "pending")
                 .map((member, idx) => {
                   const isSelected = formData.invitedMembers?.some((m: any) => m.id === member.id);
                   return (
