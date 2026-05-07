@@ -29,8 +29,8 @@ export function EventFeedbacksAdmin({ eventId, isDark }: { eventId: string; isDa
     if (eventId) fetchFeedbacks();
   }, [eventId]);
 
-  const handleDelete = async (id: string) => {
-    if (!window.confirm("Realmente deseja excluir este feedback?")) return;
+  const handleDelete = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       await deleteDoc(doc(db, "event_feedbacks", id));
       setFeedbacks(feedbacks.filter(f => f.id !== id));
@@ -63,7 +63,7 @@ export function EventFeedbacksAdmin({ eventId, isDark }: { eventId: string; isDa
             </div>
             <Button 
               variant="ghost" 
-              onClick={() => handleDelete(f.id)}
+              onClick={(e) => handleDelete(f.id, e)}
               className="text-red-500 hover:bg-red-500/10 hover:text-red-600 rounded-full w-10 h-10 p-0 shrink-0 cursor-pointer"
             >
               <Trash2 className="w-4 h-4" />
