@@ -76,7 +76,11 @@ export default function RadioPage() {
   }, [tracks, radioArtists]);
 
   const top10Tracks = React.useMemo(() => {
-    return [...tracks].sort((a, b) => (b.playCount || 0) - (a.playCount || 0)).slice(0, 10);
+    return [...tracks].sort((a, b) => {
+      if (a.isTop && !b.isTop) return -1;
+      if (!a.isTop && b.isTop) return 1;
+      return (b.playCount || 0) - (a.playCount || 0);
+    }).slice(0, 10);
   }, [tracks]);
   
   // Modals

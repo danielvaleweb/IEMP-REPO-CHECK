@@ -6099,6 +6099,36 @@ const Admin = () => {
                           />
                         </div>
                       )}
+
+                      {radioSubTab === "tracks" && (
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Número de Plays (Desempate pro Top 10)</label>
+                          <Input 
+                            type="number"
+                            className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                            value={formData.playCount || 0}
+                            onChange={(e) => setFormData({...formData, playCount: parseInt(e.target.value) || 0})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+                      )}
+
+                      {radioSubTab === "tracks" && (
+                        <div className="flex flex-col gap-2 mt-2">
+                           <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Destacar no Top Mais Escutadas?</label>
+                           <button
+                             type="button"
+                             onClick={() => !isReadOnly && setFormData({...formData, isTop: !formData.isTop})}
+                             disabled={isReadOnly}
+                             className={cn("h-14 rounded-2xl px-6 font-bold flex items-center justify-between border transition-all w-full focus:outline-none", isDarkMode ? "bg-cinza-input border-white/10 text-white" : "bg-white border-black/5 text-black", formData.isTop ? (isDarkMode ? "border-[#BF76FF]/50 bg-[#BF76FF]/10 text-[#BF76FF]" : "border-[#BF76FF]/50 bg-[#BF76FF]/5 text-[##8E44AD]") : "")}
+                           >
+                             <span className="text-sm">{formData.isTop ? "Sim, Destaque" : "Normal"}</span>
+                             <div className={cn("w-10 h-6 rounded-full p-1 transition-colors flex items-center border", formData.isTop ? "bg-[#BF76FF] border-[#BF76FF]" : "bg-gray-500/20 border-transparent")}>
+                               <div className={cn("w-4 h-4 bg-white rounded-full transition-transform", formData.isTop ? "translate-x-4" : "")} />
+                             </div>
+                           </button>
+                        </div>
+                      )}
                     </div>
                   )}
 
