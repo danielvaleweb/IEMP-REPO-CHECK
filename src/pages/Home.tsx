@@ -801,6 +801,21 @@ export default function Home() {
       <section className="py-24 px-4 md:px-12 bg-[#F8F9FB] rounded-t-[3.5rem] text-black relative z-10 -mt-10">
         <div className="max-w-[1400px] mx-auto">
           
+          {/* Banner Promocional */}
+          {config.homeBannerImage && (
+            <div className="w-full mb-16">
+              {config.homeBannerLink ? (
+                <a href={config.homeBannerLink} target="_blank" rel="noopener noreferrer" className="block w-full mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/20 transition-transform duration-300 hover:scale-[1.02] bg-white aspect-[1412/148] sm:aspect-[1412/148]">
+                  <img src={config.homeBannerImage} alt="Promo" className="w-full h-full object-cover" />
+                </a>
+              ) : (
+                <div className="w-full mx-auto rounded-3xl overflow-hidden shadow-2xl shadow-black/20 bg-white aspect-[1412/148] sm:aspect-[1412/148]">
+                  <img src={config.homeBannerImage} alt="Promo" className="w-full h-full object-cover" />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Upcoming Events Carousel/Banner */}
           <div className="mb-20">
             <div className="flex items-center gap-3 mb-8">

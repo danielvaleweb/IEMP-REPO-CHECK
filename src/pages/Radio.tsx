@@ -15,13 +15,48 @@ import { useRadio } from '@/contexts/RadioContext';
 
 export default function RadioPage() {
   const { user, profile } = useAuth();
-  const { tracks, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted } = useRadio();
+  const { tracks, radioArtists, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted } = useRadio();
 
   
   // App state
   const [activeTab, setActiveTab] = useState<'discover' | 'playlists' | 'live'>('discover');
   const [currentPlaylist, setCurrentPlaylist] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
+  const [artistProfileOpen, setArtistProfileOpen] = useState<any>(null);
+  
+  // Derived state
+  const artists = React.useMemo(() => {
+    const artistMap = new Map();
+    
+    // First load managed artists
+    if (radioArtists && radioArtists.length > 0) {
+      radioArtists.forEach(a => {
+        if (a.name) {
+          artistMap.set(a.name, {
+            ...a,
+            isManaged: true
+          });
+        }
+      });
+    }
+
+    tracks.forEach(t => {
+      // Ignore tracks with no artist or generic terms
+      const name = t.artist?.trim();
+      if (name && name !== "Desconhecido" && !artistMap.has(name)) {
+        artistMap.set(name, {
+          name: name,
+          thumbnail: t.youtubeId ? `https://img.youtube.com/vi/${t.youtubeId}/mqdefault.jpg` : t.thumbnail
+        });
+      }
+    });
+    return Array.from(artistMap.values());
+  }, [tracks, radioArtists]);
+
+  const top10Tracks = React.useMemo(() => {
+    return [...tracks].sort((a, b) => (b.playCount || 0) - (a.playCount || 0)).slice(0, 10);
+  }, [tracks]);
   
   // Modals
   const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
@@ -116,7 +151,13 @@ export default function RadioPage() {
 
   const myPlaylists = playlists.filter(p => p.authorId === user?.uid);
   const otherPlaylists = playlists.filter(p => p.authorId !== user?.uid);
-  const filteredTracks = tracks.filter(t => t.title?.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredTracks = tracks.filter(t => {
+    const matchesSearch = t.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesArtist = selectedArtist ? t.artist === selectedArtist : true;
+    return matchesSearch && matchesArtist;
+  });
+
+  const selectedArtistData = selectedArtist ? artists.find(a => a.name === selectedArtist) : null;
 
   return (
     <div className="min-h-screen bg-[#0a0502] text-white font-sans pb-32 pt-20 flex flex-col relative overflow-hidden">
@@ -161,10 +202,91 @@ export default function RadioPage() {
               {activeTab === 'discover' && (
                 <motion.div key="discover" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
                   
+                  {/* Top 10 Tracks */}
+                  {top10Tracks.length > 0 && (
+                    <div className="mb-12">
+                      <h2 className="text-2xl font-bold mb-6 tracking-tight">Top Mais Escutadas</h2>
+                      <div className="flex gap-10 md:gap-14 overflow-x-auto pb-8 pt-4 pl-12 md:pl-16 snap-x snap-mandatory scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+                         {top10Tracks.map((track, i) => (
+                           <div key={track.id} className="relative shrink-0 snap-center w-[140px] md:w-[180px] aspect-[3/4] group cursor-pointer" onClick={() => handlePlay(track, top10Tracks)}>
+                              <div className="absolute -left-12 md:-left-16 bottom-[-1.5rem] md:bottom-[-2rem] text-[160px] md:text-[220px] font-black leading-none text-[#0a0502] [-webkit-text-stroke:3px_#444] z-0 select-none group-hover:[-webkit-text-stroke:3px_#fff] transition-all tracking-tighter" style={{ letterSpacing: '-0.08em' }}>
+                                {i + 1}
+                              </div>
+                              <div className="relative w-full h-full rounded-md overflow-hidden shadow-2xl z-10 group-hover:scale-105 transition-all duration-500 bg-white/5 border border-white/10">
+                                <img src={track.youtubeId ? `https://img.youtube.com/vi/${track.youtubeId}/mqdefault.jpg` : track.thumbnail} alt={track.title} className={cn("w-full h-full object-cover", currentTrack?.id === track.id && "opacity-60")} />
+                                <div className={cn("absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity", currentTrack?.id === track.id ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+                                  <div className="w-12 h-12 rounded-full bg-[#BF76FF] text-white flex items-center justify-center shadow-lg transform transition-transform hover:scale-110 shrink-0">
+                                    {isPlaying && currentTrack?.id === track.id ? <Speaker className="w-5 h-5 animate-pulse shrink-0" /> : <Play className="w-5 h-5 ml-1 fill-current shrink-0" />}
+                                  </div>
+                                </div>
+                              </div>
+                           </div>
+                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Artists Circular List */}
+                  {artists.length > 0 && (
+                    <div className="mb-12">
+                      <h2 className="text-2xl font-bold mb-6 tracking-tight">Artistas</h2>
+                      <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+                        <div 
+                          className="shrink-0 flex flex-col items-center gap-3 cursor-pointer group"
+                          onClick={() => setSelectedArtist(null)}
+                        >
+                          <div className={cn("w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center border-4 transition-all duration-300", selectedArtist === null ? "border-[#BF76FF] bg-[#BF76FF]/20" : "border-transparent bg-white/5 group-hover:border-white/20")}>
+                            <ListMusic className={cn("w-8 h-8", selectedArtist === null ? "text-[#BF76FF]" : "text-white/50")} />
+                          </div>
+                          <span className={cn("text-sm font-bold", selectedArtist === null ? "text-[#BF76FF]" : "text-white/60")}>Todos</span>
+                        </div>
+                        
+                        {artists.map((artist, i) => (
+                          <div 
+                            key={i} 
+                            className="shrink-0 flex flex-col items-center gap-3 cursor-pointer group"
+                            onClick={() => setSelectedArtist(artist.name)}
+                          >
+                            <div className={cn("w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden border-4 transition-all duration-300", selectedArtist === artist.name ? "border-[#BF76FF] scale-105" : "border-transparent group-hover:border-white/20")}>
+                              <img src={artist.thumbnail || "/placeholder.jpg"} alt={artist.name} className="w-full h-full object-cover" />
+                            </div>
+                            <span className={cn("text-sm font-bold max-w-[100px] text-center truncate", selectedArtist === artist.name ? "text-[#BF76FF]" : "text-white/80 group-hover:text-white")}>{artist.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Top Featured / Global Playlist */}
                   <div className="mb-12">
+                     {selectedArtistData && selectedArtistData.isManaged && (
+                       <div className="mb-8 p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col md:flex-row gap-6 items-center md:items-start text-center md:text-left">
+                         <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden shrink-0 border-4 border-white/10">
+                           <img src={selectedArtistData.thumbnail || "/placeholder.jpg"} alt={selectedArtistData.name} className="w-full h-full object-cover" />
+                         </div>
+                         <div className="flex-1 flex flex-col justify-center min-h-[160px]">
+                           <h3 className="text-3xl font-black tracking-tight mb-2">{selectedArtistData.name}</h3>
+                           {selectedArtistData.bio && (
+                             <p className="text-white/70 max-w-2xl mb-4 text-sm leading-relaxed">{selectedArtistData.bio}</p>
+                           )}
+                           {selectedArtistData.instagram && (
+                             <div className="mt-auto">
+                               <a 
+                                 href={selectedArtistData.instagram.startsWith('http') ? selectedArtistData.instagram : `https://instagram.com/${selectedArtistData.instagram.replace('@', '')}`}
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors text-sm font-bold"
+                               >
+                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line></svg>
+                                 Instagram
+                               </a>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                     )}
                      <div className="flex items-center justify-between mb-6">
-                       <h2 className="text-2xl font-bold">Acervo Global</h2>
+                       <h2 className="text-2xl font-bold">{selectedArtist ? `Músicas de ${selectedArtist}` : "Acervo Global"}</h2>
                        <div className="relative w-full max-w-xs hidden sm:block">
                          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
                          <input 

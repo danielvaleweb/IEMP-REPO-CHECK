@@ -1,0 +1,101 @@
+467:      <section id="hero" className="relative min-h-[80vh] md:h-screen w-full bg-black text-white overflow-visible"> {/** Removido overflow-hidden para permitir scroll mais natural */}
+468-        <AnimatePresence mode="wait">
+469-          {videos[currentIndex] && (
+470-            <motion.div
+471-              key={`main-video-${videos[currentIndex].id}-${currentIndex}`}
+472-              initial={{ opacity: 0 }}
+473-              animate={{ opacity: 1 }}
+474-              exit={{ opacity: 0 }}
+475-              transition={{ duration: 1 }}
+476-              className="absolute inset-0 w-full h-full"
+477-            >
+478-              {/* Background Video/Image */}
+479-              <div className="absolute inset-0 w-full h-full overflow-hidden">
+480-                {showVideo && !isWatching ? (
+481-                  <div className="absolute inset-0 w-full h-full pointer-events-none">
+482-                    <iframe
+483-                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=0&modestbranding=1&rel=0&origin=${window.location.origin}`}
+484-                      className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 border-none scale-105"
+485-                      allow="autoplay; encrypted-media"
+486-                    />
+487-                  </div>
+488-                ) : (
+489-                    <img
+490-                      src={getImageUrl(videos[currentIndex].thumbnail)}
+491-                      alt=""
+492-                      className="w-full h-full object-cover"
+493-                      onError={(e) => {
+494-                        const target = e.target as HTMLImageElement;
+495-                        const videoId = videos[currentIndex].id;
+496-                        if (target.src.includes('maxresdefault')) {
+497-                          target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+498-                        } else if (target.src.includes('hqdefault')) {
+499-                          target.src = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+500-                        } else {
+501-                          target.src = '/thumb-padrao.jpg';
+502-                        }
+503-                      }}
+504-                    />
+505-                )}
+506-                {/* Gradient Overlays */}
+507-                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
+508-              </div>
+509-
+510-              {/* Content Overlay */}
+511-              <div className="relative z-10 h-full flex flex-col justify-end items-start text-left px-6 md:px-16 pb-24 md:pb-32 pointer-events-none">
+512-                <motion.div
+513-                  initial={{ y: 20, opacity: 0 }}
+514-                  animate={{ y: 0, opacity: 1 }}
+515-                  transition={{ delay: 0.5 }}
+516-                  className="max-w-3xl pointer-events-auto"
+517-                >
+518-                  <div className="flex items-center gap-3 mb-4">
+519-                    {videos[currentIndex].tags && videos[currentIndex].tags.length > 0 ? (
+520-                      videos[currentIndex].tags.slice(0, 2).map((tag: string, i: number) => (
+521-                        <span key={i} className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-sm uppercase tracking-widest shadow-lg">
+522-                          {tag}
+523-                        </span>
+524-                      ))
+525-                    ) : (
+526-                      <span className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-sm uppercase tracking-widest shadow-lg">
+527-                        {videos[currentIndex].badge || (isLive && currentIndex === 0 ? "Ao Vivo" : "Gravado")}
+528-                      </span>
+529-                    )}
+530-                    <span className="text-white/90 text-sm font-medium drop-shadow-md">
+531-                      {(() => {
+532-                        const dateStr = videos[currentIndex].published;
+533-                        const date = new Date(dateStr);
+534-                        if (!isNaN(date.getTime())) {
+535-                          return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+536-                        }
+537-                        return dateStr;
+538-                      })()}
+539-                    </span>
+540-                  </div>
+541-
+542-                  <h1 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6 tracking-tighter uppercase line-clamp-2 drop-shadow-xl">
+543-                    {cleanTitle(videos[currentIndex].title)}
+544-                  </h1>
+545-                  
+546-                  <div className="flex items-center gap-4 mt-6">
+547-                    <Button
+548-                      size="lg"
+549-                      className="bg-white text-black hover:bg-white/90 hover:scale-105 transition-all duration-300 rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2 group"
+550-                      onClick={() => handleWatchVideo(videos[currentIndex])}
+551-                    >
+552-                      <Play className="w-6 h-6 fill-current" />
+553-                      Assistir
+554-                    </Button>
+555-                    <Button
+556-                      size="lg"
+557-                      variant="outline"
+558-                      className={cn(
+559-                        "rounded-md px-8 h-12 text-lg font-bold flex items-center gap-2 transition-all duration-300",
+560-                        myList.includes(videos[currentIndex].id)
+561-                          ? "bg-gradient-to-r from-[#BF76FF] to-purple-800 text-white border-none hover:opacity-90 shadow-[0_0_20px_rgba(191,118,255,0.4)]"
+562-                          : "bg-black/40 backdrop-blur-md border-none text-white hover:bg-white/20"
+563-                      )}
+564-                      onClick={(e) => handleToggleMyList(e, videos[currentIndex])}
+565-                    >
+566-                      {myList.includes(videos[currentIndex].id) ? <Check className="w-6 h-6" /> : <Plus className="w-6 h-6" />}
+567-                      {myList.includes(videos[currentIndex].id) ? "Adicionado!" : "Assistir Depois"}

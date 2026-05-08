@@ -5,6 +5,7 @@ import ReactPlayer from 'react-player';
 
 interface RadioContextProps {
   tracks: any[];
+  radioArtists: any[];
   playlists: any[];
   vignettes: any[];
   settings: any;
@@ -46,6 +47,7 @@ export function useRadio() {
 
 export function RadioProvider({ children }: { children: React.ReactNode }) {
   const [tracks, setTracks] = useState<any[]>([]);
+  const [radioArtists, setRadioArtists] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [vignettes, setVignettes] = useState<any[]>([]);
   const [settings, setSettings] = useState<any>({});
@@ -71,6 +73,10 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       setTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => handleFirestoreError(err, OperationType.LIST, "radio-playlist"));
 
+    const unsubArtists = onSnapshot(query(collection(db, "radio-artists"), orderBy("name", "asc")), (snap) => {
+      setRadioArtists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "radio-artists"));
+
     const unsubPlaylists = onSnapshot(query(collection(db, "playlists"), orderBy("createdAt", "desc")), (snap) => {
       setPlaylists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => handleFirestoreError(err, OperationType.LIST, "playlists"));
@@ -93,6 +99,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       unsubTracks();
+      unsubArtists();
       unsubPlaylists();
       unsubVignettes();
     };
@@ -193,7 +200,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <RadioContext.Provider value={{
-      tracks, playlists, vignettes, settings,
+      tracks, radioArtists, playlists, vignettes, settings,
       isLiveMode, queue, currentIndex, currentTrack, isPlaying,
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,

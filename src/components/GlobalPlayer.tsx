@@ -21,7 +21,7 @@ export default function GlobalPlayer() {
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none transition-transform duration-500 ease-in-out" style={{ transform: isPlayerMinimized ? 'translateY(80%)' : 'translateY(0)' }}>
+    <div className="fixed bottom-0 left-0 right-0 z-50 pointer-events-none transition-transform duration-500 ease-in-out text-white" style={{ transform: isPlayerMinimized ? 'translateY(80%)' : 'translateY(0)' }}>
       {/* Toggle button when minimized */}
       <div className="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-auto">
          <button 
@@ -76,11 +76,11 @@ export default function GlobalPlayer() {
               <Music2 className="w-5 h-5 opacity-40" />
             </div>
           )}
-          <div className="min-w-0 truncate">
-             <p className="text-sm font-bold truncate">
+          <div className="min-w-0 truncate text-white">
+             <p className="text-sm font-bold truncate text-white">
                {isLiveMode ? (settings?.radioTitle || "Rádio Ao Vivo") : currentTrack?.title || "Nenhuma música tocando"}
              </p>
-             <p className="text-[10px] uppercase tracking-widest opacity-50 truncate mt-0.5">
+             <p className="text-[10px] uppercase tracking-widest opacity-80 truncate mt-0.5 text-white/80">
                {isLiveMode ? "Transmissão Oficial" : currentTrack?.isVignette ? "Vinheta" : currentTrack?.artist || currentTrack?.description || "Selecione algo para ouvir"}
              </p>
           </div>
