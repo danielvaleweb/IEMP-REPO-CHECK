@@ -181,6 +181,18 @@
       },
       "required": ["title", "youtubeId"]
     },
+    "RadioArtist": {
+      "title": "RadioArtist",
+      "description": "Perfil do artista tocado na rádio",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "bio": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "instagram": { "type": "string" }
+      },
+      "required": ["name"]
+    },
     "PhotoRemoval": {
       "title": "PhotoRemoval",
       "description": "Solicitações de remoção de fotos da galeria",
@@ -221,6 +233,10 @@
     "/radio-playlist/{trackId}": {
       "schema": "RadioTrack",
       "description": "Lista de reprodução da rádio"
+    },
+    "/radio-artists/{artistId}": {
+      "schema": "RadioArtist",
+      "description": "Perfis dos artistas"
     },
     "/photo_removals/{removalId}": {
       "schema": "PhotoRemoval",

@@ -126,6 +126,11 @@ service cloud.firestore {
              data.format in ['square', 'story'] && data.bgColor is string;
     }
 
+    function isValidRadioArtist(data) {
+      return data.keys().hasAll(['name']) &&
+             data.name is string;
+    }
+
     // --- Collection Rules ---
 
     match /test/connection {
@@ -176,6 +181,12 @@ service cloud.firestore {
     match /radio-playlist/{trackId} {
       allow read, list, get: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidRadioTrack(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /radio-artists/{artistId} {
+      allow read, list, get: if true;
+      allow create, update: if (isMasterAdmin() || isEditor()) && isValidRadioArtist(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
