@@ -241,7 +241,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   return (
     <RadioContext.Provider value={{
       tracks, radioArtists, playlists, vignettes, settings,
-      isLiveMode, queue, currentIndex, currentTrack, isPlaying,
+      isLiveMode, queue, currentIndex, currentTrack, isPlaying, setIsPlaying,
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
       handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay

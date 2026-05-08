@@ -36,6 +36,7 @@
         "image": { "type": "string" },
         "category": { "type": "string" },
         "authorId": { "type": "string" },
+        "bgMusicId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["title", "content", "authorId"]

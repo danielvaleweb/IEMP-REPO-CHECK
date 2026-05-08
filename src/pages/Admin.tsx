@@ -5031,6 +5031,29 @@ const Admin = () => {
                                   </div>
 
                                   <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Música de Fundo (Biblioteca da Rádio)</label>
+                                    <Select 
+                                      value={formData.bgMusicId || "none"}
+                                      onValueChange={(val) => setFormData({...formData, bgMusicId: val === "none" ? "" : val})}
+                                      disabled={isReadOnly}
+                                    >
+                                      <SelectTrigger className={cn("w-full h-14 rounded-2xl border transition-all px-6 text-[11px] font-bold uppercase tracking-widest", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+                                        <SelectValue placeholder="Selecione uma música..." />
+                                      </SelectTrigger>
+                                      <SelectContent className={cn("rounded-2xl border border-white/5 shadow-2xl p-2 max-h-[300px]", isDarkMode ? "bg-[#1f1f1f] text-white" : "bg-white text-black")}>
+                                        <SelectItem value="none" className="rounded-xl focus:bg-[#BF76FF] focus:text-white uppercase font-bold text-[10px] tracking-widest py-3.5 px-4 cursor-pointer transition-colors">
+                                          Nenhuma música
+                                        </SelectItem>
+                                        {radioTracks.map((track: any) => (
+                                          <SelectItem key={track.id} value={track.id} className="rounded-xl focus:bg-[#BF76FF] focus:text-white uppercase font-bold text-[10px] tracking-widest py-3.5 px-4 cursor-pointer transition-colors">
+                                            {track.title}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="space-y-2">
                                     <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">url da moldura (criar foto)</label>
                                     <Input 
                                       className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
