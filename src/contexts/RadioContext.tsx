@@ -30,9 +30,6 @@ interface RadioContextProps {
   setVolume: (v: number) => void;
   setIsMuted: (v: boolean) => void;
   playerRef: any;
-  handleTimeUpdate: (e: any) => void;
-  handleDurationChange: (e: any) => void;
-  getUrlToPlay: () => string;
 }
 
 export const RadioContext = createContext<RadioContextProps | null>(null);
@@ -248,7 +245,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
       handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay
-    }}>
+    } as any}>
       {children}
       {/* Hidden Global Player */}
       <div className="hidden">
@@ -269,7 +266,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
                 params: {
                   playsinline: 1
                 }
-              },
+              } as any,
               file: {
                 forceAudio: true,
                 attributes: {
@@ -277,7 +274,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
                   controlsList: 'nodownload'
                 }
               }
-            }}
+            } as any}
           />
         )}
         

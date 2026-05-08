@@ -22,6 +22,7 @@ export default function RadioPage() {
   const [activeTab, setActiveTab] = useState<'discover' | 'playlists' | 'live'>('discover');
   const [currentPlaylist, setCurrentPlaylist] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [artistProfileOpen, setArtistProfileOpen] = useState<any>(null);
   
@@ -177,10 +178,33 @@ export default function RadioPage() {
             <p className="opacity-60 text-sm mt-1">Sua plataforma cristã de música e streaming.</p>
           </div>
           
-          <div className="flex bg-white/5 rounded-full p-1 backdrop-blur-md self-start md:self-auto border border-white/10">
-            <TabButton active={activeTab === 'discover'} onClick={() => {setActiveTab('discover'); setCurrentPlaylist(null);}}>Descobrir</TabButton>
-            <TabButton active={activeTab === 'playlists'} onClick={() => {if(user) {setActiveTab('playlists'); setCurrentPlaylist(null);} else alert("Faça login para criar playlists.")}}>Playlists</TabButton>
-            <TabButton active={activeTab === 'live'} onClick={() => {setActiveTab('live'); setCurrentPlaylist(null);}}>Ao Vivo</TabButton>
+          <div className="flex flex-col sm:flex-row items-center gap-4 self-start md:self-auto w-full md:w-auto">
+            {activeTab === 'discover' && (
+              <div className="relative w-full md:w-64">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
+                <input 
+                  type="text" 
+                  placeholder="Buscar música..." 
+                  value={searchQuery}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white/5 border border-white/10 rounded-full h-12 sm:h-10 pl-10 pr-10 text-sm focus:outline-none focus:bg-[#BF76FF]/10 focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-white/40"
+                />
+                {(isSearchFocused || searchQuery) && (
+                   <button 
+                     onClick={() => { setIsSearchFocused(false); setSearchQuery(''); }}
+                     className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-[#BF76FF]/20 rounded-full transition-colors"
+                   >
+                     <X className="w-4 h-4 opacity-70" />
+                   </button>
+                )}
+              </div>
+            )}
+            <div className="flex bg-white/5 rounded-full p-1 backdrop-blur-md w-full sm:w-auto overflow-x-auto border border-white/10 scrollbar-hide">
+              <TabButton active={activeTab === 'discover'} onClick={() => {setActiveTab('discover'); setCurrentPlaylist(null);}}>Descobrir</TabButton>
+              <TabButton active={activeTab === 'playlists'} onClick={() => {if(user) {setActiveTab('playlists'); setCurrentPlaylist(null);} else alert("Faça login para criar playlists.")}}>Playlists</TabButton>
+              <TabButton active={activeTab === 'live'} onClick={() => {setActiveTab('live'); setCurrentPlaylist(null);}}>Ao Vivo</TabButton>
+            </div>
           </div>
         </div>
 
@@ -203,10 +227,10 @@ export default function RadioPage() {
                 <motion.div key="discover" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
                   
                   {/* Top 10 Tracks */}
-                  {top10Tracks.length > 0 && (
+                  {!(isSearchFocused || searchQuery.trim()) && top10Tracks.length > 0 && (
                     <div className="mb-12">
                       <h2 className="text-2xl font-bold mb-6 tracking-tight">Top Mais Escutadas</h2>
-                      <div className="flex gap-10 md:gap-14 overflow-x-auto pb-8 pt-4 pl-12 md:pl-16 snap-x snap-mandatory scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
+                      <div className="flex gap-10 md:gap-14 overflow-x-auto pb-16 md:pb-20 pt-4 pl-12 md:pl-16 snap-x snap-mandatory scrollbar-hide items-center" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
                          {top10Tracks.map((track, i) => (
                            <div key={track.id} className="relative shrink-0 snap-center w-[140px] md:w-[180px] aspect-[3/4] group cursor-pointer" onClick={() => handlePlay(track, top10Tracks)}>
                               <div className="absolute -left-12 md:-left-16 bottom-[-1.5rem] md:bottom-[-2rem] text-[160px] md:text-[220px] font-black leading-none text-[#0a0502] [-webkit-text-stroke:3px_#444] z-0 select-none group-hover:[-webkit-text-stroke:3px_#fff] transition-all tracking-tighter" style={{ letterSpacing: '-0.08em' }}>
@@ -227,7 +251,7 @@ export default function RadioPage() {
                   )}
 
                   {/* Artists Circular List */}
-                  {artists.length > 0 && (
+                  {!(isSearchFocused || searchQuery.trim()) && artists.length > 0 && (
                     <div className="mb-12">
                       <h2 className="text-2xl font-bold mb-6 tracking-tight">Artistas</h2>
                       <div className="flex gap-6 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-hide" style={{scrollbarWidth: 'none', msOverflowStyle: 'none'}}>
@@ -259,7 +283,7 @@ export default function RadioPage() {
 
                   {/* Top Featured / Global Playlist */}
                   <div className="mb-12">
-                     {selectedArtistData && selectedArtistData.isManaged && (
+                     {!(isSearchFocused || searchQuery.trim()) && selectedArtistData && selectedArtistData.isManaged && (
                        <div className="mb-8 p-6 md:p-8 rounded-3xl bg-white/5 border border-white/10 flex flex-col md:flex-row gap-6 items-center md:items-start text-center md:text-left">
                          <div className="w-32 h-32 md:w-40 md:h-40 rounded-full overflow-hidden shrink-0 border-4 border-white/10">
                            <img src={selectedArtistData.thumbnail || "/placeholder.jpg"} alt={selectedArtistData.name} className="w-full h-full object-cover" />
@@ -286,17 +310,11 @@ export default function RadioPage() {
                        </div>
                      )}
                      <div className="flex items-center justify-between mb-6">
-                       <h2 className="text-2xl font-bold">{selectedArtist ? `Músicas de ${selectedArtist}` : "Acervo Global"}</h2>
-                       <div className="relative w-full max-w-xs hidden sm:block">
-                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
-                         <input 
-                           type="text" 
-                           placeholder="Buscar música..." 
-                           value={searchQuery}
-                           onChange={(e) => setSearchQuery(e.target.value)}
-                           className="w-full bg-white/5 border border-white/10 rounded-full h-10 pl-10 pr-4 text-sm focus:outline-none focus:bg-white/10 transition-all text-white placeholder:text-white/40"
-                         />
-                       </div>
+                       <h2 className="text-2xl font-bold">
+                         {(isSearchFocused || searchQuery.trim())
+                           ? (searchQuery.trim() ? `Resultados para "${searchQuery}"` : "Recomendações") 
+                           : (selectedArtist ? `Músicas de ${selectedArtist}` : "Acervo Global")}
+                       </h2>
                      </div>
                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                        {filteredTracks.map((track, i) => (
@@ -318,7 +336,7 @@ export default function RadioPage() {
                   </div>
 
                   {/* Public Playlists */}
-                  {otherPlaylists.length > 0 && (
+                  {!(isSearchFocused || searchQuery.trim()) && otherPlaylists.length > 0 && (
                     <div>
                       <h2 className="text-2xl font-bold mb-6">Playlists da Comunidade</h2>
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">

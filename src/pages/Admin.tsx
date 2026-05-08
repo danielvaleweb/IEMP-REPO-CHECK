@@ -2544,10 +2544,34 @@ const Admin = () => {
                            activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : radioSubTab === "artists" ? "radio-artists" : "radio-playlist") :
                            "agenda";
       
+      // Basic validations before saving
+      if (activeTab === "radio") {
+        if (radioSubTab === "tracks" && (!formData.title || !formData.youtubeId)) {
+          alert("Por favor, preencha o título e cole um link válido do YouTube.");
+          setIsSubmitting(false);
+          return;
+        }
+        if (radioSubTab === "vignettes" && (!formData.title || !formData.youtubeUrl)) {
+          alert("Por favor, preencha o título e passe um link para a vinheta.");
+          setIsSubmitting(false);
+          return;
+        }
+        if (radioSubTab === "artists" && !formData.name) {
+          alert("Por favor, insira o nome do artista.");
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Override collection if editing an item that has a specific type (e.g. from merged agenda)
       if (selectedItem?.type) {
-        collectionName = selectedItem.type === 'post' ? 'posts' : 
-                         selectedItem.type === 'agenda-direcao' ? 'agenda-direcao' : 'agenda';
+        if (selectedItem.type === 'post' || selectedItem.type === 'eventos') collectionName = 'posts';
+        else if (selectedItem.type === 'agenda-direcao') collectionName = 'agenda-direcao';
+        else if (selectedItem.type === 'noticias') collectionName = 'blog';
+        else if (selectedItem.type === 'membros' || selectedItem.type === 'visitantes') collectionName = 'members';
+        else if (selectedItem.type === 'radio') collectionName = radioSubTab === "vignettes" ? "vignettes" : radioSubTab === "artists" ? "radio-artists" : "radio-playlist";
+        else if (selectedItem.type === 'videos') collectionName = 'videos';
+        else if (selectedItem.type === 'agenda') collectionName = 'agenda';
       }
       
       // Sanitize all values in dataToSave recursively to remove any 'undefined'
@@ -2790,7 +2814,7 @@ const Admin = () => {
         setSelectedItem(null);
         setFormData({});
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, activeTab);
+      handleFirestoreError(err, OperationType.WRITE, collectionName);
     } finally {
       setIsSubmitting(false);
     }
@@ -2898,7 +2922,7 @@ const Admin = () => {
       setDeleteConfirm(null);
     } catch (err) {
       console.error('Erro ao excluir:', err);
-      handleFirestoreError(err, OperationType.DELETE, activeTab);
+      handleFirestoreError(err, OperationType.DELETE, col);
       setDeleteConfirm(null);
     } finally {
       setIsSubmitting(false);
