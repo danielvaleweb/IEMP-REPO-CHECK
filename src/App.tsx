@@ -7,8 +7,10 @@ import { useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
+import { RadioProvider } from "@/contexts/RadioContext";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import GlobalPlayer from "@/components/GlobalPlayer";
 import Home from "@/pages/Home";
 import Live from "@/pages/Live";
 import Gallery from "@/pages/Gallery";
@@ -77,9 +79,12 @@ export default function App() {
   return (
     <AuthProvider>
       <FavoritesProvider>
-        <Router>
-          <AppContent />
-        </Router>
+        <RadioProvider>
+          <Router>
+            <AppContent />
+          </Router>
+          <GlobalPlayer />
+        </RadioProvider>
       </FavoritesProvider>
     </AuthProvider>
   );

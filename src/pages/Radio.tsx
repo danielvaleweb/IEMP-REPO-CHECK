@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '@/lib/firebase';
+import { db, auth, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactPlayer from 'react-player';
@@ -11,11 +11,12 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
+import { useRadio } from '@/contexts/RadioContext';
+
 export default function RadioPage() {
   const { user, profile } = useAuth();
-  const [tracks, setTracks] = useState<any[]>([]);
-  const [playlists, setPlaylists] = useState<any[]>([]);
-  const [settings, setSettings] = useState<any>({});
+  const { tracks, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted } = useRadio();
+
   
   // App state
   const [activeTab, setActiveTab] = useState<'discover' | 'playlists' | 'live'>('discover');
@@ -25,108 +26,9 @@ export default function RadioPage() {
   // Modals
   const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
   const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState(false);
+  const [playlistToDelete, setPlaylistToDelete] = useState<string | null>(null);
   const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
   const [selectedTrackToAdd, setSelectedTrackToAdd] = useState<any>(null);
-
-  // Player state
-  const [isLiveMode, setIsLiveMode] = useState(false);
-  const [queue, setQueue] = useState<any[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentTrack, setCurrentTrack] = useState<any>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.8);
-  const [progress, setProgress] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  
-  const playerRef = useRef<any>(null);
-
-  useEffect(() => {
-    const unsubTracks = onSnapshot(query(collection(db, "radio-playlist"), orderBy("order", "asc")), (snap) => {
-      setTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    const unsubPlaylists = onSnapshot(query(collection(db, "playlists"), orderBy("createdAt", "desc")), (snap) => {
-      setPlaylists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
-
-    const getSystemSettings = async () => {
-      const snap = await getDoc(doc(db, "settings", "system"));
-      if (snap.exists()) {
-        setSettings(snap.data());
-      }
-    };
-    getSystemSettings();
-
-    return () => {
-      unsubTracks();
-      unsubPlaylists();
-    };
-  }, []);
-
-  const handlePlay = (track: any, sourceQueue: any[]) => {
-    setIsLiveMode(false);
-    setQueue(sourceQueue);
-    const idx = sourceQueue.findIndex(t => t.id === track.id);
-    setCurrentIndex(idx >= 0 ? idx : 0);
-    setCurrentTrack(track);
-    setIsPlaying(true);
-  };
-
-  const playLive = () => {
-    setIsLiveMode(true);
-    setCurrentTrack(null);
-    setQueue([]);
-    setIsPlaying(true);
-  };
-
-  const togglePlay = () => {
-    if (!currentTrack && !isLiveMode && tracks.length > 0) {
-      handlePlay(tracks[0], tracks);
-      return;
-    }
-    setIsPlaying(!isPlaying);
-  };
-
-  const playNext = () => {
-    if (isLiveMode || queue.length === 0) return;
-    const nextIdx = (currentIndex + 1) % queue.length;
-    setCurrentIndex(nextIdx);
-    setCurrentTrack(queue[nextIdx]);
-    setIsPlaying(true);
-  };
-
-  const playPrev = () => {
-    if (isLiveMode || queue.length === 0) return;
-    const prevIdx = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
-    setCurrentIndex(prevIdx);
-    setCurrentTrack(queue[prevIdx]);
-    setIsPlaying(true);
-  };
-
-  const handleTimeUpdate = (e: any) => {
-    if (!isPlaying) return;
-    setProgress(e.target.currentTime);
-  };
-
-  const handleDurationChange = (e: any) => {
-    setDuration(e.target.duration);
-  };
-
-  const formatTime = (seconds: number) => {
-    if (isNaN(seconds)) return "0:00";
-    const m = Math.floor(seconds / 60);
-    const s = Math.floor(seconds % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = parseFloat(e.target.value);
-    setProgress(val);
-    if (playerRef.current) {
-      playerRef.current.currentTime = val;
-    }
-  };
 
   const createPlaylist = async () => {
     if (!user || !newPlaylistTitle.trim()) return;
@@ -142,20 +44,19 @@ export default function RadioPage() {
       setNewPlaylistTitle('');
       setIsCreatePlaylistOpen(false);
     } catch (e) {
-      console.error("Error creating playlist", e);
+      handleFirestoreError(e, OperationType.CREATE, "playlists");
     }
   };
 
-  const deletePlaylist = async (playlistId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!window.confirm("Deseja realmente excluir esta playlist?")) return;
+  const deletePlaylist = async (playlistId: string) => {
     try {
       await deleteDoc(doc(db, "playlists", playlistId));
       if (currentPlaylist?.id === playlistId) {
         setCurrentPlaylist(null);
       }
+      setPlaylistToDelete(null);
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.DELETE, `playlists/${playlistId}`);
     }
   };
 
@@ -181,7 +82,7 @@ export default function RadioPage() {
         setCurrentPlaylist({ ...currentPlaylist, tracks: updatedTracks });
       }
     } catch (e) {
-      console.error("Error adding to playlist", e);
+      handleFirestoreError(e, OperationType.UPDATE, `playlists/${playlistId}`);
     }
   };
 
@@ -199,7 +100,7 @@ export default function RadioPage() {
         setCurrentPlaylist({ ...currentPlaylist, tracks: updatedTracks });
       }
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.UPDATE, `playlists/${playlistId}`);
     }
   };
 
@@ -319,7 +220,7 @@ export default function RadioPage() {
                    
                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
                      {myPlaylists.map(pl => (
-                       <PlaylistCard key={pl.id} playlist={pl} onClick={() => setCurrentPlaylist(pl)} isOwner onDelete={(e) => deletePlaylist(pl.id, e)} />
+                       <PlaylistCard key={pl.id} playlist={pl} onClick={() => setCurrentPlaylist(pl)} isOwner onDelete={(e) => { e.stopPropagation(); setPlaylistToDelete(pl.id); }} />
                      ))}
                      {myPlaylists.length === 0 && (
                        <div className="col-span-full py-20 flex flex-col items-center justify-center text-center opacity-50 bg-white/5 rounded-3xl border border-white/5 border-dashed">
@@ -358,133 +259,6 @@ export default function RadioPage() {
               )}
             </AnimatePresence>
           )}
-        </div>
-      </div>
-
-      {/* Hidden Player for non-live or non-youtube-live streams */}
-      <div className="hidden">
-        {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
-          <ReactPlayer 
-            ref={playerRef}
-            src={getUrlToPlay()} 
-            playing={isPlaying} 
-            volume={volume}
-            muted={isMuted}
-            onTimeUpdate={handleTimeUpdate}
-            onDurationChange={handleDurationChange}
-            onEnded={playNext}
-          />
-        )}
-      </div>
-
-      {/* Bottom Player Controller */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-12 pointer-events-none">
-        
-        {/* Player Bar Background */}
-        <div className="absolute bottom-0 left-0 right-0 h-24 bg-black/60 backdrop-blur-2xl border-t border-white/10" />
-
-        <div className="max-w-7xl mx-auto flex items-center justify-between relative pointer-events-auto h-20 bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl px-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-          
-          {/* Progress Bar (Absolute positioning over the bar) */}
-          {!isLiveMode && currentTrack && (
-            <div className="absolute -top-3 left-6 right-6 h-1 group cursor-pointer flex items-center">
-              <input 
-                type="range" 
-                min={0} 
-                max={duration || 100} 
-                value={progress} 
-                onChange={handleSeek}
-                className="w-full absolute opacity-0 cursor-pointer z-10 h-full"
-              />
-              <div className="h-1 bg-white/20 w-full rounded-full overflow-hidden transition-all group-hover:h-1.5">
-                <div 
-                  className="h-full bg-gradient-to-r from-[#BF76FF] to-[#FF4400] relative"
-                  style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
-                >
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Left: Track Info */}
-          <div className="flex items-center gap-4 w-1/3 min-w-0">
-            {isLiveMode ? (
-               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#BF76FF] to-[#FF4400] flex items-center justify-center shrink-0">
-                 <RadioIcon className="w-6 h-6 text-white" />
-               </div>
-            ) : currentTrack ? (
-              <img 
-                src={`https://img.youtube.com/vi/${currentTrack.youtubeId}/default.jpg`} 
-                alt="cover" 
-                className="w-12 h-12 rounded-xl object-cover shrink-0 bg-white/5 border border-white/10"
-              />
-            ) : (
-              <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
-                <Music2 className="w-5 h-5 opacity-40" />
-              </div>
-            )}
-            <div className="min-w-0 truncate">
-               <p className="text-sm font-bold truncate">
-                 {isLiveMode ? (settings?.radioTitle || "Rádio Ao Vivo") : currentTrack?.title || "Nenhuma música tocando"}
-               </p>
-               <p className="text-[10px] uppercase tracking-widest opacity-50 truncate mt-0.5">
-                 {isLiveMode ? "Transmissão Oficial" : currentTrack?.description || "Selecione algo para ouvir"}
-               </p>
-            </div>
-          </div>
-
-          {/* Center: Controls */}
-          <div className="flex flex-col items-center justify-center w-1/3">
-             <div className="flex items-center justify-center gap-6">
-                {!isLiveMode && (
-                  <button onClick={playPrev} className="text-white/50 hover:text-white transition-colors disabled:opacity-30 p-2" disabled={queue.length <= 1}>
-                    <SkipBack className="w-5 h-5 fill-current" />
-                  </button>
-                )}
-                
-                <button 
-                  onClick={togglePlay}
-                  className="w-12 h-12 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                >
-                  {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
-                </button>
-
-                {!isLiveMode && (
-                  <button onClick={playNext} className="text-white/50 hover:text-white transition-colors disabled:opacity-30 p-2" disabled={queue.length <= 1}>
-                    <SkipForward className="w-5 h-5 fill-current" />
-                  </button>
-                )}
-             </div>
-             
-             {!isLiveMode && currentTrack && (
-                <div className="flex items-center gap-3 mt-1 text-[10px] font-mono opacity-50 w-full max-w-xs px-2 hidden md:flex">
-                  <span>{formatTime(progress)}</span>
-                  <div className="flex-1" />
-                  <span>{formatTime(duration)}</span>
-                </div>
-             )}
-          </div>
-
-          {/* Right: Volume & Actions */}
-          <div className="flex items-center justify-end gap-4 w-1/3">
-            <button onClick={() => setIsMuted(!isMuted)} className="text-white/50 hover:text-white transition-colors p-2 hidden sm:block">
-              {isMuted || volume === 0 ? <X className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-            </button>
-            <div className="w-24 h-1 bg-white/10 rounded-full relative group cursor-pointer hidden sm:block">
-               <input 
-                 type="range" 
-                 min={0} max={1} step={0.01}
-                 value={isMuted ? 0 : volume}
-                 onChange={(e) => {
-                   setVolume(parseFloat(e.target.value));
-                   if (isMuted) setIsMuted(false);
-                 }}
-                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-               />
-               <div className="h-full bg-white rounded-full pointer-events-none" style={{ width: `${(isMuted ? 0 : volume) * 100}%` }} />
-            </div>
-          </div>
         </div>
       </div>
 
@@ -544,6 +318,21 @@ export default function RadioPage() {
         </DialogContent>
       </Dialog>
 
+      <Dialog open={!!playlistToDelete} onOpenChange={(open) => !open && setPlaylistToDelete(null)}>
+        <DialogContent className="bg-[#141414] text-white border-white/10 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Excluir Playlist</DialogTitle>
+            <DialogDescription className="text-red-400 opacity-80">
+              Tem certeza que deseja excluir esta playlist? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" onClick={() => setPlaylistToDelete(null)} className="text-white/50 hover:text-white hover:bg-white/5">Cancelar</Button>
+            <Button onClick={() => playlistToDelete && deletePlaylist(playlistToDelete)} className="bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl px-8">Excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
@@ -574,8 +363,8 @@ function TrackCard({ track, isCurrent, isPlaying, onClick, onAdd }: { track: any
           <img src={`https://img.youtube.com/vi/${track.youtubeId}/mqdefault.jpg`} alt={track.title} className={cn("w-full h-full object-cover transition-transform duration-500 group-hover:scale-110", isCurrent && "opacity-60 blur-[2px]")} />
           
           <div className={cn("absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity", isCurrent ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
-             <div className="w-12 h-12 rounded-full bg-[#BF76FF] text-white flex items-center justify-center shadow-lg shadow-[#BF76FF]/40 transform transition-transform hover:scale-110">
-               {isPlaying ? <Speaker className="w-6 h-6 animate-pulse" /> : <Play className="w-6 h-6 ml-1 fill-current" />}
+             <div className="w-12 h-12 rounded-full bg-[#BF76FF] text-white flex items-center justify-center shadow-lg shadow-[#BF76FF]/40 transform transition-transform hover:scale-110 shrink-0">
+               {isPlaying ? <Speaker className="w-5 h-5 animate-pulse shrink-0" /> : <Play className="w-5 h-5 ml-1 fill-current shrink-0" />}
              </div>
           </div>
        </div>
@@ -695,14 +484,14 @@ function PlaylistView({ playlist, onBack, onPlayTrack, onPlayAll, isOwner, onRem
                    isTrackActive ? "bg-white/5" : ""
                  )}
                >
-                 <div className="text-sm opacity-50 relative w-6 flex items-center justify-center">
+                 <div className="text-sm opacity-50 relative w-6 flex items-center justify-center shrink-0">
                     {isTrackActive && isPlaying ? (
-                       <Speaker className="w-4 h-4 text-[#BF76FF] animate-pulse" />
+                       <Speaker className="w-4 h-4 text-[#BF76FF] animate-pulse shrink-0" />
                     ) : (
-                       <span className={cn("group-hover:opacity-0", isTrackActive && "text-[#BF76FF]")}>{index + 1}</span>
+                       <span className={cn("group-hover:opacity-0 shrink-0", isTrackActive && "text-[#BF76FF]")}>{index + 1}</span>
                     )}
                     {!isTrackActive && (
-                      <Play className="w-4 h-4 absolute opacity-0 group-hover:opacity-100 fill-current" />
+                      <Play className="w-4 h-4 absolute opacity-0 group-hover:opacity-100 fill-current shrink-0" />
                     )}
                  </div>
                  

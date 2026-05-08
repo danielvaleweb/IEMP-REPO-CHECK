@@ -5889,18 +5889,55 @@ const Admin = () => {
 
                   {activeTab === "radio" && (
                     <div className="space-y-4">
-                      <div className="flex flex-col gap-2">
-                        <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">
-                          {radioSubTab === "tracks" ? "Título da Música" : "Título da Vinheta"}
-                        </label>
-                        <Input 
-                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
-                          placeholder={radioSubTab === "tracks" ? "Ex: Louvor de Adoração - Casa do Pai" : "Ex: Identidade Profecia, Chamada de Culto..."}
-                          value={formData.title || ""}
-                          onChange={(e) => setFormData({...formData, title: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
-                      </div>
+                      {radioSubTab === "tracks" && (
+                        <>
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Nome da Música</label>
+                            <Input 
+                              className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                              placeholder="Ex: Louvor de Adoração - Casa do Pai"
+                              value={formData.title || ""}
+                              onChange={(e) => setFormData({...formData, title: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Artista</label>
+                            <Input 
+                              className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                              placeholder="Ex: Aline Barros, Fernandinho..."
+                              value={formData.artist || ""}
+                              onChange={(e) => setFormData({...formData, artist: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+
+                          <div className="flex flex-col gap-2">
+                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Fonte</label>
+                            <Input 
+                              className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                              placeholder="Ex: Youtube, Spotify, Gravadora XYZ"
+                              value={formData.source || ""}
+                              onChange={(e) => setFormData({...formData, source: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {radioSubTab === "vignettes" && (
+                        <div className="flex flex-col gap-2">
+                          <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Título da Vinheta</label>
+                          <Input 
+                            className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")} 
+                            placeholder="Ex: Identidade Profecia, Chamada de Culto..."
+                            value={formData.title || ""}
+                            onChange={(e) => setFormData({...formData, title: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
+                      )}
 
                       <div className="flex flex-col gap-2">
                         <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Link do YouTube</label>
