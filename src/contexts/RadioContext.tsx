@@ -171,22 +171,61 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     setIsPlayerMinimized(false);
   };
 
-  const handleTimeUpdate = (e: any) => {
+  const handleProgress = (state: { playedSeconds: number }) => {
     if (!isPlaying) return;
-    setProgress(e.target.currentTime);
+    setProgress(state.playedSeconds);
   };
 
-  const handleDurationChange = (e: any) => {
-    setDuration(e.target.duration);
+  const handleDurationChange = (duration: number) => {
+    setDuration(duration);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseFloat(e.target.value);
     setProgress(val);
     if (playerRef.current) {
-      playerRef.current.currentTime = val;
+      if (typeof playerRef.current.seekTo === 'function') {
+        playerRef.current.seekTo(val, 'seconds');
+      } else if (playerRef.current.currentTime !== undefined) {
+        playerRef.current.currentTime = val;
+      }
     }
   };
+
+  const handlersRef = useRef({ playNext, playPrev });
+  useEffect(() => {
+    handlersRef.current = { playNext, playPrev };
+  });
+
+  useEffect(() => {
+    if ('mediaSession' in navigator) {
+      if (isPlaying) {
+        const title = isLiveMode ? (settings?.radioTitle || "Rádio Ao Vivo") : currentTrack?.title || "Sintonizado";
+        const artist = isLiveMode ? "Rádio" : currentTrack?.artist || "Ministério Profecia";
+        const artwork = [];
+        
+        let imageUrl = "/placeholder.jpg";
+        if (currentTrack?.youtubeId) {
+          imageUrl = `https://img.youtube.com/vi/${currentTrack.youtubeId}/mqdefault.jpg`;
+        } else if (currentTrack?.thumbnail) {
+          imageUrl = currentTrack.thumbnail;
+        }
+        artwork.push({ src: imageUrl, sizes: '512x512', type: 'image/jpeg' });
+
+        navigator.mediaSession.metadata = new MediaMetadata({ title, artist, artwork });
+
+        navigator.mediaSession.setActionHandler('play', () => setIsPlaying(true));
+        navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
+        navigator.mediaSession.setActionHandler('previoustrack', () => handlersRef.current.playPrev());
+        navigator.mediaSession.setActionHandler('nexttrack', () => handlersRef.current.playNext());
+        
+        // This attempts to prevent stopping by marking the session active
+        navigator.mediaSession.playbackState = "playing";
+      } else {
+        navigator.mediaSession.playbackState = "paused";
+      }
+    }
+  }, [isPlaying, currentTrack, isLiveMode, settings]);
 
   const getUrlToPlay = () => {
     if (isLiveMode) {
@@ -204,22 +243,37 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       isLiveMode, queue, currentIndex, currentTrack, isPlaying,
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
-      handleSeek, setVolume, setIsMuted, playerRef, handleTimeUpdate, handleDurationChange, getUrlToPlay
+      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay
     }}>
       {children}
       {/* Hidden Global Player */}
       <div className="hidden">
         {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
-          // @ts-ignore
           <ReactPlayer 
             ref={playerRef}
-            src={getUrlToPlay()} 
+            url={getUrlToPlay()} 
             playing={isPlaying} 
             volume={volume}
             muted={isMuted}
-            onTimeUpdate={handleTimeUpdate}
-            onDurationChange={handleDurationChange}
+            onProgress={handleProgress}
+            onDuration={handleDurationChange}
             onEnded={playNext}
+            playsinline={true}
+            config={{
+              youtube: {
+                playerVars: {
+                  playsinline: 1,
+                  background: 1
+                }
+              },
+              file: {
+                forceAudio: true,
+                attributes: {
+                  playsInline: true,
+                  controlsList: 'nodownload'
+                }
+              }
+            }}
           />
         )}
       </div>
