@@ -171,13 +171,17 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     setIsPlayerMinimized(false);
   };
 
-  const handleProgress = (state: { playedSeconds: number }) => {
+  const handleProgress = (e: any) => {
     if (!isPlaying) return;
-    setProgress(state.playedSeconds);
+    if (e?.target?.currentTime !== undefined) {
+      setProgress(e.target.currentTime);
+    }
   };
 
-  const handleDurationChange = (duration: number) => {
-    setDuration(duration);
+  const handleDurationChange = (e: any) => {
+    if (e?.target?.duration !== undefined) {
+      setDuration(e.target.duration);
+    }
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -251,19 +255,19 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
         {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
           <ReactPlayer 
             ref={playerRef}
-            url={getUrlToPlay()} 
+            src={getUrlToPlay()} 
             playing={isPlaying} 
             volume={volume}
             muted={isMuted}
-            onProgress={handleProgress}
-            onDuration={handleDurationChange}
+            onTimeUpdate={handleProgress}
+            onDurationChange={handleDurationChange}
             onEnded={playNext}
-            playsinline={true}
+            playsInline={true}
             config={{
               youtube: {
-                playerVars: {
-                  playsinline: 1,
-                  background: 1
+                playsInline: true,
+                params: {
+                  playsinline: 1
                 }
               },
               file: {
@@ -276,6 +280,25 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
             }}
           />
         )}
+        
+        {/* Silent audio to keep the browser instance alive in the background on mobile devices */}
+        <audio 
+          src="data:audio/mp3;base64,//OlkAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAAFAAAHOwADBQgLDhATFhkcHSAjJigrLjEzNjk8P0JDREVHSlBTVFhZXV9iZWdqbXF0d3p+gYOGiYyPkZWWmJydoKSnqqyvsbS3ubvAwcLEx8rMz9PU1tna3eDi5ebp7O/x9Pf5/P8AAAA8TEFNRTMuMTAwA8EAAAAALisAABRAJAwCAgAEAAcBzgAAO6mO/QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA"
+          loop
+          autoPlay={isPlaying}
+          muted={false}
+          playsInline
+          style={{ display: 'none' }}
+          ref={(audio) => {
+            if (audio) {
+              if (isPlaying) {
+                audio.play().catch(() => {});
+              } else {
+                audio.pause();
+              }
+            }
+          }}
+        />
       </div>
     </RadioContext.Provider>
   );
