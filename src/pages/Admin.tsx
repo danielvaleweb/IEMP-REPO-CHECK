@@ -7022,10 +7022,10 @@ const Admin = () => {
 
                       <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
                         <div className="md:col-span-2 border-b border-white/5 pb-2 mb-2">
-                           <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Banner Promocional (Página Inicial)</h5>
+                           <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Banners Promocionais (Página Inicial - Grade com 3)</h5>
                         </div>
                         <div className="flex flex-col gap-2">
-                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem do Banner (URL de GIF/JPG/PNG)</label>
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem do Banner 1 (URL)</label>
                           <Input 
                             className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: https://..."
@@ -7036,13 +7036,59 @@ const Admin = () => {
                           />
                         </div>
                         <div className="flex flex-col gap-2">
-                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Link ao Clicar (Opcional)</label>
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Link do Banner 1 (Opcional)</label>
                           <Input 
                             className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Ex: https://..."
                             value={localSettings.homeBannerLink ?? settings.homeBannerLink ?? ""}
                             onChange={(e) => {
                               setLocalSettings((prev: any) => ({...prev, homeBannerLink: e.target.value}));
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2 mt-4 md:mt-0">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem do Banner 2 (URL)</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: https://..."
+                            value={localSettings.homeBannerImage2 ?? settings.homeBannerImage2 ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, homeBannerImage2: e.target.value}));
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 mt-4 md:mt-0">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Link do Banner 2 (Opcional)</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: https://..."
+                            value={localSettings.homeBannerLink2 ?? settings.homeBannerLink2 ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, homeBannerLink2: e.target.value}));
+                            }}
+                          />
+                        </div>
+
+                        <div className="flex flex-col gap-2 mt-4 md:mt-0">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem do Banner 3 (URL)</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: https://..."
+                            value={localSettings.homeBannerImage3 ?? settings.homeBannerImage3 ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, homeBannerImage3: e.target.value}));
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2 mt-4 md:mt-0">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Link do Banner 3 (Opcional)</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: https://..."
+                            value={localSettings.homeBannerLink3 ?? settings.homeBannerLink3 ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, homeBannerLink3: e.target.value}));
                             }}
                           />
                         </div>
