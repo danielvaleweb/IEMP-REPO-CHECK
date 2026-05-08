@@ -8,10 +8,10 @@ export default function GlobalPlayer() {
   const {
     isPlayerOpen, isPlayerMinimized, setIsPlayerMinimized,
     isLiveMode, currentTrack, isPlaying, togglePlay, playNext, playPrev,
-    queue, progress, duration, handleSeek, volume, setVolume, isMuted, setIsMuted, settings
+    queue, progress, duration, handleSeek, volume, setVolume, isMuted, setIsMuted, settings, hasAccess
   } = useRadio();
 
-  if (!isPlayerOpen && !isPlayerMinimized) return null;
+  if (!hasAccess || (!isPlayerOpen && !isPlayerMinimized)) return null;
 
   const formatTime = (seconds: number) => {
     if (isNaN(seconds)) return "0:00";

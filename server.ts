@@ -1,7 +1,6 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import { XMLParser } from "fast-xml-parser";
 import { Expo } from "expo-server-sdk";
 import cron from "node-cron";
@@ -25,9 +24,6 @@ import {
   arrayUnion as clientArrayUnion
 } from "firebase/firestore";
 import fs from "fs";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Initialize Firebase Config
 const firebaseConfig = JSON.parse(fs.readFileSync("./firebase-applet-config.json", "utf-8"));
@@ -129,18 +125,30 @@ async function startServer() {
         return res.status(400).json({ error: "userId and token are required" });
       }
 
-      // Proactively use Client SDK for Firestore writes if we know Admin has issues
-      // This is safer because the Client SDK uses the Web API (apiKey)
-      if (type === 'fcm') {
-        await updateDoc(clientDoc(clientDb, "members", userId), {
-          fcmTokens: clientArrayUnion(token),
-          lastTokenUpdate: new Date().toISOString()
-        });
-      } else {
-        if (!Expo.isExpoPushToken(token)) {
-          return res.status(400).json({ error: "Invalid Expo push token" });
+      if (adminDb) {
+        if (type === 'fcm') {
+          await adminDb.collection("members").doc(userId).update({
+            fcmTokens: admin.firestore.FieldValue.arrayUnion(token),
+            lastTokenUpdate: new Date().toISOString()
+          });
+        } else {
+          if (!Expo.isExpoPushToken(token)) {
+            return res.status(400).json({ error: "Invalid Expo push token" });
+          }
+          await adminDb.collection("members").doc(userId).update({ pushToken: token });
         }
-        await updateDoc(clientDoc(clientDb, "members", userId), { pushToken: token });
+      } else {
+        if (type === 'fcm') {
+          await updateDoc(clientDoc(clientDb, "members", userId), {
+            fcmTokens: clientArrayUnion(token),
+            lastTokenUpdate: new Date().toISOString()
+          });
+        } else {
+          if (!Expo.isExpoPushToken(token)) {
+            return res.status(400).json({ error: "Invalid Expo push token" });
+          }
+          await updateDoc(clientDoc(clientDb, "members", userId), { pushToken: token });
+        }
       }
 
       console.log(`Token ${type} registrado para o usuário ${userId}`);
@@ -160,26 +168,50 @@ async function startServer() {
       let expoTokens: string[] = [];
       let fcmTokens: string[] = [];
       
-      // Use Client SDK for fetching
-      if (target === "all") {
-        const snapshot = await getDocs(collection(clientDb, "members"));
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.pushToken) expoTokens.push(data.pushToken);
-          if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
-            fcmTokens.push(...data.fcmTokens);
-          }
-        });
-      } else if (userIds.length > 0) {
-        const tokensPromises = userIds.map(async (uid: string) => {
-          const data = (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
-          return data ? { expo: data.pushToken, fcm: data.fcmTokens } : null;
-        });
-        const results = await Promise.all(tokensPromises);
-        results.forEach(res => {
-          if (res?.expo) expoTokens.push(res.expo);
-          if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
-        });
+      // Use Admin SDK for fetching to bypass rules if available
+      if (adminDb) {
+        if (target === "all") {
+          const snapshot = await adminDb.collection("members").get();
+          snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.pushToken) expoTokens.push(data.pushToken);
+            if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
+              fcmTokens.push(...data.fcmTokens);
+            }
+          });
+        } else if (userIds.length > 0) {
+          const tokensPromises = userIds.map(async (uid: string) => {
+            const docSnap = await adminDb.collection("members").doc(uid).get();
+            const data = docSnap.data();
+            return data ? { expo: data.pushToken, fcm: data.fcmTokens } : null;
+          });
+          const results = await Promise.all(tokensPromises);
+          results.forEach(res => {
+            if (res?.expo) expoTokens.push(res.expo);
+            if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
+          });
+        }
+      } else {
+        if (target === "all") {
+          const snapshot = await getDocs(collection(clientDb, "members"));
+          snapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.pushToken) expoTokens.push(data.pushToken);
+            if (data.fcmTokens && Array.isArray(data.fcmTokens)) {
+              fcmTokens.push(...data.fcmTokens);
+            }
+          });
+        } else if (userIds.length > 0) {
+          const tokensPromises = userIds.map(async (uid: string) => {
+            const data = (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
+            return data ? { expo: data.pushToken, fcm: data.fcmTokens } : null;
+          });
+          const results = await Promise.all(tokensPromises);
+          results.forEach(res => {
+            if (res?.expo) expoTokens.push(res.expo);
+            if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
+          });
+        }
       }
 
       expoTokens = [...new Set(expoTokens)].filter(t => !!t);
@@ -201,20 +233,35 @@ async function startServer() {
         fcmResult = { error: (fcmErr as Error).message };
       }
       
-      // Salva no histórico via Client SDK
+      // Salva no histórico via Admin SDK (bypasses rules)
       try {
-        await clientAddDoc(collection(clientDb, "announcements"), {
-          title,
-          message,
-          target,
-          status: "sent",
-          sentAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          stats: {
-            expoCount: expoTokens.length,
-            fcmCount: fcmTokens.length
-          }
-        });
+        if (adminDb) {
+          await adminDb.collection("announcements").add({
+            title,
+            message,
+            target,
+            status: "sent",
+            sentAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            stats: {
+              expoCount: expoTokens.length,
+              fcmCount: fcmTokens.length
+            }
+          });
+        } else {
+          await clientAddDoc(collection(clientDb, "announcements"), {
+            title,
+            message,
+            target,
+            status: "sent",
+            sentAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            stats: {
+              expoCount: expoTokens.length,
+              fcmCount: fcmTokens.length
+            }
+          });
+        }
       } catch (historyErr) {
         console.error("Erro ao salvar histórico de anúncio:", historyErr);
       }
@@ -286,76 +333,7 @@ async function startServer() {
     return results;
   }
 
-  // 3. Cron Job para Notificações Agendadas (roda a cada minuto)
-  cron.schedule("* * * * *", async () => {
-    try {
-      const now = new Date().toISOString();
-      console.log(`[Cron] Checking for scheduled notifications at ${now}...`);
-      
-      const q = query(
-        collection(clientDb, "announcements"),
-        where("status", "==", "pending"),
-        where("scheduledAt", "<=", now)
-      );
-      const snapshot = await getDocs(q);
-
-      if (snapshot.empty) {
-        console.log("[Cron] No pending notifications to send.");
-        return;
-      }
-
-      console.log(`[Cron] Processing ${snapshot.docs.length} scheduled notifications...`);
-
-      for (const docSnap of snapshot.docs) {
-        const data = docSnap.data();
-        let expoTokens: string[] = [];
-        let fcmTokens: string[] = [];
-
-        try {
-          if (data.target === "all") {
-            const membersSnap = await getDocs(collection(clientDb, "members"));
-            membersSnap.docs.forEach(m => {
-              const mData = m.data();
-              if (mData.pushToken) expoTokens.push(mData.pushToken);
-              if (mData.fcmTokens && Array.isArray(mData.fcmTokens)) fcmTokens.push(...mData.fcmTokens);
-            });
-          } else if (data.userIds?.length > 0) {
-            const tokensPromises = data.userIds.map(async (uid: string) => {
-              const mData = (await getClientDoc(clientDoc(clientDb, "members", uid))).data();
-              return mData ? { expo: mData.pushToken, fcm: mData.fcmTokens } : null;
-            });
-            const results = await Promise.all(tokensPromises);
-            results.forEach(res => {
-              if (res?.expo) expoTokens.push(res.expo);
-              if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
-            });
-          }
-
-          expoTokens = [...new Set(expoTokens)].filter(t => !!t);
-          fcmTokens = [...new Set(fcmTokens)].filter(t => !!t);
-
-          if (expoTokens.length > 0) {
-            await sendPushNotifications(expoTokens, data.title, data.message);
-          }
-          if (fcmTokens.length > 0) {
-            await sendFCMPush(fcmTokens, data.title, data.message);
-          }
-
-          await updateDoc(clientDoc(clientDb, "announcements", docSnap.id), {
-            status: "sent",
-            sentAt: new Date().toISOString()
-          });
-          
-          console.log(`[Cron] Successfully sent announcement ${docSnap.id}`);
-        } catch (innerError) {
-          console.error(`[Cron] Failed to process announcement ${docSnap.id}:`, (innerError as Error).message);
-        }
-      }
-    } catch (error) {
-      console.error("[Cron] Critical error in notification job:");
-      console.error(`Message: ${(error as Error).message}`);
-    }
-  });
+  // 3. Cron Job removed as requested.
 
   // Legacy live-status removed as requested.
 

@@ -2536,13 +2536,13 @@ const Admin = () => {
   const handleSave = async () => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    let collectionName = activeTab === "eventos" ? "posts" : 
+                         activeTab === "noticias" ? "blog" : 
+                         activeTab === "membros" || activeTab === "visitantes" ? "members" : 
+                         activeTab === "agenda-direcao" ? "agenda-direcao" : 
+                         activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : radioSubTab === "artists" ? "radio-artists" : "radio-playlist") :
+                         "agenda";
     try {
-      let collectionName = activeTab === "eventos" ? "posts" : 
-                           activeTab === "noticias" ? "blog" : 
-                           activeTab === "membros" || activeTab === "visitantes" ? "members" : 
-                           activeTab === "agenda-direcao" ? "agenda-direcao" : 
-                           activeTab === "radio" ? (radioSubTab === "vignettes" ? "vignettes" : radioSubTab === "artists" ? "radio-artists" : "radio-playlist") :
-                           "agenda";
       
       // Basic validations before saving
       if (activeTab === "radio") {

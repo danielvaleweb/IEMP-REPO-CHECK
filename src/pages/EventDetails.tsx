@@ -11,8 +11,6 @@ import { handleFirestoreError, OperationType } from "@/lib/firebase";
 import confetti from "canvas-confetti";
 import Navbar from "@/components/layout/Navbar";
 import CreatePhotoModal from "@/components/CreatePhotoModal";
-import { useRadio } from "@/contexts/RadioContext";
-import ReactPlayer from "react-player";
 
 const playSuccessSound = () => {
   try {
@@ -57,41 +55,6 @@ export default function EventDetails() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
-
-  const { isPlaying, setIsPlaying, tracks } = useRadio();
-  const [bgTrack, setBgTrack] = useState<any>(null);
-  const [wasRadioGlobalPlaying, setWasRadioGlobalPlaying] = useState(false);
-  const [isLocalPlaying, setIsLocalPlaying] = useState(false);
-  const localPlayerRef = useRef<any>(null);
-
-  useEffect(() => {
-    if (event?.bgMusicId && tracks.length > 0) {
-      const track = tracks.find((t: any) => t.id === event.bgMusicId);
-      if (track && !bgTrack) {
-        setBgTrack(track);
-        if (isPlaying) {
-          setWasRadioGlobalPlaying(true);
-          setIsPlaying(false);
-        }
-        setIsLocalPlaying(true);
-      }
-    }
-  }, [event, tracks, bgTrack, isPlaying, setIsPlaying]);
-
-  useEffect(() => {
-    return () => {
-      // Cleanup on unmount - resume global radio if it was automatically paused
-      if (wasRadioGlobalPlaying) {
-        setIsPlaying(true);
-      }
-    };
-  }, [wasRadioGlobalPlaying, setIsPlaying]);
-  
-  const handleLocalPlayerReady = () => {
-    if (localPlayerRef.current) {
-        localPlayerRef.current.seekTo(30, 'seconds');
-    }
-  };
 
   useEffect(() => {
     const hash = window.location.hash;
@@ -925,19 +888,6 @@ export default function EventDetails() {
           </motion.div>
         )}
       </AnimatePresence>
-      
-      {bgTrack && (
-        <ReactPlayer
-          ref={localPlayerRef}
-          url={bgTrack.youtubeId ? `https://youtube.com/watch?v=${bgTrack.youtubeId}` : bgTrack.youtubeUrl || bgTrack.rawUrl}
-          playing={isLocalPlaying}
-          onReady={handleLocalPlayerReady}
-          width="0"
-          height="0"
-          volume={0.5}
-          style={{ display: 'none' }}
-        />
-      )}
     </div>
   );
 }

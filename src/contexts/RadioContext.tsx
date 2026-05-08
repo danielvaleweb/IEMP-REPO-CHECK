@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import { collection, query, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
 import ReactPlayer from 'react-player';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface RadioContextProps {
   tracks: any[];
@@ -20,6 +21,7 @@ interface RadioContextProps {
   isMuted: boolean;
   isPlayerOpen: boolean;
   isPlayerMinimized: boolean;
+  setIsPlaying: (v: boolean) => void;
   setIsPlayerMinimized: (v: boolean) => void;
   playTrack: (track: any, sourceQueue: any[]) => void;
   playLive: () => void;
@@ -30,7 +32,10 @@ interface RadioContextProps {
   setVolume: (v: number) => void;
   setIsMuted: (v: boolean) => void;
   playerRef: any;
+  hasAccess: boolean;
 }
+
+// ... unchanged interface the rest of the way up to RadioProvider ...
 
 export const RadioContext = createContext<RadioContextProps | null>(null);
 
@@ -43,6 +48,9 @@ export function useRadio() {
 }
 
 export function RadioProvider({ children }: { children: React.ReactNode }) {
+  const { user, profile, isGuest } = useAuth();
+  const hasAccess = !!(user && !isGuest && profile?.role && profile.role !== "Visitante");
+
   const [tracks, setTracks] = useState<any[]>([]);
   const [radioArtists, setRadioArtists] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
@@ -102,7 +110,16 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!hasAccess && isPlaying) {
+      setIsPlaying(false);
+      setIsPlayerOpen(false);
+      setIsPlayerMinimized(false);
+    }
+  }, [hasAccess, isPlaying]);
+
   const playTrack = (track: any, sourceQueue: any[]) => {
+    if (!hasAccess) return;
     setIsLiveMode(false);
     setQueue(sourceQueue);
     const idx = sourceQueue.findIndex(t => t.id === track.id);
@@ -114,6 +131,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const playLive = () => {
+    if (!hasAccess) return;
     setIsLiveMode(true);
     setCurrentTrack(null);
     setQueue([]);
@@ -123,6 +141,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   };
 
   const togglePlay = () => {
+    if (!hasAccess) return;
     if (!currentTrack && !isLiveMode && tracks.length > 0) {
       playTrack(tracks[0], tracks);
       return;
@@ -229,6 +248,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   }, [isPlaying, currentTrack, isLiveMode, settings]);
 
   const getUrlToPlay = () => {
+    if (!hasAccess) return "";
     if (isLiveMode) {
       return settings?.radioYoutubeLiveUrl || settings?.radioStreamUrl || "";
     }
@@ -244,7 +264,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       isLiveMode, queue, currentIndex, currentTrack, isPlaying, setIsPlaying,
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
-      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay
+      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess
     } as any}>
       {children}
       {/* Hidden Global Player */}
