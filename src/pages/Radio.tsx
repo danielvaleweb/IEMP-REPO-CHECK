@@ -1,9 +1,733 @@
-import ConstructionView from "@/components/ConstructionView";
+import React, { useState, useEffect, useRef } from 'react';
+import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
+import { useAuth } from '@/contexts/AuthContext';
+import { motion, AnimatePresence } from 'motion/react';
+import ReactPlayer from 'react-player';
+import { Play, Pause, SkipForward, SkipBack, Volume2, ListMusic, Plus, Music2, Search, X, Trash2, Edit, Radio as RadioIcon, Youtube, Heart, Speaker } from 'lucide-react';
+import { cn, getImageUrl } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { format } from 'date-fns';
 
 export default function RadioPage() {
+  const { user, profile } = useAuth();
+  const [tracks, setTracks] = useState<any[]>([]);
+  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [settings, setSettings] = useState<any>({});
+  
+  // App state
+  const [activeTab, setActiveTab] = useState<'discover' | 'playlists' | 'live'>('discover');
+  const [currentPlaylist, setCurrentPlaylist] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Modals
+  const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
+  const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState(false);
+  const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
+  const [selectedTrackToAdd, setSelectedTrackToAdd] = useState<any>(null);
+
+  // Player state
+  const [isLiveMode, setIsLiveMode] = useState(false);
+  const [queue, setQueue] = useState<any[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentTrack, setCurrentTrack] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(0.8);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  
+  const playerRef = useRef<any>(null);
+
+  useEffect(() => {
+    const unsubTracks = onSnapshot(query(collection(db, "radio-playlist"), orderBy("order", "asc")), (snap) => {
+      setTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubPlaylists = onSnapshot(query(collection(db, "playlists"), orderBy("createdAt", "desc")), (snap) => {
+      setPlaylists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    const getSystemSettings = async () => {
+      const snap = await getDoc(doc(db, "settings", "system"));
+      if (snap.exists()) {
+        setSettings(snap.data());
+      }
+    };
+    getSystemSettings();
+
+    return () => {
+      unsubTracks();
+      unsubPlaylists();
+    };
+  }, []);
+
+  const handlePlay = (track: any, sourceQueue: any[]) => {
+    setIsLiveMode(false);
+    setQueue(sourceQueue);
+    const idx = sourceQueue.findIndex(t => t.id === track.id);
+    setCurrentIndex(idx >= 0 ? idx : 0);
+    setCurrentTrack(track);
+    setIsPlaying(true);
+  };
+
+  const playLive = () => {
+    setIsLiveMode(true);
+    setCurrentTrack(null);
+    setQueue([]);
+    setIsPlaying(true);
+  };
+
+  const togglePlay = () => {
+    if (!currentTrack && !isLiveMode && tracks.length > 0) {
+      handlePlay(tracks[0], tracks);
+      return;
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const playNext = () => {
+    if (isLiveMode || queue.length === 0) return;
+    const nextIdx = (currentIndex + 1) % queue.length;
+    setCurrentIndex(nextIdx);
+    setCurrentTrack(queue[nextIdx]);
+    setIsPlaying(true);
+  };
+
+  const playPrev = () => {
+    if (isLiveMode || queue.length === 0) return;
+    const prevIdx = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
+    setCurrentIndex(prevIdx);
+    setCurrentTrack(queue[prevIdx]);
+    setIsPlaying(true);
+  };
+
+  const handleTimeUpdate = (e: any) => {
+    if (!isPlaying) return;
+    setProgress(e.target.currentTime);
+  };
+
+  const handleDurationChange = (e: any) => {
+    setDuration(e.target.duration);
+  };
+
+  const formatTime = (seconds: number) => {
+    if (isNaN(seconds)) return "0:00";
+    const m = Math.floor(seconds / 60);
+    const s = Math.floor(seconds % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = parseFloat(e.target.value);
+    setProgress(val);
+    if (playerRef.current) {
+      playerRef.current.currentTime = val;
+    }
+  };
+
+  const createPlaylist = async () => {
+    if (!user || !newPlaylistTitle.trim()) return;
+    try {
+      await addDoc(collection(db, "playlists"), {
+        title: newPlaylistTitle.trim(),
+        authorId: user.uid,
+        authorName: profile?.name || user.displayName || "Usuário",
+        authorPhoto: profile?.photo || user.photoURL || null,
+        tracks: [],
+        createdAt: serverTimestamp()
+      });
+      setNewPlaylistTitle('');
+      setIsCreatePlaylistOpen(false);
+    } catch (e) {
+      console.error("Error creating playlist", e);
+    }
+  };
+
+  const deletePlaylist = async (playlistId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Deseja realmente excluir esta playlist?")) return;
+    try {
+      await deleteDoc(doc(db, "playlists", playlistId));
+      if (currentPlaylist?.id === playlistId) {
+        setCurrentPlaylist(null);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const addToPlaylist = async (playlistId: string) => {
+    if (!selectedTrackToAdd) return;
+    const playlist = playlists.find(p => p.id === playlistId);
+    if (!playlist) return;
+    
+    // Check if track already exists
+    if (playlist.tracks?.find((t: any) => t.id === selectedTrackToAdd.id)) {
+      setIsAddToPlaylistOpen(false);
+      return;
+    }
+
+    try {
+      const updatedTracks = [...(playlist.tracks || []), selectedTrackToAdd];
+      await updateDoc(doc(db, "playlists", playlistId), {
+        tracks: updatedTracks
+      });
+      setIsAddToPlaylistOpen(false);
+      setSelectedTrackToAdd(null);
+      if (currentPlaylist?.id === playlistId) {
+        setCurrentPlaylist({ ...currentPlaylist, tracks: updatedTracks });
+      }
+    } catch (e) {
+      console.error("Error adding to playlist", e);
+    }
+  };
+
+  const removeFromPlaylist = async (playlistId: string, trackId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const playlist = playlists.find(p => p.id === playlistId);
+    if (!playlist) return;
+
+    try {
+      const updatedTracks = playlist.tracks.filter((t: any) => t.id !== trackId);
+      await updateDoc(doc(db, "playlists", playlistId), {
+        tracks: updatedTracks
+      });
+      if (currentPlaylist?.id === playlistId) {
+        setCurrentPlaylist({ ...currentPlaylist, tracks: updatedTracks });
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const getUrlToPlay = () => {
+    if (isLiveMode) {
+      return settings?.radioYoutubeLiveUrl || settings?.radioStreamUrl || "";
+    }
+    if (currentTrack) {
+      return currentTrack.youtubeId ? `https://youtube.com/watch?v=${currentTrack.youtubeId}` : currentTrack.rawUrl || currentTrack.youtubeUrl;
+    }
+    return "";
+  };
+
+  const myPlaylists = playlists.filter(p => p.authorId === user?.uid);
+  const otherPlaylists = playlists.filter(p => p.authorId !== user?.uid);
+  const filteredTracks = tracks.filter(t => t.title?.toLowerCase().includes(searchQuery.toLowerCase()));
+
   return (
-    <div className="pt-24 min-h-screen bg-black">
-      <ConstructionView title="Rádio Profecia" />
+    <div className="min-h-screen bg-[#0a0502] text-white font-sans pb-32 pt-20 flex flex-col relative overflow-hidden">
+      {/* Background Atmosphere */}
+      <div className="absolute inset-0 pointer-events-none z-0">
+         <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-tr from-transparent via-[#BF76FF]/10 to-[#FF4400]/10 rounded-full blur-[100px] opacity-60 translate-x-1/3 -translate-y-1/3" />
+         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-gradient-to-tr from-[#BF76FF]/5 to-transparent rounded-full blur-[80px] -translate-x-1/3 translate-y-1/3" />
+      </div>
+
+      <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 relative z-10 flex-1 flex flex-col">
+        {/* Header / Nav */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+          <div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tight" style={{ fontFamily: "'Inter', sans-serif" }}>
+              Rádio <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#BF76FF] to-[#FF4400]">Profecia</span>
+            </h1>
+            <p className="opacity-60 text-sm mt-1">Sua plataforma cristã de música e streaming.</p>
+          </div>
+          
+          <div className="flex bg-white/5 rounded-full p-1 backdrop-blur-md self-start md:self-auto border border-white/10">
+            <TabButton active={activeTab === 'discover'} onClick={() => {setActiveTab('discover'); setCurrentPlaylist(null);}}>Descobrir</TabButton>
+            <TabButton active={activeTab === 'playlists'} onClick={() => {if(user) {setActiveTab('playlists'); setCurrentPlaylist(null);} else alert("Faça login para criar playlists.")}}>Playlists</TabButton>
+            <TabButton active={activeTab === 'live'} onClick={() => {setActiveTab('live'); setCurrentPlaylist(null);}}>Ao Vivo</TabButton>
+          </div>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 pb-10">
+          {currentPlaylist ? (
+            <PlaylistView 
+              playlist={currentPlaylist} 
+              onBack={() => setCurrentPlaylist(null)}
+              onPlayTrack={(track) => handlePlay(track, currentPlaylist.tracks || [])}
+              onPlayAll={() => currentPlaylist.tracks?.length && handlePlay(currentPlaylist.tracks[0], currentPlaylist.tracks)}
+              isOwner={currentPlaylist.authorId === user?.uid}
+              onRemoveTrack={(trackId, e) => removeFromPlaylist(currentPlaylist.id, trackId, e)}
+              currentTrack={currentTrack}
+              isPlaying={isPlaying}
+            />
+          ) : (
+            <AnimatePresence mode="wait">
+              {activeTab === 'discover' && (
+                <motion.div key="discover" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
+                  
+                  {/* Top Featured / Global Playlist */}
+                  <div className="mb-12">
+                     <div className="flex items-center justify-between mb-6">
+                       <h2 className="text-2xl font-bold">Acervo Global</h2>
+                       <div className="relative w-full max-w-xs hidden sm:block">
+                         <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-50" />
+                         <input 
+                           type="text" 
+                           placeholder="Buscar música..." 
+                           value={searchQuery}
+                           onChange={(e) => setSearchQuery(e.target.value)}
+                           className="w-full bg-white/5 border border-white/10 rounded-full h-10 pl-10 pr-4 text-sm focus:outline-none focus:bg-white/10 transition-all text-white placeholder:text-white/40"
+                         />
+                       </div>
+                     </div>
+                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                       {filteredTracks.map((track, i) => (
+                         <TrackCard 
+                           key={track.id} 
+                           track={track} 
+                           isCurrent={currentTrack?.id === track.id}
+                           isPlaying={isPlaying && currentTrack?.id === track.id}
+                           onClick={() => handlePlay(track, filteredTracks)}
+                           onAdd={() => {
+                             if(!user) return alert("Faça login para adicionar às suas playlists.");
+                             setSelectedTrackToAdd(track);
+                             setIsAddToPlaylistOpen(true);
+                           }}
+                         />
+                       ))}
+                       {filteredTracks.length === 0 && <p className="opacity-50 text-sm col-span-full">Nenhuma música encontrada no acervo.</p>}
+                     </div>
+                  </div>
+
+                  {/* Public Playlists */}
+                  {otherPlaylists.length > 0 && (
+                    <div>
+                      <h2 className="text-2xl font-bold mb-6">Playlists da Comunidade</h2>
+                      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        {otherPlaylists.map(pl => (
+                           <PlaylistCard key={pl.id} playlist={pl} onClick={() => setCurrentPlaylist(pl)} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+
+              {activeTab === 'playlists' && (
+                <motion.div key="playlists" initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0}}>
+                   <div className="flex items-center justify-between mb-8">
+                      <h2 className="text-2xl font-bold">Suas Playlists</h2>
+                      <Button onClick={() => setIsCreatePlaylistOpen(true)} className="bg-white text-black hover:bg-gray-200 rounded-full font-bold px-6">
+                        <Plus className="w-4 h-4 mr-2" /> Nova Playlist
+                      </Button>
+                   </div>
+                   
+                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                     {myPlaylists.map(pl => (
+                       <PlaylistCard key={pl.id} playlist={pl} onClick={() => setCurrentPlaylist(pl)} isOwner onDelete={(e) => deletePlaylist(pl.id, e)} />
+                     ))}
+                     {myPlaylists.length === 0 && (
+                       <div className="col-span-full py-20 flex flex-col items-center justify-center text-center opacity-50 bg-white/5 rounded-3xl border border-white/5 border-dashed">
+                         <ListMusic className="w-12 h-12 mb-4 opacity-50" />
+                         <p>Você ainda não criou nenhuma playlist.</p>
+                       </div>
+                     )}
+                   </div>
+                </motion.div>
+              )}
+
+              {activeTab === 'live' && (
+                <motion.div key="live" initial={{opacity:0, scale:0.95}} animate={{opacity:1, scale:1}} exit={{opacity:0}} className="flex flex-col items-center justify-center py-10">
+                   <div className="w-full max-w-3xl aspect-video rounded-3xl overflow-hidden bg-black/50 border border-white/10 shadow-2xl relative group">
+                     {isLiveMode && settings?.radioYoutubeLiveUrl ? (
+                         <div className="w-full h-full pointer-events-none">
+                            <ReactPlayer src={settings.radioYoutubeLiveUrl} playing={isPlaying} volume={volume} muted={isMuted} style={{width: '100%', height: '100%'}} /> 
+                         </div>
+                     ) : (
+                       <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#BF76FF]/20 to-[#FF4400]/20 p-8 text-center">
+                         <div className="w-24 h-24 rounded-full bg-white/10 backdrop-blur flex items-center justify-center mb-6 shadow-2xl shadow-[#BF76FF]/30 animate-pulse">
+                           <RadioIcon className="w-10 h-10 text-white drop-shadow-lg" />
+                         </div>
+                         <h2 className="text-3xl font-black mb-2">{settings?.radioTitle || "Rádio Profecia Ao Vivo"}</h2>
+                         <p className="text-white/60 mb-8">{settings?.radioSubtitle || "Acompanhe nossa transmissão ao vivo."}</p>
+                         
+                         <Button onClick={playLive} size="lg" className="bg-[#BF76FF] hover:bg-[#a65de6] text-white rounded-full px-12 h-14 font-black tracking-widest text-lg uppercase shadow-[0_0_40px_rgba(191,118,255,0.4)]">
+                           {isLiveMode && isPlaying ? "Ouvindo Agora" : "Sintonizar"}
+                         </Button>
+                       </div>
+                     )}
+                     
+                     {/* Overlay for Youtube live to allow pausing from our UI if we wanted, but we keep it simple */}
+                   </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
+        </div>
+      </div>
+
+      {/* Hidden Player for non-live or non-youtube-live streams */}
+      <div className="hidden">
+        {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
+          <ReactPlayer 
+            ref={playerRef}
+            src={getUrlToPlay()} 
+            playing={isPlaying} 
+            volume={volume}
+            muted={isMuted}
+            onTimeUpdate={handleTimeUpdate}
+            onDurationChange={handleDurationChange}
+            onEnded={playNext}
+          />
+        )}
+      </div>
+
+      {/* Bottom Player Controller */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-12 pointer-events-none">
+        
+        {/* Player Bar Background */}
+        <div className="absolute bottom-0 left-0 right-0 h-24 bg-black/60 backdrop-blur-2xl border-t border-white/10" />
+
+        <div className="max-w-7xl mx-auto flex items-center justify-between relative pointer-events-auto h-20 bg-black/40 backdrop-blur-3xl border border-white/10 rounded-2xl px-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+          
+          {/* Progress Bar (Absolute positioning over the bar) */}
+          {!isLiveMode && currentTrack && (
+            <div className="absolute -top-3 left-6 right-6 h-1 group cursor-pointer flex items-center">
+              <input 
+                type="range" 
+                min={0} 
+                max={duration || 100} 
+                value={progress} 
+                onChange={handleSeek}
+                className="w-full absolute opacity-0 cursor-pointer z-10 h-full"
+              />
+              <div className="h-1 bg-white/20 w-full rounded-full overflow-hidden transition-all group-hover:h-1.5">
+                <div 
+                  className="h-full bg-gradient-to-r from-[#BF76FF] to-[#FF4400] relative"
+                  style={{ width: `${duration ? (progress / duration) * 100 : 0}%` }}
+                >
+                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Left: Track Info */}
+          <div className="flex items-center gap-4 w-1/3 min-w-0">
+            {isLiveMode ? (
+               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#BF76FF] to-[#FF4400] flex items-center justify-center shrink-0">
+                 <RadioIcon className="w-6 h-6 text-white" />
+               </div>
+            ) : currentTrack ? (
+              <img 
+                src={`https://img.youtube.com/vi/${currentTrack.youtubeId}/default.jpg`} 
+                alt="cover" 
+                className="w-12 h-12 rounded-xl object-cover shrink-0 bg-white/5 border border-white/10"
+              />
+            ) : (
+              <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center shrink-0 border border-white/10">
+                <Music2 className="w-5 h-5 opacity-40" />
+              </div>
+            )}
+            <div className="min-w-0 truncate">
+               <p className="text-sm font-bold truncate">
+                 {isLiveMode ? (settings?.radioTitle || "Rádio Ao Vivo") : currentTrack?.title || "Nenhuma música tocando"}
+               </p>
+               <p className="text-[10px] uppercase tracking-widest opacity-50 truncate mt-0.5">
+                 {isLiveMode ? "Transmissão Oficial" : currentTrack?.description || "Selecione algo para ouvir"}
+               </p>
+            </div>
+          </div>
+
+          {/* Center: Controls */}
+          <div className="flex flex-col items-center justify-center w-1/3">
+             <div className="flex items-center justify-center gap-6">
+                {!isLiveMode && (
+                  <button onClick={playPrev} className="text-white/50 hover:text-white transition-colors disabled:opacity-30 p-2" disabled={queue.length <= 1}>
+                    <SkipBack className="w-5 h-5 fill-current" />
+                  </button>
+                )}
+                
+                <button 
+                  onClick={togglePlay}
+                  className="w-12 h-12 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                >
+                  {isPlaying ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current ml-1" />}
+                </button>
+
+                {!isLiveMode && (
+                  <button onClick={playNext} className="text-white/50 hover:text-white transition-colors disabled:opacity-30 p-2" disabled={queue.length <= 1}>
+                    <SkipForward className="w-5 h-5 fill-current" />
+                  </button>
+                )}
+             </div>
+             
+             {!isLiveMode && currentTrack && (
+                <div className="flex items-center gap-3 mt-1 text-[10px] font-mono opacity-50 w-full max-w-xs px-2 hidden md:flex">
+                  <span>{formatTime(progress)}</span>
+                  <div className="flex-1" />
+                  <span>{formatTime(duration)}</span>
+                </div>
+             )}
+          </div>
+
+          {/* Right: Volume & Actions */}
+          <div className="flex items-center justify-end gap-4 w-1/3">
+            <button onClick={() => setIsMuted(!isMuted)} className="text-white/50 hover:text-white transition-colors p-2 hidden sm:block">
+              {isMuted || volume === 0 ? <X className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+            </button>
+            <div className="w-24 h-1 bg-white/10 rounded-full relative group cursor-pointer hidden sm:block">
+               <input 
+                 type="range" 
+                 min={0} max={1} step={0.01}
+                 value={isMuted ? 0 : volume}
+                 onChange={(e) => {
+                   setVolume(parseFloat(e.target.value));
+                   if (isMuted) setIsMuted(false);
+                 }}
+                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+               />
+               <div className="h-full bg-white rounded-full pointer-events-none" style={{ width: `${(isMuted ? 0 : volume) * 100}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <Dialog open={isCreatePlaylistOpen} onOpenChange={setIsCreatePlaylistOpen}>
+        <DialogContent className="bg-[#141414] text-white border-white/10 rounded-3xl">
+          <DialogHeader>
+            <DialogTitle>Criar Playlist</DialogTitle>
+            <DialogDescription className="text-white/50">Dê um nome para sua nova playlist.</DialogDescription>
+          </DialogHeader>
+          <Input 
+            placeholder="Minha Playlist" 
+            value={newPlaylistTitle} 
+            onChange={e => setNewPlaylistTitle(e.target.value)}
+            className="bg-white/5 border-white/10 h-14 rounded-2xl px-4 text-lg focus:bg-white/10"
+          />
+          <DialogFooter className="mt-4">
+            <Button variant="ghost" onClick={() => setIsCreatePlaylistOpen(false)} className="text-white/50 hover:text-white hover:bg-white/5">Cancelar</Button>
+            <Button onClick={createPlaylist} className="bg-[#BF76FF] hover:bg-[#a65de6] text-white font-bold rounded-xl px-8">Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isAddToPlaylistOpen} onOpenChange={setIsAddToPlaylistOpen}>
+        <DialogContent className="bg-[#141414] text-white border-white/10 rounded-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar à Playlist</DialogTitle>
+            <DialogDescription className="text-white/50">Selecione uma playlist para '{selectedTrackToAdd?.title}'</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-4">
+            {myPlaylists.map(pl => {
+              const hasTrack = pl.tracks?.find((t:any) => t.id === selectedTrackToAdd?.id);
+              return (
+                <button 
+                  key={pl.id}
+                  onClick={() => addToPlaylist(pl.id)}
+                  disabled={hasTrack}
+                  className={cn("w-full flex items-center justify-between p-4 rounded-2xl border text-left transition-all", hasTrack ? "opacity-50 border-white/5 bg-transparent cursor-not-allowed" : "border-white/10 bg-white/5 hover:bg-white/10 cursor-pointer")}
+                >
+                  <div>
+                    <p className="font-bold">{pl.title}</p>
+                    <p className="text-[10px] opacity-50 mt-1">{pl.tracks?.length || 0} músicas</p>
+                  </div>
+                  {hasTrack && <span className="text-xs text-[#BF76FF]">Adicionada</span>}
+                </button>
+              )
+            })}
+            {myPlaylists.length === 0 && (
+               <div className="text-center py-10 opacity-50 text-sm">Você não tem playlists.</div>
+            )}
+          </div>
+          <DialogFooter className="mt-4 border-t border-white/5 pt-4">
+            <Button variant="ghost" onClick={() => {setIsAddToPlaylistOpen(false); setIsCreatePlaylistOpen(true);}} className="w-full justify-center text-[#BF76FF] hover:bg-[#BF76FF]/10">
+              <Plus className="w-4 h-4 mr-2" /> Criar nova playlist
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
+
+// Components
+
+function TabButton({ active, children, onClick }: { active: boolean, children: React.ReactNode, onClick: () => void }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={cn(
+        "px-6 py-2.5 rounded-full text-sm font-bold transition-all relative",
+        active ? "text-black" : "text-white/60 hover:text-white"
+      )}
+    >
+      {active && (
+        <motion.div layoutId="radio-tab" className="absolute inset-0 bg-white rounded-full z-0 shadow-lg" transition={{ type: 'spring', bounce: 0.2, duration: 0.6 }} />
+      )}
+      <span className="relative z-10">{children}</span>
+    </button>
+  );
+}
+
+function TrackCard({ track, isCurrent, isPlaying, onClick, onAdd }: { track: any, isCurrent: boolean, isPlaying: boolean, onClick: () => void, onAdd: (e: React.MouseEvent) => void }) {
+  return (
+    <div className="group bg-white/5 border border-white/5 rounded-3xl p-4 hover:bg-white/10 transition-colors cursor-pointer relative" onClick={onClick}>
+       <div className="relative aspect-square rounded-2xl overflow-hidden bg-black/20 mb-4 shadow-lg">
+          <img src={`https://img.youtube.com/vi/${track.youtubeId}/mqdefault.jpg`} alt={track.title} className={cn("w-full h-full object-cover transition-transform duration-500 group-hover:scale-110", isCurrent && "opacity-60 blur-[2px]")} />
+          
+          <div className={cn("absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity", isCurrent ? "opacity-100" : "opacity-0 group-hover:opacity-100")}>
+             <div className="w-12 h-12 rounded-full bg-[#BF76FF] text-white flex items-center justify-center shadow-lg shadow-[#BF76FF]/40 transform transition-transform hover:scale-110">
+               {isPlaying ? <Speaker className="w-6 h-6 animate-pulse" /> : <Play className="w-6 h-6 ml-1 fill-current" />}
+             </div>
+          </div>
+       </div>
+       <h3 className="font-bold text-sm truncate">{track.title}</h3>
+       
+       <button 
+         onClick={(e) => {e.stopPropagation(); onAdd(e);}}
+         className="absolute top-6 right-6 w-8 h-8 rounded-full bg-black/60 backdrop-blur text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-[#BF76FF] hover:scale-110"
+         title="Adicionar à Playlist"
+       >
+         <Plus className="w-4 h-4" />
+       </button>
+    </div>
+  );
+}
+
+function PlaylistCard({ playlist, onClick, isOwner, onDelete }: { playlist: any, onClick: () => void, isOwner?: boolean, onDelete?: (e: React.MouseEvent) => void }) {
+  const coverUrl = playlist.tracks?.[0]?.youtubeId ? `https://img.youtube.com/vi/${playlist.tracks[0].youtubeId}/mqdefault.jpg` : null;
+
+  return (
+    <div className="group bg-white/5 border border-white/5 rounded-3xl p-4 hover:bg-white/10 transition-colors cursor-pointer relative" onClick={onClick}>
+       {isOwner && onDelete && (
+         <button 
+           onClick={onDelete}
+           className="absolute top-6 right-6 z-10 w-8 h-8 rounded-full bg-black/60 backdrop-blur text-red-500 opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white flex items-center justify-center"
+           title="Excluir Playlist"
+         >
+           <Trash2 className="w-4 h-4" />
+         </button>
+       )}
+       
+       <div className="relative aspect-square rounded-2xl overflow-hidden bg-[#222] mb-4 shadow-lg flex items-center justify-center">
+          {coverUrl ? (
+            <img src={coverUrl} alt={playlist.title} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+          ) : (
+            <Music2 className="w-12 h-12 opacity-20" />
+          )}
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+            <ListMusic className="w-10 h-10 text-white" />
+          </div>
+       </div>
+       <h3 className="font-bold text-sm truncate text-white">{playlist.title}</h3>
+       <div className="flex items-center gap-2 mt-2">
+         {playlist.authorPhoto ? (
+           <img src={getImageUrl(playlist.authorPhoto)} alt="" className="w-4 h-4 rounded-full object-cover bg-white/10" />
+         ) : (
+           <div className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center"><UserIcon /></div>
+         )}
+         <p className="text-[10px] opacity-60 truncate">{playlist.authorName}</p>
+       </div>
+    </div>
+  );
+}
+
+function UserIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-2.5 h-2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;
+}
+
+function PlaylistView({ playlist, onBack, onPlayTrack, onPlayAll, isOwner, onRemoveTrack, currentTrack, isPlaying }: any) {
+  const coverUrl = playlist.tracks?.[0]?.youtubeId ? `https://img.youtube.com/vi/${playlist.tracks[0].youtubeId}/maxresdefault.jpg` : null;
+
+  return (
+    <motion.div initial={{opacity:0, y:20}} animate={{opacity:1, y:0}} exit={{opacity:0}} className="pt-4">
+      <button onClick={onBack} className="text-sm font-bold opacity-60 hover:opacity-100 mb-8 flex items-center gap-2 transition-opacity">
+        ← Voltar
+      </button>
+
+      <div className="flex flex-col md:flex-row gap-8 md:items-end mb-12">
+        <div className="w-48 h-48 md:w-64 md:h-64 rounded-3xl overflow-hidden shrink-0 bg-[#222] shadow-2xl relative border border-white/10">
+           {coverUrl ? (
+             <img src={coverUrl} alt="Cover" className="w-full h-full object-cover" />
+           ) : (
+             <div className="w-full h-full flex items-center justify-center"><ListMusic className="w-20 h-20 opacity-20" /></div>
+           )}
+           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        </div>
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-2 block">Playlist Pública</span>
+          <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tight leading-none" style={{ fontFamily: "font-display, sans-serif" }}>{playlist.title}</h1>
+          <div className="flex items-center gap-3">
+             {playlist.authorPhoto ? (
+               <img src={getImageUrl(playlist.authorPhoto)} alt="" className="w-6 h-6 rounded-full object-cover bg-white/10" />
+             ) : (
+               <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><UserIcon /></div>
+             )}
+             <p className="text-sm font-bold">{playlist.authorName}</p>
+             <span className="opacity-40 text-xs">• {playlist.tracks?.length || 0} músicas</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 mb-10 border-b border-white/5 pb-8">
+        <Button onClick={onPlayAll} disabled={!playlist.tracks?.length} className="w-14 h-14 rounded-full bg-[#BF76FF] hover:bg-[#a65de6] hover:scale-105 transition-all text-white flex items-center justify-center shadow-[0_0_30px_rgba(191,118,255,0.4)] disabled:opacity-50">
+           <Play className="w-6 h-6 fill-current ml-1" />
+        </Button>
+      </div>
+
+      <div className="w-full">
+         <div className="grid grid-cols-[40px_1fr] md:grid-cols-[40px_1fr_40px] px-4 py-2 border-b border-white/10 text-xs font-bold uppercase tracking-widest opacity-50 mb-2">
+            <span>#</span>
+            <span>Título</span>
+            <span className="hidden md:block"></span>
+         </div>
+         
+         <div className="space-y-1">
+           {(!playlist.tracks || playlist.tracks.length === 0) && (
+             <div className="py-10 text-center opacity-50 text-sm">Esta playlist está vazia. Adicione músicas do acervo global.</div>
+           )}
+           {playlist.tracks?.map((track: any, index: number) => {
+             const isTrackActive = currentTrack?.id === track.id;
+             return (
+               <div 
+                 key={`${track.id}-${index}`}
+                 onClick={() => onPlayTrack(track)}
+                 className={cn(
+                   "grid grid-cols-[40px_1fr_auto] md:grid-cols-[40px_1fr_40px] items-center px-4 py-3 rounded-xl transition-all cursor-pointer group hover:bg-white/5",
+                   isTrackActive ? "bg-white/5" : ""
+                 )}
+               >
+                 <div className="text-sm opacity-50 relative w-6 flex items-center justify-center">
+                    {isTrackActive && isPlaying ? (
+                       <Speaker className="w-4 h-4 text-[#BF76FF] animate-pulse" />
+                    ) : (
+                       <span className={cn("group-hover:opacity-0", isTrackActive && "text-[#BF76FF]")}>{index + 1}</span>
+                    )}
+                    {!isTrackActive && (
+                      <Play className="w-4 h-4 absolute opacity-0 group-hover:opacity-100 fill-current" />
+                    )}
+                 </div>
+                 
+                 <div className="flex items-center gap-3 pr-4 min-w-0">
+                    <img src={`https://img.youtube.com/vi/${track.youtubeId}/default.jpg`} className="w-10 h-10 rounded-lg object-cover shrink-0" alt="" />
+                    <span className={cn("font-bold text-sm truncate", isTrackActive && "text-[#BF76FF]")}>{track.title}</span>
+                 </div>
+
+                 <div className="flex items-center justify-end">
+                    {isOwner && (
+                      <button 
+                        onClick={(e) => onRemoveTrack(track.id, e)}
+                        className="w-8 h-8 rounded-full hover:bg-white/10 flex items-center justify-center opacity-0 group-hover:opacity-100 text-white/50 hover:text-red-500 transition-all"
+                        title="Remover"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                 </div>
+               </div>
+             );
+           })}
+         </div>
+      </div>
+    </motion.div>
+  );
+}
+

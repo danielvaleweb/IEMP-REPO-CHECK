@@ -6779,6 +6779,17 @@ const Admin = () => {
                            <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações da Rádio Online</h5>
                         </div>
                         <div className="flex flex-col gap-2">
+                          <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>URL da Live do YouTube (Para a Rádio)</label>
+                          <Input 
+                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="Ex: https://youtube.com/watch?v=..."
+                            value={localSettings.radioYoutubeLiveUrl ?? settings.radioYoutubeLiveUrl ?? ""}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, radioYoutubeLiveUrl: e.target.value}));
+                            }}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-2">
                           <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>URL do Streaming (MP3/AAC)</label>
                           <Input 
                             className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
