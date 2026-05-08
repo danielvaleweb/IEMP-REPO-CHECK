@@ -14,10 +14,10 @@ import { format } from 'date-fns';
 import { useRadio } from '@/contexts/RadioContext';
 
 export default function RadioPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const { tracks, radioArtists, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted, hasAccess } = useRadio();
 
-  if (!hasAccess) {
+  if (!isAdmin) {
     return (
       <div className="min-h-screen bg-[#0a0502] text-white font-sans pb-32 pt-32 flex flex-col items-center justify-center relative overflow-hidden px-4">
         <div className="absolute inset-0 pointer-events-none z-0">
@@ -25,10 +25,10 @@ export default function RadioPage() {
         </div>
         <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-md w-full text-center relative z-10 shadow-2xl">
           <RadioIcon className="w-16 h-16 text-[#FF4400] mx-auto mb-6 opacity-80" />
-          <h2 className="text-2xl font-bold mb-4">Acesso Restrito</h2>
+          <h2 className="text-2xl font-bold mb-4">Página em Construção</h2>
           <p className="text-white/60 mb-8 font-medium leading-relaxed">
-            Para escutar música, você precisa estar cadastrado como membro. 
-            Visitantes ou usuários sem cargo aprovado não têm acesso ao acervo da Rádio da Igreja.
+            Estamos preparando novidades incríveis para a Rádio da Igreja! 
+            Em breve este recurso estará disponível para todos os membros.
           </p>
           <Button onClick={() => window.location.href = "/"} className="bg-gradient-to-r from-[#BF76FF] to-[#FF4400] text-white rounded-full font-bold px-8 h-12 w-full hover:scale-105 transition-transform">
             Voltar ao Início
