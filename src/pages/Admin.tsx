@@ -2691,8 +2691,8 @@ const Admin = () => {
 
       // Clear events cache if we're working with posts
       if (collectionName === "posts") {
-        localStorage.removeItem("cachedEvents_v2");
-        localStorage.removeItem("cachedEventsTime_v2");
+        localStorage.removeItem("cachedEvents_v3");
+        localStorage.removeItem("cachedEventsTime_v3");
       }
 
       // Send auto chat messages to newly invited members
@@ -2924,8 +2924,8 @@ const Admin = () => {
       logAction("excluir", col, `Excluiu item: ${itemToDelete?.title || itemToDelete?.name || id}`, itemToDelete, null);
       
       if (col === "posts") {
-        localStorage.removeItem("cachedEvents_v2");
-        localStorage.removeItem("cachedEventsTime_v2");
+        localStorage.removeItem("cachedEvents_v3");
+        localStorage.removeItem("cachedEventsTime_v3");
       }
 
       setSelectedItem(null);

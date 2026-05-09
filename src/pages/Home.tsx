@@ -197,15 +197,15 @@ export default function Home() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const cacheKey = "cachedEvents_v2";
-        const cacheTimeKey = "cachedEventsTime_v2";
+        const cacheKey = "cachedEvents_v3";
+        const cacheTimeKey = "cachedEventsTime_v3";
         const cached = localStorage.getItem(cacheKey);
         const cacheTime = localStorage.getItem(cacheTimeKey);
 
         let allEvents = [];
 
-        // 24 hours in milliseconds = 86400000
-        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 86400000)) {
+        // 5 minutes in milliseconds = 300000
+        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 300000)) {
           console.log("Using cached events");
           const parsed = JSON.parse(cached);
           allEvents = parsed.map((e: any) => ({
