@@ -163,6 +163,7 @@ export default function Home() {
     setShowSimilarModal(true);
   };
   const [showAllVideos, setShowAllVideos] = useState(false);
+  const [allEvents, setAllEvents] = useState<any[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [pastEvents, setPastEvents] = useState<any[]>([]);
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
@@ -320,6 +321,7 @@ export default function Home() {
           })
           .sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
+        setAllEvents(allEvents);
         setUpcomingEvents(upcoming);
         setPastEvents(past);
       } catch (err) {
@@ -735,9 +737,9 @@ export default function Home() {
 
       {/* Clicks Recentes Section */}
       {(() => {
-        const recentClicksEvents = pastEvents.filter(event => {
-          return event.gallery && event.gallery.length > 0;
-        });
+        const recentClicksEvents = allEvents.filter(event => {
+          return event.typeEvent === 'culto' || (event.gallery && event.gallery.length > 0);
+        }).sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
         return (
           <div id="lives" className="relative z-20 pb-20 px-4 md:px-12 overflow-visible">
