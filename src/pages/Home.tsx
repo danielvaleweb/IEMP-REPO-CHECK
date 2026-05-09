@@ -308,7 +308,7 @@ export default function Home() {
             if (e.typeEvent === 'culto') return false;
             const eDate = new Date(e.fullDate);
             eDate.setHours(0,0,0,0);
-            return eDate.getTime() >= nowMidnight.getTime();
+            return eDate.getTime() > nowMidnight.getTime();
           })
           .sort((a: any, b: any) => a.fullDate.getTime() - b.fullDate.getTime());
         
@@ -736,11 +736,7 @@ export default function Home() {
       {/* Clicks Recentes Section */}
       {(() => {
         const recentClicksEvents = pastEvents.filter(event => {
-          const title = (event.title || "").toLowerCase();
-          if ((title.includes("blitz da oração") || title.includes("blitz da oracao")) && (!event.gallery || event.gallery.length === 0)) {
-            return false;
-          }
-          return true;
+          return event.gallery && event.gallery.length > 0;
         });
 
         return (

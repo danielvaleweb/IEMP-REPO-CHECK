@@ -2689,6 +2689,12 @@ const Admin = () => {
         });
       }
 
+      // Clear events cache if we're working with posts
+      if (collectionName === "posts") {
+        localStorage.removeItem("cachedEvents_v2");
+        localStorage.removeItem("cachedEventsTime_v2");
+      }
+
       // Send auto chat messages to newly invited members
       try {
         if (newInvitedMembers.length > 0 && profile?.id && dataToSave.title) {
@@ -2917,6 +2923,11 @@ const Admin = () => {
       await deleteDoc(doc(db, col, id));
       logAction("excluir", col, `Excluiu item: ${itemToDelete?.title || itemToDelete?.name || id}`, itemToDelete, null);
       
+      if (col === "posts") {
+        localStorage.removeItem("cachedEvents_v2");
+        localStorage.removeItem("cachedEventsTime_v2");
+      }
+
       setSelectedItem(null);
       setIsEditing(false);
       setDeleteConfirm(null);
