@@ -6250,18 +6250,32 @@ const Admin = () => {
                             ) : !isReadOnly && (
                               <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto order-1 sm:order-2 sm:ml-auto">
                                 {activeTab === "eventos" && (
-                                  <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-[#BF76FF]/10 border border-[#BF76FF]/20">
-                                    <input 
-                                      type="checkbox" 
-                                      id="notifyAllGlobal"
-                                      className="w-5 h-5 accent-[#BF76FF] rounded-lg cursor-pointer"
-                                      checked={formData.notifyAll || false}
-                                      onChange={(e) => setFormData({...formData, notifyAll: e.target.checked})}
-                                    />
-                                    <label htmlFor="notifyAllGlobal" className="text-[10px] font-black text-[#BF76FF] uppercase tracking-[0.2em] cursor-pointer select-none">
-                                      Notificar push
-                                    </label>
-                                  </div>
+                                  <>
+                                    <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-[#BF76FF]/10 border border-[#BF76FF]/20">
+                                      <input 
+                                        type="checkbox" 
+                                        id="notifyAllGlobal"
+                                        className="w-5 h-5 accent-[#BF76FF] rounded-lg cursor-pointer"
+                                        checked={formData.notifyAll || false}
+                                        onChange={(e) => setFormData({...formData, notifyAll: e.target.checked})}
+                                      />
+                                      <label htmlFor="notifyAllGlobal" className="text-[10px] font-black text-[#BF76FF] uppercase tracking-[0.2em] cursor-pointer select-none">
+                                        Notificar push
+                                      </label>
+                                    </div>
+                                    <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-red-500/10 border border-red-500/20">
+                                      <input 
+                                        type="checkbox" 
+                                        id="hideFromClicks"
+                                        className="w-5 h-5 accent-red-500 rounded-lg cursor-pointer"
+                                        checked={formData.hideFromClicks || false}
+                                        onChange={(e) => setFormData({...formData, hideFromClicks: e.target.checked})}
+                                      />
+                                      <label htmlFor="hideFromClicks" className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] cursor-pointer select-none">
+                                        Ocultar do Início (Clicks)
+                                      </label>
+                                    </div>
+                                  </>
                                 )}
                                 <Button 
                                   className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50" 

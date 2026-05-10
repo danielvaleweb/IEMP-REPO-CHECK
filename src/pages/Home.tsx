@@ -738,7 +738,7 @@ export default function Home() {
       {/* Clicks Recentes Section */}
       {(() => {
         const recentClicksEvents = allEvents.filter(event => {
-          return event.typeEvent === 'culto' || (event.gallery && event.gallery.length > 0);
+          return !event.hideFromClicks && (event.typeEvent === 'culto' || (event.gallery && event.gallery.length > 0));
         }).sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
         return (
