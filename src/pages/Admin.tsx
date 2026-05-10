@@ -77,7 +77,8 @@ import {
   Music,
   HardDrive,
   Key,
-  MessageCircle
+  MessageCircle,
+  GraduationCap
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -90,6 +91,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { AvisosView } from "@/components/admin/AvisosView";
+import { EBDAdminView } from "@/components/admin/EBDAdminView";
 import { VideosView } from "@/components/admin/VideosView";
 import { EventosView } from "@/components/admin/EventosView";
 import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
@@ -1131,11 +1133,12 @@ const Admin = () => {
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
+    { id: 'ebd', label: 'EBD', icon: GraduationCap },
   ]);
 
   const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
     const savedVisible = localStorage.getItem('admin_visible_tabs');
-    let tabs = ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio'];
+    let tabs = ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio', 'ebd'];
     
     if (savedVisible) {
       const parsed = JSON.parse(savedVisible);
@@ -3742,6 +3745,7 @@ const Admin = () => {
               {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile notificationCount={canCreateEventDirectly ? agenda.filter(a => a.status === "pending").length : 0} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
+              {canViewTab("ebd") && <SidebarItem icon={GraduationCap} active={activeTab === "ebd" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("ebd"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="EBD" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
               <SidebarItem 
                 icon={MessageSquare} 
@@ -6613,6 +6617,8 @@ const Admin = () => {
               <VideosView isDark={isDarkMode} />
             ) : activeTab === "avisos" ? (
               <AvisosView isDark={isDarkMode} />
+            ) : activeTab === "ebd" ? (
+              <EBDAdminView isDark={isDarkMode} />
             ) : (activeTab === "eventos" || activeTab === "noticias") && !isEditing ? (
               <EventosView 
                 events={filteredItems} 

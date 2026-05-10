@@ -131,6 +131,14 @@ service cloud.firestore {
              data.name is string;
     }
 
+    function isValidEbdModule(data) {
+      return data.keys().hasAll(['title']) && data.title is string;
+    }
+
+    function isValidEbdLesson(data) {
+      return data.keys().hasAll(['title', 'moduleId']) && data.title is string && data.moduleId is string;
+    }
+
     // --- Collection Rules ---
 
     match /test/connection {
@@ -293,6 +301,36 @@ service cloud.firestore {
       allow read: if isMasterAdmin() || isLeader() || isAdmin();
       allow create, update: if (isMasterAdmin() || isLeader() || isAdmin()) && isValidAvisoTemplate(incoming());
       allow delete: if isMasterAdmin() || isLeader() || isAdmin();
+    }
+
+    match /ebd-modules/{moduleId} {
+      allow read: if true;
+      allow create, update: if (isMasterAdmin() || isAdmin()) && isValidEbdModule(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /ebd-lessons/{lessonId} {
+      allow read: if true;
+      allow create, update: if (isMasterAdmin() || isAdmin()) && isValidEbdLesson(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /ebd-questions/{qId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isMasterAdmin() || isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow delete: if isMasterAdmin() || isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    }
+    
+    match /ebd-tests/{testId} {
+      allow read: if true;
+      allow create, update, delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /ebd-test-answers/{answerId} {
+      allow read: if true;
+      allow create, update: if isSignedIn();
+      allow delete: if isMasterAdmin() || isAdmin();
     }
 
     // Default deny

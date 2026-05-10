@@ -750,9 +750,9 @@ export default function Gallery() {
                               setSelectedPhotoIndex(actualIdx);
                               setShowInfoModal(true);
                             }}
-                            className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white shadow-xl"
+                            className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white hover:text-red-500 hover:bg-white/20 shadow-xl transition-colors"
                           >
-                            <Copyright className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                         
@@ -1011,7 +1011,7 @@ export default function Gallery() {
                       className="w-full bg-red-500 hover:bg-red-600 text-white h-14 rounded-2xl font-black uppercase tracking-wider text-[10px] md:text-xs flex items-center justify-center gap-2 md:gap-3 px-4 group"
                       onClick={() => handleRequestRemoval(visiblePhotos[selectedPhotoIndex], selectedAlbum.id)}
                     >
-                      <AlertCircle className="w-4 h-4 md:w-5 md:h-5 shrink-0 group-hover:animate-pulse" /> Pedir para remover minha imagem
+                      <Trash2 className="w-4 h-4 md:w-5 md:h-5 shrink-0 group-hover:animate-pulse" /> Pedir para remover minha imagem
                     </Button>
                   )}
                   <Button 
@@ -1163,9 +1163,9 @@ export default function Gallery() {
                   variant="ghost" 
                   size="icon" 
                   onClick={() => setShowInfoModal(true)}
-                  className="w-14 h-14 rounded-2xl backdrop-blur-md border border-white/10 text-white/60 hover:text-white hover:bg-white/10"
+                  className="w-14 h-14 rounded-2xl backdrop-blur-md border border-white/10 text-white hover:text-red-500 hover:bg-white/10 transition-colors"
                 >
-                  <Copyright className="w-6 h-6" />
+                  <Trash2 className="w-6 h-6" />
                 </Button>
 
                 <div className="w-[1px] h-10 bg-white/10 mx-2" />

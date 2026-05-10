@@ -258,6 +258,21 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     return "";
   };
 
+  const silentAudioRef = useRef<HTMLAudioElement>(null);
+
+  useEffect(() => {
+    if (silentAudioRef.current) {
+      if (isPlaying) {
+        const playPromise = silentAudioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {});
+        }
+      } else {
+        silentAudioRef.current.pause();
+      }
+    }
+  }, [isPlaying]);
+
   return (
     <RadioContext.Provider value={{
       tracks, radioArtists, playlists, vignettes, settings,
@@ -306,15 +321,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
           muted={false}
           playsInline
           style={{ display: 'none' }}
-          ref={(audio) => {
-            if (audio) {
-              if (isPlaying) {
-                audio.play().catch(() => {});
-              } else {
-                audio.pause();
-              }
-            }
-          }}
+          ref={silentAudioRef}
         />
       </div>
     </RadioContext.Provider>

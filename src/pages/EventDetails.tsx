@@ -276,6 +276,69 @@ export default function EventDetails() {
     }
   };
 
+  const downloadPhoto = async (photoUrl: string, eventTitle: string) => {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = getImageUrl(photoUrl);
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+      });
+
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      canvas.width = img.width;
+      canvas.height = img.height;
+
+      // Draw original image
+      ctx.drawImage(img, 0, 0);
+
+      // Watermark Config
+      const fontSize = Math.max(img.width * 0.04, 60);
+      ctx.globalAlpha = 0.5; // Optional watermark opacity 
+      ctx.fillStyle = "white";
+      ctx.font = `900 ${fontSize}px "Inter", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+
+      const margin = fontSize * 1.5;
+      const text = eventTitle.toUpperCase();
+      const x = canvas.width / 2;
+      const y = canvas.height - margin;
+      
+      // Draw Shadow for readability
+      ctx.shadowColor = "rgba(0,0,0,0.5)";
+      ctx.shadowBlur = 10;
+      
+      // Draw Text
+      ctx.fillText(text, x, y);
+      
+      // Small Subtitle
+      ctx.font = `300 ${fontSize * 0.4}px "Inter", sans-serif`;
+      ctx.fillText("MINISTÉRIO PROFECIA", x, y + (fontSize * 0.5));
+
+      const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `profecia-${eventTitle.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error("Erro ao baixar imagem:", error);
+      // Fallback simple download
+      window.open(getImageUrl(photoUrl), "_blank");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#190022] flex items-center justify-center">
@@ -760,6 +823,13 @@ export default function EventDetails() {
                 {selectedPhotoIndex + 1} / {event.gallery.length}
               </span>
               <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => downloadPhoto(event.gallery[selectedPhotoIndex], event.title)}
+                  className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
+                >
+                  <Download className="w-5 h-5" />
+                </Button>
                 <Button 
                   variant="ghost" 
                   onClick={() => sharePhoto(event.gallery[selectedPhotoIndex])}
