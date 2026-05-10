@@ -1700,23 +1700,7 @@ const Admin = () => {
   
   const visitors = useMemo(() => {
     // Include regular visitors and those with the "Visitante" role
-    const rawVisitors = members.filter(m => (m.status === "visitor" || m.role === "Visitante") && m.status !== "visitor_session");
-    
-    // Duplication Fix: Group by phone, prioritize canonical ids
-    const visitorMap = new Map();
-    rawVisitors.forEach(v => {
-      const cleanPhone = v.phone?.replace(/\D/g, '') || v.id;
-      const existing = visitorMap.get(cleanPhone);
-      
-      // If we have no entry, or if this new one is canonical, or if it's more recent
-      const isCanonical = v.id.startsWith('visitor_');
-      const existingIsCanonical = existing?.id.startsWith('visitor_');
-      
-      if (!existing || (isCanonical && !existingIsCanonical) || (!existingIsCanonical && v.lastVisit > existing.lastVisit)) {
-        visitorMap.set(cleanPhone, v);
-      }
-    });
-    return Array.from(visitorMap.values()) as any[];
+    return members.filter(m => (m.status === "visitor" || m.role?.toLowerCase() === "visitante") && m.status !== "visitor_session");
   }, [members]);
 
   const activeMembersForDisplay = showPending 
