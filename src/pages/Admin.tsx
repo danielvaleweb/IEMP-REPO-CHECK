@@ -1022,6 +1022,7 @@ const Admin = () => {
   const [searchParams] = useSearchParams();
   const messageParam = searchParams.get('message');
   const reasonParam = searchParams.get('reason');
+  const chatUserParam = searchParams.get('chatUser');
 
   // Guest Login State
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
@@ -1381,6 +1382,16 @@ const Admin = () => {
   const [expandedNotifs, setExpandedNotifs] = useState<string[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   
+  useEffect(() => {
+    if (chatUserParam && members.length > 0) {
+      const userToChat = members.find(m => m.id === chatUserParam);
+      if (userToChat) {
+        setActiveChatUser(userToChat);
+        setRightSidebarView("chat-active");
+      }
+    }
+  }, [chatUserParam, members]);
+
   // Stats state to avoid full-collection reads
   const [counts, setCounts] = useState({
     members: 0,
@@ -1689,7 +1700,7 @@ const Admin = () => {
   
   const visitors = useMemo(() => {
     // Include regular visitors and those with the "Visitante" role
-    const rawVisitors = members.filter(m => (m.status === "visitor" || m.role === "Visitante") && m.status !== "visitor_session" && m.status !== "pending" && m.status !== "pending_approval");
+    const rawVisitors = members.filter(m => (m.status === "visitor" || m.role === "Visitante") && m.status !== "visitor_session");
     
     // Duplication Fix: Group by phone, prioritize canonical ids
     const visitorMap = new Map();
@@ -9295,10 +9306,7 @@ function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, o
                   
                   // WhatsApp Logic
                   const roleName = formatRoles(member);
-                  const isVisitor = roleName.toLowerCase() === "visitante";
-                  const msg = isVisitor 
-                    ? `Paz do Senhor *${member.name}*, Seu cadastro no site foi APROVADO ✅\nVocê já pode acessar o conteúdo para visitantes.\nFicou alguma dúvida? Só responder aqui...`
-                    : `Paz do Senhor *${member.name}*, Seu cadastro no site foi APROVADO ✅\nJá pode fazer login com seu email e senha.\nSeu cargo atualmente é *${roleName}*.\nFicou alguma dúvida? Só responder aqui...`;
+                  const msg = `Paz do Senhor *${member.name}*, Seu cadastro no site foi APROVADO ✅\nJá pode fazer login com seu email e senha.\nSeu cargo atualmente é *${roleName}*.\nFicou algum dúvida? Só responder aqui...`;
                   const phone = member.phone?.replace(/\D/g, "");
                   window.open(`https://wa.me/55${phone}?text=${encodeURIComponent(msg)}`, "_blank");
 

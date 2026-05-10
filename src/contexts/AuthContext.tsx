@@ -268,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: name || (existingProfile as any)?.name || "Visitante",
         phone: phone,
         role: "Visitante",
-        status: (existingProfile as any)?.status || "pending_approval",
+        status: "visitor",
         email: (existingProfile as any)?.email || `${cleanPhone}@visitante.com`,
         createdAt: (existingProfile as any)?.createdAt || lastVisit,
         lastVisit: lastVisit,
@@ -292,8 +292,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!existingProfile) {
           const notifRef = doc(collection(db, "notifications"));
           await setDoc(notifRef, {
-            title: "Novo Visitante (Aprovação Pendente)",
-            message: `${name} acessou como visitante e aguarda aprovação de cadastro.`,
+            title: "Novo Visitante",
+            message: `Um visitante ${name} acabou de entrar`,
             type: "registration",
             memberId: visitorId,
             read: false,
