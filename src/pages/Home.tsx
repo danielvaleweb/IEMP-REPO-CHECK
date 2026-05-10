@@ -197,8 +197,8 @@ export default function Home() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const cacheKey = "cachedEvents_v3";
-        const cacheTimeKey = "cachedEventsTime_v3";
+        const cacheKey = "cachedEvents_v4";
+        const cacheTimeKey = "cachedEventsTime_v4";
         const cached = localStorage.getItem(cacheKey);
         const cacheTime = localStorage.getItem(cacheTimeKey);
 
@@ -286,6 +286,7 @@ export default function Home() {
               rating: "5.0", // Fixed rating instead of random to look more professional
               gallery: data.gallery || [],
               typeEvent: data.typeEvent || "evento",
+              hideFromClicks: data.hideFromClicks || false,
               menuSource: data.menuSource,
               status: data.status
             };

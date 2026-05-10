@@ -6272,7 +6272,7 @@ const Admin = () => {
                                         onChange={(e) => setFormData({...formData, hideFromClicks: e.target.checked})}
                                       />
                                       <label htmlFor="hideFromClicks" className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] cursor-pointer select-none">
-                                        Ocultar do Início (Clicks)
+                                        Ocultar de Clicks Recentes
                                       </label>
                                     </div>
                                   </>
