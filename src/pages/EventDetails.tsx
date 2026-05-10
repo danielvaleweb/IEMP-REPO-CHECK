@@ -121,7 +121,23 @@ export default function EventDetails() {
         try {
           const q = query(collection(db, "event_feedbacks"), orderBy("createdAt", "desc"));
           const snap = await getDocs(q);
-          const eventFeedbacks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter((f: any) => f.eventId === id);
+          let eventFeedbacks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter((f: any) => f.eventId === id);
+          
+          try {
+            const membersSnap = await getDocs(collection(db, "members"));
+            const membersMap: Record<string, string> = {};
+            membersSnap.docs.forEach(d => {
+              const data = d.data();
+              if (data.photoURL) membersMap[d.id] = data.photoURL;
+            });
+            eventFeedbacks = eventFeedbacks.map((f: any) => ({
+              ...f,
+              userPhoto: membersMap[f.userId] || f.userPhoto
+            }));
+          } catch(e) {
+            console.error("Error fetching members for feedbacks", e);
+          }
+
           setFeedbacks(eventFeedbacks);
           
           let localHasGiven = localStorage.getItem(`feedback_${id}`) === 'true';

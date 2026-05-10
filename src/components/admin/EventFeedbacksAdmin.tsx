@@ -18,7 +18,23 @@ export function EventFeedbacksAdmin({ eventId, isDark }: { eventId: string; isDa
           orderBy("createdAt", "desc")
         );
         const snap = await getDocs(q);
-        const data = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((f: any) => f.eventId === eventId);
+        let data = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((f: any) => f.eventId === eventId);
+        
+        try {
+          const membersSnap = await getDocs(collection(db, "members"));
+          const membersMap: Record<string, string> = {};
+          membersSnap.docs.forEach(d => {
+            const memberData = d.data();
+            if (memberData.photoURL) membersMap[d.id] = memberData.photoURL;
+          });
+          data = data.map((f: any) => ({
+            ...f,
+            userPhoto: membersMap[f.userId] || f.userPhoto
+          }));
+        } catch(e) {
+          console.error("Error fetching members for feedbacks admin", e);
+        }
+
         setFeedbacks(data);
       } catch (err) {
         console.error("Error fetching feedbacks:", err);
