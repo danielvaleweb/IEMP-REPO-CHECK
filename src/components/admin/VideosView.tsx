@@ -244,11 +244,11 @@ export function VideosView({ isDark }: { isDark: boolean }) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Data (DD/MM/AA)</label>
+                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Data (DD/MM/AAAA)</label>
                   <Input 
                     value={formData.publishedAt}
                     onChange={(e) => setFormData({...formData, publishedAt: e.target.value})}
-                    placeholder="Ex: 01/12/23"
+                    placeholder="Ex: 01/12/2023"
                     className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
                   />
                 </div>

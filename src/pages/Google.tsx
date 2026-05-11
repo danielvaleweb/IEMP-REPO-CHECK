@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +23,18 @@ export default function Google() {
       setAuthError("");
       setIsSubmitting(true);
       await login();
+      
+      // The profile loading might take a moment in the context, but let's check basic admin criteria
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error("Falha ao obter usuário após login.");
+
+      // Check if it's the master admin email
+      const isMasterEmail = currentUser.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
+      
+      // If it's not the master email, we should wait or check if they have an admin profile
+      // For now, let's just let it navigate to /admin which already has its own protection
+      // but maybe show a message if they are clearly not admin
+      
       navigate("/admin");
     } catch (error: any) {
       console.error("Erro no login Google:", error);
@@ -69,6 +82,7 @@ export default function Google() {
         </div>
 
         <h1 className="text-2xl font-black text-white uppercase tracking-tight mb-2 text-center">Login via Google</h1>
+        <p className="text-[#BF76FF] text-[10px] font-bold uppercase tracking-[0.2em] mb-4 text-center">Acesso Restrito a Administradores</p>
         <p className="text-gray-400 text-sm text-center mb-8 px-4">
           Acesse sua conta corporativa para gerenciar o sistema.
         </p>

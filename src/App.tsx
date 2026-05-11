@@ -8,7 +8,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { RadioProvider } from "@/contexts/RadioContext";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { ErrorBoundary } from "@/components/error-boundary";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import GlobalPlayer from "@/components/GlobalPlayer";
@@ -39,7 +39,6 @@ import Servicos from "@/pages/Servicos";
 
 function AppContent() {
   const location = useLocation();
-  const isHomePage = location.pathname === "/";
   const isAdminPage = location.pathname.startsWith("/admin");
   const isGooglePage = location.pathname === "/google";
   const isSolicitacaoPage = location.pathname.startsWith("/solicitacao");
@@ -63,9 +62,6 @@ function AppContent() {
       }
     }, (err) => {
       console.error("Error checking maintenance settings", err);
-      // If we get a quota error specifically on fetching settings, 
-      // the error boundary might catch it if it's thrown, but since it's just in a callback,
-      // it won't crash React. We can manually set maintenance mode if we detect quota error here too.
       if (err.message && err.message.toLowerCase().includes("quota")) {
         setMaintenanceMode(true);
       }
@@ -126,5 +122,3 @@ export default function App() {
     </ErrorBoundary>
   );
 }
-
-

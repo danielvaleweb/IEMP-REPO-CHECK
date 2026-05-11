@@ -57,10 +57,19 @@ export default function Videos() {
         const parsedId = getYoutubeId(url);
         const videoId = parsedId || doc.id;
         const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : "";
+        let published = data.publishedAt || data.published || createdAtDate;
+        
+        // Normalize DD/MM/AA to DD/MM/AAAA
+        const dateMatch = published.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+        if (dateMatch) {
+          published = `${dateMatch[1]}/${dateMatch[2]}/20${dateMatch[3]}`;
+        }
+        
         return {
           id: videoId, // Use youtubeId as id for consistency with Home.tsx
           firestoreId: doc.id,
           ...data,
+          published,
           createdAtDate,
           thumbnail: getImageUrl(data.thumbnail) || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
           tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
@@ -262,10 +271,10 @@ export default function Videos() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-2">Data (DD/MM/AA)</label>
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest pl-2">Data (DD/MM/AAAA)</label>
             <input
               type="text"
-              placeholder="Ex: 01/12/23"
+              placeholder="Ex: 01/12/2023"
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
               className="w-full h-12 bg-cinza-input/40 border border-[#BF76FF]/20 rounded-full px-4 text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all text-white placeholder:text-gray-500"

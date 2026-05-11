@@ -47,6 +47,7 @@ import {
   Facebook,
   Instagram,
   Share2,
+  Briefcase,
   TrendingUp,
   Heart,
   ArrowLeft,
@@ -596,7 +597,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
   const isBirthdayToday = useMemo(() => {
     if (!member.birthDate) return false;
     try {
-      const birth = parseISO(member.birthDate);
+      const birth = parseISO(member.birthDate + "T12:00:00");
       const now = new Date();
       return birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth();
     } catch (e) { return false; }
@@ -695,7 +696,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
                   label: (() => {
                     try {
                       if (!member.joinedDate) return "Membro";
-                      const start = parseISO(member.joinedDate);
+                      const start = parseISO(member.joinedDate + "T12:00:00");
                       const now = new Date();
                       return differenceInMonths(now, start) < 1 ? "Membro" : "Membro à";
                     } catch (e) { return "Membro"; }
@@ -703,7 +704,7 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
                   value: (() => {
                     try {
                       if (!member.joinedDate) return "Novo";
-                      const start = parseISO(member.joinedDate);
+                      const start = parseISO(member.joinedDate + "T12:00:00");
                       const now = new Date();
                       const years = differenceInYears(now, start);
                       const months = differenceInMonths(now, start);
@@ -717,11 +718,23 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
                 },
                 { label: "Status", value: "Ativo", icon: CheckCircle2, color: "text-green-500" },
                 { 
+                  label: "Profissão", 
+                  value: member.profession || "Não informada", 
+                  icon: Briefcase, 
+                  color: "text-amber-500" 
+                },
+                { 
+                  label: "Instagram", 
+                  value: member.instagram || "Não informado", 
+                  icon: Instagram, 
+                  color: "text-pink-600" 
+                },
+                { 
                   label: "Aniversário", 
                   value: member.birthDate ? (() => {
                     if (isBirthdayToday) return "Hoje!";
                     try {
-                      const d = parseISO(member.birthDate);
+                      const d = parseISO(member.birthDate + "T12:00:00");
                       return format(d, "dd/MMMM", { locale: ptBR });
                     } catch (e) { return "Não informado"; }
                   })() : "Não informado", 
@@ -741,13 +754,6 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
                   <p className={cn("text-xl font-black transition-colors uppercase", isDark ? "text-white" : "text-black")}>{stat.value}</p>
                 </div>
               ))}
-            </div>
-
-            <div className="space-y-6">
-              <h3 className={cn("text-xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>Sobre o Membro</h3>
-              <p className={cn("text-lg leading-relaxed transition-colors", isDark ? "text-gray-400" : "text-gray-600")}>
-                {member.bio || "Nenhuma biografia informada para este membro. Adicione informações sobre sua jornada, ministérios e dons para que outros possam conhecê-lo melhor."}
-              </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -1618,7 +1624,7 @@ const Admin = () => {
     members.forEach(m => {
       if (!m.birthDate || m.status === 'pending' || m.status === 'visitor_session') return;
       try {
-        const birth = parseISO(m.birthDate);
+        const birth = parseISO(m.birthDate + "T12:00:00");
         if (birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth()) {
           const synthId = `birthday-${m.id}`;
           if (!syntheticClearedIds.includes(synthId)) {
@@ -2111,9 +2117,10 @@ const Admin = () => {
     lastName: "", 
     email: "", 
     birthDate: "", 
+    instagram: "",
     memberType: "Membro",
     churchRole: "", 
-    phone: "",
+    phone: "", 
     password: "",
     confirmPassword: "",
     profession: ""
@@ -3394,14 +3401,25 @@ const Admin = () => {
                   </select>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sua Profissão / Serviço</label>
-                  <Input 
-                    className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                    placeholder="Pedreiro, Design Gráfico, Contador..."
-                    value={signUpData.profession}
-                    onChange={(e) => setSignUpData({...signUpData, profession: e.target.value})}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sua Profissão / Serviço</label>
+                    <Input 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      placeholder="Pedreiro, Design Gráfico, Contador..."
+                      value={signUpData.profession}
+                      onChange={(e) => setSignUpData({...signUpData, profession: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5"><Instagram className="w-3.5 h-3.5" /> Instagram (opcional)</label>
+                    <Input 
+                      className={cn("border h-14 rounded-2xl px-4 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                      placeholder="@seu_instagram"
+                      value={signUpData.instagram}
+                      onChange={(e) => setSignUpData({...signUpData, instagram: e.target.value})}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -3457,6 +3475,7 @@ const Admin = () => {
                       name: `${signUpData.firstName} ${signUpData.lastName}`,
                       phone: signUpData.phone,
                       birthDate: signUpData.birthDate,
+                      instagram: signUpData.instagram,
                       churchRole: signUpData.churchRole,
                       profession: signUpData.profession,
                       role: "Membro", // Forcing Member role for all signups that require approval
@@ -3473,7 +3492,7 @@ const Admin = () => {
                     navigate("/solicitacao");
 
                     setIsSignUpMode(false);
-                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", memberType: "Membro", churchRole: "", phone: "", profession: "", password: "", confirmPassword: "" });
+                    setSignUpData({ firstName: "", lastName: "", email: "", birthDate: "", instagram: "", memberType: "Membro", churchRole: "", phone: "", profession: "", password: "", confirmPassword: "" });
 
                   } catch (error: any) {
                     setIsSubmitting(false);
@@ -5764,6 +5783,18 @@ const Admin = () => {
                             readOnly={isReadOnly}
                           />
                         </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <Instagram className="w-3.5 h-3.5" /> Instagram
+                          </label>
+                          <Input 
+                            className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                            placeholder="@seu_instagram"
+                            value={formData.instagram || ""}
+                            onChange={(e) => setFormData({...formData, instagram: e.target.value})}
+                            readOnly={isReadOnly}
+                          />
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -5890,17 +5921,6 @@ const Admin = () => {
                             </Button>
                           </div>
                         )}
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Sobre o Membro (Bio)</label>
-                        <Textarea 
-                          className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                          placeholder="Fale um pouco sobre a jornada, dons e ministérios do membro..."
-                          value={formData.bio || ""}
-                          onChange={(e) => setFormData({...formData, bio: e.target.value})}
-                          readOnly={isReadOnly}
-                        />
                       </div>
 
                       <div className="pt-6 border-t border-white/10 mt-8 space-y-6">
@@ -6813,13 +6833,13 @@ const Admin = () => {
                            const weekBirthdays = members.filter(m => {
                                if (!m.birthDate || m.status === 'pending' || m.status === 'visitor_session') return false;
                                try {
-                                   const birth = parseISO(m.birthDate);
+                                   const birth = parseISO(m.birthDate + "T12:00:00");
                                    const currentBirthday = new Date(now.getFullYear(), birth.getMonth(), birth.getDate());
                                    return currentBirthday >= start && currentBirthday <= end;
                                } catch (e) { return false; }
                            }).sort((a, b) => {
-                               const dateA = new Date(now.getFullYear(), parseISO(a.birthDate).getMonth(), parseISO(a.birthDate).getDate());
-                               const dateB = new Date(now.getFullYear(), parseISO(b.birthDate).getMonth(), parseISO(b.birthDate).getDate());
+                               const dateA = new Date(now.getFullYear(), parseISO(a.birthDate + "T12:00:00").getMonth(), parseISO(a.birthDate + "T12:00:00").getDate());
+                               const dateB = new Date(now.getFullYear(), parseISO(b.birthDate + "T12:00:00").getMonth(), parseISO(b.birthDate + "T12:00:00").getDate());
                                return dateA.getTime() - dateB.getTime();
                            });
 
@@ -6835,7 +6855,8 @@ const Admin = () => {
                                <div className="space-y-4">
                                   {weekBirthdays.map(m => {
                                       const isToday = (() => {
-                                          const birth = parseISO(m.birthDate);
+                                          if (!m.birthDate) return false;
+                                          const birth = parseISO(m.birthDate + "T12:00:00");
                                           return birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth();
                                       })();
                                       return (
@@ -6867,7 +6888,7 @@ const Admin = () => {
                                               <div className="flex-1 min-w-0">
                                                   <p className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{m.name}</p>
                                                   <p className="text-xs text-[#BF76FF] font-medium">
-                                                      {isToday ? "É hoje! 🎉" : format(parseISO(m.birthDate), "dd 'de' MMMM", { locale: ptBR })}
+                                                      {isToday ? "É hoje! 🎉" : format(parseISO(m.birthDate + "T12:00:00"), "dd 'de' MMMM", { locale: ptBR })}
                                                   </p>
                                               </div>
                                           </div>
@@ -9209,7 +9230,7 @@ function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, o
   const isBirthdayToday = (() => {
     if (!member.birthDate) return false;
     try {
-      const birth = parseISO(member.birthDate);
+      const birth = parseISO(member.birthDate + "T12:00:00");
       const now = new Date();
       return birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth();
     } catch (e) { return false; }

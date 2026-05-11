@@ -348,13 +348,21 @@ export default function Home() {
         };
         const parsedId = getYoutubeId(data.url);
         const safeId = parsedId || doc.id;
+        let published = data.publishedAt || data.published || (data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : "");
+        
+        // Normalize DD/MM/AA to DD/MM/AAAA
+        const dMatch = published.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+        if (dMatch) {
+          published = `${dMatch[1]}/${dMatch[2]}/20${dMatch[3]}`;
+        }
+
         return {
           id: safeId,
           title: data.title,
           badge: data.badge,
           description: data.description || "",
           thumbnail: data.thumbnail || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
-          published: data.published || (data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : ""),
+          published,
           link: parsedId ? `https://www.youtube.com/watch?v=${parsedId}` : (data.url || `https://www.youtube.com/watch?v=${safeId}`),
           tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
           category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
@@ -483,7 +491,7 @@ export default function Home() {
                 {showVideo && !isWatching ? (
                   <div className="absolute inset-0 w-full h-full pointer-events-none">
                     <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=0&modestbranding=1&rel=0&origin=${window.location.origin}`}
+                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0&origin=${window.location.origin}`}
                       className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 border-none scale-105"
                       allow="autoplay; encrypted-media"
                     />
@@ -530,16 +538,28 @@ export default function Home() {
                         {videos[currentIndex].badge || (isLive && currentIndex === 0 ? "Ao Vivo" : "Gravado")}
                       </span>
                     )}
-                    <span className="text-white/90 text-sm font-medium drop-shadow-md">
-                      {(() => {
-                        const dateStr = videos[currentIndex].published;
-                        const date = new Date(dateStr);
-                        if (!isNaN(date.getTime())) {
-                          return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                  <span className="text-white/90 text-sm font-medium drop-shadow-md">
+                    {(() => {
+                      let dateStr = videos[currentIndex].published;
+                      if (!dateStr) return "";
+                      
+                      // If it's already in DD/MM/AAAA or DD/MM/AA format, try to normalize it
+                      const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{2,4})$/);
+                      if (match) {
+                        const [_, d, m, y] = match;
+                        if (y.length === 2) {
+                          return `${d}/${m}/20${y}`;
                         }
                         return dateStr;
-                      })()}
-                    </span>
+                      }
+
+                      const date = new Date(dateStr);
+                      if (!isNaN(date.getTime())) {
+                        return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                      }
+                      return dateStr;
+                    })()}
+                  </span>
                   </div>
 
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6 tracking-tighter uppercase line-clamp-2 drop-shadow-xl">
@@ -586,7 +606,7 @@ export default function Home() {
               className="fixed inset-0 z-[9999] bg-black"
             >
               <iframe
-                src={`https://www.youtube-nocookie.com/embed/${selectedVideo.id}?autoplay=1&controls=1&modestbranding=1&rel=0&origin=${window.location.origin}`}
+                src={`https://www.youtube-nocookie.com/embed/${selectedVideo.id}?autoplay=1&controls=1&start=300&modestbranding=1&rel=0&origin=${window.location.origin}`}
                 className="w-full h-full border-none"
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
@@ -634,7 +654,7 @@ export default function Home() {
                     />
                   ) : (
                     <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${infoModalVideo.id}?autoplay=1&controls=1&modestbranding=1&rel=0&origin=${window.location.origin}`}
+                      src={`https://www.youtube-nocookie.com/embed/${infoModalVideo.id}?autoplay=1&controls=1&start=300&modestbranding=1&rel=0&origin=${window.location.origin}`}
                       title={infoModalVideo.title}
                       className="w-full h-full border-none"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

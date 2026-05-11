@@ -9,6 +9,8 @@ import { cn, getImageUrl } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+
+const Player = ReactPlayer as any;
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -139,8 +141,8 @@ export default function EBD() {
           <p className="text-white/60 mb-8 font-medium leading-relaxed">
             Faça login para ter acesso aos nossos módulos, vídeos e materiais de apoio da EBD.
           </p>
-          <Button onClick={() => navigate("/google")} className="bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] text-white rounded-full font-bold px-8 h-12 w-full hover:scale-105 transition-transform">
-            Entrar com Google
+          <Button onClick={() => navigate("/admin")} className="bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] text-white rounded-full font-bold px-8 h-12 w-full hover:scale-105 transition-transform">
+            Acessar Portal
           </Button>
         </div>
       </div>
@@ -220,8 +222,7 @@ export default function EBD() {
              {/* Player Area */}
              <div className="w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl relative mb-8 border border-white/10">
                {currentLesson.youtubeUrl ? (
-                 // @ts-ignore
-                 <ReactPlayer 
+                 <Player 
                    url={currentLesson.youtubeUrl} 
                    width="100%" 
                    height="100%" 

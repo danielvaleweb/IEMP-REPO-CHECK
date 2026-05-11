@@ -203,6 +203,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: email,
       phone: additionalData.phone || "",
       birthDate: additionalData.birthDate || "",
+      instagram: additionalData.instagram || "",
+      profession: additionalData.profession || "",
       churchRole: additionalData.churchRole || "Membro",
       role: additionalData.role || "Membro",
       status: additionalData.status || "pending",

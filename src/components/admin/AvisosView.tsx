@@ -229,6 +229,28 @@ Estilo: ${styleInstruction}`;
     );
   };
 
+  const formatDateSafely = (date: any) => {
+    if (!date) return "";
+    try {
+      if (date && typeof date.toDate === 'function') {
+        return format(date.toDate(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      }
+      if (date instanceof Date) {
+        return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      }
+      if (typeof date === 'string') {
+        const d = new Date(date);
+        return isNaN(d.getTime()) ? "" : format(d, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      }
+      if (date && date.seconds) {
+        return format(new Date(date.seconds * 1000), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+      }
+    } catch (e) {
+      console.error("Format error", e);
+    }
+    return "";
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center gap-3 mb-8">
@@ -757,7 +779,7 @@ Estilo: ${styleInstruction}`;
                       <p className={cn("text-[10px] mt-1 font-medium", isDark ? "text-[#BF76FF]" : "text-[#a656f0]")}>{ann.type} • Autor: {ann.author}</p>
                       <p className={cn("text-xs mt-2 line-clamp-2", isDark ? "text-white/60" : "text-gray-600")}>{ann.message}</p>
                       <p className={cn("text-[10px] mt-2 opacity-50", isDark ? "text-white" : "text-black")}>
-                        {ann.createdAt ? format(ann.createdAt.toDate(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR }) : ""}
+                        {formatDateSafely(ann.createdAt)}
                       </p>
                     </div>
                     <button 
