@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { collection, onSnapshot, query, where, getDocs, addDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Briefcase, MapPin, Phone, Building2, Search, Zap, ExternalLink } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
+import { cn, getImageUrl } from "@/lib/utils";
 
 export default function Servicos() {
   const [services, setServices] = useState<any[]>([]);
@@ -98,21 +99,17 @@ export default function Servicos() {
                   <div className="h-full bg-[#111111]/80 backdrop-blur-xl border border-white/5 group-hover:border-white/10 transition-all duration-500 rounded-[2.5rem] overflow-hidden flex flex-col">
                     
                     {/* Header do Cartão */}
-                    <div className="p-8 pb-6 flex items-start justify-between gap-4">
-                      {service.companyLogo ? (
+                    <div className="p-8 pb-6 flex items-start gap-4">
+                      {service.companyLogo && (
                         <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden shadow-lg">
-                          <img src={service.companyLogo} alt={service.companyName || service.profession} className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#7300FF]/20 to-[#BF76FF]/20 border border-white/10 flex items-center justify-center shrink-0 shadow-lg">
-                          <Briefcase className="w-8 h-8 text-[#BF76FF]" />
+                          <img src={getImageUrl(service.companyLogo)} alt={service.companyName || service.profession} className="w-full h-full object-cover" />
                         </div>
                       )}
 
-                      <div className="flex-1 text-right">
+                      <div className={cn("flex-1", service.companyLogo ? "text-right" : "text-left")}>
                         <h3 className="text-xl font-black text-white leading-tight mb-1">{service.profession}</h3>
                         {service.companyName && (
-                          <div className="flex items-center justify-end gap-1.5 text-[#BF76FF] font-bold text-sm">
+                          <div className={cn("flex items-center gap-1.5 text-[#BF76FF] font-bold text-sm", service.companyLogo ? "justify-end" : "justify-start")}>
                             <Building2 className="w-3.5 h-3.5" />
                             <span>{service.companyName}</span>
                           </div>
@@ -131,13 +128,11 @@ export default function Servicos() {
                       <div className="space-y-4 pt-6 border-t border-white/5">
                         <div className="flex items-center gap-4">
                           <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-white/5 border border-white/10">
-                            {service.photoURL ? (
-                              <img src={service.photoURL} alt={service.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center bg-zinc-800 text-sm font-bold text-white">
-                                {service.name?.charAt(0)}
-                              </div>
-                            )}
+                            <img 
+                              src={getImageUrl(service.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${service.id}`)} 
+                              alt={service.name} 
+                              className="w-full h-full object-cover" 
+                            />
                           </div>
                           <div className="flex-1 overflow-hidden">
                             <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-0.5">Profissional</p>

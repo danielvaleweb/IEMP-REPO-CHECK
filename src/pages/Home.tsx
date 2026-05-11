@@ -491,7 +491,7 @@ export default function Home() {
                 {showVideo && !isWatching ? (
                   <div className="absolute inset-0 w-full h-full pointer-events-none">
                     <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0&origin=${window.location.origin}`}
+                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3&disablekb=1&origin=${window.location.origin}`}
                       className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 border-none scale-105"
                       allow="autoplay; encrypted-media"
                     />
