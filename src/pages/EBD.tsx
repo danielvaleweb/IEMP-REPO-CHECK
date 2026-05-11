@@ -220,6 +220,7 @@ export default function EBD() {
              {/* Player Area */}
              <div className="w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl relative mb-8 border border-white/10">
                {currentLesson.youtubeUrl ? (
+                 // @ts-ignore
                  <ReactPlayer 
                    url={currentLesson.youtubeUrl} 
                    width="100%" 

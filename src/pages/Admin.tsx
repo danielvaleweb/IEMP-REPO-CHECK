@@ -7198,6 +7198,24 @@ const Admin = () => {
                           <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF]"></div>
                         </label>
                       </div>
+
+                      <div className={cn("flex items-center justify-between p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-red-900/10 border-red-500/20" : "bg-red-50 border-red-500/10")}>
+                        <div>
+                          <h5 className="font-bold text-red-500">Modo de Manutenção</h5>
+                          <p className="text-sm text-gray-500">Ao ativar, todos os usuários comuns verão uma tela de "Em Manutenção" informando que o site está em atualização. Apenas administradores terão acesso a este painel.</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={localSettings.maintenanceMode ?? settings.maintenanceMode ?? false}
+                            onChange={(e) => {
+                              setLocalSettings((prev: any) => ({...prev, maintenanceMode: e.target.checked}));
+                            }}
+                          />
+                          <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500"></div>
+                        </label>
+                      </div>
                     </div>
 
                     <div className={cn("pt-8 border-t transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>

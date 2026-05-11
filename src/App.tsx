@@ -3,11 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { RadioProvider } from "@/contexts/RadioContext";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import GlobalPlayer from "@/components/GlobalPlayer";
@@ -23,7 +24,10 @@ import Discipleship from "@/pages/Discipleship";
 import EBD from "@/pages/EBD";
 import Favorites from "@/pages/Favorites";
 import StaticPages from "@/pages/StaticPages";
+import Maintenance from "@/pages/Maintenance";
 import { cn } from "@/lib/utils";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 
 import EventDetails from "@/pages/EventDetails";
 import NoticiaDetalhe from "@/pages/NoticiaDetalhe";
@@ -41,34 +45,65 @@ function AppContent() {
   const isSolicitacaoPage = location.pathname.startsWith("/solicitacao");
   const isEventPage = location.pathname.startsWith("/evento/");
 
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data && data.maintenanceMode) {
+          setMaintenanceMode(true);
+        } else {
+          setMaintenanceMode(false);
+        }
+      }
+    }, (err) => {
+      console.error("Error checking maintenance settings", err);
+      // If we get a quota error specifically on fetching settings, 
+      // the error boundary might catch it if it's thrown, but since it's just in a callback,
+      // it won't crash React. We can manually set maintenance mode if we detect quota error here too.
+      if (err.message && err.message.toLowerCase().includes("quota")) {
+        setMaintenanceMode(true);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  if (maintenanceMode && !isAdminPage) {
+    return <Maintenance />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary">
       {!isAdminPage && !isGooglePage && !isEventPage && !isSolicitacaoPage && <Navbar />}
       <main className="flex-grow flex flex-col">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/ao-vivo" element={<Live />} />
-          <Route path="/videos" element={<Videos />} />
-          <Route path="/radio" element={<RadioPage />} />
-          <Route path="/galeria" element={<Gallery />} />
-          <Route path="/favoritos" element={<Favorites />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/google" element={<Google />} />
-          <Route path="/solicitacao" element={<Solicitacao />} />
-          <Route path="/evento/:id" element={<EventDetails />} />
-          <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
-          <Route path="/quem-somos" element={<About />} />
-          <Route path="/biblia" element={<Bible />} />
-          <Route path="/departamentos/:dept" element={<Departments />} />
-          <Route path="/discipulado" element={<Discipleship />} />
-          <Route path="/ebd" element={<EBD />} />
-          <Route path="/servicos" element={<Servicos />} />
-          <Route path="/:page" element={<StaticPages />} />
-        </Routes>
+        <ErrorBoundary isAdminPage={isAdminPage}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/ao-vivo" element={<Live />} />
+            <Route path="/videos" element={<Videos />} />
+            <Route path="/radio" element={<RadioPage />} />
+            <Route path="/galeria" element={<Gallery />} />
+            <Route path="/favoritos" element={<Favorites />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/google" element={<Google />} />
+            <Route path="/solicitacao" element={<Solicitacao />} />
+            <Route path="/evento/:id" element={<EventDetails />} />
+            <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
+            <Route path="/quem-somos" element={<About />} />
+            <Route path="/biblia" element={<Bible />} />
+            <Route path="/departamentos/:dept" element={<Departments />} />
+            <Route path="/discipulado" element={<Discipleship />} />
+            <Route path="/ebd" element={<EBD />} />
+            <Route path="/servicos" element={<Servicos />} />
+            <Route path="/:page" element={<StaticPages />} />
+          </Routes>
+        </ErrorBoundary>
       </main>
       {!isAdminPage && !isGooglePage && !isSolicitacaoPage && <Footer />}
     </div>
@@ -77,16 +112,18 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <FavoritesProvider>
-        <RadioProvider>
-          <Router>
-            <AppContent />
-          </Router>
-          <GlobalPlayer />
-        </RadioProvider>
-      </FavoritesProvider>
-    </AuthProvider>
+    <ErrorBoundary isAdminPage={false}>
+      <AuthProvider>
+        <FavoritesProvider>
+          <RadioProvider>
+            <Router>
+              <AppContent />
+            </Router>
+            <GlobalPlayer />
+          </RadioProvider>
+        </FavoritesProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 
