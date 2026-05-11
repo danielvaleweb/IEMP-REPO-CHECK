@@ -79,7 +79,8 @@ import {
   HardDrive,
   Key,
   MessageCircle,
-  GraduationCap
+  GraduationCap,
+  Wrench
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -2058,8 +2059,35 @@ const Admin = () => {
     }
   }, [userRolesArray, activeTab, setActiveTab]);
   
-  const [availableSkills, setAvailableSkills] = useState<string[]>(["Música", "Instrumentos", "Canto", "Som/Áudio", "Vídeo/Edição", "Design Gráfico", "Mídias Sociais", "Liderança", "Pregação", "Ensino Infantil", "Organização", "Cozinha", "Limpeza", "Recepção"]);
+  const [availableSkills, setAvailableSkills] = useState<string[]>([]);
   const [newSkillName, setNewSkillName] = useState("");
+  const [showSkillsDropdownAdmin, setShowSkillsDropdownAdmin] = useState(false);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "settings", "skills"), (snap) => {
+      if (snap.exists()) {
+        setAvailableSkills(snap.data().list || []);
+      } else if (isAdmin) {
+        // Initialize with defaults if not exists
+        setDoc(doc(db, "settings", "skills"), {
+          list: ["Música", "Instrumentos", "Canto", "Som/Áudio", "Vídeo/Edição", "Design Gráfico", "Mídias Sociais", "Liderança", "Pregação", "Ensino Infantil", "Organização", "Cozinha", "Limpeza", "Recepção"]
+        });
+      }
+    });
+    return () => unsub();
+  }, [isAdmin]);
+
+  const handleAddSkill = async () => {
+    if (!newSkillName.trim()) return;
+    const updatedSkills = [...availableSkills, newSkillName.trim()];
+    await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
+    setNewSkillName("");
+  };
+
+  const handleRemoveSkill = async (skillToRemove: string) => {
+    const updatedSkills = availableSkills.filter(s => s !== skillToRemove);
+    await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
+  };
 
   useEffect(() => {
     if (user && profile?.status === "pending") {
@@ -2652,16 +2680,22 @@ const Admin = () => {
         dataToSave.location = formattedLocation || formData.location;
       }
       
-      if (activeTab === "membros" && formData.ministries?.length > 0) {
-        // Clean up 'Desenvolvimento' to 'Desenvolvedor'
-        dataToSave.ministries = formData.ministries.map((m: any) => {
-          if (typeof m === 'string') return m === "Desenvolvimento" ? "Desenvolvedor" : m;
-          return { ...m, name: m.name === "Desenvolvimento" ? "Desenvolvedor" : m.name };
-        });
+      if (activeTab === "membros") {
+        if (formData.isCompanyWhatsappSame) {
+          dataToSave.companyWhatsapp = formData.phone || formData.companyWhatsapp;
+        }
 
-        const firstMinistry = dataToSave.ministries[0];
-        dataToSave.role = typeof firstMinistry === 'string' ? firstMinistry : firstMinistry.name;
-        dataToSave.isLeader = dataToSave.ministries.some((m: any) => typeof m === 'object' && m.isLeader);
+        if (formData.ministries?.length > 0) {
+          // Clean up 'Desenvolvimento' to 'Desenvolvedor'
+          dataToSave.ministries = formData.ministries.map((m: any) => {
+            if (typeof m === 'string') return m === "Desenvolvimento" ? "Desenvolvedor" : m;
+            return { ...m, name: m.name === "Desenvolvimento" ? "Desenvolvedor" : m.name };
+          });
+
+          const firstMinistry = dataToSave.ministries[0];
+          dataToSave.role = typeof firstMinistry === 'string' ? firstMinistry : firstMinistry.name;
+          dataToSave.isLeader = dataToSave.ministries.some((m: any) => typeof m === 'object' && m.isLeader);
+        }
       }
 
       let itemDocId = selectedItem?.id;
@@ -5795,6 +5829,99 @@ const Admin = () => {
                             readOnly={isReadOnly}
                           />
                         </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                            <Wrench className="w-3.5 h-3.5" /> O que faz de melhor na igreja
+                          </label>
+                          
+                          <div className="relative">
+                            <div 
+                              className={cn(
+                                "min-h-[3.5rem] w-full border rounded-2xl p-3 flex flex-wrap gap-2 cursor-pointer transition-all",
+                                isDarkMode ? "bg-cinza-input border-white/5" : "bg-white border-black/5"
+                              )}
+                              onClick={() => !isReadOnly && setShowSkillsDropdownAdmin(!showSkillsDropdownAdmin)}
+                            >
+                              {formData.churchSkills ? formData.churchSkills.split(",").map(skill => skill.trim()).filter(Boolean).map((skill, idx) => (
+                                <span key={idx} className="bg-[#BF76FF]/20 text-[#BF76FF] text-[10px] font-bold uppercase px-2 py-1 rounded-lg flex items-center gap-1">
+                                  {skill}
+                                  {!isReadOnly && (
+                                    <button 
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const skills = formData.churchSkills.split(",").map(s => s.trim()).filter(s => s !== skill);
+                                        setFormData({...formData, churchSkills: skills.join(", ")});
+                                      }}
+                                      className="hover:text-white"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </span>
+                              )) : (
+                                <span className="text-gray-500 text-sm py-1.5 px-3 italic">Selecione habilidades ministeriais...</span>
+                              )}
+                            </div>
+
+                            <AnimatePresence>
+                              {showSkillsDropdownAdmin && !isReadOnly && (
+                                <motion.div 
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: 10 }}
+                                  className={cn(
+                                    "absolute top-full mt-2 left-0 right-0 border rounded-2xl overflow-hidden z-50 shadow-2xl p-4",
+                                    isDarkMode ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10"
+                                  )}
+                                >
+                                  <div className="flex gap-2 mb-4">
+                                    <Input 
+                                      placeholder="Nova habilidade..."
+                                      value={newSkillName}
+                                      onChange={(e) => setNewSkillName(e.target.value)}
+                                      className="h-10 text-xs"
+                                    />
+                                    <Button onClick={handleAddSkill} size="sm" className="bg-[#BF76FF] text-white">Adicionar</Button>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2">
+                                    {availableSkills.map(skill => {
+                                      const isSelected = formData.churchSkills?.split(",").map(s => s.trim()).includes(skill);
+                                      return (
+                                        <div key={skill} className="flex items-center group">
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const currentSkills = formData.churchSkills?.split(",").map(s => s.trim()).filter(Boolean) || [];
+                                              if (isSelected) {
+                                                setFormData({...formData, churchSkills: currentSkills.filter(s => s !== skill).join(", ")});
+                                              } else {
+                                                setFormData({...formData, churchSkills: [...currentSkills, skill].join(", ")});
+                                              }
+                                            }}
+                                            className={cn(
+                                              "flex-1 text-[10px] font-bold uppercase p-2 rounded-lg text-left transition-colors",
+                                              isSelected ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500 hover:bg-white/10"
+                                            )}
+                                          >
+                                            {skill}
+                                          </button>
+                                          <button 
+                                            onClick={(e) => { e.stopPropagation(); handleRemoveSkill(skill); }}
+                                            className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-400 transition-all ml-1"
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        </div>
                       </div>
 
                       <div className="space-y-4">
@@ -5858,76 +5985,23 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block">Habilidades</label>
-                        <div className="flex flex-wrap gap-2">
-                          {availableSkills.map(skill => {
-                            const isSelected = (formData.skills || []).includes(skill);
-                            return (
-                              <button
-                                key={skill}
-                                type="button"
-                                disabled={isReadOnly}
-                                onClick={() => {
-                                  const currentSkills = formData.skills || [];
-                                  if (isSelected) {
-                                    setFormData({ ...formData, skills: currentSkills.filter((s: string) => s !== skill) });
-                                  } else {
-                                    setFormData({ ...formData, skills: [...currentSkills, skill] });
-                                  }
-                                }}
-                                className={cn(
-                                  "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                  isSelected 
-                                    ? "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-lg shadow-[#7300FF]/20" 
-                                    : isDarkMode ? "bg-white/5 text-gray-400 hover:bg-white/10" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                                )}
-                              >
-                                {skill}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {isMasterAdmin && !isReadOnly && (
-                          <div className="flex gap-2 mt-4 max-w-xs">
-                              <Input 
-                                placeholder="Nova habilidade..."
-                                className={cn("border h-10 rounded-xl px-4 text-xs transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                value={newSkillName}
-                                onChange={(e) => setNewSkillName(e.target.value)}
-                              />
-                            <Button 
-                              size="sm"
-                              onClick={async () => {
-                                if (!newSkillName.trim()) return;
-                                if (availableSkills.includes(newSkillName.trim())) {
-                                  return;
-                                }
-                                const newList = [...availableSkills, newSkillName.trim()];
-                                try {
-                                  try {
-                                    await setDoc(doc(db, "settings", "skills"), { list: newList });
-                                  } catch (e) {
-                                    handleFirestoreError(e, OperationType.UPDATE, 'settings/skills');
-                                  }
-                                  setNewSkillName("");
-                                } catch (err) {
-                                  handleFirestoreError(err, OperationType.WRITE, "settings/skills");
-                                }
-                              }}
-                              className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white rounded-xl font-bold h-10"
-                            >
-                              <Plus className="w-4 h-4 mr-1" /> Add
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+
 
                       <div className="pt-6 border-t border-white/10 mt-8 space-y-6">
                         <h4 className={cn("text-lg font-black uppercase tracking-widest", isDarkMode ? "text-white" : "text-black")}>Área Profissional / Serviços</h4>
                         <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Estas informações aparecerão na página de /servicos</p>
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Área Profissional</label>
+                            <Input 
+                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
+                              placeholder="Tecnologia, Saúde, Educação..."
+                              value={formData.professionalArea || ""}
+                              onChange={(e) => setFormData({...formData, professionalArea: e.target.value})}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
                           <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Profissão / Serviço Oferecido</label>
                             <Input 
@@ -5939,17 +6013,7 @@ const Admin = () => {
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Logo da Empresa (URL)</label>
-                            <Input 
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                              placeholder="https://exemplo.com/logo.jpg"
-                              value={formData.companyLogo || ""}
-                              onChange={(e) => setFormData({...formData, companyLogo: e.target.value})}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Empresa (opcional)</label>
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Empresa</label>
                             <Input 
                               className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                               placeholder="Ex: Construtora Silva"
@@ -5959,35 +6023,61 @@ const Admin = () => {
                             />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Profissional (com DDD)</label>
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Profissional</label>
+                              <div className="flex items-center gap-2">
+                                <input 
+                                  type="checkbox" 
+                                  id="samePhoneAdmin"
+                                  checked={formData.isCompanyWhatsappSame || false}
+                                  onChange={(e) => setFormData({...formData, isCompanyWhatsappSame: e.target.checked})}
+                                  disabled={isReadOnly}
+                                  className="rounded border-[#BF76FF]/30 bg-white/5 text-[#BF76FF] focus:ring-[#BF76FF]/20"
+                                />
+                                <label htmlFor="samePhoneAdmin" className="text-[9px] uppercase font-bold text-gray-500 cursor-pointer">Mesmo do pessoal</label>
+                              </div>
+                            </div>
+                            <Input 
+                              className={cn("border h-14 rounded-2xl px-6 transition-all", 
+                                isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black",
+                                formData.isCompanyWhatsappSame && "opacity-50"
+                              )} 
+                              placeholder="Ex: 11999999999"
+                              value={formData.isCompanyWhatsappSame ? (formData.phone || "Não cadastrado") : (formData.companyWhatsapp || formData.servicePhone || "")}
+                              onChange={(e) => setFormData({...formData, companyWhatsapp: e.target.value})}
+                              readOnly={isReadOnly || formData.isCompanyWhatsappSame}
+                            />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Logo da Empresa (URL)</label>
                             <Input 
                               className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                              placeholder="Ex: 11999999999"
-                              value={formData.servicePhone || ""}
-                              onChange={(e) => setFormData({...formData, servicePhone: e.target.value})}
+                              placeholder="https://exemplo.com/logo.jpg"
+                              value={formData.companyLogo || ""}
+                              onChange={(e) => setFormData({...formData, companyLogo: e.target.value})}
                               readOnly={isReadOnly}
                             />
                           </div>
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Endereço de Atendimento / Empresa</label>
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Endereço da Empresa</label>
                           <Input 
                             className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
                             placeholder="Rua, Número, Bairro, Cidade - UF"
-                            value={formData.serviceAddress || ""}
-                            onChange={(e) => setFormData({...formData, serviceAddress: e.target.value})}
+                            value={formData.companyAddress || formData.serviceAddress || ""}
+                            onChange={(e) => setFormData({...formData, companyAddress: e.target.value})}
                             readOnly={isReadOnly}
                           />
                         </div>
 
                         <div className="space-y-2">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Descrição do Serviço</label>
+                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tipo de Serviço / Descrição</label>
                           <Textarea 
                             className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")} 
-                            placeholder="Descreva detalhadamente os serviços que você oferece..."
-                            value={formData.serviceDescription || ""}
-                            onChange={(e) => setFormData({...formData, serviceDescription: e.target.value})}
+                            placeholder="Descreva detalhadamente o que a empresa faz..."
+                            value={formData.companyServiceType || formData.serviceDescription || ""}
+                            onChange={(e) => setFormData({...formData, companyServiceType: e.target.value})}
                             readOnly={isReadOnly}
                           />
                         </div>

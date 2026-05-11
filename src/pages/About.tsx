@@ -22,12 +22,15 @@ export default function About() {
         const activeMembers = data.filter(m => {
           const mRole = m.role || "";
           const isVisitor = typeof mRole === "string" ? mRole.toLowerCase() === "visitante" : (Array.isArray(mRole) && mRole.includes("Visitante"));
+          const isAdminRole = typeof mRole === "string" ? mRole === "Administradores" : (Array.isArray(mRole) && mRole.includes("Administradores"));
+          
           return (
             m.status !== "visitor" && 
             m.status !== "visitor_session" && 
             m.status !== "pending" && 
             m.status !== "pending_approval" &&
-            !isVisitor
+            !isVisitor &&
+            !isAdminRole
           );
         });
         setMembers(activeMembers);
@@ -62,7 +65,6 @@ export default function About() {
   const isEligibleToChat = user && profile && profile.role !== "Visitante" && profile.status !== "pending_approval";
 
   const roleOrder = [
-    "Administradores", 
     "Direção", 
     "Secretaria", 
     "Desenvolvedor", 

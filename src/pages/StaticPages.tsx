@@ -21,7 +21,7 @@ export default function StaticPages() {
     estatuto: {
       title: "Estatuto da Igreja",
       icon: Shield,
-      text: "O estatuto da Igreja Ministério Profecia define nossas diretrizes administrativas, direitos e deveres dos membros, e nossa estrutura organizacional. Este documento é público e pode ser consultado por qualquer membro em nossa secretaria física."
+      text: "O estatuto do Ministério Profecia define nossas diretrizes administrativas, direitos e deveres dos membros, e nossa estrutura organizacional. Este documento é público e pode ser consultado por qualquer membro em nossa secretaria física."
     },
     imprensa: {
       title: "Assessoria de Imprensa",

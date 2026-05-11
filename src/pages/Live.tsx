@@ -109,7 +109,7 @@ export default function Live() {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
               <div>
                 <h1 className="text-3xl font-bold mb-2">Culto de Celebração e Adoração</h1>
-                <p className="text-muted-foreground">Igreja Ministério Profecia • 1.2k assistindo agora</p>
+                <p className="text-muted-foreground">Ministério Profecia • 1.2k assistindo agora</p>
               </div>
               <div className="flex gap-2">
                 <a 

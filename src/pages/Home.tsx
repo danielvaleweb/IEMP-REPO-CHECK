@@ -693,7 +693,7 @@ export default function Home() {
                     <span className="border border-gray-600 px-1 rounded-sm">HD</span>
                   </div>
                   <p className="text-sm sm:text-lg text-gray-300 leading-relaxed max-w-3xl">
-                    {infoModalVideo.description || "Assista a esta mensagem inspiradora da Igreja Batista Ministério Profecia."}
+                    {infoModalVideo.description || "Assista a esta mensagem inspiradora do Ministério Profecia."}
                   </p>
                 </div>
               </motion.div>

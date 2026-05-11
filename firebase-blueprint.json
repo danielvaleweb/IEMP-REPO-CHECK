@@ -52,7 +52,7 @@
         "role": { "type": "string", "enum": ["admin", "editor", "member"] },
         "photoURL": { "type": "string" },
         "hasDashboardAccess": { "type": "boolean" },
-        "membershipDate": { "type": "string" },
+        "joinedDate": { "type": "string" },
         "instagram": { "type": "string" },
         "churchSkills": { "type": "string" },
         "professionalArea": { "type": "string" },

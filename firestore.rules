@@ -55,7 +55,7 @@ service cloud.firestore {
       return data.keys().hasAll(['name', 'email', 'role']) &&
              data.name is string && data.name.size() <= 200 &&
              data.email is string && data.email.size() <= 200 &&
-             (!data.keys().hasAny(['membershipDate']) || (data.membershipDate is string && data.membershipDate.size() <= 100)) &&
+             (!data.keys().hasAny(['joinedDate']) || (data.joinedDate is string && data.joinedDate.size() <= 100)) &&
              (!data.keys().hasAny(['instagram']) || (data.instagram is string && data.instagram.size() <= 100)) &&
              (!data.keys().hasAny(['churchSkills']) || (data.churchSkills is string && data.churchSkills.size() <= 1000)) &&
              (!data.keys().hasAny(['professionalArea']) || (data.professionalArea is string && data.professionalArea.size() <= 200)) &&
