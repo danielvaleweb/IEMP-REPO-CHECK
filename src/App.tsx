@@ -23,6 +23,7 @@ import Departments from "@/pages/Departments";
 import Discipleship from "@/pages/Discipleship";
 import EBD from "@/pages/EBD";
 import Favorites from "@/pages/Favorites";
+import Formulario from "@/pages/Formulario";
 import StaticPages from "@/pages/StaticPages";
 import Maintenance from "@/pages/Maintenance";
 import { cn } from "@/lib/utils";
@@ -87,6 +88,7 @@ function AppContent() {
             <Route path="/galeria" element={<Gallery />} />
             <Route path="/favoritos" element={<Favorites />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/formulario" element={<Formulario />} />
             <Route path="/google" element={<Google />} />
             <Route path="/solicitacao" element={<Solicitacao />} />
             <Route path="/evento/:id" element={<EventDetails />} />

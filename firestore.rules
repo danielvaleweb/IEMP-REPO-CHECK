@@ -53,8 +53,18 @@ service cloud.firestore {
 
     function isValidMember(data) {
       return data.keys().hasAll(['name', 'email', 'role']) &&
-             data.name is string && data.name.size() <= 100 &&
-             data.email is string && data.email.size() <= 100;
+             data.name is string && data.name.size() <= 200 &&
+             data.email is string && data.email.size() <= 200 &&
+             (!data.keys().hasAny(['membershipDate']) || (data.membershipDate is string && data.membershipDate.size() <= 100)) &&
+             (!data.keys().hasAny(['instagram']) || (data.instagram is string && data.instagram.size() <= 100)) &&
+             (!data.keys().hasAny(['churchSkills']) || (data.churchSkills is string && data.churchSkills.size() <= 1000)) &&
+             (!data.keys().hasAny(['professionalArea']) || (data.professionalArea is string && data.professionalArea.size() <= 200)) &&
+             (!data.keys().hasAny(['profession']) || (data.profession is string && data.profession.size() <= 200)) &&
+             (!data.keys().hasAny(['companyName']) || (data.companyName is string && data.companyName.size() <= 200)) &&
+             (!data.keys().hasAny(['companyWhatsapp']) || (data.companyWhatsapp is string && data.companyWhatsapp.size() <= 50)) &&
+             (!data.keys().hasAny(['isCompanyWhatsappSame']) || data.isCompanyWhatsappSame is bool) &&
+             (!data.keys().hasAny(['companyAddress']) || (data.companyAddress is string && data.companyAddress.size() <= 500)) &&
+             (!data.keys().hasAny(['companyServiceType']) || (data.companyServiceType is string && data.companyServiceType.size() <= 1000));
     }
 
     function isValidPost(data) {
@@ -165,12 +175,12 @@ service cloud.firestore {
     match /members/{memberId} {
       allow get: if isSignedIn();
       allow list: if true;
-      allow create: if isMasterAdmin() || isAdmin() || 
+      allow create: if (isMasterAdmin() || isAdmin() || 
                     (isSignedIn() && (request.auth.uid == memberId || memberId.matches('visitor_.*'))) ||
-                    (incoming().status == 'pending' && incoming().role == 'Membro');
-      allow update: if isMasterAdmin() || isAdmin() || 
+                    (incoming().status == 'pending' && incoming().role == 'Membro')) && isValidMember(incoming());
+      allow update: if (isMasterAdmin() || isAdmin() || isEditor() ||
                     (isSignedIn() && (request.auth.uid == memberId || memberId.matches('visitor_.*'))) ||
-                    (incoming().diff(existing()).affectedKeys().hasAny(['pushToken', 'fcmTokens', 'lastTokenUpdate']));
+                    (incoming().diff(existing()).affectedKeys().hasAny(['pushToken', 'fcmTokens', 'lastTokenUpdate']))) && isValidMember(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
