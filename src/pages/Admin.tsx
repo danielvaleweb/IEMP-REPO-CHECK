@@ -1696,24 +1696,35 @@ const Admin = () => {
   const [memberSearch, setMemberSearch] = useState("");
 
   // Computed
-  const pendingMembers = members.filter(m => m.status === "pending" || m.status === "pending_approval");
+  const pendingMembers = members.filter(m => {
+    const rolesStr = formatRoles(m).toLowerCase();
+    const isVisitor = rolesStr.includes("visitante") || m.status === "visitor";
+    return (m.status === "pending" || m.status === "pending_approval") && !isVisitor && m.status !== "visitor_session";
+  });
   
   const visitors = useMemo(() => {
     // Include regular visitors and those with the "Visitante" role
-    return members.filter(m => (m.status === "visitor" || m.role?.toLowerCase() === "visitante") && m.status !== "visitor_session");
+    return members.filter(m => {
+      const rolesStr = formatRoles(m).toLowerCase();
+      const isVisitor = rolesStr.includes("visitante") || m.status === "visitor";
+      return isVisitor && m.status !== "visitor_session";
+    });
   }, [members]);
 
   const activeMembersForDisplay = showPending 
     ? pendingMembers 
     : activeTab === "visitantes"
       ? visitors 
-      : members.filter(m => 
-          m.status !== "pending" && 
-          m.status !== "pending_approval" && 
-          m.status !== "visitor" && 
-          m.status !== "visitor_session" && 
-          m.role !== "Visitante"
-        );
+      : members.filter(m => {
+          const rolesStr = formatRoles(m).toLowerCase();
+          const isVisitor = rolesStr.includes("visitante") || m.status === "visitor";
+          return (
+            m.status !== "pending" && 
+            m.status !== "pending_approval" && 
+            !isVisitor &&
+            m.status !== "visitor_session"
+          );
+        });
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -1877,13 +1888,16 @@ const Admin = () => {
     }
     
     if (canViewTab('membros')) {
-      members.filter(m => 
-        m.status !== "pending" && 
-        m.status !== "pending_approval" && 
-        m.status !== "visitor" && 
-        m.status !== "visitor_session" && 
-        m.role !== "Visitante"
-      ).forEach(m => {
+      members.filter(m => {
+        const rolesStr = formatRoles(m).toLowerCase();
+        const isVisitor = rolesStr.includes("visitante") || m.status === "visitor";
+        return (
+          m.status !== "pending" && 
+          m.status !== "pending_approval" && 
+          !isVisitor &&
+          m.status !== "visitor_session"
+        );
+      }).forEach(m => {
         if (m.name?.toLowerCase().includes(query) || m.email?.toLowerCase().includes(query)) {
           results.push({ type: 'membros', item: m, title: m.name, sub: formatRoles(m), icon: Users });
         }
@@ -2289,7 +2303,7 @@ const Admin = () => {
       setBlog(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => console.error("Error loading blog:", err));
 
-    const unsubMembers = onSnapshot(query(collection(db, "members"), limit(200)), (snap) => {
+    const unsubMembers = onSnapshot(collection(db, "members"), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
       data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
       setMembers(data);
@@ -2419,109 +2433,118 @@ const Admin = () => {
 
   const syncDriveFolder = async () => {
     if (!formData.driveFolderId) {
-      alert("Por favor, cole o link da pasta do Google Drive primeiro.");
+      alert("Por favor, cole os links das pastas do Google Drive primeiro.");
       return;
     }
 
     setIsSyncing(true);
     try {
-      // Extração robusta do ID a partir do link
-      let folderId = formData.driveFolderId.trim();
-      
-      // Se for um link completo, extrai o ID
-      if (folderId.includes("drive.google.com")) {
-        // Tenta vários padrões de link do Drive
-        const folderPatterns = [
-          /\/folders\/([a-zA-Z0-9-_]+)/,
-          /[?&]id=([a-zA-Z0-9-_]+)/,
-          /\/open\?id=([a-zA-Z0-9-_]+)/,
-          /\/drive\/mobile\/folders\/([a-zA-Z0-9-_]+)/
-        ];
+      const folderLinks = formData.driveFolderId.split(/[\n,]+/).map((l: string) => l.trim()).filter(Boolean);
+      let allIds: string[] = [];
 
-        for (const pattern of folderPatterns) {
-          const match = folderId.match(pattern);
-          if (match) {
-            folderId = match[1];
-            break;
-          }
-        }
-      }
-      
-      // Tenta usar o proxy local para evitar NetworkError (CORS) e falhas de serviços externos
-      const response = await fetch(`/api/drive-proxy?id=${folderId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
-      }
-      
-      const content = await response.text();
-      
-      if (content.includes("Google Drive - Vírus") || content.includes("Login de Contas do Google")) {
-        throw new Error("A pasta parece não estar pública. Verifique as permissões de compartilhamento.");
-      }
-
-      const ids: string[] = [];
-      
-      // Lógica 1: Padrão JSON interno [ "ID", "Name", ..., "image/jpeg" ]
-      // Este é o mais confiável para pastas públicas
-      const jsonPattern = /"([a-zA-Z0-9-_]{25,})","[^"]+",\d+[^\]]+?"image\/[a-z]+"/g;
-      const jsonMatches = content.match(jsonPattern);
-      if (jsonMatches) {
-        jsonMatches.forEach(m => {
-          const idMatch = m.match(/"([a-zA-Z0-9-_]{25,})"/);
-          if (idMatch && !idMatch[1].includes('-header') && !idMatch[1].includes('flip-list')) {
-            ids.push(idMatch[1]);
-          }
-        });
-      }
-
-      // Lógica 2: Fallback se a Lógica 1 não encontrar nada
-      if (ids.length === 0) {
-        // Procure por strings que pareçam IDs (28-35 chars) mas que NÃO sejam classes CSS conhecidas do Drive
-        const genericIdRegex = /"([a-zA-Z0-9-_]{28,35})"/g;
-        let m;
-        const blacklist = [
-          'flip-list', 'last-modified', 'header', 'view-header', 'folder-view', 
-          'accessibility', 'selection', 'grid-view', 'list-view', 'caption'
-        ];
+      for (const link of folderLinks) {
+        let folderId = link;
         
-        while ((m = genericIdRegex.exec(content)) !== null) {
-          const id = m[1];
-          const isBlacklisted = blacklist.some(term => id.includes(term));
-          
-          if (id !== folderId && !isBlacklisted && id.length >= 28) {
-            ids.push(id);
+        // Se for um link completo, extrai o ID
+        if (folderId.includes("drive.google.com")) {
+          // Tenta vários padrões de link do Drive
+          const folderPatterns = [
+            /\/folders\/([a-zA-Z0-9-_]+)/,
+            /[?&]id=([a-zA-Z0-9-_]+)/,
+            /\/open\?id=([a-zA-Z0-9-_]+)/,
+            /\/drive\/mobile\/folders\/([a-zA-Z0-9-_]+)/
+          ];
+
+          for (const pattern of folderPatterns) {
+            const match = folderId.match(pattern);
+            if (match) {
+              folderId = match[1];
+              break;
+            }
           }
         }
-      }
-      
-      // Lógica 3: Buscar IDs em URLs de miniatura ou preview (comum em listagens públicas)
-      if (ids.length === 0) {
-        // Padrão do Drive para thumbnails: /d/ID=... ou ?id=ID
-        const thumbRegex = /\/d\/([a-zA-Z0-9-_]{25,})/g;
-        let m;
-        while ((m = thumbRegex.exec(content)) !== null) {
-          if (m[1] !== folderId) ids.push(m[1]);
+        
+        // Tenta usar o proxy local para evitar NetworkError (CORS) e falhas de serviços externos
+        const response = await fetch(`/api/drive-proxy?id=${folderId}`);
+        
+        if (!response.ok) {
+          console.warn(`Erro ao acessar a pasta ${folderId}`);
+          continue;
         }
+        
+        const content = await response.text();
+        
+        if (content.includes("Google Drive - Vírus") || content.includes("Login de Contas do Google")) {
+          console.warn(`A pasta ${folderId} parece não estar pública.`);
+          continue;
+        }
+
+        const ids: string[] = [];
+        
+        // Lógica 1: Padrão JSON interno [ "ID", "Name", ..., "image/jpeg" ]
+        // Este é o mais confiável para pastas públicas
+        const jsonPattern = /"([a-zA-Z0-9-_]{25,})","[^"]+",\d+[^\]]+?"image\/[a-z]+"/g;
+        const jsonMatches = content.match(jsonPattern);
+        if (jsonMatches) {
+          jsonMatches.forEach((m: string) => {
+            const idMatch = m.match(/"([a-zA-Z0-9-_]{25,})"/);
+            if (idMatch && !idMatch[1].includes('-header') && !idMatch[1].includes('flip-list')) {
+              ids.push(idMatch[1]);
+            }
+          });
+        }
+
+        // Lógica 2: Fallback se a Lógica 1 não encontrar nada
+        if (ids.length === 0) {
+          // Procure por strings que pareçam IDs (28-35 chars) mas que NÃO sejam classes CSS conhecidas do Drive
+          const genericIdRegex = /"([a-zA-Z0-9-_]{28,35})"/g;
+          let m;
+          const blacklist = [
+            'flip-list', 'last-modified', 'header', 'view-header', 'folder-view', 
+            'accessibility', 'selection', 'grid-view', 'list-view', 'caption'
+          ];
+          
+          while ((m = genericIdRegex.exec(content)) !== null) {
+            const id = m[1];
+            const isBlacklisted = blacklist.some(term => id.includes(term));
+            
+            if (id !== folderId && !isBlacklisted && id.length >= 28) {
+              ids.push(id);
+            }
+          }
+        }
+        
+        // Lógica 3: Buscar IDs em URLs de miniatura ou preview (comum em listagens públicas)
+        if (ids.length === 0) {
+          // Padrão do Drive para thumbnails: /d/ID=... ou ?id=ID
+          const thumbRegex = /\/d\/([a-zA-Z0-9-_]{25,})/g;
+          let m;
+          while ((m = thumbRegex.exec(content)) !== null) {
+            if (m[1] !== folderId) ids.push(m[1]);
+          }
+        }
+        
+        const uniqueIds = Array.from(new Set(ids)).filter((id: string) => 
+          id !== folderId && 
+          !["drive-sdk", "docs-python", "googledrive"].includes(id) &&
+          (!id.includes('-') || id.length > 30)
+        );
+
+        allIds = [...allIds, ...uniqueIds];
       }
       
-      const uniqueIds = Array.from(new Set(ids)).filter((id: string) => 
-        id !== folderId && 
-        !["drive-sdk", "docs-python", "googledrive"].includes(id) &&
-        (!id.includes('-') || id.length > 30)
-      );
+      if (allIds.length > 0) {
+        const currentGallery = Array.isArray(formData.gallery) ? formData.gallery : typeof formData.gallery === 'string' ? formData.gallery.split('\n').filter((l: string) => l.trim()) : [];
+        const combinedUnique = Array.from(new Set([...currentGallery, ...allIds]));
 
-      // Filtro extra: PDFs ou outros arquivos às vezes aparecem. 
-      // Em pastas públicas de galeria, os IDs costumam ter um padrão similar.
-      if (uniqueIds.length > 0) {
         setFormData({
           ...formData,
-          gallery: uniqueIds
+          gallery: combinedUnique,
+          driveFolderId: ""
         });
-        alert(`${uniqueIds.length} fotos detectadas com sucesso!`);
+        alert(`${allIds.length} fotos detectadas com sucesso nas pastas fornecidas! Foram adicionadas à galeria.`);
       } else {
-        alert("Nenhuma foto encontrada. Certifique-se de que:\n1. O link é de uma PASTA (não uma foto individual).\n2. A pasta está como 'Qualquer pessoa com o link pode ver'.\n3. Existem fotos (JPG/PNG) dentro da pasta.");
+        alert("Nenhuma foto encontrada. Certifique-se de que:\n1. Os links são de PASTAS (não fotos individuais).\n2. As pastas estão como 'Qualquer pessoa com o link pode ver'.\n3. Existem fotos (JPG/PNG) dentro das pastas.");
       }
     } catch (err) {
       console.error("Erro ao sincronizar pasta:", err);
@@ -5075,16 +5098,17 @@ const Admin = () => {
                                   </div>
 
                                   <div className="space-y-2">
-                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link da pasta do drive</label>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Links das pastas do drive</label>
                                     <div className="flex gap-2">
                                       <div className="relative flex-1">
-                                        <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF]" />
-                                        <Input 
-                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                          placeholder="https://drive.google.com/..."
+                                        <LinkIcon className="absolute left-4 top-4 w-4 h-4 text-[#BF76FF]" />
+                                        <textarea 
+                                          className={cn("min-h-[56px] py-4 rounded-2xl pl-12 pr-6 border transition-all w-full resize-y", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
+                                          placeholder="https://drive.google.com/...\n(Um link por linha para adicionar várias pastas)"
                                           value={formData.driveFolderId || ""}
                                           onChange={(e) => setFormData({...formData, driveFolderId: e.target.value})}
                                           readOnly={isReadOnly}
+                                          rows={2}
                                         />
                                       </div>
                                       {!isReadOnly && (
@@ -6720,7 +6744,11 @@ const Admin = () => {
                       <div>
                         <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Membros</p>
                         <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>
-                          {members.filter(m => m.status !== "visitor" && m.status !== "visitor_session" && m.role !== "Visitante" && m.status !== "pending").length}
+                          {members.filter(m => {
+                            const rolesStr = formatRoles(m).toLowerCase();
+                            const isVisitor = rolesStr.includes("visitante") || m.status === "visitor";
+                            return !isVisitor && m.status !== "visitor_session" && m.status !== "pending";
+                          }).length}
                         </h4>
                       </div>
                     </Card>

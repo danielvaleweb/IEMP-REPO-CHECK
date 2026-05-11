@@ -268,7 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         name: name || (existingProfile as any)?.name || "Visitante",
         phone: phone,
         role: "Visitante",
-        status: (existingProfile as any)?.status || "pending_approval",
+        status: (existingProfile as any)?.status || "visitor",
         email: (existingProfile as any)?.email || `${cleanPhone}@visitante.com`,
         createdAt: (existingProfile as any)?.createdAt || lastVisit,
         lastVisit: lastVisit,
