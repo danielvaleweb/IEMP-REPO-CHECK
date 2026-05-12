@@ -1631,6 +1631,16 @@ const Admin = () => {
         status: "pending",
         createdAt: serverTimestamp()
       });
+
+      // Notificar administradores
+      await addDoc(collection(db, "notifications"), {
+        userId: "admin",
+        title: "Novo Bug Reportado",
+        message: `${profile?.name || user?.displayName || user?.email || "Um usuário"} reportou um problema: ${bugDescription.substring(0, 50)}...`,
+        read: false,
+        type: "system",
+        createdAt: serverTimestamp()
+      });
       
       logAction("criar", "bug-reports", `Reportou um bug: ${bugDescription.substring(0, 50)}...`);
       setBugDescription("");
@@ -1806,6 +1816,11 @@ const Admin = () => {
         navigate(`/galeria?album=${notif.albumId}&photo=${encodeURIComponent(notif.photoUrl)}`);
       } else if (notif.type === "event_feedback") {
         setActiveTab("eventos");
+      } else if (notif.type === "bug") {
+        if (isAdminOrDev) {
+          setActiveTab("logs");
+          setAuditSubTab("bugs");
+        }
       }
     } catch (err) {
       console.error("Erro ao processar ação da notificação:", err);
@@ -4265,6 +4280,7 @@ const Admin = () => {
                               "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                               n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
                               n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
+                              n.type === 'bug' ? 'bg-orange-600/20 text-orange-600' :
                               n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
                               n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
                               n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
@@ -4272,6 +4288,7 @@ const Admin = () => {
                             )}>
                               {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                                n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
+                               n.type === 'bug' ? <Bug className="w-4 h-4" /> :
                                n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
                                n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
                                n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
@@ -4457,6 +4474,7 @@ const Admin = () => {
                               "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
                               n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' : 
                               n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' : 
+                              n.type === 'bug' ? 'bg-orange-600/20 text-orange-600' :
                               n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
                               n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
                               n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
@@ -4464,6 +4482,7 @@ const Admin = () => {
                             )}>
                               {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> : 
                                n.type === 'activity' ? <Zap className="w-4 h-4" /> : 
+                               n.type === 'bug' ? <Bug className="w-4 h-4" /> :
                                n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
                                n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
                                n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
@@ -4485,7 +4504,7 @@ const Admin = () => {
                               <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
                             )}
                           </div>
-                          {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback" || n.type === "agenda_rejected") && (
+                          {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback" || n.type === "agenda_rejected" || n.type === "bug") && (
                             <button
                                onClick={(e) => handleNotificationAction(n, e)}
                                className="mt-3 w-full flex justify-center items-center gap-2 bg-[#BF76FF]/10 text-[#BF76FF] py-2 rounded-xl text-xs font-bold hover:bg-[#BF76FF]/20 transition-colors"
@@ -8031,6 +8050,19 @@ const Admin = () => {
                                     onClick={async () => {
                                       try {
                                         await updateDoc(doc(db, "bug-reports", bug.id), { status: "resolved" });
+                                        
+                                        // Notificar quem reportou
+                                        if (bug.userId) {
+                                          await addDoc(collection(db, "notifications"), {
+                                            userId: bug.userId,
+                                            title: "Bug Resolvido",
+                                            message: "O erro que você reportou foi resolvido, obrigado por ajudar!",
+                                            read: false,
+                                            type: "bug",
+                                            createdAt: serverTimestamp()
+                                          });
+                                        }
+
                                         logAction("atualizar", "bug-reports", `Marcou bug como resolvido: ${bug.id}`);
                                       } catch (error) {
                                         handleFirestoreError(error, OperationType.UPDATE, `bug-reports/${bug.id}`);
