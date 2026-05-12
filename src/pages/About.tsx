@@ -7,6 +7,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { Copy, Instagram, Play, Check, Search, Calendar, Briefcase, Star, Clock, MessageCircle } from "lucide-react";
 import { cn, getImageUrl } from "@/lib/utils";
 
+const isProfileComplete = (m: any) => {
+  return m.name && m.photoURL && m.profession && m.birthDate && m.joinedDate && (m.ministries?.length > 0 || m.role !== "Membro") && m.coverImage;
+};
+
 export default function About() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -220,6 +224,11 @@ export default function About() {
                           <div className="flex items-center justify-between">
                             <h3 className="text-[22px] font-bold text-gray-900 flex items-center gap-1.5 leading-tight">
                                {member.name.split(' ')[0]} {member.name.split(' ')[1] || ''}
+                               {isProfileComplete(member) && (
+                                 <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white shrink-0 shadow-sm" title="Perfil Verificado">
+                                   <Check className="w-3 h-3 stroke-[4]" />
+                                 </div>
+                               )}
                             </h3>
                             {member.instagram && (
                                <a href={member.instagram.includes('instagram.com') ? member.instagram : `https://instagram.com/${member.instagram.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-full bg-pink-500/10 text-pink-500 flex items-center justify-center hover:bg-pink-500 hover:text-white transition-all shadow-sm">

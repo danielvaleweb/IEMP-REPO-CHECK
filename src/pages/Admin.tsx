@@ -125,7 +125,7 @@ const ROLE_COLORS: Record<string, string> = {
 
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { firestoreService } from "@/services/firestoreService";
-import { getImageUrl } from "@/lib/utils";
+import { cn, getImageUrl, getRelativeTime } from "@/lib/utils";
 import { updateProfile } from "firebase/auth";
 import { 
   Dialog, 
@@ -1470,6 +1470,7 @@ const Admin = () => {
   const [isReportingBug, setIsReportingBug] = useState(false);
   const [bugDescription, setBugDescription] = useState("");
   const [isSavingBug, setIsSavingBug] = useState(false);
+  const [showBugSuccess, setShowBugSuccess] = useState(false);
   const [bugReports, setBugReports] = useState<any[]>([]);
   const [auditSubTab, setAuditSubTab] = useState<"logs" | "bugs">("logs");
 
@@ -1540,6 +1541,7 @@ const Admin = () => {
       if (isMediaOrSec) {
         if (!rIsLeader) return false;
       }
+      if (rNameLower === "minis. louvor") return true; // Louvor can view
     }
 
     const rolePerms = settings.permissions?.[rName];
@@ -1638,20 +1640,24 @@ const Admin = () => {
         title: "Novo Bug Reportado",
         message: `${profile?.name || user?.displayName || user?.email || "Um usuário"} reportou um problema: ${bugDescription.substring(0, 50)}...`,
         read: false,
-        type: "system",
+        type: "bug",
         createdAt: serverTimestamp()
       });
       
       logAction("criar", "bug-reports", `Reportou um bug: ${bugDescription.substring(0, 50)}...`);
       setBugDescription("");
-      setIsReportingBug(false);
-
-      // Redireciona para aba de bugs se tiver permissão
-      if (canViewLogs) {
-        setActiveTab("logs");
-        setAuditSubTab("bugs");
-      }
+      setShowBugSuccess(true);
       
+      setTimeout(() => {
+        setIsReportingBug(false);
+        setShowBugSuccess(false);
+        // Redireciona para aba de bugs se tiver permissão
+        if (canViewLogs) {
+          setActiveTab("logs");
+          setAuditSubTab("bugs");
+        }
+      }, 3000);
+
       // Success toast or alert? I'll use confetti if enabled or just close
       confetti({
         particleCount: 150,
@@ -1913,15 +1919,8 @@ const Admin = () => {
   const userStatus = profile?.status_online || "online";
 
   useEffect(() => {
-    if (user && profile && (!profile.status_online || profile.status_online !== 'online')) {
-      // Only auto-set to online if not away or busy or if it's the first time
-      // But user says they are online but marked as busy, so let's default to online on session start
-      const lastSessionUpdate = localStorage.getItem('lastStatusUpdate');
-      const now = Date.now();
-      if (!lastSessionUpdate || now - parseInt(lastSessionUpdate) > 1000 * 60 * 60) { // 1 hour
-        updatePresenceStatus('online');
-        localStorage.setItem('lastStatusUpdate', now.toString());
-      }
+    if (user && profile && !profile.status_online) {
+      updatePresenceStatus('online');
     }
   }, [user, profile]);
 
@@ -4300,7 +4299,7 @@ const Admin = () => {
                               <p className="text-sm font-bold leading-tight line-clamp-2">{n.title}</p>
                               <p className="text-xs opacity-70 mt-1 line-clamp-3">{n.message}</p>
                               <p className="text-[10px] font-medium opacity-40 mt-1">
-                                {n.timestamp?.toDate ? format(n.timestamp.toDate(), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'Agora'}
+                                {getRelativeTime(n.createdAt || n.timestamp)}
                               </p>
                             </div>
                             {!n.read && (
@@ -4497,7 +4496,7 @@ const Admin = () => {
                               </div>
                               <p className={cn("text-xs opacity-70 mt-1 transition-all", isExpanded ? "whitespace-pre-wrap" : "line-clamp-1")}>{n.message}</p>
                               <p className="text-[10px] font-medium opacity-40 mt-2">
-                                {n.timestamp?.toDate ? format(n.timestamp.toDate(), "dd/MM 'às' HH:mm", { locale: ptBR }) : 'Agora'}
+                                {getRelativeTime(n.createdAt || n.timestamp)}
                               </p>
                             </div>
                             {!n.read && (
@@ -8030,7 +8029,7 @@ const Admin = () => {
                               </div>
                             </CardHeader>
                             <CardContent className="px-6 pb-6 pt-0 space-y-4">
-                              <p className={cn("text-xs leading-relaxed line-clamp-4 overflow-hidden break-words", isDarkMode ? "text-gray-300" : "text-gray-600")}>
+                              <p className={cn("text-xs leading-relaxed overflow-hidden break-words", isDarkMode ? "text-gray-300" : "text-gray-600")}>
                                 {bug.description}
                               </p>
                               
@@ -8562,107 +8561,112 @@ const Admin = () => {
 
                     return (
                       <>
-                        {allRoles.filter(r => r !== "Membro" && r !== "Administradores" && r !== "Visitante" && r !== "Diaconisa").map(rawRole => {
-                          const isDiaconia = rawRole === "Diácono";
-                          const displayRole = isDiaconia ? "Diácono/Diaconisa" : rawRole;
-                          const roleKey = isDiaconia ? "Diaconia" : rawRole;
+                        {(() => {
+                           const allPossibleRoles = ["Diácono", "Desenvolvedor", "Mídia", "Secretaria", "Obreiro", "Diaconisa", "Direção", "Minis. infantil", "Minis. louvor", "Minis. Jovens", "Coord. Mulheres", "Coord. Coreografia", "Coord. Vist. Hospitalar", "Recepcionista"];
+                           return allPossibleRoles.map(rawRole => {
+                             const isDiaconia = rawRole === "Diácono";
+                             const displayRole = isDiaconia ? "Diácono/Diaconisa" : rawRole;
+                             const roleKey = isDiaconia ? "Diaconia" : rawRole;
 
-                          let roleMembers = groupedMembers.get(rawRole) || [];
-                          if (isDiaconia) {
-                            roleMembers = [...roleMembers, ...(groupedMembers.get("Diaconisa") || [])];
-                          }
-                          
-                          roleMembers.sort((a, b) => {
-                            const isLeaderA = (a.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || a.role === "Administradores" || a.role === "Desenvolvedor";
-                            const isLeaderB = (b.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || b.role === "Administradores" || b.role === "Desenvolvedor";
-                            if (isLeaderA && !isLeaderB) return -1;
-                            if (!isLeaderA && isLeaderB) return 1;
-                            return (a.name || "").localeCompare(b.name || "");
-                          });
-                          if (roleMembers.length === 0 && rightSidebarSearch) return null;
-                          const isCollapsed = collapsedTeamCategories[roleKey] ?? true;
-                          
-                          return (
-                            <div key={`role-group-${roleKey}`} className="space-y-1">
-                              <button 
-                                onClick={async () => {
-                                  if (isCollapsed) {
-                                    const roleMembersAlreadyLoaded = members.filter(m => {
-                                      const pr = getPrimaryRole(m);
-                                      return pr === roleKey || (roleKey === "Diaconia" && (pr === "Diácono" || pr === "Diaconisa"));
-                                    }).length;
-                                    const expectedCount = roleCounts[roleKey] || 0;
-                                    
-                                    if (roleMembersAlreadyLoaded < expectedCount || members.length === 0) {
-                                      try {
-                                        let data: any[] = [];
-                                        if (roleKey === "Diaconia") {
-                                          const [dias, diacas] = await Promise.all([
-                                            firestoreService.getCollection<any>("members", [where("role", "==", "Diácono")], 1000 * 60 * 30),
-                                            firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa")], 1000 * 60 * 30)
-                                          ]);
-                                          data = [...dias, ...diacas];
-                                        } else {
-                                          data = await firestoreService.getCollection<any>("members", [where("role", "==", rawRole)], 1000 * 60 * 30);
-                                        }
-                                        
-                                        setMembers(prev => {
-                                          const existingIds = new Set(prev.map(p => p.id));
-                                          const newOnes = data.filter(d => !existingIds.has(d.id));
-                                          return [...prev, ...newOnes].sort((a,b) => (a.name || "").localeCompare(b.name || ""));
-                                        });
-                                      } catch (err) {
-                                        console.error("Error loading role members:", err);
-                                      }
-                                    }
-                                  }
-                                  setCollapsedTeamCategories(prev => ({ ...prev, [roleKey]: !isCollapsed }));
-                                }}
-                                style={{ 
-                                  backgroundColor: isDarkMode ? `${ROLE_COLORS[roleKey] || '#BF76FF'}15` : `${ROLE_COLORS[roleKey] || '#BF76FF'}08`
-                                }}
-                                className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between p-2.5 rounded-xl mb-1")}
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <div className="w-1.5 h-1.5 rounded-full shadow-lg" style={{ backgroundColor: ROLE_COLORS[roleKey] || '#BF76FF', boxShadow: `0 0 10px ${ROLE_COLORS[roleKey] || '#BF76FF'}` }} />
-                                  <h5 className="text-[11px] font-black uppercase tracking-widest" style={{ color: ROLE_COLORS[roleKey] || '#BF76FF' }}>
-                                    {displayRole === "Administradores" ? "Administrador Master" : displayRole}
-                                  </h5>
-                                  <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border", isDarkMode ? "bg-white/5 border-white/10 text-gray-400" : "bg-black/5 border-black/10 text-gray-500")}>
-                                    {(rightSidebarSearch && rightSidebarSearch.trim() !== "") ? roleMembers.length : (roleCounts[roleKey] || 0)}
-                                  </span>
-                                </div>
-                                {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-white/100" /> : <ChevronDown className="w-3.5 h-3.5 text-white/100" />}
-                              </button>
-                              
-                              {!isCollapsed && (
-                                <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
-                                  {roleMembers.length > 0 ? (
-                                    roleMembers.map((member, i) => (
-                                      <TeamMember 
-                                        key={`role-member-${roleKey}-${member.id || i}`} 
-                                        member={member}
-                                        active={member.email === user?.email}
-                                        onWhatsApp={() => openWhatsApp(member)}
-                                        onNoWhatsApp={() => setNoWhatsAppUser(member)}
-                                        onViewProfile={() => {
-                                          setActiveTab("membros");
-                                          setViewingMember(member);
-                                        }}
-                                        onDelete={() => handleDelete(member, "members")}
-                                        isDark={isDarkMode}
-                                        isAdmin={isAdmin}
-                                        logAction={logAction}
-                                      />
-                                    ))
-                                  ) : (
-                                    <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                             let roleMembers = groupedMembers.get(rawRole) || [];
+                             if (isDiaconia) {
+                               roleMembers = [...roleMembers, ...(groupedMembers.get("Diaconisa") || [])];
+                             }
+                             
+                             roleMembers.sort((a, b) => {
+                               const isLeaderA = (a.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || a.role === "Administradores" || a.role === "Desenvolvedor";
+                               const isLeaderB = (b.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || b.role === "Administradores" || b.role === "Desenvolvedor";
+                               if (isLeaderA && !isLeaderB) return -1;
+                               if (!isLeaderA && isLeaderB) return 1;
+                               return (a.name || "").localeCompare(b.name || "");
+                             });
+                             
+                             if (roleMembers.length === 0 && (rightSidebarSearch || rawRole === "Diaconisa")) return null;
+                             
+                             const isCollapsed = collapsedTeamCategories[roleKey] ?? true;
+                             
+                             return (
+                               <div key={`role-group-${roleKey}`} className="space-y-1">
+                                 <button 
+                                   onClick={async () => {
+                                     if (isCollapsed) {
+                                       const roleMembersAlreadyLoaded = members.filter(m => {
+                                         const pr = getPrimaryRole(m);
+                                         return pr === roleKey || (roleKey === "Diaconia" && (pr === "Diácono" || pr === "Diaconisa"));
+                                       }).length;
+                                       const expectedCount = roleCounts[roleKey] || 0;
+                                       
+                                       if (roleMembersAlreadyLoaded < expectedCount || members.length === 0) {
+                                         try {
+                                           let data: any[] = [];
+                                           if (roleKey === "Diaconia") {
+                                             const [dias, diacas] = await Promise.all([
+                                               firestoreService.getCollection<any>("members", [where("role", "==", "Diácono")], 1000 * 60 * 30),
+                                               firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa")], 1000 * 60 * 30)
+                                             ]);
+                                             data = [...dias, ...diacas];
+                                           } else {
+                                             data = await firestoreService.getCollection<any>("members", [where("role", "==", rawRole)], 1000 * 60 * 30);
+                                           }
+                                           
+                                           setMembers(prev => {
+                                             const existingIds = new Set(prev.map(p => p.id));
+                                             const newOnes = data.filter(d => !existingIds.has(d.id));
+                                             return [...prev, ...newOnes].sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+                                           });
+                                         } catch (err) {
+                                           console.error("Error loading role members:", err);
+                                         }
+                                       }
+                                     }
+                                     setCollapsedTeamCategories(prev => ({ ...prev, [roleKey]: !isCollapsed }));
+                                   }}
+                                   style={{ 
+                                     backgroundColor: isDarkMode ? `${ROLE_COLORS[roleKey] || '#BF76FF'}15` : `${ROLE_COLORS[roleKey] || '#BF76FF'}08`
+                                   }}
+                                   className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between p-2.5 rounded-xl mb-1")}
+                                 >
+                                   <div className="flex items-center gap-2.5">
+                                     <div className="w-1.5 h-1.5 rounded-full shadow-lg" style={{ backgroundColor: ROLE_COLORS[roleKey] || '#BF76FF', boxShadow: `0 0 10px ${ROLE_COLORS[roleKey] || '#BF76FF'}` }} />
+                                     <h5 className="text-[11px] font-black uppercase tracking-widest" style={{ color: ROLE_COLORS[roleKey] || '#BF76FF' }}>
+                                       {displayRole === "Administradores" ? "Administrador Master" : displayRole}
+                                     </h5>
+                                     <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border", isDarkMode ? "bg-white/5 border-white/10 text-gray-400" : "bg-black/5 border-black/10 text-gray-500")}>
+                                       {(rightSidebarSearch && rightSidebarSearch.trim() !== "") ? roleMembers.length : (roleCounts[roleKey] || 0)}
+                                     </span>
+                                   </div>
+                                   {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-white/100" /> : <ChevronDown className="w-3.5 h-3.5 text-white/100" />}
+                                 </button>
+                                 
+                                 {!isCollapsed && (
+                                   <div className="space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+                                     {roleMembers.length > 0 ? (
+                                       roleMembers.map((member, i) => (
+                                         <TeamMember 
+                                           key={`role-member-${roleKey}-${member.id || i}`} 
+                                           member={member}
+                                           active={member.email === user?.email}
+                                           onWhatsApp={() => openWhatsApp(member)}
+                                           onNoWhatsApp={() => setNoWhatsAppUser(member)}
+                                           onViewProfile={() => {
+                                             setActiveTab("membros");
+                                             setViewingMember(member);
+                                           }}
+                                           onDelete={() => handleDelete(member, "members")}
+                                           isDark={isDarkMode}
+                                           isAdmin={isAdminOrDev}
+                                           logAction={logAction}
+                                         />
+                                       ))
+                                     ) : (
+                                       <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
+                                     )}
+                                   </div>
+                                 )}
+                               </div>
+                             );
+                           });
+                         })()}
                         
                         {/* Others in Sidebar 3 */}
                         {(() => {
