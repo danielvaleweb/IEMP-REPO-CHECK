@@ -1195,7 +1195,7 @@ const Admin = () => {
 
   const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
     const savedVisible = localStorage.getItem('admin_visible_tabs');
-    let tabs = ['visao-geral', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio', 'ebd'];
+    let tabs = ['visao-geral', 'perfil', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio', 'ebd', 'financas', 'logs', 'discipulado', 'configuracoes'];
     
     if (savedVisible) {
       const parsed = JSON.parse(savedVisible);
@@ -8075,7 +8075,7 @@ const Admin = () => {
                                 <Button 
                                   variant="ghost"
                                   onClick={async () => {
-                                    if (confirm("Deseja realmente excluir este relato?")) {
+                                    if (window.confirm("Deseja realmente excluir este relato?")) {
                                       try {
                                         await deleteDoc(doc(db, "bug-reports", bug.id));
                                         logAction("excluir", "bug-reports", `Excluiu relato de bug: ${bug.id}`);
@@ -8561,8 +8561,10 @@ const Admin = () => {
 
                     return (
                       <>
+                        {/* Team Categories - Now visible to all members */}
                         {(() => {
                            const allPossibleRoles = ["Diácono", "Desenvolvedor", "Mídia", "Secretaria", "Obreiro", "Diaconisa", "Direção", "Minis. infantil", "Minis. louvor", "Minis. Jovens", "Coord. Mulheres", "Coord. Coreografia", "Coord. Vist. Hospitalar", "Recepcionista"];
+                           
                            return allPossibleRoles.map(rawRole => {
                              const isDiaconia = rawRole === "Diácono";
                              const displayRole = isDiaconia ? "Diácono/Diaconisa" : rawRole;
@@ -8581,7 +8583,7 @@ const Admin = () => {
                                return (a.name || "").localeCompare(b.name || "");
                              });
                              
-                             if (roleMembers.length === 0 && (rightSidebarSearch || rawRole === "Diaconisa")) return null;
+                             if (roleMembers.length === 0 && (rightSidebarSearch)) return null;
                              
                              const isCollapsed = collapsedTeamCategories[roleKey] ?? true;
                              
@@ -8594,9 +8596,8 @@ const Admin = () => {
                                          const pr = getPrimaryRole(m);
                                          return pr === roleKey || (roleKey === "Diaconia" && (pr === "Diácono" || pr === "Diaconisa"));
                                        }).length;
-                                       const expectedCount = roleCounts[roleKey] || 0;
                                        
-                                       if (roleMembersAlreadyLoaded < expectedCount || members.length === 0) {
+                                       if (roleMembersAlreadyLoaded === 0 || members.length === 0) {
                                          try {
                                            let data: any[] = [];
                                            if (roleKey === "Diaconia") {
@@ -8629,13 +8630,13 @@ const Admin = () => {
                                    <div className="flex items-center gap-2.5">
                                      <div className="w-1.5 h-1.5 rounded-full shadow-lg" style={{ backgroundColor: ROLE_COLORS[roleKey] || '#BF76FF', boxShadow: `0 0 10px ${ROLE_COLORS[roleKey] || '#BF76FF'}` }} />
                                      <h5 className="text-[11px] font-black uppercase tracking-widest" style={{ color: ROLE_COLORS[roleKey] || '#BF76FF' }}>
-                                       {displayRole === "Administradores" ? "Administrador Master" : displayRole}
+                                       {displayRole}
                                      </h5>
                                      <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border", isDarkMode ? "bg-white/5 border-white/10 text-gray-400" : "bg-black/5 border-black/10 text-gray-500")}>
-                                       {(rightSidebarSearch && rightSidebarSearch.trim() !== "") ? roleMembers.length : (roleCounts[roleKey] || 0)}
+                                       {roleMembers.length || roleCounts[roleKey] || 0}
                                      </span>
                                    </div>
-                                   {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-white/100" /> : <ChevronDown className="w-3.5 h-3.5 text-white/100" />}
+                                   {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-white/50" /> : <ChevronDown className="w-3.5 h-3.5 text-white/50" />}
                                  </button>
                                  
                                  {!isCollapsed && (
@@ -8649,17 +8650,16 @@ const Admin = () => {
                                            onWhatsApp={() => openWhatsApp(member)}
                                            onNoWhatsApp={() => setNoWhatsAppUser(member)}
                                            onViewProfile={() => {
-                                             setActiveTab("membros");
                                              setViewingMember(member);
+                                             setRightSidebarView("profile");
                                            }}
-                                           onDelete={() => handleDelete(member, "members")}
                                            isDark={isDarkMode}
                                            isAdmin={isAdminOrDev}
                                            logAction={logAction}
                                          />
                                        ))
                                      ) : (
-                                       <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro cadastrado</p>
+                                       <p className={cn("text-[10px] italic pl-3", isDarkMode ? "text-gray-600" : "text-gray-400")}>Nenhum membro carregado</p>
                                      )}
                                    </div>
                                  )}
@@ -8842,8 +8842,8 @@ const Admin = () => {
                   return (
                     <div key={chat.id} onClick={() => openWhatsApp(m)} className="flex items-center gap-4 p-3 mb-1 rounded-2xl hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
                       <div className="relative shrink-0">
-                        {m.photoURL ? (
-                          <img src={m.photoURL} className="w-12 h-12 rounded-full object-cover" />
+                        {m.photoURL || m.photoUrl ? (
+                          <img src={getImageUrl(m.photoURL || m.photoUrl)} className="w-12 h-12 rounded-full object-cover" />
                         ) : (
                           <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-[#1a1a1a] text-xl font-bold flex items-center justify-center text-[#BF76FF]">
                             {m.name?.[0] || 'M'}
@@ -8888,8 +8888,8 @@ const Admin = () => {
                   <ArrowLeft className={cn("w-5 h-5", isDarkMode ? "text-gray-300" : "text-gray-600")} />
                 </button>
                 <div className="relative shrink-0">
-                  {activeChatUser.photoURL ? (
-                    <img src={activeChatUser.photoURL} className="w-10 h-10 rounded-full object-cover shadow-sm bg-gray-100" />
+                  {activeChatUser.photoURL || activeChatUser.photoUrl ? (
+                    <img src={getImageUrl(activeChatUser.photoURL || activeChatUser.photoUrl)} className="w-10 h-10 rounded-full object-cover shadow-sm bg-gray-100" />
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/5 text-lg font-bold flex items-center justify-center text-[#BF76FF]">
                       {activeChatUser.name?.[0] || 'M'}
@@ -9141,54 +9141,68 @@ const Admin = () => {
           "sm:max-w-md rounded-[32px] border p-0 overflow-hidden [&>button:last-child]:top-6 [&>button:last-child]:right-6", 
           isDarkMode ? "bg-roxo-bg border-white/10 text-white" : "bg-white border-black/10 text-black"
         )}>
-          <div className="p-8 pb-4">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-3 text-2xl font-black uppercase tracking-tight">
-                <Bug className="w-6 h-6 text-red-500" />
-                Reportar Bug
-              </DialogTitle>
-              <DialogDescription className="text-xs uppercase font-bold text-gray-500 tracking-widest">
-                Encontrou um erro no sistema? Descreva-o detalhadamente abaixo para que possamos corrigir.
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="py-6 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest pl-1">Descrição do Problema</Label>
-                <Textarea 
-                  value={bugDescription}
-                  onChange={(e) => setBugDescription(e.target.value)}
-                  placeholder="Ex: Não consigo editar o perfil do membro, quando clico em salvar nada acontece..."
-                  className={cn("min-h-[150px] rounded-2xl border transition-all resize-none shadow-inner", isDarkMode ? "bg-white/5 border-white/5 text-white placeholder:text-gray-600 focus:border-[#BF76FF]/50" : "bg-gray-50 border-black/5 text-black placeholder:text-gray-400 focus:border-[#BF76FF]/50")}
-                />
+          {showBugSuccess ? (
+            <div className="p-12 text-center space-y-6">
+              <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto text-green-500">
+                <CheckCircle2 className="w-10 h-10" />
               </div>
-
-              <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex gap-3 items-start">
-                <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
-                <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium leading-relaxed uppercase tracking-wider">
-                  Ao enviar este relatório, capturamos automaticamente seu nome e data para facilitar o rastreio do erro.
-                </p>
+              <div>
+                <h3 className="text-2xl font-bold mb-2">Relato Enviado!</h3>
+                <p className="opacity-70">Seu relato foi enviado com sucesso, obrigado por cooperar com o nosso crescimento!</p>
               </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="p-8 pb-4">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-3 text-2xl font-black uppercase tracking-tight">
+                    <Bug className="w-6 h-6 text-red-500" />
+                    Reportar Bug
+                  </DialogTitle>
+                  <DialogDescription className="text-xs uppercase font-bold text-gray-500 tracking-widest">
+                    Encontrou um erro no sistema? Descreva-o detalhadamente abaixo para que possamos corrigir.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="py-6 space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest pl-1">Descrição do Problema</Label>
+                    <Textarea 
+                      value={bugDescription}
+                      onChange={(e) => setBugDescription(e.target.value)}
+                      placeholder="Ex: Não consigo editar o perfil do membro, quando clico em salvar nada acontece..."
+                      className={cn("min-h-[150px] rounded-2xl border transition-all resize-none shadow-inner", isDarkMode ? "bg-white/5 border-white/5 text-white placeholder:text-gray-600 focus:border-[#BF76FF]/50" : "bg-gray-50 border-black/5 text-black placeholder:text-gray-400 focus:border-[#BF76FF]/50")}
+                    />
+                  </div>
 
-          <DialogFooter className="flex gap-3 sm:gap-2 p-8 pt-4 bg-transparent border-t border-white/5">
-            <Button 
-              variant="ghost" 
-              onClick={() => setIsReportingBug(false)}
-              className="flex-1 rounded-2xl h-12 font-bold cursor-pointer"
-              disabled={isSavingBug}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              onClick={handleReportBug}
-              disabled={!bugDescription.trim() || isSavingBug}
-              className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 font-bold cursor-pointer shadow-lg shadow-red-500/20"
-            >
-              {isSavingBug ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar Relatório"}
-            </Button>
-          </DialogFooter>
+                  <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex gap-3 items-start">
+                    <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium leading-relaxed uppercase tracking-wider">
+                      Ao enviar este relatório, capturamos automaticamente seu nome e data para facilitar o rastreio do erro.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <DialogFooter className="flex gap-3 sm:gap-2 p-8 pt-4 bg-transparent border-t border-white/5">
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setIsReportingBug(false)}
+                  className="flex-1 rounded-2xl h-12 font-bold cursor-pointer"
+                  disabled={isSavingBug}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  onClick={handleReportBug}
+                  disabled={!bugDescription.trim() || isSavingBug}
+                  className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 font-bold cursor-pointer shadow-lg shadow-red-500/20"
+                >
+                  {isSavingBug ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar Relatório"}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
