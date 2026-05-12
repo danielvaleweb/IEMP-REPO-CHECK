@@ -4,13 +4,15 @@ import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactPlayer from 'react-player';
-import { BookOpen, PlayCircle, Plus, Trash2, Edit, MessageCircle, FileText, Send, CheckCircle2, Circle, GraduationCap, ArrowLeft, ChevronRight, Lock, User } from 'lucide-react';
+import { BookOpen, PlayCircle, Plus, Trash2, Edit, MessageCircle, FileText, Send, CheckCircle2, Circle, GraduationCap, ArrowLeft, ChevronRight, Lock, User, Youtube, FileDown, Loader2 } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useCachedCollection, useCachedDoc } from '@/hooks/useFirestore';
 import { firestoreService } from '@/services/firestoreService';
+import { GoogleGenAI } from "@google/genai";
+import { jsPDF } from 'jspdf';
 
 const Player = ReactPlayer as any;
 import { format } from 'date-fns';
@@ -26,9 +28,12 @@ export default function EBD() {
   
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
-
   const [questionText, setQuestionText] = useState('');
   
+  // PDF Generation State
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfGenerationStatus, setPdfGenerationStatus] = useState('');
+
   // Test Data
   const [activeTest, setActiveTest] = useState<any>(null);
   const [userAnswers, setUserAnswers] = useState<any[]>([]);
@@ -87,6 +92,11 @@ export default function EBD() {
     fetchAnswers();
   }, [activeLessonId, activeModuleId, lessons]);
 
+  const currentLesson = lessons.find(l => l.id === activeLessonId);
+  const activeModuleLessons = lessons.filter(l => l.moduleId === activeModuleId);
+  const activeLessonQuestions = questions.filter(q => q.lessonId === activeLessonId);
+  const userHasAnsweredTest = userAnswers.find(a => a.userId === user?.uid && a.testId === activeTest?.id);
+
 
   const handleAskQuestion = async () => {
     if (!questionText.trim() || !activeLessonId) return;
@@ -114,6 +124,95 @@ export default function EBD() {
       });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, `ebd-questions/${qId}`);
+    }
+  };
+
+  const generateSupportMaterial = async () => {
+    if (!currentLesson?.transcript) {
+      alert("Esta aula não possui uma transcrição cadastrada para gerar o material.");
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    setPdfGenerationStatus("Organizando conteúdo com AI...");
+
+    try {
+      const transcript = currentLesson.transcript;
+      
+      const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY as any);
+      const currentModule = modules.find(m => m.id === activeModuleId);
+      
+      const prompt = `Resuma e organize a seguinte transcrição de uma aula da Escola Bíblica (EBD) em um formato de "Material de Apoio" estruturado. 
+      Use títulos, tópicos e destaque os pontos principais. O conteúdo deve ser rico e fiel ao que foi dito, mas bem formatado para leitura.
+      Módulo: ${currentModule?.title || 'EBD'}
+      Aula: ${currentLesson?.title || 'Aula EBD'}
+      
+      Transcrição: ${transcript.substring(0, 30000)} // Limiting to avoid token issues if huge
+      
+      Por favor, retorne o texto formatado de forma limpa em Português.`;
+
+      const model = (genAI as any).getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const formattedContent = response.text();
+
+      setPdfGenerationStatus("Gerando arquivo PDF...");
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      
+      const logoUrl = "https://i.imgur.com/GELQtyU.png";
+      
+      const addWatermark = (pdfDoc: any) => {
+        pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.1 }));
+        const imgWidth = 100;
+        const imgHeight = 100;
+        pdfDoc.addImage(logoUrl, 'PNG', (pageWidth - imgWidth) / 2, (pageHeight - imgHeight) / 2, imgWidth, imgHeight);
+        pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 1.0 }));
+      };
+
+      addWatermark(doc);
+
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      const title = `${currentModule?.title || 'Módulo'} - ${currentLesson?.title || 'Aula'}`;
+      doc.text(title, margin, 30, { maxWidth: pageWidth - (margin * 2) });
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("MATERIAL DE APOIO - PORTAL EBD - IEMP", margin, 40);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, 45, pageWidth - margin, 45);
+
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      const splitText = doc.splitTextToSize(formattedContent, pageWidth - (margin * 2));
+      
+      let cursorY = 55;
+      for (let i = 0; i < splitText.length; i++) {
+        if (cursorY + 10 > pageHeight - margin) {
+          doc.addPage();
+          addWatermark(doc);
+          cursorY = margin + 10;
+        }
+        doc.text(splitText[i], margin, cursorY);
+        cursorY += 6;
+      }
+
+      const fileName = `${currentModule?.title || 'Modulo'}_${currentLesson?.title || 'Aula'}.pdf`.replace(/\s+/g, '_');
+      doc.save(fileName);
+
+      setPdfGenerationStatus("PDF gerado com sucesso!");
+      setTimeout(() => setPdfGenerationStatus(''), 3000);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao gerar PDF: " + (error as Error).message);
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
@@ -153,12 +252,6 @@ export default function EBD() {
       </div>
     );
   }
-
-  const currentLesson = lessons.find(l => l.id === activeLessonId);
-  const activeModuleLessons = lessons.filter(l => l.moduleId === activeModuleId);
-  const activeLessonQuestions = questions.filter(q => q.lessonId === activeLessonId);
-  
-  const userHasAnsweredTest = userAnswers.find(a => a.userId === user?.uid && a.testId === activeTest?.id);
 
   return (
     <div className="min-h-screen bg-[#0a0502] text-white font-sans flex flex-col md:flex-row pt-20 relative overflow-hidden">
@@ -225,6 +318,14 @@ export default function EBD() {
           <div className="max-w-5xl mx-auto w-full p-4 sm:p-8">
              
              {/* Player Area */}
+             {currentLesson.transcript && (
+               <div className="mb-4 flex justify-end">
+                  <Button onClick={generateSupportMaterial} disabled={isGeneratingPdf} className="bg-[#BF76FF] hover:bg-[#8b5cf6] text-white rounded-xl">
+                    {isGeneratingPdf ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                    Material de Apoio (IA)
+                  </Button>
+               </div>
+             )}
              <div className="w-full aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl relative mb-8 border border-white/10">
                {currentLesson.youtubeUrl ? (
                  <Player 
@@ -241,7 +342,7 @@ export default function EBD() {
                )}
              </div>
 
-             <div className="flex flex-col md:flex-row gap-8 items-start mb-12">
+             <div className="flex flex-col lg:flex-row gap-8 items-start mb-12">
                <div className="flex-1">
                  <h1 className="text-3xl sm:text-4xl font-black tracking-tight mb-2 leading-tight">{currentLesson.title}</h1>
                  {currentLesson.description && (
@@ -249,20 +350,22 @@ export default function EBD() {
                  )}
                </div>
                
-               {currentLesson.supportMaterialUrl && (
-                 <a 
-                   href={currentLesson.supportMaterialUrl} 
-                   target="_blank" 
-                   rel="noopener noreferrer"
-                   className="shrink-0 flex items-center gap-3 px-6 py-4 bg-[#3b82f6]/10 hover:bg-[#3b82f6]/20 transition-colors rounded-2xl border border-[#3b82f6]/30 text-[#3b82f6] font-bold group"
-                 >
-                   <FileText className="w-6 h-6 group-hover:scale-110 transition-transform" />
-                   <div className="flex flex-col">
-                     <span className="text-xs uppercase tracking-widest opacity-80">Material</span>
-                     <span>Baixar PDF</span>
-                   </div>
-                 </a>
-               )}
+               <div className="flex flex-wrap gap-4 items-center">
+                 {currentLesson.supportMaterialUrl && (
+                   <a 
+                     href={currentLesson.supportMaterialUrl} 
+                     target="_blank" 
+                     rel="noopener noreferrer"
+                     className="shrink-0 flex items-center gap-3 px-6 py-4 bg-[#3b82f6]/10 hover:bg-[#3b82f6]/20 transition-colors rounded-2xl border border-[#3b82f6]/30 text-[#3b82f6] font-bold group"
+                   >
+                     <FileText className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                     <div className="flex flex-col">
+                       <span className="text-xs uppercase tracking-widest opacity-80">Material</span>
+                       <span>Baixar PDF</span>
+                     </div>
+                   </a>
+                 )}
+               </div>
              </div>
 
              {/* Content Tabs (Quiz & Questions) */}

@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
-import { Plus, Trash2, Edit, Save, BookOpen, GraduationCap, X, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Edit, Save, BookOpen, GraduationCap, X, CheckCircle2, FileDown, Loader2, Youtube, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { GoogleGenAI } from "@google/genai";
+import { jsPDF } from 'jspdf';
 
 export function EBDAdminView({ isDark }: { isDark: boolean }) {
   const [modules, setModules] = useState<any[]>([]);
@@ -19,13 +21,118 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
   const [moduleTitle, setModuleTitle] = useState('');
   
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
-  const [lessonData, setLessonData] = useState({ title: '', youtubeUrl: '', supportMaterialUrl: '', description: '' });
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [lessonData, setLessonData] = useState({ title: '', youtubeUrl: '', supportMaterialUrl: '', description: '', transcript: '' });
 
   // Test Data
   const [activeTest, setActiveTest] = useState<any>(null);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
   const [testData, setTestData] = useState({ question: '', options: ['', '', '', ''], correctAnswerIndex: 0 });
   const [testLessonId, setTestLessonId] = useState<string | null>(null);
+
+  // AI Support Material Generator State
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [pdfGenerationStatus, setPdfGenerationStatus] = useState('');
+  const [activeLessonForGen, setActiveLessonForGen] = useState<any>(null);
+
+  const generateSupportMaterial = async (lesson: any) => {
+    if (!lesson.transcript) {
+      alert("Esta aula não possui uma transcrição cadastrada para gerar o material.");
+      return;
+    }
+
+    setIsGeneratingPdf(true);
+    setActiveLessonForGen(lesson);
+    setPdfGenerationStatus("Organizando conteúdo com AI...");
+
+    try {
+      const transcript = lesson.transcript;
+      
+      // 2. Use Gemini to format the transcript
+      const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY as any);
+      const currentModule = modules.find(m => m.id === lesson.moduleId);
+      
+      const prompt = `Resuma e organize a seguinte transcrição de uma aula da Escola Bíblica (EBD) em um formato de "Material de Apoio" estruturado. 
+      Use títulos, tópicos e destaque os pontos principais. O conteúdo deve ser rico e fiel ao que foi dito, mas bem formatado para leitura.
+      Módulo: ${currentModule?.title || 'EBD'}
+      Aula: ${lesson.title || 'Aula EBD'}
+      
+      Transcrição: ${transcript.substring(0, 30000)} // Limiting to avoid token issues if huge
+      
+      Por favor, retorne o texto formatado de forma limpa.`;
+
+      const model = (genAI as any).getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const formattedContent = response.text();
+
+      setPdfGenerationStatus("Gerando arquivo PDF...");
+
+      // 3. Generate PDF with jsPDF
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      
+      // Watermark Logic
+      const logoUrl = "https://i.imgur.com/GELQtyU.png";
+      
+      const addWatermark = (pdfDoc: any) => {
+        pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.1 }));
+        // Center the logo
+        const imgWidth = 100;
+        const imgHeight = 100;
+        pdfDoc.addImage(logoUrl, 'PNG', (pageWidth - imgWidth) / 2, (pageHeight - imgHeight) / 2, imgWidth, imgHeight);
+        pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 1.0 }));
+      };
+
+      addWatermark(doc);
+
+      // Title
+      doc.setFontSize(22);
+      doc.setFont("helvetica", "bold");
+      const title = `${currentModule?.title || 'Módulo'} - ${lesson.title || 'Aula'}`;
+      doc.text(title, margin, 30, { maxWidth: pageWidth - (margin * 2) });
+
+      // Support Material Label
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("MATERIAL DE APOIO - PORTAL EBD - IEMP", margin, 40);
+      
+      // Separator Line
+      doc.setDrawColor(200, 200, 200);
+      doc.line(margin, 45, pageWidth - margin, 45);
+
+      // Content
+      doc.setFontSize(11);
+      doc.setTextColor(0, 0, 0);
+      const splitText = doc.splitTextToSize(formattedContent, pageWidth - (margin * 2));
+      
+      let cursorY = 55;
+      for (let i = 0; i < splitText.length; i++) {
+        if (cursorY + 10 > pageHeight - margin) {
+          doc.addPage();
+          addWatermark(doc);
+          cursorY = margin + 10;
+        }
+        doc.text(splitText[i], margin, cursorY);
+        cursorY += 6;
+      }
+
+      const fileName = `${currentModule?.title || 'Modulo'}_${lesson.title || 'Aula'}.pdf`.replace(/\s+/g, '_');
+      doc.save(fileName);
+
+      setPdfGenerationStatus("PDF gerado com sucesso!");
+      setTimeout(() => setPdfGenerationStatus(''), 3000);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao gerar PDF: " + (error as Error).message);
+    } finally {
+      setIsGeneratingPdf(false);
+      setActiveLessonForGen(null);
+    }
+  };
 
   useEffect(() => {
     const unsubModules = onSnapshot(query(collection(db, "ebd-modules"), orderBy("createdAt", "asc")), (snap) => {
@@ -61,22 +168,51 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
     }
   };
 
-  const handleCreateLesson = async () => {
+  const handleSaveLesson = async () => {
     if (!lessonData.title.trim() || !activeModuleId) return;
     try {
-      await addDoc(collection(db, "ebd-lessons"), {
+      const data = {
         moduleId: activeModuleId,
         title: lessonData.title,
         youtubeUrl: lessonData.youtubeUrl,
         supportMaterialUrl: lessonData.supportMaterialUrl,
         description: lessonData.description,
-        createdAt: serverTimestamp()
-      });
+        transcript: lessonData.transcript || '',
+        updatedAt: serverTimestamp()
+      };
+
+      if (editingLessonId) {
+        await updateDoc(doc(db, "ebd-lessons", editingLessonId), data);
+      } else {
+        await addDoc(collection(db, "ebd-lessons"), {
+          ...data,
+          createdAt: serverTimestamp()
+        });
+      }
+      
       setIsLessonModalOpen(false);
-      setLessonData({ title: '', youtubeUrl: '', supportMaterialUrl: '', description: '' });
+      setEditingLessonId(null);
+      setLessonData({ title: '', youtubeUrl: '', supportMaterialUrl: '', description: '', transcript: '' });
     } catch (e) {
-      handleFirestoreError(e, OperationType.CREATE, 'ebd-lessons');
+      handleFirestoreError(e, editingLessonId ? OperationType.UPDATE : OperationType.CREATE, editingLessonId ? `ebd-lessons/${editingLessonId}` : 'ebd-lessons');
     }
+  };
+
+  const openLessonModal = (lesson: any = null) => {
+    if (lesson) {
+      setEditingLessonId(lesson.id);
+      setLessonData({
+        title: lesson.title || '',
+        youtubeUrl: lesson.youtubeUrl || '',
+        supportMaterialUrl: lesson.supportMaterialUrl || '',
+        description: lesson.description || '',
+        transcript: lesson.transcript || ''
+      });
+    } else {
+      setEditingLessonId(null);
+      setLessonData({ title: '', youtubeUrl: '', supportMaterialUrl: '', description: '', transcript: '' });
+    }
+    setIsLessonModalOpen(true);
   };
 
   const handleDeleteModule = async (id: string, e: React.MouseEvent) => {
@@ -187,9 +323,9 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
               <div className="animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-8 pb-4 border-b border-dashed border-black/10 dark:border-white/10">
                   <h3 className="text-xl font-black tracking-tight">{modules.find(m => m.id === activeModuleId)?.title} - Aulas</h3>
-                  <Button onClick={() => setIsLessonModalOpen(true)} className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl h-9 text-xs font-bold">
-                    <Plus className="w-3 h-3 mr-2" /> Adicionar Aula
-                  </Button>
+                  <button onClick={() => openLessonModal()} className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl h-9 px-4 text-xs font-bold flex items-center gap-2 transition-all">
+                    <Plus className="w-3 h-3" /> Adicionar Aula
+                  </button>
                 </div>
 
                 <div className="space-y-4">
@@ -212,6 +348,28 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
                         </div>
 
                         <div className="flex items-center gap-2">
+                           <Button 
+                             size="sm" 
+                             variant="outline" 
+                             onClick={() => generateSupportMaterial(lesson)} 
+                             disabled={isGeneratingPdf && activeLessonForGen?.id === lesson.id}
+                             className={cn("h-8 rounded-lg text-xs flex items-center gap-2", isDark ? "border-white/10 hover:bg-white/10" : "border-black/10 hover:bg-black/5")}
+                           >
+                             {isGeneratingPdf && activeLessonForGen?.id === lesson.id ? (
+                               <Loader2 className="w-3 h-3 animate-spin" />
+                             ) : (
+                               <FileDown className="w-3 h-3" />
+                             )}
+                             IA Material
+                           </Button>
+                           <Button 
+                             size="icon" 
+                             variant="outline" 
+                             onClick={() => openLessonModal(lesson)} 
+                             className={cn("h-8 w-8 rounded-lg", isDark ? "border-white/10 hover:bg-white/10" : "border-black/10 hover:bg-black/5")}
+                           >
+                             <Edit className="w-3.5 h-3.5" />
+                           </Button>
                            <Button size="sm" variant="outline" onClick={() => openTestModal(lesson.id)} className={cn("h-8 rounded-lg text-xs", isDark ? "border-white/10 hover:bg-white/10" : "border-black/10 hover:bg-black/5")}>
                              <CheckCircle2 className="w-3 h-3 mr-1" /> Quiz
                            </Button>
@@ -251,9 +409,12 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isLessonModalOpen} onOpenChange={setIsLessonModalOpen}>
+      <Dialog open={isLessonModalOpen} onOpenChange={(open) => {
+        setIsLessonModalOpen(open);
+        if (!open) setEditingLessonId(null);
+      }}>
         <DialogContent className={cn("border-white/10 rounded-3xl max-w-lg", isDark ? "bg-[#141414] text-white" : "bg-white text-black")}>
-          <DialogHeader><DialogTitle>Nova Aula</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editingLessonId ? "Editar Aula" : "Nova Aula"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <label className="text-xs opacity-60 uppercase tracking-widest pl-2">Título da Aula</label>
@@ -271,10 +432,21 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
               <label className="text-xs opacity-60 uppercase tracking-widest pl-2">Descrição Curta</label>
               <Textarea value={lessonData.description} onChange={e => setLessonData({...lessonData, description: e.target.value})} className={cn("rounded-2xl px-4 py-3 resize-none", isDark ? "bg-white/5 border-white/10" : "bg-black/5 border-black/10")} placeholder="Opcional..." />
             </div>
+            <div className="space-y-2">
+              <label className="text-xs opacity-60 uppercase tracking-widest pl-2">Transcrição da Aula (Para gerar Material)</label>
+              <Textarea 
+                value={lessonData.transcript} 
+                onChange={e => setLessonData({...lessonData, transcript: e.target.value})} 
+                className={cn("rounded-2xl px-4 py-3 h-32", isDark ? "bg-white/5 border-white/10" : "bg-black/5 border-black/10")} 
+                placeholder="Cole aqui a transcrição completa da aula para que a IA gere o PDF de apoio automaticamente." 
+              />
+            </div>
           </div>
           <DialogFooter className="mt-4">
-            <Button variant="ghost" onClick={() => setIsLessonModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleCreateLesson} className="bg-[#3b82f6] text-white rounded-xl px-8">Salvar Aula</Button>
+            <Button variant="ghost" onClick={() => { setIsLessonModalOpen(false); setEditingLessonId(null); }}>Cancelar</Button>
+            <Button onClick={handleSaveLesson} className="bg-[#3b82f6] text-white rounded-xl px-8">
+              {editingLessonId ? "Salvar Alterações" : "Salvar Aula"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

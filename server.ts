@@ -395,6 +395,54 @@ async function startServer() {
     }
   });
 
+  // YouTube Transcript Endpoint
+  app.get("/api/youtube-transcript", async (req, res) => {
+    try {
+      const videoId = req.query.videoId as string;
+      if (!videoId) return res.status(400).json({ error: "Video ID is required" });
+
+      console.log(`[YouTube Transcript] Fetching for video: ${videoId}`);
+      
+      const { YoutubeTranscript } = await import('youtube-transcript');
+      
+      let transcriptRequest;
+      try {
+        // Try fetching in Portuguese first
+        transcriptRequest = await YoutubeTranscript.fetchTranscript(videoId, { lang: 'pt' });
+      } catch (ptError) {
+        console.warn(`[YouTube Transcript] PT fetch failed for ${videoId}, trying default.`, ptError);
+        // Fallback to default language
+        transcriptRequest = await YoutubeTranscript.fetchTranscript(videoId);
+      }
+      
+      if (!transcriptRequest || transcriptRequest.length === 0) {
+        throw new Error("Nenhuma transcrição encontrada para este vídeo.");
+      }
+
+      const fullText = transcriptRequest.map(item => item.text).join(' ');
+      res.json({ transcript: fullText });
+    } catch (error: any) {
+      const errorStr = String(error);
+      console.error("[YouTube Transcript Error]:", errorStr);
+      
+      let errorMessage = "Falha ao obter a transcrição do vídeo.";
+      if (errorStr.includes('Transcript is disabled')) {
+        errorMessage = "A transcrição está desativada para este vídeo.";
+      } else if (errorStr.includes('No transcripts found')) {
+        errorMessage = "Nenhuma transcrição encontrada para este vídeo.";
+      } else if (errorStr.includes('Could not find transcript')) {
+        errorMessage = "Não foi possível encontrar a transcrição deste vídeo.";
+      } else if (errorStr.includes('Too Many Requests')) {
+        errorMessage = "Muitas requisições ao YouTube. Tente novamente mais tarde.";
+      }
+
+      res.status(500).json({ 
+        error: errorMessage, 
+        details: error instanceof Error ? error.message : errorStr 
+      });
+    }
+  });
+
   // Proxy para Google Drive - Evita NetworkError/CORS no frontend
   app.get("/api/drive-proxy", async (req, res) => {
     try {

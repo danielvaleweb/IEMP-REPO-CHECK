@@ -8,7 +8,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { RadioProvider } from "@/contexts/RadioContext";
-import { ErrorBoundary } from "@/components/ErrorBoundary.tsx";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import GlobalPlayer from "@/components/GlobalPlayer";

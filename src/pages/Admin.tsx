@@ -1169,7 +1169,7 @@ const Admin = () => {
   const [collapsedTeamCategories, setCollapsedTeamCategories] = useState<Record<string, boolean>>({});
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [settings, setSettings] = useState<any>({ enableHeaderVideos: true, videoCardsEnabled: true });
-  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden">("hidden");
+  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden" | "profile">("hidden");
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
   const [activeChats, setActiveChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -8818,6 +8818,80 @@ const Admin = () => {
           </div>
         )}
 
+        {rightSidebarView === "profile" && viewingMember && (
+          <div className={cn("flex-1 min-h-0 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
+            <div className="p-6 pt-4 pb-2 border-b border-white/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setRightSidebarView("team")} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors mr-1">
+                  <ArrowLeft className={cn("w-5 h-5", isDarkMode ? "text-gray-300" : "text-gray-600")} />
+                </button>
+                <h2 className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>Perfil</h2>
+              </div>
+              <button 
+                onClick={() => setRightSidebarView("hidden")}
+                className="w-10 h-10 rounded-full bg-black/5 dark:bg-white/5 flex items-center justify-center text-gray-500 hover:bg-red-500 hover:text-white transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-hide">
+               <div className="flex flex-col items-center text-center mb-8">
+                  <div className="relative mb-4">
+                    {viewingMember.photoURL || viewingMember.photoUrl ? (
+                      <img src={getImageUrl(viewingMember.photoURL || viewingMember.photoUrl)} className="w-32 h-32 rounded-3xl object-cover shadow-2xl border-4 border-white/10" />
+                    ) : (
+                      <div className="w-32 h-32 rounded-3xl bg-[#1a1a1a] text-4xl font-bold flex items-center justify-center text-[#BF76FF] shadow-2xl">
+                        {viewingMember.name?.[0] || 'M'}
+                      </div>
+                    )}
+                  </div>
+                  <h3 className="text-2xl font-black uppercase tracking-tight">{viewingMember.name}</h3>
+                  <p className="text-[#BF76FF] font-black uppercase text-xs tracking-widest mt-1">{viewingMember.role || viewingMember.profession || 'Membro'}</p>
+               </div>
+
+               <div className="space-y-6">
+                  {viewingMember.bio && (
+                    <div>
+                      <h4 className="text-[10px] uppercase font-black tracking-[0.2em] opacity-40 mb-2">Sobre</h4>
+                      <p className="text-sm opacity-70 leading-relaxed italic">"{viewingMember.bio}"</p>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 gap-4">
+                     <div className="p-4 rounded-[24px] bg-black/5 dark:bg-white/5 border border-white/5">
+                        <div className="flex items-center gap-3 mb-1">
+                           <Calendar className="w-4 h-4 text-[#BF76FF]" />
+                           <span className="text-[10px] uppercase font-black tracking-widest opacity-40">Membro desde</span>
+                        </div>
+                        <p className="text-sm font-bold">{viewingMember.joinedDate || 'N/A'}</p>
+                     </div>
+                     
+                     {viewingMember.phone && (
+                        <div className="p-4 rounded-[24px] bg-black/5 dark:bg-white/5 border border-white/5">
+                          <div className="flex items-center gap-3 mb-1">
+                              <Phone className="w-4 h-4 text-[#BF76FF]" />
+                              <span className="text-[10px] uppercase font-black tracking-widest opacity-40">WhatsApp</span>
+                          </div>
+                          <p className="text-sm font-bold">{viewingMember.phone}</p>
+                        </div>
+                     )}
+                  </div>
+                  
+                  <div className="pt-4 pb-20">
+                    <Button 
+                      onClick={() => openWhatsApp(viewingMember)}
+                      className="w-full h-14 bg-[#BF76FF] hover:bg-[#A05ADB] text-white rounded-[20px] font-black uppercase tracking-widest flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle className="w-5 h-5" />
+                      Enviar Mensagem
+                    </Button>
+                  </div>
+               </div>
+            </div>
+          </div>
+        )}
+
         {rightSidebarView === "chat-list" && (
           <div className={cn("flex-1 min-h-0 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
             <div className="p-6 pt-4 pb-2">
@@ -10015,10 +10089,6 @@ function ActionIcon({ icon: Icon, onClick, active, isDark, hasNotification, noti
       )}
     </button>
   );
-}
-
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(" ");
 }
 
 export default Admin;
