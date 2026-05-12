@@ -149,6 +149,14 @@ service cloud.firestore {
       return data.keys().hasAll(['title', 'moduleId']) && data.title is string && data.moduleId is string;
     }
 
+    function isValidBugReport(data) {
+      return data.keys().hasAll(['description', 'userId', 'status', 'createdAt']) &&
+             data.description is string && data.description.size() <= 5000 &&
+             data.userId == request.auth.uid &&
+             data.status in ['pending', 'resolved', 'dismissed'] &&
+             data.createdAt == request.time;
+    }
+
     // --- Collection Rules ---
 
     match /test/connection {
@@ -340,6 +348,13 @@ service cloud.firestore {
     match /ebd-test-answers/{answerId} {
       allow read: if true;
       allow create, update: if isSignedIn();
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+    
+    match /bug-reports/{reportId} {
+      allow read: if isMasterAdmin() || isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidBugReport(incoming());
+      allow update: if isMasterAdmin() || isAdmin();
       allow delete: if isMasterAdmin() || isAdmin();
     }
 

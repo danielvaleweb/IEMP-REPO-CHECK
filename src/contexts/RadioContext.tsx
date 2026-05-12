@@ -3,6 +3,7 @@ import { collection, query, orderBy, onSnapshot, doc, getDoc } from 'firebase/fi
 import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
 import ReactPlayer from 'react-player';
 import { useAuth } from '@/contexts/AuthContext';
+import { firestoreService } from '@/services/firestoreService';
 
 interface RadioContextProps {
   tracks: any[];
@@ -33,6 +34,9 @@ interface RadioContextProps {
   setIsMuted: (v: boolean) => void;
   playerRef: any;
   hasAccess: boolean;
+  initRadio: (force?: boolean) => Promise<void>;
+  isInitializing: boolean;
+  isInitialized: boolean;
 }
 
 // ... unchanged interface the rest of the way up to RadioProvider ...
@@ -70,45 +74,38 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
 
   const [tracksSinceLastVignette, setTracksSinceLastVignette] = useState(0);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const playerRef = useRef<any>(null);
 
-  useEffect(() => {
-    const unsubTracks = onSnapshot(query(collection(db, "radio-playlist"), orderBy("order", "asc")), (snap) => {
-      setTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "radio-playlist"));
+  const initRadio = async (force = false) => {
+    if (isInitialized && !force) return;
+    if (isInitializing) return;
+    
+    setIsInitializing(true);
+    try {
+      console.log("[RadioContext] Initializing radio data...");
+      const [tracksData, artistsData, playlistsData, vignettesData, systemSettings] = await Promise.all([
+        firestoreService.getCollection<any>("radio-playlist", [orderBy("order", "asc")], 1000 * 60 * 30),
+        firestoreService.getCollection<any>("radio-artists", [orderBy("name", "asc")], 1000 * 60 * 60),
+        firestoreService.getCollection<any>("playlists", [orderBy("createdAt", "desc")], 1000 * 60 * 30),
+        firestoreService.getCollection<any>("vignettes", [orderBy("createdAt", "desc")], 1000 * 60 * 60),
+        firestoreService.getDoc<any>("settings", "system", 1000 * 60 * 60)
+      ]);
 
-    const unsubArtists = onSnapshot(query(collection(db, "radio-artists"), orderBy("name", "asc")), (snap) => {
-      setRadioArtists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "radio-artists"));
-
-    const unsubPlaylists = onSnapshot(query(collection(db, "playlists"), orderBy("createdAt", "desc")), (snap) => {
-      setPlaylists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "playlists"));
-
-    const unsubVignettes = onSnapshot(query(collection(db, "vignettes"), orderBy("createdAt", "desc")), (snap) => {
-      setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "vignettes"));
-
-    const getSystemSettings = async () => {
-      try {
-        const snap = await getDoc(doc(db, "settings", "system"));
-        if (snap.exists()) {
-          setSettings(snap.data());
-        }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.GET, "settings/system");
-      }
-    };
-    getSystemSettings();
-
-    return () => {
-      unsubTracks();
-      unsubArtists();
-      unsubPlaylists();
-      unsubVignettes();
-    };
-  }, []);
+      setTracks(tracksData);
+      setRadioArtists(artistsData);
+      setPlaylists(playlistsData);
+      setVignettes(vignettesData);
+      if (systemSettings) setSettings(systemSettings);
+      setIsInitialized(true);
+    } catch (err) {
+      console.error("[RadioContext] Error initializing radio data:", err);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   useEffect(() => {
     if (!hasAccess && isPlaying) {
@@ -279,7 +276,8 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       isLiveMode, queue, currentIndex, currentTrack, isPlaying, setIsPlaying,
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
-      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess
+      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess,
+      initRadio, isInitializing, isInitialized
     } as any}>
       {children}
       {/* Hidden Global Player */}

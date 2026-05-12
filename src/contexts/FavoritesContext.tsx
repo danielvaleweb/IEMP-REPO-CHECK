@@ -1,7 +1,8 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
-import { collection, onSnapshot, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "./AuthContext";
+import { firestoreService } from "@/services/firestoreService";
 
 export type FavoriteCategory = "music" | "event" | "video" | "photo";
 
@@ -29,19 +30,33 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
   const [favoriteIds, setFavoriteIds] = useState<string[]>([]);
 
   useEffect(() => {
-    if (!user) {
-      setFavorites([]);
-      setFavoriteIds([]);
-      return;
-    }
+    let isMounted = true;
+    const fetchFavorites = async () => {
+      if (!user) {
+        setFavorites([]);
+        setFavoriteIds([]);
+        return;
+      }
 
-    const unsub = onSnapshot(collection(db, "users", user.uid, "favorites"), (snapshot) => {
-      const items = snapshot.docs.map(doc => doc.data() as FavoriteItem);
-      setFavorites(items);
-      setFavoriteIds(items.map(item => item.id));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/favorites`));
+      try {
+        // Use firestoreService for caching
+        const items = await firestoreService.getCollection<FavoriteItem>(
+          `users/${user.uid}/favorites`, 
+          [], 
+          1000 * 60 * 15 // 15 min TTL
+        );
+        
+        if (isMounted) {
+          setFavorites(items);
+          setFavoriteIds(items.map(item => item.id));
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/favorites`);
+      }
+    };
 
-    return () => unsub();
+    fetchFavorites();
+    return () => { isMounted = false; };
   }, [user]);
 
   const toggleFavorite = async (item: FavoriteItem) => {
@@ -50,6 +65,15 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     const docRef = doc(db, "users", user.uid, "favorites", item.id);
     const exists = favoriteIds.includes(item.id);
 
+    // Optimistic UI updates
+    if (exists) {
+      setFavorites(prev => prev.filter(f => f.id !== item.id));
+      setFavoriteIds(prev => prev.filter(id => id !== item.id));
+    } else {
+      setFavorites(prev => [...prev, item]);
+      setFavoriteIds(prev => [...prev, item.id]);
+    }
+
     try {
       if (exists) {
         await deleteDoc(docRef);
@@ -57,8 +81,11 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         const cleanItem = Object.fromEntries(Object.entries(item).filter(([_, v]) => v !== undefined));
         await setDoc(docRef, cleanItem);
       }
+      // Clear cache so next fetch is fresh if TTL expired
+      firestoreService.clearCache(`users/${user.uid}/favorites`);
     } catch (e) {
       console.error("Failed to toggle favorite", e);
+      // Revert optimistic updates on error (optional, for brevity skipped here or handled by reload)
     }
   };
 

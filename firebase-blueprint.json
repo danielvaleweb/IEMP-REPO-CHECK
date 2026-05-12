@@ -234,9 +234,27 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["type", "title", "description", "format", "bgColor"]
+    },
+    "BugReport": {
+      "title": "BugReport",
+      "description": "Relatos de erros enviados pelos usuários",
+      "type": "object",
+      "properties": {
+        "description": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "resolved", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["description", "userId", "status", "createdAt"]
     }
   },
   "firestore": {
+    "/bug-reports/{reportId}": {
+      "schema": "BugReport",
+      "description": "Lista de bugs reportados"
+    },
     "/aviso-templates/{templateId}": {
       "schema": "AvisoTemplate",
       "description": "Modelos salvos do gerador de avisos"

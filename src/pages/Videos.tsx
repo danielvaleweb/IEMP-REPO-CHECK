@@ -10,11 +10,13 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, setDoc } from "firebase/firestore";
+import { collection, query, orderBy, doc, deleteDoc, setDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { MovieCard } from "@/components/movies/MovieCard";
 import { cn, getImageUrl } from "@/lib/utils";
+import { useCachedCollection, useCachedDoc } from "@/hooks/useFirestore";
+import { firestoreService } from "@/services/firestoreService";
 
 export default function Videos() {
   const navigate = useNavigate();
@@ -33,19 +35,19 @@ export default function Videos() {
   const [showSimilarModal, setShowSimilarModal] = useState(false);
   const [activeSimilarVideo, setActiveSimilarVideo] = useState<any | null>(null);
 
-  useEffect(() => {
-    // Load config
-    const unsubConfig = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        setConfig(docSnap.data());
-      }
-    }, (err) => handleFirestoreError(err, OperationType.GET, "settings/general"));
+  // Use Cached Hooks
+  const { data: generalSettings } = useCachedDoc<any>("settings", "general", 1000 * 60 * 60);
+  const { data: videosData } = useCachedCollection<any>("videos", [orderBy("createdAt", "desc")], 1000 * 60 * 15);
 
-    // Load videos
-    const qVideos = query(collection(db, "videos"), orderBy("createdAt", "desc"));
-    const unsubVideos = onSnapshot(qVideos, (snapshot) => {
-      setVideos(snapshot.docs.map(doc => {
-        const data = doc.data();
+  useEffect(() => {
+    if (generalSettings) {
+      setConfig(generalSettings);
+    }
+  }, [generalSettings]);
+
+  useEffect(() => {
+    if (videosData) {
+      setVideos(videosData.map(data => {
         const url = data.url || "";
         const getYoutubeId = (u: string) => {
           if (!u) return null;
@@ -55,7 +57,7 @@ export default function Videos() {
           return (match && match[2].length === 11) ? match[2] : null;
         };
         const parsedId = getYoutubeId(url);
-        const videoId = parsedId || doc.id;
+        const videoId = parsedId || data.id;
         const createdAtDate = data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : "";
         let published = data.publishedAt || data.published || createdAtDate;
         
@@ -66,8 +68,8 @@ export default function Videos() {
         }
         
         return {
-          id: videoId, // Use youtubeId as id for consistency with Home.tsx
-          firestoreId: doc.id,
+          id: videoId,
+          firestoreId: data.id,
           ...data,
           published,
           createdAtDate,
@@ -76,29 +78,39 @@ export default function Videos() {
           category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
         };
       }));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "videos"));
-
-    return () => {
-      unsubConfig();
-      unsubVideos();
-    };
-  }, []);
+    }
+  }, [videosData]);
 
   useEffect(() => {
-    let unsubMyList = () => {};
+    let isMounted = true;
+    const fetchMyList = async () => {
+      if (!user) {
+        setMyList([]);
+        setMyListIds([]);
+        return;
+      }
+      try {
+        const cacheKey = `mylist_${user.uid}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const list = JSON.parse(cached);
+          setMyList(list);
+          setMyListIds(list.map((v: any) => v.id));
+        }
 
-    if (user) {
-      unsubMyList = onSnapshot(collection(db, "users", user.uid, "myList"), (snapshot) => {
-        const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        setMyList(list);
-        setMyListIds(list.map(v => v.id));
-      }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/myList`));
-    } else {
-      setMyList([]);
-      setMyListIds([]);
-    }
-
-    return () => unsubMyList();
+        const snapshot = await firestoreService.getCollection<any>(`users/${user.uid}/myList`, [], 1000 * 60 * 5);
+        if (isMounted) {
+          setMyList(snapshot);
+          setMyListIds(snapshot.map(v => v.id));
+          sessionStorage.setItem(cacheKey, JSON.stringify(snapshot));
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/myList`);
+      }
+    };
+    
+    fetchMyList();
+    return () => { isMounted = false; };
   }, [user]);
 
   const handleToggleMyList = async (e: React.MouseEvent, video: any) => {

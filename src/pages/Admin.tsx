@@ -80,7 +80,8 @@ import {
   Key,
   MessageCircle,
   GraduationCap,
-  Wrench
+  Wrench,
+  Bug
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -98,7 +99,32 @@ import { VideosView } from "@/components/admin/VideosView";
 import { EventosView } from "@/components/admin/EventosView";
 import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
 import { SavedLoginsAdmin } from "@/components/admin/SavedLoginsAdmin";
+
+const ROLE_COLORS: Record<string, string> = {
+  "Direção": "#7f009b",
+  "Secretaria": "#3b52d3",
+  "Desenvolvedor": "#ffffff",
+  "Mídia": "#383838",
+  "Diácono": "#824bb4",
+  "Diaconisa": "#824bb4",
+  "Diaconia": "#824bb4",
+  "Obreiro": "#6210ac",
+  "Minis. infantil": "#6cc3ec",
+  "Minis. louvor": "#fe8419",
+  "Minis. Jovens": "#7aff4c",
+  "Coord. Mulheres": "#ff0000",
+  "Coord. Coreografia": "#00ffb2",
+  "Coord. Vist. Hospitalar": "#b9ffea",
+  "Recepcionista": "#7a80ff",
+  "Membro": "#9e9e9e",
+  "Membros": "#9e9e9e",
+  "Visitante": "#b9ffa9",
+  "Visitantes": "#b9ffa9",
+  "Administradores": "#BF76FF"
+};
+
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { firestoreService } from "@/services/firestoreService";
 import { getImageUrl } from "@/lib/utils";
 import { updateProfile } from "firebase/auth";
 import { 
@@ -204,22 +230,34 @@ const CandleIcon = ({ isDark = true }: { isDark?: boolean }) => (
 const safeFormatDate = (dateStr: any) => {
   if (!dateStr) return "";
   try {
-    // If it's the new format: DD/MM/YYYY - HH:mm - HH:mm
-    if (typeof dateStr === 'string' && dateStr.includes(' - ')) {
-      return dateStr.split(' - ')[0];
+    let d: Date;
+    
+    // Se for um Timestamp do Firestore (objeto com toDate)
+    if (dateStr && typeof dateStr.toDate === 'function') {
+      d = dateStr.toDate();
+    } 
+    // Se for um objeto com seconds/nanoseconds mas sem toDate (ex: cache ou serializado)
+    else if (dateStr && typeof dateStr === 'object' && 'seconds' in dateStr) {
+      d = new Date(dateStr.seconds * 1000);
     }
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
+    else if (typeof dateStr === 'string' && dateStr.includes(' - ')) {
+      return dateStr.split(' - ')[0];
+    } else if (dateStr instanceof Date) {
+      d = dateStr;
+    } else {
+      d = new Date(dateStr);
+    }
+    
+    if (isNaN(d.getTime())) return "";
     return format(d, "dd/MM/yyyy");
   } catch (e) {
-    return dateStr;
+    return "";
   }
 };
 
 const safeFormatTime = (dateStr: any) => {
   if (!dateStr) return "";
   try {
-    // If it's already a time-like string but not ISO, try to extract time
     if (typeof dateStr === 'string' && dateStr.includes('-')) {
       const parts = dateStr.split('-');
       if (parts.length >= 2) {
@@ -227,7 +265,18 @@ const safeFormatTime = (dateStr: any) => {
         if (/^\d{2}:\d{2}$/.test(timePart)) return timePart;
       }
     }
-    const d = parseISO(dateStr);
+    
+    let d: Date;
+    if (dateStr && typeof dateStr.toDate === 'function') {
+      d = dateStr.toDate();
+    } else if (dateStr && typeof dateStr === 'object' && 'seconds' in dateStr) {
+      d = new Date(dateStr.seconds * 1000);
+    } else if (dateStr instanceof Date) {
+      d = dateStr;
+    } else {
+      d = new Date(dateStr);
+    }
+
     if (isNaN(d.getTime())) return "";
     return format(d, "HH:mm");
   } catch (e) {
@@ -1410,9 +1459,19 @@ const Admin = () => {
     unreadNotifications: 0
   });
 
+  const [roleCounts, setRoleCounts] = useState<Record<string, number>>({});
+  const [pendingMembersCount, setPendingMembersCount] = useState(0);
+  const [pendingAgendaCount, setPendingAgendaCount] = useState(0);
+  const [pendingBugsCount, setPendingBugsCount] = useState(0);
+
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [isReportingBug, setIsReportingBug] = useState(false);
+  const [bugDescription, setBugDescription] = useState("");
+  const [isSavingBug, setIsSavingBug] = useState(false);
+  const [bugReports, setBugReports] = useState<any[]>([]);
+  const [auditSubTab, setAuditSubTab] = useState<"logs" | "bugs">("logs");
 
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
@@ -1558,6 +1617,72 @@ const Admin = () => {
       logAction("login", "auth", `Usuário ${user.displayName || user.email} entrou no sistema`);
       setHasLoggedLogin(true);
     }
+  }, [user]);
+
+  const handleReportBug = async () => {
+    if (!bugDescription.trim()) return;
+    setIsSavingBug(true);
+    try {
+      await addDoc(collection(db, "bug-reports"), {
+        description: bugDescription,
+        userId: user?.uid,
+        userName: profile?.name || user?.displayName || user?.email || "Anônimo",
+        userEmail: user?.email,
+        status: "pending",
+        createdAt: serverTimestamp()
+      });
+      
+      logAction("criar", "bug-reports", `Reportou um bug: ${bugDescription.substring(0, 50)}...`);
+      setBugDescription("");
+      setIsReportingBug(false);
+
+      // Redireciona para aba de bugs se tiver permissão
+      if (canViewLogs) {
+        setActiveTab("logs");
+        setAuditSubTab("bugs");
+      }
+      
+      // Success toast or alert? I'll use confetti if enabled or just close
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#BF76FF', '#7F009B', '#FFFFFF']
+      });
+    } catch (err) {
+      console.error("Error reporting bug:", err);
+    } finally {
+      setIsSavingBug(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user || activeTab !== "logs" || auditSubTab !== "bugs") return;
+    
+    // Load bug reports only if user is admin and in the bugs tab
+    if (!isMasterAdmin && !canViewSettings) return;
+
+    const unsubBugs = onSnapshot(collection(db, "bug-reports"), (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      data.sort((a: any, b: any) => {
+        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        return dateB.getTime() - dateA.getTime();
+      });
+      setBugReports(data);
+    });
+
+    return () => unsubBugs();
+  }, [user, activeTab, auditSubTab, isMasterAdmin, canViewSettings]);
+
+  useEffect(() => {
+    if (!user) return;
+    // Simple count of pending bugs for the notification badge
+    const unsubBugCount = onSnapshot(
+      query(collection(db, "bug-reports"), where("status", "==", "pending")),
+      (snapshot) => setPendingBugsCount(snapshot.size)
+    );
+    return () => unsubBugCount();
   }, [user]);
 
   const handleLogoutAction = async () => {
@@ -2063,19 +2188,6 @@ const Admin = () => {
   const [newSkillName, setNewSkillName] = useState("");
   const [showSkillsDropdownAdmin, setShowSkillsDropdownAdmin] = useState(false);
 
-  useEffect(() => {
-    const unsub = onSnapshot(doc(db, "settings", "skills"), (snap) => {
-      if (snap.exists()) {
-        setAvailableSkills(snap.data().list || []);
-      } else if (isAdmin) {
-        // Initialize with defaults if not exists
-        setDoc(doc(db, "settings", "skills"), {
-          list: ["Música", "Instrumentos", "Canto", "Som/Áudio", "Vídeo/Edição", "Design Gráfico", "Mídias Sociais", "Liderança", "Pregação", "Ensino Infantil", "Organização", "Cozinha", "Limpeza", "Recepção"]
-        });
-      }
-    });
-    return () => unsub();
-  }, [isAdmin]);
 
   const handleAddSkill = async () => {
     if (!newSkillName.trim()) return;
@@ -2265,7 +2377,7 @@ const Admin = () => {
         details: extendedDetails,
         fullDetails: oldData || newData ? { old: oldData || null, new: newData || null } : null,
         userId: user.uid,
-        userName: profile?.name || user.displayName || "Usuário desconhecido",
+        userName: profile?.name || user.displayName || "Visitante",
         userEmail: user.email,
         timestamp: serverTimestamp()
       });
@@ -2274,11 +2386,11 @@ const Admin = () => {
     }
   };
 
-  // Real-time listeners
+  // Real-time listeners & On-demand fetching
   useEffect(() => {
     if (!user) return;
 
-    // Fetch total counts once for the dashboard summary
+    // Fetch total counts only on dashboard or once
     const fetchCounts = async () => {
       if (!isAdmin) return;
       
@@ -2287,136 +2399,179 @@ const Admin = () => {
           const snap = await getCountFromServer(coll);
           return snap.data().count;
         } catch (err: any) {
-          const errMsg = err?.message || String(err);
-          if (errMsg.includes("Connection") || errMsg.includes("offline")) {
-            // suppress expected errors
-          } else {
-            console.error(`Error fetching count for ${label}:`, err);
-          }
+          console.error(`Error fetching count for ${label}:`, err);
           return 0;
         }
       };
 
-      const [membersCount, agendaCount, vignettesCount, postsCount, blogCount, videosCount, unreadCount] = await Promise.all([
-        isAdmin ? safeGetCount(collection(db, "members"), "members") : Promise.resolve(0),
-        safeGetCount(collection(db, "agenda"), "agenda"),
-        safeGetCount(collection(db, "vignettes"), "vignettes"),
-        safeGetCount(collection(db, "posts"), "posts"),
-        safeGetCount(collection(db, "blog"), "blog"),
-        safeGetCount(collection(db, "videos"), "videos"),
-        isGuest ? Promise.resolve(0) : safeGetCount(query(
-          collection(db, "notifications"), 
-          where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
-          where("read", "==", false)
-        ), "notifications")
-      ]);
-      
-      setCounts({
-        members: membersCount,
-        agenda: agendaCount,
-        vignettes: vignettesCount,
-        posts: postsCount,
-        blog: blogCount,
-        videos: videosCount,
-        unreadNotifications: unreadCount
-      });
-    };
-    fetchCounts();
-
-    // Settings can always be fetched
-    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data());
+      try {
+        const [membersCount, agendaCount, vignettesCount, postsCount, blogCount, videosCount, unreadCount] = await Promise.all([
+          activeTab === "visao-geral" ? safeGetCount(collection(db, "members"), "members") : Promise.resolve(counts.members),
+          activeTab === "visao-geral" ? safeGetCount(collection(db, "agenda"), "agenda") : Promise.resolve(counts.agenda),
+          activeTab === "visao-geral" ? safeGetCount(collection(db, "vignettes"), "vignettes") : Promise.resolve(counts.vignettes),
+          activeTab === "visao-geral" ? safeGetCount(collection(db, "posts"), "posts") : Promise.resolve(counts.posts),
+          activeTab === "visao-geral" ? safeGetCount(collection(db, "blog"), "blog") : Promise.resolve(counts.blog),
+          activeTab === "visao-geral" ? safeGetCount(collection(db, "videos"), "videos") : Promise.resolve(counts.videos),
+          safeGetCount(query(
+            collection(db, "notifications"), 
+            where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
+            where("read", "==", false)
+          ), "notifications")
+        ]);
+        
+        setCounts({
+          members: membersCount,
+          agenda: agendaCount,
+          vignettes: vignettesCount,
+          posts: postsCount,
+          blog: blogCount,
+          videos: videosCount,
+          unreadNotifications: unreadCount
+        });
+      } catch (err) {
+        console.error("Error fetching counts:", err);
       }
-    }, (err) => console.error("Error loading settings:", err));
+    };
+    
+    if (activeTab === "visao-geral" || counts.unreadNotifications === 0) {
+      fetchCounts();
+    }
 
-    const unsubPosts = onSnapshot(query(collection(db, "posts"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
-      setPosts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading posts:", err));
+    // Load Settings
+    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
+      if (docSnap.exists()) setSettings(docSnap.data());
+    });
 
-    const unsubBlog = onSnapshot(query(collection(db, "blog"), limit(200)), (snap) => {
-      setBlog(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading blog:", err));
-
-    const unsubMembers = onSnapshot(collection(db, "members"), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() as any }));
-      data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      setMembers(data);
-    }, (err) => console.error("Error loading members:", err));
-
-    const unsubAgenda = onSnapshot(query(collection(db, "agenda"), orderBy("date", "asc"), limit(200)), (snap) => {
-      setAgenda(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading agenda:", err));
-
-    const unsubAgendaDirecao = onSnapshot(query(collection(db, "agenda-direcao"), orderBy("date", "asc"), limit(200)), (snap) => {
-      setAgendaDirecao(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading agenda-direcao:", err));
-
-    const unsubVignettes = onSnapshot(query(collection(db, "vignettes"), orderBy("createdAt", "desc"), limit(200)), (snap) => {
-      setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading vignettes:", err));
-
-    const unsubRadioTracks = onSnapshot(query(collection(db, "radio-playlist"), orderBy("order", "asc")), (snap) => {
-      setRadioTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading radio tracks:", err));
-
-    const unsubRadioArtists = onSnapshot(query(collection(db, "radio-artists"), orderBy("name", "asc")), (snap) => {
-      setRadioArtists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading radio artists:", err));
-
-    const unsubLogs = (canViewLogs && !isGuest) ? onSnapshot(query(collection(db, "audit-logs"), orderBy("timestamp", "desc"), limit(100)), (snap) => {
-      setLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading logs:", err)) : () => {};
-
+    // Load Notifications (Always keep this real-time but limited)
     let unsubNotifs = () => {};
     if (!isGuest) {
       unsubNotifs = onSnapshot(query(
         collection(db, "notifications"), 
         where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
         orderBy("createdAt", "desc"),
-        limit(100)
+        limit(50)
       ), (snap) => {
         setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-      }, (err) => {
-        // If the above query fails due to missing composite index, fallback to filtering by userId locally to avoid list errors.
-        if (!isAdmin) {
-          onSnapshot(query(collection(db, "notifications"), where("userId", "==", user?.uid), limit(100)), (snapFallback) => {
-            setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
-          }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
-        } else {
-          onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc"), limit(100)), (snapFallback) => {
-            setNotifications(snapFallback.docs.map(d => ({ id: d.id, ...d.data() })));
-          }, (errFallback) => console.error("Error in fallback notifications listener:", errFallback));
-        }
       });
     }
 
+    // Load Skills
     const unsubSkills = onSnapshot(doc(db, "settings", "skills"), (snap) => {
-      if (snap.exists()) {
-        setAvailableSkills(snap.data().list || []);
-      }
-    }, (err) => console.error("Error loading skills settings:", err));
-
-    const unsubVideos = onSnapshot(query(collection(db, "videos"), orderBy("createdAt", "desc")), (snap) => {
-      setVideos(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    }, (err) => console.error("Error loading videos:", err));
+      if (snap.exists()) setAvailableSkills(snap.data().list || []);
+    });
 
     return () => {
       unsubSettings();
-      unsubPosts();
-      unsubBlog();
-      unsubMembers();
-      unsubAgenda();
-      unsubAgendaDirecao();
-      unsubVignettes();
-      unsubRadioTracks();
-      unsubRadioArtists();
-      unsubLogs();
       unsubNotifs();
       unsubSkills();
-      unsubVideos();
     };
-  }, [user, isAdmin]);
+  }, [user, isAdmin, activeTab]);
+
+  // Tab-specific data loading (On-demand)
+  useEffect(() => {
+    if (!user || !isAdmin) return;
+
+    // Load critical data on mount (Agenda for Home and Posts for Feed)
+    const loadInitialData = async () => {
+      try {
+        const [agendaData, postsData] = await Promise.all([
+          firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 10),
+          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 15)
+        ]);
+        
+        setAgenda(agendaData);
+        setPosts(postsData);
+
+        // Fetch counts for roles
+        const rolesToFetch = [...allRoles];
+        const countPromises = rolesToFetch.map(async (role) => {
+          // Some roles might have variations in the DB
+          if (role === "Diácono") {
+             const results = await Promise.all([
+               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diácono")]),
+               firestoreService.getCount(collection(db, "members"), [where("role", "==", "diacono")]),
+               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diácono (Homem)")]),
+               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diacono")])
+             ]);
+             return results.reduce((a, b) => a + b, 0);
+          }
+          if (role === "Diaconisa") {
+             const results = await Promise.all([
+               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diaconisa")]),
+               firestoreService.getCount(collection(db, "members"), [where("role", "==", "diaconisa")]),
+               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diaconisa (Mulher)")])
+             ]);
+             return results.reduce((a, b) => a + b, 0);
+          }
+          return firestoreService.getCount(collection(db, "members"), [where("role", "==", role)]);
+        });
+
+        const visitorCountPromise = firestoreService.getCount(collection(db, "members"), [where("status", "==", "visitor_session")]);
+        const pendingCountPromise = firestoreService.getCount(collection(db, "members"), [where("status", "in", ["pending", "pending_approval"])]);
+        const pendingAgendaCountPromise = firestoreService.getCount(collection(db, "agenda"), [where("status", "==", "pending")]);
+
+        const results = await Promise.all([...countPromises, visitorCountPromise, pendingCountPromise, pendingAgendaCountPromise]) as number[];
+        
+        const newRoleCounts: Record<string, number> = {};
+        rolesToFetch.forEach((role, i) => {
+          newRoleCounts[role] = results[i];
+        });
+        
+        // Calculate special group counts
+        newRoleCounts["Diaconia"] = (newRoleCounts["Diácono"] || 0) + (newRoleCounts["Diaconisa"] || 0);
+        newRoleCounts["Visitantes"] = results[rolesToFetch.length];
+        
+        setRoleCounts(newRoleCounts);
+        setPendingMembersCount(results[rolesToFetch.length + 1]);
+        setPendingAgendaCount(results[rolesToFetch.length + 2]);
+
+      } catch (err) {
+        console.error("Error loading initial data:", err);
+      }
+    };
+
+    loadInitialData();
+
+    const loadTabData = async () => {
+      try {
+        if (activeTab === "eventos") {
+          const data = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 15);
+          setPosts(data);
+        } else if (activeTab === "noticias") {
+          const data = await firestoreService.getCollection<any>("blog", [limit(100)], 1000 * 60 * 15);
+          setBlog(data);
+        } else if (activeTab === "membros" || activeTab === "visitantes") {
+          const data = await firestoreService.getCollection<any>("members", [], 1000 * 60 * 30);
+          data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+          setMembers(data);
+        } else if (activeTab === "agenda-direcao") {
+          const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 10);
+          setAgendaDirecao(data);
+        } else if (activeTab === "radio") {
+          const [vigs, tracks, artists] = await Promise.all([
+            firestoreService.getCollection<any>("vignettes", [orderBy("createdAt", "desc")], 1000 * 60 * 30),
+            firestoreService.getCollection<any>("radio-playlist", [orderBy("order", "asc")], 1000 * 60 * 30),
+            firestoreService.getCollection<any>("radio-artists", [orderBy("name", "asc")], 1000 * 60 * 30)
+          ]);
+          setVignettes(vigs);
+          setRadioTracks(tracks);
+          setRadioArtists(artists);
+        } else if (activeTab === "logs" && canViewLogs && !isGuest) {
+          const data = await firestoreService.getCollection<any>("audit-logs", [orderBy("timestamp", "desc"), limit(100)], 1000 * 60 * 5);
+          setLogs(data);
+        } else if (activeTab === "videos") {
+          const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 30);
+          setVideos(data);
+        }
+      } catch (err) {
+        console.error(`Error loading data for tab ${activeTab}:`, err);
+      }
+    };
+
+    if (activeTab !== "visao-geral" && activeTab !== "agenda" && activeTab !== "eventos") {
+      loadTabData();
+    }
+  }, [activeTab, user, isAdmin]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -3735,9 +3890,9 @@ const Admin = () => {
                         isDark={isDarkMode} 
                         notificationCount={
                           item.id === "membros" && (isMasterAdmin || profile?.role === "Desenvolvedor") 
-                            ? pendingMembers.length 
+                            ? pendingMembersCount 
                             : item.id === "agenda" && canCreateEventDirectly
-                            ? agenda.filter(a => a.status === "pending").length
+                            ? pendingAgendaCount
                             : 0
                         }
                       />
@@ -3814,10 +3969,10 @@ const Admin = () => {
               {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile notificationCount={canCreateEventDirectly ? agenda.filter(a => a.status === "pending").length : 0} />}
+              {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile notificationCount={canCreateEventDirectly ? pendingAgendaCount : 0} />}
               {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
               {canViewTab("ebd") && <SidebarItem icon={GraduationCap} active={activeTab === "ebd" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("ebd"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="EBD" collapsed={true} isDark={isDarkMode} mobile />}
-              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembers.length : 0} />}
+              {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembersCount : 0} />}
               <SidebarItem 
                 icon={MessageSquare} 
                 active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"} 
@@ -4375,13 +4530,27 @@ const Admin = () => {
                 />
               </motion.div>
             )}
+
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              transition={{ duration: 0.2 }}
+            >
+              <Bug 
+                className={cn(
+                  "w-[27px] h-[27px] transition-colors cursor-pointer",
+                  isDarkMode ? "text-gray-500 hover:text-red-400" : "text-gray-400 hover:text-red-500"
+                )} 
+                onClick={() => setIsReportingBug(true)}
+              />
+            </motion.div>
             
             <DropdownMenu>
               <DropdownMenuTrigger className="focus:outline-none">
                 <div className="flex items-center gap-4 pl-6 border-l border-white/10 cursor-pointer group">
                   <div className="text-right hidden lg:block group-hover:opacity-80 transition-opacity">
                     <p className={cn("font-black tracking-tighter text-lg leading-tight", isDarkMode ? "text-white" : "text-black")}>
-                      {profile?.name || "Usuário"}
+                      {profile?.name || "Visitante"}
                     </p>
                     <p className="text-xs text-gray-400 font-medium">
                       {profile?.role || "Membro"}
@@ -7459,8 +7628,45 @@ const Admin = () => {
               </div>
             ) : activeTab === "logs" ? (
               <div className="p-4 md:p-8">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Logs</h2>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                  <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Auditoria</h2>
+                </div>
+
+                {/* Sub-tabs for Auditoria */}
+                <div className="flex gap-2 mb-8 p-1 rounded-2xl bg-black/5 dark:bg-white/5 w-fit">
+                  <button 
+                    onClick={() => setAuditSubTab("logs")}
+                    className={cn(
+                      "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      auditSubTab === "logs" 
+                        ? "bg-white dark:bg-roxo-bg shadow-sm text-primary" 
+                        : "text-gray-500 hover:text-gray-400"
+                    )}
+                  >
+                    Logs de Ações
+                  </button>
+                  <button 
+                    onClick={() => setAuditSubTab("bugs")}
+                    className={cn(
+                      "px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                      auditSubTab === "bugs" 
+                        ? "bg-white dark:bg-roxo-bg shadow-sm text-primary" 
+                        : "text-gray-500 hover:text-gray-400"
+                    )}
+                  >
+                    Bugs Reportados
+                    {pendingBugsCount > 0 && (
+                      <span className="w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[8px] font-bold">
+                        {pendingBugsCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                {auditSubTab === "logs" ? (
+                  <>
+                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+                    <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter hidden", isDarkMode ? "text-white" : "text-black")}>Logs</h2>
                   
                   <div className="flex flex-wrap gap-2">
                     <div className="relative">
@@ -7771,6 +7977,94 @@ const Admin = () => {
                     </div>
                   )}
                 </AnimatePresence>
+                </>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {bugReports.length === 0 ? (
+                        <div className="col-span-full py-20 text-center opacity-40">
+                          <Bug className="w-12 h-12 mx-auto mb-4" />
+                          <p className="text-sm font-bold uppercase tracking-widest">Nenhum bug reportado</p>
+                        </div>
+                      ) : (
+                        bugReports.map((bug) => (
+                          <Card 
+                            key={bug.id} 
+                            className={cn(
+                              "border rounded-[32px] overflow-hidden transition-all group",
+                              isDarkMode ? "bg-roxo-bg border-white/5 hover:border-red-500/30" : "bg-white border-black/5 hover:shadow-xl hover:border-red-500/20"
+                            )}
+                          >
+                            <CardHeader className="p-6 pb-2">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className={cn(
+                                  "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest",
+                                  bug.status === "pending" ? "bg-red-500/10 text-red-500" :
+                                  bug.status === "resolved" ? "bg-green-500/10 text-green-500" :
+                                  "bg-gray-500/10 text-gray-500"
+                                )}>
+                                  {bug.status === "pending" ? "Pendente" : bug.status === "resolved" ? "Resolvido" : "Arquivado"}
+                                </div>
+                                <span className="text-[10px] font-bold text-gray-500 uppercase tabular-nums">
+                                  {safeFormatDate(bug.createdAt)}
+                                </span>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="px-6 pb-6 pt-0 space-y-4">
+                              <p className={cn("text-xs leading-relaxed line-clamp-4 overflow-hidden break-words", isDarkMode ? "text-gray-300" : "text-gray-600")}>
+                                {bug.description}
+                              </p>
+                              
+                              <div className="flex items-center gap-3 pt-4 border-t border-white/5">
+                                <div className="w-8 h-8 rounded-lg bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] font-black text-xs shrink-0">
+                                  {bug.userName?.[0]?.toUpperCase()}
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className={cn("text-xs font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{bug.userName}</span>
+                                  <span className="text-[9px] text-gray-500 truncate">{bug.userEmail}</span>
+                                </div>
+                              </div>
+
+                              <div className="flex gap-2 pt-2">
+                                {bug.status === "pending" && (
+                                  <Button 
+                                    onClick={async () => {
+                                      try {
+                                        await updateDoc(doc(db, "bug-reports", bug.id), { status: "resolved" });
+                                        logAction("atualizar", "bug-reports", `Marcou bug como resolvido: ${bug.id}`);
+                                      } catch (error) {
+                                        handleFirestoreError(error, OperationType.UPDATE, `bug-reports/${bug.id}`);
+                                      }
+                                    }}
+                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white rounded-xl h-9 text-[10px] font-black uppercase tracking-widest cursor-pointer"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 mr-2" /> Resolvido
+                                  </Button>
+                                )}
+                                <Button 
+                                  variant="ghost"
+                                  onClick={async () => {
+                                    if (confirm("Deseja realmente excluir este relato?")) {
+                                      try {
+                                        await deleteDoc(doc(db, "bug-reports", bug.id));
+                                        logAction("excluir", "bug-reports", `Excluiu relato de bug: ${bug.id}`);
+                                      } catch (error) {
+                                        handleFirestoreError(error, OperationType.DELETE, `bug-reports/${bug.id}`);
+                                      }
+                                    }
+                                  }}
+                                  className="px-3 rounded-xl h-9 text-gray-500 hover:text-red-500 hover:bg-red-500/5 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-20 flex flex-col items-center justify-center h-full">
@@ -8254,22 +8548,59 @@ const Admin = () => {
                             return (a.name || "").localeCompare(b.name || "");
                           });
                           if (roleMembers.length === 0 && rightSidebarSearch) return null;
-                          const isCollapsed = collapsedTeamCategories[roleKey] || false;
+                          const isCollapsed = collapsedTeamCategories[roleKey] ?? true;
                           
                           return (
-                            <div key={`role-group-${roleKey}`} className="space-y-3">
+                            <div key={`role-group-${roleKey}`} className="space-y-1">
                               <button 
-                                onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, [roleKey]: !isCollapsed }))}
-                                className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between", isDarkMode ? "text-gray-500" : "text-gray-400")}
+                                onClick={async () => {
+                                  if (isCollapsed) {
+                                    const roleMembersAlreadyLoaded = members.filter(m => {
+                                      const pr = getPrimaryRole(m);
+                                      return pr === roleKey || (roleKey === "Diaconia" && (pr === "Diácono" || pr === "Diaconisa"));
+                                    }).length;
+                                    const expectedCount = roleCounts[roleKey] || 0;
+                                    
+                                    if (roleMembersAlreadyLoaded < expectedCount || members.length === 0) {
+                                      try {
+                                        let data: any[] = [];
+                                        if (roleKey === "Diaconia") {
+                                          const [dias, diacas] = await Promise.all([
+                                            firestoreService.getCollection<any>("members", [where("role", "==", "Diácono")], 1000 * 60 * 30),
+                                            firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa")], 1000 * 60 * 30)
+                                          ]);
+                                          data = [...dias, ...diacas];
+                                        } else {
+                                          data = await firestoreService.getCollection<any>("members", [where("role", "==", rawRole)], 1000 * 60 * 30);
+                                        }
+                                        
+                                        setMembers(prev => {
+                                          const existingIds = new Set(prev.map(p => p.id));
+                                          const newOnes = data.filter(d => !existingIds.has(d.id));
+                                          return [...prev, ...newOnes].sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+                                        });
+                                      } catch (err) {
+                                        console.error("Error loading role members:", err);
+                                      }
+                                    }
+                                  }
+                                  setCollapsedTeamCategories(prev => ({ ...prev, [roleKey]: !isCollapsed }));
+                                }}
+                                style={{ 
+                                  backgroundColor: isDarkMode ? `${ROLE_COLORS[roleKey] || '#BF76FF'}15` : `${ROLE_COLORS[roleKey] || '#BF76FF'}08`
+                                }}
+                                className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between p-2.5 rounded-xl mb-1")}
                               >
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1 h-2 bg-[#BF76FF] rounded-full" />
-                                  <h5 className="text-[10px] font-bold uppercase tracking-widest">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-1.5 h-1.5 rounded-full shadow-lg" style={{ backgroundColor: ROLE_COLORS[roleKey] || '#BF76FF', boxShadow: `0 0 10px ${ROLE_COLORS[roleKey] || '#BF76FF'}` }} />
+                                  <h5 className="text-[11px] font-black uppercase tracking-widest" style={{ color: ROLE_COLORS[roleKey] || '#BF76FF' }}>
                                     {displayRole === "Administradores" ? "Administrador Master" : displayRole}
                                   </h5>
-                                  <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-500">{roleMembers.length}</span>
+                                  <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border", isDarkMode ? "bg-white/5 border-white/10 text-gray-400" : "bg-black/5 border-black/10 text-gray-500")}>
+                                    {(rightSidebarSearch && rightSidebarSearch.trim() !== "") ? roleMembers.length : (roleCounts[roleKey] || 0)}
+                                  </span>
                                 </div>
-                                {isCollapsed ? <ChevronRight className="w-3 h-3 transition-transform" /> : <ChevronDown className="w-3 h-3 transition-transform" />}
+                                {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-white/100" /> : <ChevronDown className="w-3.5 h-3.5 text-white/100" />}
                               </button>
                               
                               {!isCollapsed && (
@@ -8305,22 +8636,45 @@ const Admin = () => {
                         {(() => {
                           const standardMembers = groupedMembers.get("Membro") || [];
                           if (standardMembers.length === 0) return null;
-                          const isCollapsed = collapsedTeamCategories["Membro"] || false;
+                          const isCollapsed = collapsedTeamCategories["Membro"] ?? true;
                           
                           return (
-                            <div className="space-y-3">
+                            <div className="space-y-1">
                               <button 
-                                onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, ["Membro"]: !isCollapsed }))}
-                                className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between", isDarkMode ? "text-gray-500" : "text-gray-400")}
+                                onClick={async () => {
+                                  if (isCollapsed) {
+                                    const alreadyLoaded = members.filter(m => getPrimaryRole(m) === "Membro").length;
+                                    const expected = roleCounts["Membro"] || 0;
+                                    if (alreadyLoaded < expected || members.length === 0) {
+                                      try {
+                                        const data = await firestoreService.getCollection<any>("members", [where("role", "==", "Membro")], 1000 * 60 * 30);
+                                        setMembers(prev => {
+                                          const existingIds = new Set(prev.map(p => p.id));
+                                          const newOnes = data.filter(d => !existingIds.has(d.id));
+                                          return [...prev, ...newOnes].sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+                                        });
+                                      } catch (err) {
+                                        console.error("Error loading Member role:", err);
+                                      }
+                                    }
+                                  }
+                                  setCollapsedTeamCategories(prev => ({ ...prev, ["Membro"]: !isCollapsed }));
+                                }}
+                                style={{ 
+                                  backgroundColor: isDarkMode ? `${ROLE_COLORS["Membro"]}15` : `${ROLE_COLORS["Membro"]}08`
+                                }}
+                                className={cn("w-full transition-opacity hover:opacity-70 group flex items-center justify-between p-2.5 rounded-xl mb-1")}
                               >
-                                <div className="flex items-center gap-2">
-                                  <div className="w-1 h-2 bg-gray-600 rounded-full" />
-                                  <h5 className="text-[10px] font-bold uppercase tracking-widest">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-1.5 h-1.5 rounded-full shadow-lg" style={{ backgroundColor: ROLE_COLORS["Membro"], boxShadow: `0 0 10px ${ROLE_COLORS["Membro"]}` }} />
+                                  <h5 className="text-[11px] font-black uppercase tracking-widest" style={{ color: ROLE_COLORS["Membro"] }}>
                                     Membros
                                   </h5>
-                                  <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-500">{standardMembers.length}</span>
+                                  <span className={cn("text-[9px] font-black px-2 py-0.5 rounded-full border", isDarkMode ? "bg-white/5 border-white/10 text-gray-400" : "bg-black/5 border-black/10 text-gray-500")}>
+                                    {(rightSidebarSearch && rightSidebarSearch.trim() !== "") ? standardMembers.length : (roleCounts["Membro"] || 0)}
+                                  </span>
                                 </div>
-                                {isCollapsed ? <ChevronRight className="w-3 h-3 transition-transform" /> : <ChevronDown className="w-3 h-3 transition-transform" />}
+                                {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-white/100" /> : <ChevronDown className="w-3.5 h-3.5 text-white/100" />}
                               </button>
                               
                               {!isCollapsed && (
@@ -8357,22 +8711,45 @@ const Admin = () => {
                       return (!rightSidebarSearch || m.name?.toLowerCase().includes(rightSidebarSearch.toLowerCase()));
                     });
                     if (sidebarVisitors.length === 0) return null;
-                    const isCollapsed = collapsedTeamCategories["Visitantes"] || false;
+                    const isCollapsed = collapsedTeamCategories["Visitantes"] ?? true;
                     
                     return (
-                      <div className={cn("space-y-3 mt-6 pt-6 border-t", isDarkMode ? "border-white/5" : "border-black/5")}>
+                      <div className="space-y-1">
                         <button 
-                          onClick={() => setCollapsedTeamCategories(prev => ({ ...prev, ["Visitantes"]: !isCollapsed }))}
-                          className="w-full transition-opacity hover:opacity-70 group flex items-center justify-between text-blue-400"
+                          onClick={async () => {
+                            if (isCollapsed) {
+                              const alreadyLoaded = members.filter(m => m.status === "visitor_session").length;
+                              const expected = roleCounts["Visitantes"] || 0;
+                              if (alreadyLoaded < expected || members.length === 0) {
+                                try {
+                                  const data = await firestoreService.getCollection<any>("members", [where("status", "==", "visitor_session")], 1000 * 60 * 30);
+                                  setMembers(prev => {
+                                    const existingIds = new Set(prev.map(p => p.id));
+                                    const newOnes = data.filter(d => !existingIds.has(d.id));
+                                    return [...prev, ...newOnes].sort((a,b) => (a.name || "").localeCompare(b.name || ""));
+                                  });
+                                } catch (err) {
+                                  console.error("Error loading Visitor status:", err);
+                                }
+                              }
+                            }
+                            setCollapsedTeamCategories(prev => ({ ...prev, ["Visitantes"]: !isCollapsed }));
+                          }}
+                          style={{ 
+                            backgroundColor: isDarkMode ? `${ROLE_COLORS["Visitantes"]}15` : `${ROLE_COLORS["Visitantes"]}08`
+                          }}
+                          className="w-full transition-opacity hover:opacity-70 group flex items-center justify-between p-2.5 rounded-xl mb-1"
                         >
-                          <div className="flex items-center gap-2">
-                            <div className="w-1 h-2 bg-blue-400 rounded-full" />
-                            <h5 className="text-[10px] font-bold uppercase tracking-widest">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-1.5 h-1.5 rounded-full shadow-lg" style={{ backgroundColor: ROLE_COLORS["Visitantes"], boxShadow: `0 0 10px ${ROLE_COLORS["Visitantes"]}` }} />
+                            <h5 className="text-[11px] font-black uppercase tracking-widest" style={{ color: ROLE_COLORS["Visitantes"] }}>
                               Visitantes
                             </h5>
-                            <span className="text-[9px] font-medium px-1.5 py-0.5 rounded-full bg-blue-400/10 border border-blue-400/10 text-blue-400">{sidebarVisitors.length}</span>
+                            <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-[#b9ffa9]/10 border border-[#b9ffa9]/10 text-[#b9ffa9]">
+                              {(rightSidebarSearch && rightSidebarSearch.trim() !== "") ? sidebarVisitors.length : (roleCounts["Visitantes"] || 0)}
+                            </span>
                           </div>
-                          {isCollapsed ? <ChevronRight className="w-3 h-3 transition-transform" /> : <ChevronDown className="w-3 h-3 transition-transform" />}
+                          {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-white/100" /> : <ChevronDown className="w-3.5 h-3.5 text-white/100" />}
                         </button>
                         
                         {!isCollapsed && (
@@ -8716,9 +9093,66 @@ const Admin = () => {
             </div>
           </div>
           
-          <div className={cn("p-6 border-t flex justify-end", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-gray-50")}>
+          <div className={cn("p-6 border-t flex justify-end", isDarkMode ? "border-white/5" : "border-black/5")}>
             <Button variant="ghost" onClick={() => setIsImportEventDialogOpen(false)} className="rounded-xl font-bold">Cancelar</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bug Report Dialog */}
+      <Dialog open={isReportingBug} onOpenChange={setIsReportingBug}>
+        <DialogContent className={cn(
+          "sm:max-w-md rounded-[32px] border p-0 overflow-hidden [&>button:last-child]:top-6 [&>button:last-child]:right-6", 
+          isDarkMode ? "bg-roxo-bg border-white/10 text-white" : "bg-white border-black/10 text-black"
+        )}>
+          <div className="p-8 pb-4">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-3 text-2xl font-black uppercase tracking-tight">
+                <Bug className="w-6 h-6 text-red-500" />
+                Reportar Bug
+              </DialogTitle>
+              <DialogDescription className="text-xs uppercase font-bold text-gray-500 tracking-widest">
+                Encontrou um erro no sistema? Descreva-o detalhadamente abaixo para que possamos corrigir.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="py-6 space-y-4">
+              <div className="space-y-2">
+                <Label className="text-[10px] uppercase font-bold text-gray-500 tracking-widest pl-1">Descrição do Problema</Label>
+                <Textarea 
+                  value={bugDescription}
+                  onChange={(e) => setBugDescription(e.target.value)}
+                  placeholder="Ex: Não consigo editar o perfil do membro, quando clico em salvar nada acontece..."
+                  className={cn("min-h-[150px] rounded-2xl border transition-all resize-none shadow-inner", isDarkMode ? "bg-white/5 border-white/5 text-white placeholder:text-gray-600 focus:border-[#BF76FF]/50" : "bg-gray-50 border-black/5 text-black placeholder:text-gray-400 focus:border-[#BF76FF]/50")}
+                />
+              </div>
+
+              <div className="p-4 rounded-xl bg-orange-500/10 border border-orange-500/20 flex gap-3 items-start">
+                <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-orange-600 dark:text-orange-400 font-medium leading-relaxed uppercase tracking-wider">
+                  Ao enviar este relatório, capturamos automaticamente seu nome e data para facilitar o rastreio do erro.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-3 sm:gap-2 p-8 pt-4 bg-transparent border-t border-white/5">
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsReportingBug(false)}
+              className="flex-1 rounded-2xl h-12 font-bold cursor-pointer"
+              disabled={isSavingBug}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleReportBug}
+              disabled={!bugDescription.trim() || isSavingBug}
+              className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 font-bold cursor-pointer shadow-lg shadow-red-500/20"
+            >
+              {isSavingBug ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar Relatório"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -8799,7 +9233,7 @@ const Admin = () => {
             </div>
           </div>
           
-          <div className={cn("p-6 border-t flex justify-between items-center", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-gray-50")}>
+          <div className={cn("p-6 border-t flex justify-between items-center", isDarkMode ? "border-white/5" : "border-black/5")}>
             <p className="text-xs text-gray-500 font-bold">
               {formData.invitedMembers?.length || 0} selecionados
             </p>

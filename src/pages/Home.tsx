@@ -26,10 +26,12 @@ import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { cn, getImageUrl } from "@/lib/utils";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
-import { collection, query, orderBy, limit, onSnapshot, doc, getDocs, setDoc, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, limit, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { MovieCard } from "@/components/movies/MovieCard";
+import { useCachedCollection, useCachedDoc } from "@/hooks/useFirestore";
+import { firestoreService } from "@/services/firestoreService";
 
 // Reusable Netflix Style Card Component removed and extracted to its own file.
 
@@ -45,6 +47,11 @@ export default function Home() {
   const [similarVideos, setSimilarVideos] = useState<any[]>([]);
   const [showSimilarModal, setShowSimilarModal] = useState(false);
   const [activeSimilarVideo, setActiveSimilarVideo] = useState<any | null>(null);
+  
+  // Use Cached Hooks
+  const { data: generalSettings, loading: loadingConfig } = useCachedDoc<any>("settings", "general", 1000 * 60 * 60); // 1 hour TTL for settings
+  const { data: blogData } = useCachedCollection<any>("blog", [limit(6)], 1000 * 60 * 30); // 30 min TTL for blog
+  const { data: videosData } = useCachedCollection<any>("videos", [orderBy("createdAt", "desc")], 1000 * 60 * 15); // 15 min TTL for videos
   
   // Welcome & LGPD Modals
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -91,21 +98,54 @@ export default function Home() {
   };
 
   useEffect(() => {
-    // Load config
-    const unsubscribeConfig = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setConfig(prev => ({ ...prev, ...data }));
-        if (data.nextService) {
-          setNextService(data.nextService);
-        }
+    if (generalSettings) {
+      setConfig(prev => ({ ...prev, ...generalSettings }));
+      if (generalSettings.nextService) {
+        setNextService(generalSettings.nextService);
       }
-    }, (err) => console.error("Error loading settings:", err));
+    }
+  }, [generalSettings]);
 
-    return () => {
-      unsubscribeConfig();
-    };
-  }, []);
+  useEffect(() => {
+    if (blogData) {
+      setBlogPosts(blogData);
+    }
+  }, [blogData]);
+
+  useEffect(() => {
+    if (videosData) {
+      setVideos(videosData.map(data => {
+        const getYoutubeId = (url: string) => {
+          if (!url) return null;
+          if (url.length === 11 && !url.includes('/') && !url.includes('?')) return url;
+          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/)([^#\&\?]*).*/;
+          const match = url.match(regExp);
+          return (match && match[2].length === 11) ? match[2] : null;
+        };
+        const parsedId = getYoutubeId(data.url);
+        const safeId = parsedId || data.id;
+        let published = data.publishedAt || data.published || (data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : "");
+        
+        // Normalize DD/MM/AA to DD/MM/AAAA
+        const dMatch = published.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+        if (dMatch) {
+          published = `${dMatch[1]}/${dMatch[2]}/20${dMatch[3]}`;
+        }
+
+        return {
+          id: safeId,
+          title: data.title,
+          badge: data.badge,
+          description: data.description || "",
+          thumbnail: data.thumbnail || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
+          published,
+          link: parsedId ? `https://www.youtube.com/watch?v=${parsedId}` : (data.url || `https://www.youtube.com/watch?v=${safeId}`),
+          tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
+          category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
+        };
+      }));
+    }
+  }, [videosData]);
 
   const handleToggleMyList = async (e: React.MouseEvent, video: any) => {
     e.stopPropagation();
@@ -197,115 +237,89 @@ export default function Home() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const cacheKey = "cachedEvents_v4";
-        const cacheTimeKey = "cachedEventsTime_v4";
-        const cached = localStorage.getItem(cacheKey);
-        const cacheTime = localStorage.getItem(cacheTimeKey);
-
-        let allEvents = [];
-
-        // 5 minutes in milliseconds = 300000
-        if (cached && cacheTime && (Date.now() - parseInt(cacheTime) < 300000)) {
-          console.log("Using cached events");
-          const parsed = JSON.parse(cached);
-          allEvents = parsed.map((e: any) => ({
-             ...e, 
-             fullDate: new Date(e.fullDate)
-          }));
-        } else {
-          console.log("Fetching all events from Firebase");
-          const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-          const snapshot = await getDocs(q);
+        console.log("[Home] Fetching all events from firestoreService...");
+        const snapshot = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(40)], 1000 * 60 * 30);
+        
+        const allEventsData = snapshot.map(data => {
+          let displayDate = data.date || "";
+          let displayTime = "";
           
-          allEvents = snapshot.docs.map(doc => {
-            const data = doc.data();
-            let displayDate = data.date || "";
-            let displayTime = "";
-            
-            // Handle the new format: DD/MM/YYYY - HH:mm - HH:mm
-            if (displayDate.includes(' - ')) {
-              const parts = displayDate.split(' - ');
-              displayDate = parts[0];
-              displayTime = parts[1]; // Start time
-            }
+          if (displayDate.includes(' - ')) {
+            const parts = displayDate.split(' - ');
+            displayDate = parts[0];
+            displayTime = parts[1];
+          }
 
-            // Try to parse the date for sorting/filtering
-            let eventDate = new Date(0); // Default for unparseable dates
-            let formattedDate = displayDate;
-            if (displayDate) {
-              const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
-              const dateParts = dateString.split(/[-/]/);
-              if (dateParts.length >= 2) {
-                let year, month, day;
-                if (dateParts[0].length === 4) { // YYYY-MM-DD
-                  year = parseInt(dateParts[0]);
-                  month = parseInt(dateParts[1]) - 1;
-                  day = parseInt(dateParts[2] || "1");
-                } else { // DD/MM/YYYY
-                  day = parseInt(dateParts[0]);
-                  month = parseInt(dateParts[1]) - 1;
-                  year = new Date().getFullYear();
-                  if (dateParts.length >= 3) {
-                    year = parseInt(dateParts[2]);
-                    if (year < 100) year += 2000;
-                  }
-                }
-                if (!isNaN(day) && !isNaN(month)) {
-                   eventDate = new Date(year, month, day);
-                   
-                   // Try extracting time if present
-                   if (data.date && data.date.includes('T')) {
-                     const timeStr = data.date.split('T')[1];
-                     if (timeStr) {
-                       const timeParts = timeStr.split(':');
-                       if (timeParts.length >= 2) {
-                         eventDate.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]));
-                       }
-                     }
-                   }
-
-                   const yy = year.toString().slice(-2);
-                   const dd = day.toString().padStart(2, '0');
-                   const mm = (month + 1).toString().padStart(2, '0');
-                   formattedDate = `${dd}-${mm}-${yy}`;
+          let eventDate = new Date(0);
+          let formattedDate = displayDate;
+          if (displayDate) {
+            const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
+            const dateParts = dateString.split(/[-/]/);
+            if (dateParts.length >= 2) {
+              let year, month, day;
+              if (dateParts[0].length === 4) {
+                year = parseInt(dateParts[0]);
+                month = parseInt(dateParts[1]) - 1;
+                day = parseInt(dateParts[2] || "1");
+              } else {
+                day = parseInt(dateParts[0]);
+                month = parseInt(dateParts[1]) - 1;
+                year = new Date().getFullYear();
+                if (dateParts.length >= 3) {
+                  year = parseInt(dateParts[2]);
+                  if (year < 100) year += 2000;
                 }
               }
+              if (!isNaN(day) && !isNaN(month)) {
+                 eventDate = new Date(year, month, day);
+                 
+                 if (data.date && data.date.includes('T')) {
+                   const timeStr = data.date.split('T')[1];
+                   if (timeStr) {
+                     const timeParts = timeStr.split(':');
+                     if (timeParts.length >= 2) {
+                       eventDate.setHours(parseInt(timeParts[0]), parseInt(timeParts[1]));
+                     }
+                   }
+                 }
+
+                 const yy = year.toString().slice(-2);
+                 const dd = day.toString().padStart(2, '0');
+                 const mm = (month + 1).toString().padStart(2, '0');
+                 formattedDate = `${dd}-${mm}-${yy}`;
+              }
             }
+          }
 
-            return {
-              id: doc.id,
-              title: data.title,
-              description: data.content,
-              date: formattedDate,
-              time: displayTime,
-              category: data.organization || "Evento",
-              image: data.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1200",
-              fullDate: eventDate,
-              invitedMembers: data.invitedMembers || [],
-              neighborhood: data.neighborhood || "",
-              rating: "5.0", // Fixed rating instead of random to look more professional
-              gallery: data.gallery || [],
-              typeEvent: data.typeEvent || "evento",
-              hideFromClicks: data.hideFromClicks || false,
-              menuSource: data.menuSource,
-              status: data.status
-            };
-          }).filter(e => 
-            e.title && 
-            e.title.trim() !== "" && 
-            e.menuSource !== "agenda" && 
-            e.status !== "pending"
-          );
+          return {
+            id: data.id,
+            title: data.title,
+            description: data.content,
+            date: formattedDate,
+            time: displayTime,
+            category: data.organization || "Evento",
+            image: data.image || "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1200",
+            fullDate: eventDate,
+            invitedMembers: data.invitedMembers || [],
+            neighborhood: data.neighborhood || "",
+            rating: "5.0",
+            gallery: data.gallery || [],
+            typeEvent: data.typeEvent || "evento",
+            hideFromClicks: data.hideFromClicks || false,
+            menuSource: data.menuSource,
+            status: data.status
+          };
+        }).filter(e => 
+          e.title && 
+          e.title.trim() !== "" && 
+          e.menuSource !== "agenda" && 
+          e.status !== "pending"
+        );
 
-          localStorage.setItem(cacheKey, JSON.stringify(allEvents));
-          localStorage.setItem(cacheTimeKey, Date.now().toString());
-        }
-
-        const now = new Date();
         const nowMidnight = new Date();
         nowMidnight.setHours(0, 0, 0, 0);
 
-        const upcoming = allEvents
+        const upcoming = allEventsData
           .filter((e: any) => {
             if (e.typeEvent === 'culto') return false;
             const eDate = new Date(e.fullDate);
@@ -314,7 +328,7 @@ export default function Home() {
           })
           .sort((a: any, b: any) => a.fullDate.getTime() - b.fullDate.getTime());
         
-        const past = allEvents
+        const past = allEventsData
           .filter((e: any) => {
             const eDate = new Date(e.fullDate);
             eDate.setHours(0,0,0,0);
@@ -322,70 +336,44 @@ export default function Home() {
           })
           .sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
-        setAllEvents(allEvents);
+        setAllEvents(allEventsData);
         setUpcomingEvents(upcoming);
         setPastEvents(past);
       } catch (err) {
-        console.error("Error loading events:", err);
+        handleFirestoreError(err, OperationType.LIST, "posts");
       }
     };
 
     fetchEvents();
-
-    const unsubscribeBlog = onSnapshot(query(collection(db, "blog"), limit(6)), (snap) => {
-      setBlogPosts(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => console.error("Error loading blog posts:", err));
-
-    const unsubscribeVideos = onSnapshot(query(collection(db, "videos"), orderBy("createdAt", "desc")), (snap) => {
-      setVideos(snap.docs.map(doc => {
-        const data = doc.data();
-        const getYoutubeId = (url: string) => {
-          if (!url) return null;
-          if (url.length === 11 && !url.includes('/') && !url.includes('?')) return url;
-          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/)([^#\&\?]*).*/;
-          const match = url.match(regExp);
-          return (match && match[2].length === 11) ? match[2] : null;
-        };
-        const parsedId = getYoutubeId(data.url);
-        const safeId = parsedId || doc.id;
-        let published = data.publishedAt || data.published || (data.createdAt?.toDate ? data.createdAt.toDate().toLocaleDateString('pt-BR') : "");
-        
-        // Normalize DD/MM/AA to DD/MM/AAAA
-        const dMatch = published.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
-        if (dMatch) {
-          published = `${dMatch[1]}/${dMatch[2]}/20${dMatch[3]}`;
-        }
-
-        return {
-          id: safeId,
-          title: data.title,
-          badge: data.badge,
-          description: data.description || "",
-          thumbnail: data.thumbnail || (parsedId ? `https://img.youtube.com/vi/${parsedId}/maxresdefault.jpg` : "/thumb-padrao.jpg"),
-          published,
-          link: parsedId ? `https://www.youtube.com/watch?v=${parsedId}` : (data.url || `https://www.youtube.com/watch?v=${safeId}`),
-          tags: data.tags || (data.title?.toLowerCase().includes("pregação") ? ["pregação"] : []),
-          category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
-        };
-      }));
-    }, (err) => console.error("Error loading videos:", err));
-
-    return () => {
-      unsubscribeBlog();
-      unsubscribeVideos();
-    };
   }, []);
 
   useEffect(() => {
-    let unsubscribeList = () => {};
-    if (user) {
-      unsubscribeList = onSnapshot(collection(db, "users", user.uid, "myList"), (snapshot) => {
-        setMyList(snapshot.docs.map(d => d.id));
-      }, (err) => handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/myList`));
-    } else {
-      setMyList([]);
-    }
-    return () => unsubscribeList();
+    let isMounted = true;
+    const fetchMyList = async () => {
+      if (!user) {
+        setMyList([]);
+        return;
+      }
+      try {
+        const cacheKey = `mylist_${user.uid}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          setMyList(JSON.parse(cached));
+        }
+
+        const snapshot = await firestoreService.getCollection<any>(`users/${user.uid}/myList`, [], 1000 * 60 * 5);
+        if (isMounted) {
+          const ids = snapshot.map(d => d.id);
+          setMyList(ids);
+          sessionStorage.setItem(cacheKey, JSON.stringify(ids));
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/myList`);
+      }
+    };
+    
+    fetchMyList();
+    return () => { isMounted = false; };
   }, [user]);
 
   // Removed automated YouTube fetch logic
@@ -491,10 +479,11 @@ export default function Home() {
                 {showVideo && !isWatching ? (
                   <div className="absolute inset-0 w-full h-full pointer-events-none">
                     <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3&disablekb=1&origin=${window.location.origin}`}
-                      className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 border-none scale-105"
+                      src={`https://www.youtube-nocookie.com/embed/${videos[currentIndex].id}?autoplay=1&mute=1&controls=0&loop=1&playlist=${videos[currentIndex].id}&start=600&modestbranding=1&rel=0&playsinline=1&iv_load_policy=3&disablekb=1&showinfo=0&autohide=1&fs=0&enablejsapi=1&origin=${window.location.origin}`}
+                      className="absolute top-1/2 left-1/2 w-[100vw] h-[56.25vw] min-h-[100vh] min-w-[177.77vh] -translate-x-1/2 -translate-y-1/2 border-none scale-110"
                       allow="autoplay; encrypted-media"
                     />
+                    <div className="absolute inset-0 z-10 w-full h-full bg-black/10" />
                   </div>
                 ) : (
                     <img

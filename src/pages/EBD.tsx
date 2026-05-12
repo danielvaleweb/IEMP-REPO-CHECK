@@ -4,11 +4,13 @@ import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactPlayer from 'react-player';
-import { BookOpen, PlayCircle, Plus, Trash2, Edit, MessageCircle, FileText, Send, CheckCircle2, Circle, GraduationCap, ArrowLeft, ChevronRight, Lock } from 'lucide-react';
+import { BookOpen, PlayCircle, Plus, Trash2, Edit, MessageCircle, FileText, Send, CheckCircle2, Circle, GraduationCap, ArrowLeft, ChevronRight, Lock, User } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useCachedCollection, useCachedDoc } from '@/hooks/useFirestore';
+import { firestoreService } from '@/services/firestoreService';
 
 const Player = ReactPlayer as any;
 import { format } from 'date-fns';
@@ -31,30 +33,39 @@ export default function EBD() {
   const [activeTest, setActiveTest] = useState<any>(null);
   const [userAnswers, setUserAnswers] = useState<any[]>([]);
 
+  const { data: modulesData } = useCachedCollection<any>("ebd-modules", [orderBy("createdAt", "asc")], 1000 * 60 * 60);
+  const { data: lessonsData } = useCachedCollection<any>("ebd-lessons", [orderBy("createdAt", "asc")], 1000 * 60 * 30);
+  const { data: questionsData } = useCachedCollection<any>("ebd-questions", [orderBy("createdAt", "desc")], 1000 * 60 * 5); // Questions more frequent
+  const { data: testData } = useCachedDoc<any>("ebd-tests", activeLessonId || undefined, 1000 * 60 * 60);
+
   useEffect(() => {
-    const unsubModules = onSnapshot(query(collection(db, "ebd-modules"), orderBy("createdAt", "asc")), (snap) => {
-      const mods = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setModules(mods);
-      if (mods.length > 0 && !activeModuleId) {
-        setActiveModuleId(mods[0].id);
+    if (modulesData) {
+      setModules(modulesData);
+      if (modulesData.length > 0 && !activeModuleId) {
+        setActiveModuleId(modulesData[0].id);
       }
-    }, (err) => console.error(err));
+    }
+  }, [modulesData]);
 
-    const unsubLessons = onSnapshot(query(collection(db, "ebd-lessons"), orderBy("createdAt", "asc")), (snap) => {
-      const less = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLessons(less);
-    }, (err) => console.error(err));
+  useEffect(() => {
+    if (lessonsData) {
+      setLessons(lessonsData);
+    }
+  }, [lessonsData]);
 
-    const unsubQuestions = onSnapshot(query(collection(db, "ebd-questions"), orderBy("createdAt", "desc")), (snap) => {
-      setQuestions(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => console.error(err));
+  useEffect(() => {
+    if (questionsData) {
+      setQuestions(questionsData);
+    }
+  }, [questionsData]);
 
-    return () => {
-      unsubModules();
-      unsubLessons();
-      unsubQuestions();
-    };
-  }, []);
+  useEffect(() => {
+    if (testData) {
+      setActiveTest(testData);
+    } else {
+      setActiveTest(null);
+    }
+  }, [testData]);
 
   useEffect(() => {
     if (!activeLessonId) {
@@ -64,22 +75,16 @@ export default function EBD() {
       return;
     }
 
-    const unsubTest = onSnapshot(doc(db, "ebd-tests", activeLessonId), (docSnap) => {
-      if (docSnap.exists()) {
-        setActiveTest({ id: docSnap.id, ...docSnap.data() });
-      } else {
-        setActiveTest(null);
+    const fetchAnswers = async () => {
+      try {
+        const answers = await firestoreService.getCollection<any>(`ebd-test-answers`, [], 1000 * 60 * 5);
+        setUserAnswers(answers);
+      } catch (err) {
+        console.error(err);
       }
-    }, (err) => console.error(err));
-
-    const unsubAnswers = onSnapshot(collection(db, `ebd-test-answers`), (snap) => {
-      setUserAnswers(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => console.error(err));
-
-    return () => {
-      unsubTest();
-      unsubAnswers();
     };
+    
+    fetchAnswers();
   }, [activeLessonId, activeModuleId, lessons]);
 
 
@@ -89,7 +94,7 @@ export default function EBD() {
       await addDoc(collection(db, "ebd-questions"), {
         lessonId: activeLessonId,
         userId: user?.uid,
-        userName: profile?.name || user?.displayName || "Usuário",
+        userName: profile?.name || user?.displayName || "Visitante",
         userPhoto: profile?.photo || user?.photoURL || null,
         question: questionText,
         answer: null,
@@ -119,7 +124,7 @@ export default function EBD() {
         testId: activeTest.id,
         lessonId: activeLessonId,
         userId: user.uid,
-        userName: profile?.name || user.displayName || "Usuário",
+        userName: profile?.name || user.displayName || "Visitante",
         answerIndex: index,
         isCorrect: index === activeTest.correctAnswerIndex,
         createdAt: serverTimestamp()
@@ -350,7 +355,7 @@ export default function EBD() {
                    {profile?.photo || user?.photoURL ? (
                      <img src={getImageUrl(profile?.photo || user?.photoURL)} className="w-10 h-10 rounded-full object-cover shrink-0" alt="" />
                    ) : (
-                     <div className="w-10 h-10 rounded-full bg-white/10 shrink-0 flex items-center justify-center text-xs">{(profile?.name || user?.displayName || "U")[0]}</div>
+                     <div className="w-10 h-10 rounded-full bg-white/10 shrink-0 flex items-center justify-center text-xs border border-white/5"><User className="w-5 h-5 text-zinc-500" /></div>
                    )}
                    <div className="flex-1 flex flex-col gap-2">
                      <Textarea 
@@ -376,11 +381,11 @@ export default function EBD() {
                          {q.userPhoto ? (
                            <img src={getImageUrl(q.userPhoto)} className="w-8 h-8 rounded-full object-cover shrink-0" alt="" />
                          ) : (
-                           <div className="w-8 h-8 rounded-full bg-white/10 shrink-0 flex items-center justify-center text-xs">{q.userName[0]}</div>
+                           <div className="w-8 h-8 rounded-full bg-white/10 shrink-0 flex items-center justify-center text-xs border border-white/5"><User className="w-4 h-4 text-zinc-500" /></div>
                          )}
                          <div className="flex flex-col">
                            <div className="flex items-center gap-2">
-                             <span className="text-xs font-bold leading-none">{q.userName}</span>
+                             <span className="text-xs font-bold leading-none">{q.userName === "Anônimo" || q.userName === "Usuário" ? "Visitante" : q.userName}</span>
                              <span className="text-[10px] opacity-40">{q.createdAt?.toDate ? format(q.createdAt.toDate(), "dd/MM 'às' HH:mm") : ''}</span>
                            </div>
                            <p className="text-sm mt-1 leading-relaxed opacity-80">{q.question}</p>

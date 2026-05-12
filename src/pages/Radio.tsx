@@ -4,7 +4,7 @@ import { db, auth, handleFirestoreError, OperationType } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactPlayer from 'react-player';
-import { Play, Pause, SkipForward, SkipBack, Volume2, ListMusic, Plus, Music2, Search, X, Trash2, Edit, Radio as RadioIcon, Youtube, Heart, Speaker } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, ListMusic, Plus, Music2, Search, X, Trash2, Edit, Radio as RadioIcon, Youtube, Heart, Speaker, User } from 'lucide-react';
 import { cn, getImageUrl } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,24 @@ import { useRadio } from '@/contexts/RadioContext';
 
 export default function RadioPage() {
   const { user, profile, isAdmin } = useAuth();
-  const { tracks, radioArtists, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted, hasAccess } = useRadio();
+  const { 
+    tracks, radioArtists, playlists, settings, isLiveMode, currentTrack, 
+    isPlaying, playTrack: handlePlay, playLive, volume, isMuted, hasAccess,
+    initRadio, isInitializing, isInitialized
+  } = useRadio();
+
+  useEffect(() => {
+    initRadio();
+  }, []);
+
+  if (isInitializing && !isInitialized) {
+    return (
+      <div className="min-h-screen bg-[#0a0502] text-white flex flex-col items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#BF76FF] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="opacity-60 text-sm animate-pulse">Sintonizando Rádio Profecia...</p>
+      </div>
+    );
+  }
 
   if (!isAdmin) {
     return (
@@ -96,7 +113,7 @@ export default function RadioPage() {
       await addDoc(collection(db, "playlists"), {
         title: newPlaylistTitle.trim(),
         authorId: user.uid,
-        authorName: profile?.name || user.displayName || "Usuário",
+        authorName: profile?.name || user.displayName || "Visitante",
         authorPhoto: profile?.photo || user.photoURL || null,
         tracks: [],
         createdAt: serverTimestamp()
@@ -583,8 +600,8 @@ function PlaylistCard({ playlist, onClick, isOwner, onDelete }: { playlist: any,
   );
 }
 
-function UserIcon() {
-  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-2.5 h-2.5"><path strokeLinecap="round" strokeLinejoin="round" d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>;
+function UserIcon({ className }: { className?: string }) {
+  return <User className={cn("w-4 h-4", className)} />;
 }
 
 function PlaylistView({ playlist, onBack, onPlayTrack, onPlayAll, isOwner, onRemoveTrack, currentTrack, isPlaying }: any) {
@@ -612,7 +629,7 @@ function PlaylistView({ playlist, onBack, onPlayTrack, onPlayAll, isOwner, onRem
              {playlist.authorPhoto ? (
                <img src={getImageUrl(playlist.authorPhoto)} alt="" className="w-6 h-6 rounded-full object-cover bg-white/10" />
              ) : (
-               <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><UserIcon /></div>
+               <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center"><UserIcon className="w-4 h-4" /></div>
              )}
              <p className="text-sm font-bold">{playlist.authorName}</p>
              <span className="opacity-40 text-xs">• {playlist.tracks?.length || 0} músicas</span>

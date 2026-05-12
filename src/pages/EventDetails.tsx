@@ -1,16 +1,18 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { doc, getDoc, collection, getDocs, setDoc, deleteDoc, addDoc, query, orderBy, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, setDoc, deleteDoc, addDoc, query, orderBy, serverTimestamp, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset, Star } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset, Star, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getImageUrl } from "@/lib/utils";
 import { handleFirestoreError, OperationType } from "@/lib/firebase";
 import confetti from "canvas-confetti";
 import Navbar from "@/components/layout/Navbar";
 import CreatePhotoModal from "@/components/CreatePhotoModal";
+import { firestoreService } from "@/services/firestoreService";
+import { useCachedDoc, useCachedCollection } from "@/hooks/useFirestore";
 
 const playSuccessSound = () => {
   try {
@@ -41,8 +43,11 @@ export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
-  const [event, setEvent] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  
+  // Use Cached Hooks
+  const { data: event, loading: loadingEvent } = useCachedDoc<any>("posts", id || "");
+  const { data: allFeedbacks } = useCachedCollection<any>("event_feedbacks", [orderBy("createdAt", "desc")], 1000 * 60 * 15);
+  
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
@@ -56,109 +61,84 @@ export default function EventDetails() {
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
 
+  // Derived state for current event feedbacks
+  useEffect(() => {
+    if (allFeedbacks && id) {
+      const filtered = allFeedbacks.filter((f: any) => f.eventId === id);
+      setFeedbacks(filtered);
+      
+      let localHasGiven = localStorage.getItem(`feedback_${id}`) === 'true';
+      if (user && filtered.find((f: any) => f.userId === user.uid)) {
+        localHasGiven = true;
+      }
+      setHasGivenFeedback(localHasGiven);
+    }
+  }, [allFeedbacks, id, user]);
+
+  useEffect(() => {
+    if (event) {
+      if (event.typeEvent === 'culto') {
+        navigate('/galeria', { state: { selectedAlbumId: event.id }, replace: true });
+        return;
+      }
+
+      let eventDate = new Date(0);
+      let displayDate = event.date || "";
+      if (displayDate.includes(' - ')) displayDate = displayDate.split(' - ')[0];
+      if (displayDate) {
+        const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
+        const dateParts = dateString.split(/[-/]/);
+        if (dateParts.length >= 2) {
+          let year, month, day;
+          if (dateParts[0].length === 4) {
+            year = parseInt(dateParts[0]);
+            month = parseInt(dateParts[1]) - 1;
+            day = parseInt(dateParts[2] || "1");
+          } else {
+            day = parseInt(dateParts[0]);
+            month = parseInt(dateParts[1]) - 1;
+            year = new Date().getFullYear();
+            if (dateParts.length >= 3) {
+              year = parseInt(dateParts[2]);
+              if (year < 100) year += 2000;
+            }
+          }
+          if (!isNaN(day) && !isNaN(month)) {
+            eventDate = new Date(year, month, day);
+          }
+        }
+      }
+      const now = new Date();
+      now.setHours(0,0,0,0);
+      setIsPastEvent(eventDate < now);
+    }
+  }, [event, navigate]);
+
+  useEffect(() => {
+    const fetchAttendeeStatus = async () => {
+      if (user && id) {
+        try {
+          const attendeeSnap = await firestoreService.getDoc<any>(`posts/${id}/attendees`, user.uid, 1000 * 60 * 10);
+          setIsConfirmed(!!attendeeSnap);
+        } catch (e) {
+          console.error("Error fetching attendee status", e);
+        }
+      }
+    };
+    fetchAttendeeStatus();
+  }, [user, id]);
+
   useEffect(() => {
     const hash = window.location.hash;
     if (hash) {
       setTimeout(() => {
         const el = document.getElementById(hash.substring(1));
         if (el) el.scrollIntoView({ behavior: 'smooth' });
-      }, 500); // Give it time to load and render photo gallery
+      }, 500);
     } else {
       window.scrollTo(0, 0);
     }
-
-    const fetchEvent = async () => {
-      try {
-        if (!id) return;
-        const docRef = doc(db, "posts", id);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data.typeEvent === 'culto') {
-            navigate('/galeria', { state: { selectedAlbumId: docSnap.id }, replace: true });
-            return;
-          }
-          setEvent({ id: docSnap.id, ...data });
-
-          let eventDate = new Date(0);
-          let displayDate = data.date || "";
-          if (displayDate.includes(' - ')) displayDate = displayDate.split(' - ')[0];
-          if (displayDate) {
-            const dateString = displayDate.replace(/T.*$/, '').replace(/\s+/g, '');
-            const dateParts = dateString.split(/[-/]/);
-            if (dateParts.length >= 2) {
-              let year, month, day;
-              if (dateParts[0].length === 4) {
-                year = parseInt(dateParts[0]);
-                month = parseInt(dateParts[1]) - 1;
-                day = parseInt(dateParts[2] || "1");
-              } else {
-                day = parseInt(dateParts[0]);
-                month = parseInt(dateParts[1]) - 1;
-                year = new Date().getFullYear();
-                if (dateParts.length >= 3) {
-                  year = parseInt(dateParts[2]);
-                  if (year < 100) year += 2000;
-                }
-              }
-              if (!isNaN(day) && !isNaN(month)) {
-                eventDate = new Date(year, month, day);
-              }
-            }
-          }
-          const now = new Date();
-          now.setHours(0,0,0,0);
-          setIsPastEvent(eventDate < now);
-        }
-        
-        if (user) {
-          const attendeeRef = doc(db, "posts", id, "attendees", user.uid);
-          const attendeeSnap = await getDoc(attendeeRef);
-          setIsConfirmed(attendeeSnap.exists());
-        }
-
-        // Fetch feedbacks
-        try {
-          const q = query(collection(db, "event_feedbacks"), orderBy("createdAt", "desc"));
-          const snap = await getDocs(q);
-          let eventFeedbacks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter((f: any) => f.eventId === id);
-          
-          try {
-            const membersSnap = await getDocs(collection(db, "members"));
-            const membersMap: Record<string, string> = {};
-            membersSnap.docs.forEach(d => {
-              const data = d.data();
-              if (data.photoURL) membersMap[d.id] = data.photoURL;
-            });
-            eventFeedbacks = eventFeedbacks.map((f: any) => ({
-              ...f,
-              userPhoto: membersMap[f.userId] || f.userPhoto
-            }));
-          } catch(e) {
-            console.error("Error fetching members for feedbacks", e);
-          }
-
-          setFeedbacks(eventFeedbacks);
-          
-          let localHasGiven = localStorage.getItem(`feedback_${id}`) === 'true';
-          if (user) {
-            if (eventFeedbacks.find((f: any) => f.userId === user.uid)) {
-              localHasGiven = true;
-            }
-          }
-          setHasGivenFeedback(localHasGiven);
-        } catch(e) {
-          console.error("Error fetching feedbacks", e);
-        }
-
-      } catch (error) {
-        console.error("Error fetching event:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEvent();
-  }, [id, user]);
+  }, []);
 
   const toggleConfirmation = async () => {
     if (isPastEvent) {
@@ -181,7 +161,7 @@ export default function EventDetails() {
         setIsConfirmed(false);
       } else {
         await setDoc(attendeeRef, { 
-          name: profile?.name || user.displayName || "Usuário", 
+          name: profile?.name || user.displayName || "Visitante", 
           photo: profile?.photoURL || user.photoURL || "",
           confirmedAt: new Date().toISOString()
         });
@@ -233,8 +213,8 @@ export default function EventDetails() {
         rating: feedbackRating,
         comment: feedbackComment,
         userId: user?.uid || "anonymous",
-        userName: profile?.name || user?.displayName || "Anônimo",
-        userPhoto: profile?.photoURL || user?.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.uid || 'Anon'}`,
+        userName: profile?.name || user?.displayName || "Visitante",
+        userPhoto: profile?.photoURL || user?.photoURL || "",
         createdAt: serverTimestamp(),
         date: new Date().toISOString()
       };
@@ -246,7 +226,7 @@ export default function EventDetails() {
         await addDoc(collection(db, "notifications"), {
           userId: "admin",
           title: "Nova Avaliação de Evento",
-          message: `${profile?.name || user?.displayName || "Um usuário"} avaliou o evento "${event?.title || 'um evento'}" com ${feedbackRating} estrelas.\n\n${feedbackComment ? `""${feedbackComment}""` : ""}`,
+          message: `${profile?.name || user?.displayName || "Visitante"} avaliou o evento "${event?.title || 'um evento'}" com ${feedbackRating} estrelas.\n\n${feedbackComment ? `""${feedbackComment}""` : ""}`,
           type: "event_feedback",
           eventId: id,
           read: false,
@@ -355,7 +335,7 @@ export default function EventDetails() {
     }
   };
 
-  if (loading) {
+  if (loadingEvent) {
     return (
       <div className="min-h-screen bg-[#190022] flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-[#BF76FF] border-t-transparent rounded-full font-bold animate-spin" />
@@ -653,20 +633,31 @@ export default function EventDetails() {
              <div className="w-full bg-white/5 backdrop-blur-sm rounded-[2rem] p-6 max-h-[800px] overflow-y-auto border border-white/10">
                 <h4 className="text-xl font-bold text-white uppercase tracking-widest text-center mb-6">O que a galera achou</h4>
                 <div className="space-y-4">
-                  {feedbacks.map((f, idx) => (
-                    <div key={idx} className="bg-black/40 rounded-2xl p-4 flex gap-4 items-start border border-white/5">
-                      <img src={getImageUrl(f.userPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${f.userId || 'Anon'}`)} alt={f.userName} className="w-12 h-12 rounded-full object-cover shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white font-bold text-sm truncate">{f.userName}</p>
-                        <div className="flex text-yellow-400 mb-2 mt-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star key={i} className={cn("w-3 h-3", i < f.rating ? "fill-current" : "text-gray-600")} />
-                          ))}
+                  {feedbacks.map((f, idx) => {
+                    const displayName = f.userName === "Anônimo" ? "Visitante" : f.userName;
+                    const hasPhoto = f.userPhoto && !f.userPhoto.includes('dicebear');
+                    
+                    return (
+                      <div key={idx} className="bg-black/40 rounded-2xl p-4 flex gap-4 items-start border border-white/5">
+                        {hasPhoto ? (
+                          <img src={getImageUrl(f.userPhoto)} alt={displayName} className="w-12 h-12 rounded-full object-cover shrink-0" />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10 shrink-0">
+                            <User className="w-6 h-6 text-zinc-500" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-bold text-sm truncate">{displayName}</p>
+                          <div className="flex text-yellow-400 mb-2 mt-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star key={i} className={cn("w-3 h-3", i < f.rating ? "fill-current" : "text-gray-600")} />
+                            ))}
+                          </div>
+                          {f.comment && <p className="text-gray-300 text-sm whitespace-pre-wrap">{f.comment}</p>}
                         </div>
-                        {f.comment && <p className="text-gray-300 text-sm whitespace-pre-wrap">{f.comment}</p>}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
              </div>
           </div>

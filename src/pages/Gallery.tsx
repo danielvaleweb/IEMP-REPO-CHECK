@@ -66,6 +66,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 import { cn, getImageUrl } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
+import { useCachedCollection } from "@/hooks/useFirestore";
 
 interface Album {
   id: string;
@@ -138,6 +139,33 @@ export default function Gallery() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"todos" | "favoritos">("todos");
+
+  const { data: postsData } = useCachedCollection<any>("posts", [orderBy("createdAt", "desc")], 1000 * 60 * 30);
+  const { data: removalsData } = useCachedCollection<any>("photo_removals", [], 1000 * 60 * 10);
+
+  useEffect(() => {
+    if (postsData) {
+      const fetchedAlbums = postsData
+        .map(data => ({
+          id: data.id,
+          title: data.title || "",
+          date: data.date || "",
+          cover: data.image || "",
+          photos: data.gallery || [],
+          typeEvent: data.typeEvent || ""
+        }))
+        .filter((album: any) => album.photos.length > 0);
+      
+      setAlbums(fetchedAlbums);
+      setLoading(false);
+    }
+  }, [postsData]);
+
+  useEffect(() => {
+    if (removalsData) {
+      setRemovalRequests(removalsData as RemovalRequest[]);
+    }
+  }, [removalsData]);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -212,43 +240,6 @@ export default function Gallery() {
     text: "Ministério Profecia",
     opacity: 0.15
   });
-
-  useEffect(() => {
-    const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetchedAlbums = snapshot.docs
-        .map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            title: data.title || "",
-            date: data.date || "",
-            cover: data.image || "",
-            photos: data.gallery || [],
-            typeEvent: data.typeEvent || ""
-          };
-        })
-        .filter(album => album.photos.length > 0);
-      
-      setAlbums(fetchedAlbums);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, "posts");
-    });
-
-    const qRemovals = query(collection(db, "photo_removals"));
-    const unsubRemovals = onSnapshot(qRemovals, (snapshot) => {
-      const data = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as RemovalRequest[];
-      setRemovalRequests(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.GET, "photo_removals");
-    });
-
-    return () => {
-      unsubscribe();
-      unsubRemovals();
-    };
-  }, [stateAlbumId]);
 
   const handleToggleFavorite = (album: Album, photoUrl: string) => {
     toggleFavoriteCtx({

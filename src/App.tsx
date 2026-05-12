@@ -8,7 +8,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { RadioProvider } from "@/contexts/RadioContext";
-import { ErrorBoundary } from "@/components/error-boundary";
+import { ErrorBoundary } from "@/components/ErrorBoundary.tsx";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import GlobalPlayer from "@/components/GlobalPlayer";
@@ -29,6 +29,7 @@ import Maintenance from "@/pages/Maintenance";
 import { cn } from "@/lib/utils";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { firestoreService } from "@/services/firestoreService";
 
 import EventDetails from "@/pages/EventDetails";
 import NoticiaDetalhe from "@/pages/NoticiaDetalhe";
@@ -52,23 +53,23 @@ function AppContent() {
   }, [location.pathname]);
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+    const checkMaintenance = async () => {
+      try {
+        const data = await firestoreService.getDoc<any>("settings", "general", 1000 * 60 * 15); // 15 min TTL
         if (data && data.maintenanceMode) {
           setMaintenanceMode(true);
         } else {
           setMaintenanceMode(false);
         }
+      } catch (err: any) {
+        console.error("Error checking maintenance settings", err);
+        if (err.message && err.message.toLowerCase().includes("quota")) {
+          setMaintenanceMode(true);
+        }
       }
-    }, (err) => {
-      console.error("Error checking maintenance settings", err);
-      if (err.message && err.message.toLowerCase().includes("quota")) {
-        setMaintenanceMode(true);
-      }
-    });
+    };
 
-    return () => unsub();
+    checkMaintenance();
   }, []);
 
   if (maintenanceMode && !isAdminPage) {

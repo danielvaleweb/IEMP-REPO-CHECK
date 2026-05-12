@@ -1,31 +1,23 @@
 import { useState, useEffect } from "react";
-import { collection, onSnapshot, query, where, getDocs, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { Briefcase, MapPin, Phone, Building2, Search, Zap, ExternalLink } from "lucide-react";
+import { Briefcase, MapPin, Phone, Building2, Search, Zap, ExternalLink, User } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { cn, getImageUrl } from "@/lib/utils";
+import { useCachedCollection } from "@/hooks/useFirestore";
 
 export default function Servicos() {
   const [services, setServices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    // Escuta todos os membros aprovados (status !== 'pending' ou pending se não tiver campo status) que tem profession
-    import("firebase/firestore").then(({ collection, query, onSnapshot }) => {
-      const q = query(collection(db, "members"));
-      
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const mems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                     .filter((m: any) => m.profession && m.profession.trim() !== "");
-                     
-        setServices(mems);
-        setLoading(false);
-      });
+  const { data: members, loading: membersLoading } = useCachedCollection<any>("members", [], 1000 * 60 * 60);
 
-      return () => unsubscribe();
-    });
-  }, []);
+  useEffect(() => {
+    if (members) {
+      const mems = members.filter((m: any) => m.profession && m.profession.trim() !== "");
+      setServices(mems);
+      setLoading(false);
+    }
+  }, [members]);
 
   const filteredServices = services.filter(service => 
     service.profession?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -100,16 +92,16 @@ export default function Servicos() {
                     
                     {/* Header do Cartão */}
                     <div className="p-8 pb-6 flex items-start gap-4">
-                      {service.companyLogo && (
+                      {service.companyLogo && service.companyLogo.trim() !== "" && (
                         <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 overflow-hidden shadow-lg">
                           <img src={getImageUrl(service.companyLogo)} alt={service.companyName || service.profession} className="w-full h-full object-cover" />
                         </div>
                       )}
 
-                      <div className={cn("flex-1", service.companyLogo ? "text-right" : "text-left")}>
+                      <div className={cn("flex-1", (service.companyLogo && service.companyLogo.trim() !== "") ? "text-right" : "text-left")}>
                         <h3 className="text-xl font-black text-white leading-tight mb-1">{service.profession}</h3>
                         {service.companyName && (
-                          <div className={cn("flex items-center gap-1.5 text-[#BF76FF] font-bold text-sm", service.companyLogo ? "justify-end" : "justify-start")}>
+                          <div className={cn("flex items-center gap-1.5 text-[#BF76FF] font-bold text-sm", (service.companyLogo && service.companyLogo.trim() !== "") ? "justify-end" : "justify-start")}>
                             <Building2 className="w-3.5 h-3.5" />
                             <span>{service.companyName}</span>
                           </div>
@@ -127,12 +119,16 @@ export default function Servicos() {
 
                       <div className="space-y-4 pt-6 border-t border-white/5">
                         <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-white/5 border border-white/10">
-                            <img 
-                              src={getImageUrl(service.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${service.id}`)} 
-                              alt={service.name} 
-                              className="w-full h-full object-cover" 
-                            />
+                          <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-white/5 border border-white/10 flex items-center justify-center">
+                            {service.photo || service.photoURL ? (
+                              <img 
+                                src={getImageUrl(service.photo || service.photoURL)} 
+                                alt={service.name} 
+                                className="w-full h-full object-cover" 
+                              />
+                            ) : (
+                              <User className="w-5 h-5 text-gray-500" />
+                            )}
                           </div>
                           <div className="flex-1 overflow-hidden">
                             <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mb-0.5">Profissional</p>

@@ -15,6 +15,7 @@ import {
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import { firestoreService } from "@/services/firestoreService";
 
 interface AuthContextType {
   user: any | null;
@@ -74,48 +75,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (user) {
         try {
-          console.log("DEBUG: Buscando perfil no Firestore para:", user.uid);
-          // Get or create profile in members collection
-          const userRef = doc(db, "members", user.uid);
-          const userSnap = await getDoc(userRef);
+          // Check session cache first
+          const cacheKey = `profile_cache_${user.uid}`;
+          const cachedProfile = sessionStorage.getItem(cacheKey);
+          if (cachedProfile) {
+            console.log("DEBUG: Perfil carregado do cache de sessão");
+            setProfile(JSON.parse(cachedProfile));
+            setLoading(false);
+            return;
+          }
+
+          console.log("DEBUG: Buscando perfil para:", user.uid);
           
-          if (userSnap.exists()) {
-            const data = userSnap.data();
-            console.log("DEBUG: Perfil encontrado no Firestore:", data);
-            
-            // Handle linked profile for visitors
-            if (data.linkedMemberId) {
-              const linkedRef = doc(db, "members", data.linkedMemberId);
-              const linkedSnap = await getDoc(linkedRef);
-              if (linkedSnap.exists()) {
-                setProfile({ id: linkedSnap.id, ...linkedSnap.data(), uid: user.uid });
-              } else {
-                setProfile({ id: userSnap.id, ...data });
-              }
-            } else {
-              setProfile({ id: userSnap.id, ...data });
+          // Use firestoreService to get profile with caching and deduplication
+          const profileDataFetched = await firestoreService.getDoc<any>("members", user.uid, 1000 * 60 * 60); // 1 hour TTL
+          
+          let profileData = profileDataFetched;
+
+          if (profileData?.linkedMemberId) {
+            const linkedProfile = await firestoreService.getDoc<any>("members", profileData.linkedMemberId, 1000 * 60 * 60);
+            if (linkedProfile) {
+              profileData = { ...linkedProfile, uid: user.uid };
             }
-          } else {
-            console.log("DEBUG: Perfil não encontrado no Firestore.");
-            if (user.email === "iempministerioprofecia@gmail.com") {
-              const newProfile = {
+          }
+
+          if (!profileData && user.email === "iempministerioprofecia@gmail.com") {
+             console.log("DEBUG: Perfil não encontrado, criando admin.");
+             const newProfile = {
                 name: user.displayName || "Admin",
                 email: user.email,
                 role: "Administradores",
                 status: "active",
                 createdAt: new Date().toISOString()
               };
-              await setDoc(userRef, newProfile);
-              setProfile({ id: user.uid, ...newProfile });
-            } else {
-              setProfile(null);
-            }
+              try {
+                const userRef = doc(db, "members", user.uid);
+                await setDoc(userRef, newProfile);
+                profileData = { id: user.uid, ...newProfile };
+                firestoreService.clearCache("members"); // Invalidate cache after create
+              } catch (e) {
+                 console.warn("Could not create admin profile", e);
+                 profileData = { id: user.uid, ...newProfile }; // Fallback in memory
+              }
           }
+
+          setProfile(profileData);
         } catch (error) {
           console.error("DEBUG: Erro ao processar perfil no onAuthStateChanged:", error);
         }
       } else {
         setProfile(null);
+        // Clear all profile caches on logout
+        const keys = Object.keys(sessionStorage);
+        keys.forEach(k => { if(k.startsWith('profile_cache_')) sessionStorage.removeItem(k); });
       }
       
       console.log("DEBUG: Finalizando processamento de auth, user:", user?.email, "loading = false");
@@ -312,7 +324,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("Erro no login de visitante:", error);
       let msg = error.message;
       if (error.code === 'auth/operation-not-allowed' || error.code === 'auth/admin-restricted-operation') {
-        msg = "O login de visitante (Anônimo) está desabilitado. Peça ao administrador para ativar 'Anônimo' na aba Authentication do Firebase.";
+        msg = "O login de visitante (Visitante) está desabilitado. Peça ao administrador para ativar 'Anonymous' na aba Authentication do Firebase.";
       }
       setError(msg);
       throw error;
