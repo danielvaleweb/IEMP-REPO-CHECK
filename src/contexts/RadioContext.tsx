@@ -51,6 +51,8 @@ export function useRadio() {
   return context;
 }
 
+const Player = ReactPlayer as any;
+
 export function RadioProvider({ children }: { children: React.ReactNode }) {
   const { user, profile, isGuest } = useAuth();
   const hasAccess = !!(user && !isGuest && profile?.role && profile.role !== "Visitante");
@@ -283,23 +285,23 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       {/* Hidden Global Player */}
       <div className="hidden">
         {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
-          <ReactPlayer 
+          <Player 
+            key={getUrlToPlay()}
             ref={playerRef}
-            src={getUrlToPlay()} 
+            url={getUrlToPlay()} 
             playing={isPlaying} 
             volume={volume}
             muted={isMuted}
-            onTimeUpdate={handleProgress}
-            onDurationChange={handleDurationChange}
+            onProgress={(state: any) => setProgress(state.playedSeconds)}
+            onDuration={setDuration}
             onEnded={playNext}
-            playsInline={true}
+            playsinline={true}
             config={{
               youtube: {
-                playsInline: true,
-                params: {
+                playerVars: {
                   playsinline: 1
                 }
-              } as any,
+              },
               file: {
                 forceAudio: true,
                 attributes: {

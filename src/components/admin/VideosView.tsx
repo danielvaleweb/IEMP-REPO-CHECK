@@ -10,6 +10,14 @@ import {
   Edit,
   Youtube
 } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter 
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,17 +28,19 @@ import {
   deleteDoc, 
   updateDoc,
   doc, 
-  onSnapshot, 
   query, 
   orderBy, 
   serverTimestamp 
 } from "firebase/firestore";
 import { cn, getImageUrl } from "@/lib/utils";
+import { firestoreService } from "@/services/firestoreService";
 
 export function VideosView({ isDark }: { isDark: boolean }) {
   const [videos, setVideos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState<{
     title: string;
@@ -66,13 +76,20 @@ export function VideosView({ isDark }: { isDark: boolean }) {
     }));
   };
 
-  useEffect(() => {
-    const q = query(collection(db, "videos"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setVideos(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (err) => handleFirestoreError(err, OperationType.LIST, "videos"));
+  const loadVideos = async () => {
+    try {
+      setLoading(true);
+      const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc")], 1000 * 60 * 30);
+      setVideos(data);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.LIST, "videos");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    loadVideos();
   }, []);
 
   const handleSaveVideo = async () => {
@@ -90,6 +107,8 @@ export function VideosView({ isDark }: { isDark: boolean }) {
           createdAt: serverTimestamp()
         });
       }
+      firestoreService.clearCache("videos");
+      await loadVideos();
       setFormData({ title: "", url: "", thumbnail: "", tags: [], description: "", publishedAt: "", organizer: "" });
       setIsAdding(false);
       setEditingVideo(null);
@@ -119,11 +138,15 @@ export function VideosView({ isDark }: { isDark: boolean }) {
     setIsAdding(true);
   };
 
-  const handleDeleteVideo = async (id: string) => {
+  const confirmDelete = async () => {
+    if (!deleteId) return;
     try {
-      await deleteDoc(doc(db, "videos", id));
+      await deleteDoc(doc(db, "videos", deleteId));
+      firestoreService.clearCache("videos");
+      await loadVideos();
+      setDeleteId(null);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `videos/${id}`);
+      handleFirestoreError(err, OperationType.DELETE, `videos/${deleteId}`);
     }
   };
 
@@ -316,13 +339,9 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                     <Edit className="w-6 h-6 transition-colors" />
                   </button>
                   <button 
-                    onClick={() => {
-                      if (window.confirm("Tem certeza que deseja excluir este vídeo?")) {
-                        handleDeleteVideo(video.id);
-                      }
-                    }}
+                    onClick={() => setDeleteId(video.id)}
                     title="Excluir"
-                    className="h-10 w-10 flex items-center justify-center transition-all text-white hover:text-red-500 bg-transparent border-none shadow-none outline-none p-0"
+                    className="h-10 w-10 flex items-center justify-center transition-all text-white hover:text-red-500 bg-transparent border-none shadow-none outline-none p-0 cursor-pointer"
                   >
                     <Trash2 className="w-6 h-6 transition-colors" />
                   </button>
@@ -346,6 +365,27 @@ export function VideosView({ isDark }: { isDark: boolean }) {
           )}
         </div>
       </div>
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent className={cn("border-white/10 rounded-3xl max-w-sm", isDark ? "bg-roxo-bg text-white" : "bg-white text-black")}>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription className="opacity-60">
+              Tem certeza que deseja excluir este vídeo? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 mt-4">
+            <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1">Cancelar</Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDelete}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl"
+            >
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

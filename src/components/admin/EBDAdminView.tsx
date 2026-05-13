@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { GoogleGenAI } from "@google/genai";
 import { jsPDF } from 'jspdf';
+import { firestoreService } from "@/services/firestoreService";
 
 export function EBDAdminView({ isDark }: { isDark: boolean }) {
   const [modules, setModules] = useState<any[]>([]);
@@ -30,10 +30,24 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
   const [testData, setTestData] = useState({ question: '', options: ['', '', '', ''], correctAnswerIndex: 0 });
   const [testLessonId, setTestLessonId] = useState<string | null>(null);
 
-  // AI Support Material Generator State
+  // PDF Generator State
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfGenerationStatus, setPdfGenerationStatus] = useState('');
   const [activeLessonForGen, setActiveLessonForGen] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  // Deletion States
+  const [deleteInfo, setDeleteInfo] = useState<{ id: string, type: 'module' | 'lesson', title: string } | null>(null);
+
+  const cleanTranscript = (text: string) => {
+    if (!text) return '';
+    // Remove pattern like: "1 hora, 34 minutos e 12 segundos" or "15 minutos"
+    let cleaned = text.replace(/\b\d+\s+(?:horas?|minutos?|segundos?)(?:,\s*\d+\s+(?:minutos?|segundos?))?(?:\s+e\s+\d+\s+(?:minutos?|segundos?))?\b/gi, '');
+    // Remove pattern like: "1:13:12" or "15:30"
+    cleaned = cleaned.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '');
+    // Clean up empty lines and extra spaces
+    cleaned = cleaned.split('\n').map(line => line.trim()).filter(line => line).join('\n');
+    return cleaned;
+  };
 
   const generateSupportMaterial = async (lesson: any) => {
     if (!lesson.transcript) {
@@ -43,43 +57,21 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
 
     setIsGeneratingPdf(true);
     setActiveLessonForGen(lesson);
-    setPdfGenerationStatus("Organizando conteúdo com AI...");
+    setPdfGenerationStatus("Gerando arquivo PDF...");
 
     try {
-      const transcript = lesson.transcript;
-      
-      // 2. Use Gemini to format the transcript
-      const genAI = new GoogleGenAI(process.env.GEMINI_API_KEY as any);
+      const transcript = cleanTranscript(lesson.transcript);
       const currentModule = modules.find(m => m.id === lesson.moduleId);
       
-      const prompt = `Resuma e organize a seguinte transcrição de uma aula da Escola Bíblica (EBD) em um formato de "Material de Apoio" estruturado. 
-      Use títulos, tópicos e destaque os pontos principais. O conteúdo deve ser rico e fiel ao que foi dito, mas bem formatado para leitura.
-      Módulo: ${currentModule?.title || 'EBD'}
-      Aula: ${lesson.title || 'Aula EBD'}
-      
-      Transcrição: ${transcript.substring(0, 30000)} // Limiting to avoid token issues if huge
-      
-      Por favor, retorne o texto formatado de forma limpa.`;
-
-      const model = (genAI as any).getGenerativeModel({ model: "gemini-1.5-flash" });
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const formattedContent = response.text();
-
-      setPdfGenerationStatus("Gerando arquivo PDF...");
-
-      // 3. Generate PDF with jsPDF
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 20;
       
-      // Watermark Logic
       const logoUrl = "https://i.imgur.com/GELQtyU.png";
       
       const addWatermark = (pdfDoc: any) => {
         pdfDoc.setGState(new (pdfDoc as any).GState({ opacity: 0.1 }));
-        // Center the logo
         const imgWidth = 100;
         const imgHeight = 100;
         pdfDoc.addImage(logoUrl, 'PNG', (pageWidth - imgWidth) / 2, (pageHeight - imgHeight) / 2, imgWidth, imgHeight);
@@ -88,26 +80,22 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
 
       addWatermark(doc);
 
-      // Title
       doc.setFontSize(22);
       doc.setFont("helvetica", "bold");
       const title = `${currentModule?.title || 'Módulo'} - ${lesson.title || 'Aula'}`;
       doc.text(title, margin, 30, { maxWidth: pageWidth - (margin * 2) });
 
-      // Support Material Label
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
       doc.text("MATERIAL DE APOIO - PORTAL EBD - IEMP", margin, 40);
       
-      // Separator Line
       doc.setDrawColor(200, 200, 200);
       doc.line(margin, 45, pageWidth - margin, 45);
 
-      // Content
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-      const splitText = doc.splitTextToSize(formattedContent, pageWidth - (margin * 2));
+      const splitText = doc.splitTextToSize(transcript, pageWidth - (margin * 2));
       
       let cursorY = 55;
       for (let i = 0; i < splitText.length; i++) {
@@ -134,24 +122,27 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
     }
   };
 
-  useEffect(() => {
-    const unsubModules = onSnapshot(query(collection(db, "ebd-modules"), orderBy("createdAt", "asc")), (snap) => {
-      const mods = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [mods, less] = await Promise.all([
+        firestoreService.getCollection<any>("ebd-modules", [orderBy("createdAt", "asc")], 1000 * 60 * 30),
+        firestoreService.getCollection<any>("ebd-lessons", [orderBy("createdAt", "asc")], 1000 * 60 * 30)
+      ]);
       setModules(mods);
+      setLessons(less);
       if (mods.length > 0 && !activeModuleId) {
         setActiveModuleId(mods[0].id);
       }
-    }, (err) => console.error(err));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const unsubLessons = onSnapshot(query(collection(db, "ebd-lessons"), orderBy("createdAt", "asc")), (snap) => {
-      const less = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLessons(less);
-    }, (err) => console.error(err));
-
-    return () => {
-      unsubModules();
-      unsubLessons();
-    };
+  useEffect(() => {
+    loadData();
   }, []);
 
   const handleCreateModule = async () => {
@@ -161,6 +152,8 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
         title: moduleTitle,
         createdAt: serverTimestamp()
       });
+      firestoreService.clearCache("ebd-modules");
+      await loadData();
       setIsModuleModalOpen(false);
       setModuleTitle('');
     } catch (e) {
@@ -171,13 +164,14 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
   const handleSaveLesson = async () => {
     if (!lessonData.title.trim() || !activeModuleId) return;
     try {
+      const cleanedTranscript = cleanTranscript(lessonData.transcript);
       const data = {
         moduleId: activeModuleId,
         title: lessonData.title,
         youtubeUrl: lessonData.youtubeUrl,
         supportMaterialUrl: lessonData.supportMaterialUrl,
         description: lessonData.description,
-        transcript: lessonData.transcript || '',
+        transcript: cleanedTranscript,
         updatedAt: serverTimestamp()
       };
 
@@ -190,6 +184,8 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
         });
       }
       
+      firestoreService.clearCache("ebd-lessons");
+      await loadData();
       setIsLessonModalOpen(false);
       setEditingLessonId(null);
       setLessonData({ title: '', youtubeUrl: '', supportMaterialUrl: '', description: '', transcript: '' });
@@ -215,23 +211,28 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
     setIsLessonModalOpen(true);
   };
 
-  const handleDeleteModule = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Deseja deletar este módulo? Todos os vídeos ficarão órfãos.")) return;
+  const handleDeleteModule = async () => {
+    if (!deleteInfo || deleteInfo.type !== 'module') return;
     try {
-      await deleteDoc(doc(db, "ebd-modules", id));
+      await deleteDoc(doc(db, "ebd-modules", deleteInfo.id));
+      firestoreService.clearCache("ebd-modules");
+      firestoreService.clearCache("ebd-lessons"); // Some lessons might become orphaned/affected
+      await loadData();
+      setDeleteInfo(null);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `ebd-modules/${id}`);
+      handleFirestoreError(err, OperationType.DELETE, `ebd-modules/${deleteInfo.id}`);
     }
   };
 
-  const handleDeleteLesson = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!confirm("Deseja deletar esta aula?")) return;
+  const handleDeleteLesson = async () => {
+    if (!deleteInfo || deleteInfo.type !== 'lesson') return;
     try {
-      await deleteDoc(doc(db, "ebd-lessons", id));
+      await deleteDoc(doc(db, "ebd-lessons", deleteInfo.id));
+      firestoreService.clearCache("ebd-lessons");
+      await loadData();
+      setDeleteInfo(null);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `ebd-lessons/${id}`);
+      handleFirestoreError(err, OperationType.DELETE, `ebd-lessons/${deleteInfo.id}`);
     }
   };
 
@@ -263,6 +264,7 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
         correctAnswerIndex: testData.correctAnswerIndex,
         createdAt: serverTimestamp()
       });
+      firestoreService.clearCache("ebd-tests");
       setIsTestModalOpen(false);
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, `ebd-tests`);
@@ -299,22 +301,30 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
           <div className={cn("lg:col-span-1 rounded-3xl border p-4 space-y-2", isDark ? "bg-white/5 border-white/5" : "bg-black/5 border-black/5")}>
             <h3 className="text-sm font-black uppercase tracking-widest opacity-50 px-2 mb-4">Módulos</h3>
             {modules.map(mod => (
-              <button
+              <div
                 key={mod.id}
                 onClick={() => setActiveModuleId(mod.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && setActiveModuleId(mod.id)}
                 className={cn(
-                  "w-full text-left px-4 py-3 rounded-2xl flex items-center justify-between group transition-all duration-300",
+                  "w-full text-left px-4 py-3 rounded-2xl flex items-center justify-between group transition-all duration-300 cursor-pointer",
                   activeModuleId === mod.id 
                     ? (isDark ? "bg-[#3b82f6]/20 text-[#3b82f6] border border-[#3b82f6]/30" : "bg-[#3b82f6]/10 text-[#3b82f6] border border-[#3b82f6]/20")
                     : (isDark ? "hover:bg-white/5 text-white/70 border border-transparent" : "hover:bg-black/5 text-black/70 border border-transparent")
                 )}
               >
                 <span className="font-bold text-sm tracking-wide">{mod.title}</span>
-                <Trash2 
-                  onClick={(e) => handleDeleteModule(mod.id, e)} 
-                  className={cn("w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity", isDark ? "text-white/30 hover:text-red-500" : "text-black/30 hover:text-red-500")} 
-                />
-              </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteInfo({ id: mod.id, type: 'module', title: mod.title });
+                  }}
+                  className={cn("p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity", isDark ? "text-white/30 hover:text-red-500" : "text-black/30 hover:text-red-500")}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             ))}
           </div>
 
@@ -360,7 +370,7 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
                              ) : (
                                <FileDown className="w-3 h-3" />
                              )}
-                             IA Material
+                             Gerar PDF
                            </Button>
                            <Button 
                              size="icon" 
@@ -373,7 +383,10 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
                            <Button size="sm" variant="outline" onClick={() => openTestModal(lesson.id)} className={cn("h-8 rounded-lg text-xs", isDark ? "border-white/10 hover:bg-white/10" : "border-black/10 hover:bg-black/5")}>
                              <CheckCircle2 className="w-3 h-3 mr-1" /> Quiz
                            </Button>
-                           <Button size="icon" variant="ghost" onClick={(e) => handleDeleteLesson(lesson.id, e)} className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-lg">
+                           <Button size="icon" variant="ghost" onClick={(e) => {
+                             e.stopPropagation();
+                             setDeleteInfo({ id: lesson.id, type: 'lesson', title: lesson.title });
+                           }} className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-500/10 rounded-lg">
                              <Trash2 className="w-4 h-4" />
                            </Button>
                         </div>
@@ -438,7 +451,7 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
                 value={lessonData.transcript} 
                 onChange={e => setLessonData({...lessonData, transcript: e.target.value})} 
                 className={cn("rounded-2xl px-4 py-3 h-32", isDark ? "bg-white/5 border-white/10" : "bg-black/5 border-black/10")} 
-                placeholder="Cole aqui a transcrição completa da aula para que a IA gere o PDF de apoio automaticamente." 
+                placeholder="Cole aqui a transcrição completa da aula para gerar o PDF de material de apoio com marca d'água automaticamente." 
               />
             </div>
           </div>
@@ -481,6 +494,29 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
           <DialogFooter className="mt-4">
             <Button variant="ghost" onClick={() => setIsTestModalOpen(false)}>Cancelar</Button>
             <Button onClick={handleSaveTest} className="bg-[#3b82f6] text-white rounded-xl px-8">Salvar Teste</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deleteInfo} onOpenChange={() => setDeleteInfo(null)}>
+        <DialogContent className={cn("border-white/10 rounded-3xl max-w-sm", isDark ? "bg-[#141414] text-white" : "bg-white text-black")}>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription className="opacity-60">
+              Tem certeza que deseja excluir {deleteInfo?.type === 'module' ? 'o módulo' : 'a aula'} <strong>"{deleteInfo?.title}"</strong>?
+              {deleteInfo?.type === 'module' && <p className="mt-2 text-red-500 font-bold">Aviso: Todas as aulas deste módulo ficarão sem categoria vinculada.</p>}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 mt-4">
+            <Button variant="ghost" onClick={() => setDeleteInfo(null)} className="flex-1">Cancelar</Button>
+            <Button 
+              variant="destructive" 
+              onClick={deleteInfo?.type === 'module' ? handleDeleteModule : handleDeleteLesson}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl"
+            >
+              Excluir
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

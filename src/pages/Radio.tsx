@@ -13,6 +13,8 @@ import { format } from 'date-fns';
 
 import { useRadio } from '@/contexts/RadioContext';
 
+const Player = ReactPlayer as any;
+
 export default function RadioPage() {
   const { user, profile, isAdmin } = useAuth();
   const { 
@@ -418,7 +420,14 @@ export default function RadioPage() {
                    <div className="w-full max-w-3xl aspect-video rounded-3xl overflow-hidden bg-black/50 border border-white/10 shadow-2xl relative group">
                      {isLiveMode && settings?.radioYoutubeLiveUrl ? (
                          <div className="w-full h-full pointer-events-none">
-                            <ReactPlayer src={settings.radioYoutubeLiveUrl} playing={isPlaying} volume={volume} muted={isMuted} style={{width: '100%', height: '100%'}} /> 
+                            <Player 
+                               key={settings.radioYoutubeLiveUrl}
+                               url={settings.radioYoutubeLiveUrl} 
+                               playing={isPlaying} 
+                               volume={volume} 
+                               muted={isMuted} 
+                               style={{width: '100%', height: '100%'}} 
+                             /> 
                          </div>
                      ) : (
                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#BF76FF]/20 to-[#FF4400]/20 p-8 text-center">

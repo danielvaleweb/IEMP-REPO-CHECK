@@ -1,11 +1,20 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bell, Send, Calendar, Clock, Users, Trash2, CheckCircle2, AlertCircle, Loader2, Download, Image as ImageIcon, MessageSquare, Sparkles, Copy, X } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter 
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, getDocs } from "firebase/firestore";
+import { collection, addDoc, query, orderBy, serverTimestamp, deleteDoc, doc, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { firestoreService } from "@/services/firestoreService";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { GoogleGenAI } from "@google/genai";
@@ -48,6 +57,7 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingText, setIsGeneratingText] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [generatedText, setGeneratedText] = useState("");
   
   // Data
@@ -61,13 +71,20 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
 
   const artboardRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    // Escutar Avisos
-    const q = query(collection(db, "announcements"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setAnnouncements(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+  const loadAnnouncements = async () => {
+    try {
+      setLoading(true);
+      const data = await firestoreService.getCollection<any>("announcements", [orderBy("createdAt", "desc")], 1000 * 60 * 15);
+      setAnnouncements(data);
+    } catch (err) {
+      console.error(err);
+    } finally {
       setLoading(false);
-    });
+    }
+  };
+
+  useEffect(() => {
+    loadAnnouncements();
 
     // Buscar Usuarios
     const fetchUsers = async () => {
@@ -77,8 +94,6 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
       setMembers(data);
     };
     fetchUsers();
-
-    return () => unsubscribe();
   }, []);
 
   const handleGenerateText = async () => {
@@ -203,6 +218,8 @@ Estilo: ${styleInstruction}`;
         author: auth.currentUser?.displayName || auth.currentUser?.email || "Desconhecido",
         createdAt: serverTimestamp(),
       });
+      firestoreService.clearCache("announcements");
+      await loadAnnouncements();
       alert("Aviso salvo no histórico!");
       // Limpeza opcional
     } catch (error) {
@@ -213,6 +230,18 @@ Estilo: ${styleInstruction}`;
     }
   };
 
+  const confirmDeleteAnnouncement = async () => {
+    if (!deleteId) return;
+    try {
+      await deleteDoc(doc(db, "announcements", deleteId));
+      firestoreService.clearCache("announcements");
+      await loadAnnouncements();
+      setDeleteId(null);
+    } catch (error) {
+      console.error(error);
+      alert("Erro ao excluir aviso.");
+    }
+  };
   const openWhatsAppUrl = (phone: string, text: string) => {
     const cleanPhone = phone.replace(/\D/g, "");
     if (!cleanPhone) {
@@ -783,9 +812,7 @@ Estilo: ${styleInstruction}`;
                       </p>
                     </div>
                     <button 
-                      onClick={async () => {
-                         if(confirm("Excluir este hitórico?")) await deleteDoc(doc(db, "announcements", ann.id));
-                      }}
+                      onClick={() => setDeleteId(ann.id)}
                       className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-500 transition-all shrink-0 cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -797,6 +824,27 @@ Estilo: ${styleInstruction}`;
           </div>
         </div>
       </div>
+      {/* Delete Confirmation Modal */}
+      <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent className={cn("border-white/10 rounded-3xl max-w-sm", isDark ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogDescription className="opacity-60">
+              Deseja excluir este aviso do histórico? Esta ação é permanente.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 mt-4">
+            <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1">Cancelar</Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteAnnouncement}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl"
+            >
+              Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

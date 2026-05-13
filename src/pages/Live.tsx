@@ -91,6 +91,7 @@ export default function Live() {
         <div className="xl:col-span-2 space-y-6">
           <div className="aspect-video bg-black rounded-3xl overflow-hidden shadow-2xl border border-black/5 relative group">
             <iframe
+              key={`video-${videoId}`}
               width="100%"
               height="100%"
               src={videoId ? `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&mute=1&origin=${window.location.origin}` : `https://www.youtube-nocookie.com/embed/live_stream?channel=${channelId}&origin=${window.location.origin}`}
@@ -214,6 +215,7 @@ export default function Live() {
             <CardContent className="p-0 flex-grow flex flex-col">
               <div className="flex-grow h-[500px]">
                 <iframe
+                  key={`chat-${videoId}`}
                   width="100%"
                   height="100%"
                   src={`https://www.youtube.com/live_chat?v=${videoId || "live_stream"}&embed_domain=${window.location.hostname}`}
