@@ -81,7 +81,8 @@ import {
   MessageCircle,
   GraduationCap,
   Wrench,
-  Bug
+  Bug,
+  Database
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -2451,10 +2452,22 @@ const Admin = () => {
       fetchCounts();
     }
 
-    // Load Settings
-    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) setSettings(docSnap.data());
-    });
+    // Load Settings and Skills (Cached)
+    const loadSettingsAndSkills = async () => {
+      try {
+        const [settingsData, skillsData] = await Promise.all([
+          firestoreService.getDoc<any>("settings", "general", 1000 * 60 * 60), // 1 hour TTL
+          firestoreService.getDoc<any>("settings", "skills", 1000 * 60 * 60 * 24) // 24 hours TTL
+        ]);
+        
+        if (settingsData) setSettings(settingsData);
+        if (skillsData) setAvailableSkills(skillsData.list || []);
+      } catch (err) {
+        console.error("Error loading settings/skills", err);
+      }
+    };
+
+    loadSettingsAndSkills();
 
     // Load Notifications (Always keep this real-time but limited)
     let unsubNotifs = () => {};
@@ -2469,15 +2482,8 @@ const Admin = () => {
       });
     }
 
-    // Load Skills
-    const unsubSkills = onSnapshot(doc(db, "settings", "skills"), (snap) => {
-      if (snap.exists()) setAvailableSkills(snap.data().list || []);
-    });
-
     return () => {
-      unsubSettings();
       unsubNotifs();
-      unsubSkills();
     };
   }, [user, isAdmin, activeTab]);
 
@@ -2488,56 +2494,41 @@ const Admin = () => {
     // Load critical data on mount (Agenda for Home and Posts for Feed)
     const loadInitialData = async () => {
       try {
-        const [agendaData, postsData] = await Promise.all([
-          firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60), // 1 hour TTL
-          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 60) // 1 hour TTL
+        const [agendaData, postsData, membersData] = await Promise.all([
+          firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60 * 24), // 24 hour TTL
+          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 60 * 24), // 24 hour TTL
+          firestoreService.getCollection<any>("members", [], 1000 * 60 * 60 * 12) // 12 hour TTL
         ]);
         
         setAgenda(agendaData);
         setPosts(postsData);
+        setMembers(membersData);
 
-        // Fetch counts for roles
-        const rolesToFetch = [...allRoles];
-        const countPromises = rolesToFetch.map(async (role) => {
-          // Some roles might have variations in the DB
-          if (role === "Diácono") {
-             const results = await Promise.all([
-               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diácono")]),
-               firestoreService.getCount(collection(db, "members"), [where("role", "==", "diacono")]),
-               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diácono (Homem)")]),
-               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diacono")])
-             ]);
-             return results.reduce((a, b) => a + b, 0);
-          }
-          if (role === "Diaconisa") {
-             const results = await Promise.all([
-               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diaconisa")]),
-               firestoreService.getCount(collection(db, "members"), [where("role", "==", "diaconisa")]),
-               firestoreService.getCount(collection(db, "members"), [where("role", "==", "Diaconisa (Mulher)")])
-             ]);
-             return results.reduce((a, b) => a + b, 0);
-          }
-          return firestoreService.getCount(collection(db, "members"), [where("role", "==", role)]);
-        });
-
-        const visitorCountPromise = firestoreService.getCount(collection(db, "members"), [where("status", "==", "visitor_session")]);
-        const pendingCountPromise = firestoreService.getCount(collection(db, "members"), [where("status", "in", ["pending", "pending_approval"])]);
-        const pendingAgendaCountPromise = firestoreService.getCount(collection(db, "agenda"), [where("status", "==", "pending")]);
-
-        const results = await Promise.all([...countPromises, visitorCountPromise, pendingCountPromise, pendingAgendaCountPromise]) as number[];
-        
+        // Calculate counts from membersData
         const newRoleCounts: Record<string, number> = {};
-        rolesToFetch.forEach((role, i) => {
-          newRoleCounts[role] = results[i];
+        allRoles.forEach(role => {
+          if (role === "Diácono") {
+            newRoleCounts[role] = membersData.filter(m => 
+              m.role === "Diácono" || m.role === "diacono" || m.role === "Diácono (Homem)" || m.role === "Diacono"
+            ).length;
+          } else if (role === "Diaconisa") {
+            newRoleCounts[role] = membersData.filter(m => 
+              m.role === "Diaconisa" || m.role === "diaconisa" || m.role === "Diaconisa (Mulher)"
+            ).length;
+          } else {
+            newRoleCounts[role] = membersData.filter(m => m.role === role).length;
+          }
         });
-        
-        // Calculate special group counts
+
         newRoleCounts["Diaconia"] = (newRoleCounts["Diácono"] || 0) + (newRoleCounts["Diaconisa"] || 0);
-        newRoleCounts["Visitantes"] = results[rolesToFetch.length];
+        newRoleCounts["Visitantes"] = membersData.filter(m => m.status === "visitor_session").length;
         
         setRoleCounts(newRoleCounts);
-        setPendingMembersCount(results[rolesToFetch.length + 1]);
-        setPendingAgendaCount(results[rolesToFetch.length + 2]);
+        setPendingMembersCount(membersData.filter(m => ["pending", "pending_approval"].includes(m.status)).length);
+        
+        // Only one specific count for pending agenda
+        const pendingAgendaCount = await firestoreService.getCount(collection(db, "agenda"), [where("status", "==", "pending")], 1000 * 60 * 60);
+        setPendingAgendaCount(pendingAgendaCount);
 
       } catch (err) {
         console.error("Error loading initial data:", err);
@@ -2559,22 +2550,22 @@ const Admin = () => {
           data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
           setMembers(data);
         } else if (activeTab === "agenda-direcao") {
-          const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 10);
+          const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60 * 12);
           setAgendaDirecao(data);
         } else if (activeTab === "radio") {
           const [vigs, tracks, artists] = await Promise.all([
-            firestoreService.getCollection<any>("vignettes", [orderBy("createdAt", "desc")], 1000 * 60 * 30),
-            firestoreService.getCollection<any>("radio-playlist", [orderBy("order", "asc")], 1000 * 60 * 30),
-            firestoreService.getCollection<any>("radio-artists", [orderBy("name", "asc")], 1000 * 60 * 30)
+            firestoreService.getCollection<any>("vignettes", [orderBy("createdAt", "desc")], 1000 * 60 * 60 * 24),
+            firestoreService.getCollection<any>("radio-playlist", [orderBy("order", "asc")], 1000 * 60 * 60 * 24),
+            firestoreService.getCollection<any>("radio-artists", [orderBy("name", "asc")], 1000 * 60 * 60 * 24)
           ]);
           setVignettes(vigs);
           setRadioTracks(tracks);
           setRadioArtists(artists);
         } else if (activeTab === "logs" && canViewLogs && !isGuest) {
-          const data = await firestoreService.getCollection<any>("audit-logs", [orderBy("timestamp", "desc"), limit(100)], 1000 * 60 * 5);
+          const data = await firestoreService.getCollection<any>("audit-logs", [orderBy("timestamp", "desc"), limit(100)], 1000 * 60 * 30);
           setLogs(data);
         } else if (activeTab === "videos") {
-          const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 30);
+          const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 60 * 24);
           setVideos(data);
         }
       } catch (err) {
@@ -7252,30 +7243,40 @@ const Admin = () => {
               <div className="p-4 md:p-8">
                 <Card className={cn("border rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                   <div className="space-y-6">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                       <h4 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
-                      <Button 
-                        disabled={isSavingSettings || Object.keys(localSettings).length === 0}
-                        onClick={async () => {
-                          setIsSavingSettings(true);
-                          try {
-                             await setDoc(doc(db, "settings", "general"), { ...localSettings }, { merge: true });
-                             logAction("atualizar", "settings", `Atualizou configurações gerais: ${Object.keys(localSettings).join(", ")}`, settings, { ...settings, ...localSettings });
-                             setLocalSettings({}); // Clear local settings so it falls back to DB settings
-                          } catch (error) {
-                             handleFirestoreError(error, OperationType.UPDATE, "settings/general");
-                          } finally {
-                             setIsSavingSettings(false);
-                          }
-                        }}
-                        className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-10 px-6 font-bold"
-                      >
-                        {isSavingSettings ? (
-                          <>Salvando...</>
-                        ) : (
-                          <><Save className="w-4 h-4 mr-2" /> Salvar</>
-                        )}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline"
+                          onClick={() => window.location.href = '/admin/migration'}
+                          className={cn("rounded-2xl h-10 px-6 font-bold border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10", isDarkMode && "text-yellow-400")}
+                        >
+                          <Database className="w-4 h-4 mr-2" />
+                          Migrar Banco de Dados
+                        </Button>
+                        <Button 
+                          disabled={isSavingSettings || Object.keys(localSettings).length === 0}
+                          onClick={async () => {
+                            setIsSavingSettings(true);
+                            try {
+                               await setDoc(doc(db, "settings", "general"), { ...localSettings }, { merge: true });
+                               logAction("atualizar", "settings", `Atualizou configurações gerais: ${Object.keys(localSettings).join(", ")}`, settings, { ...settings, ...localSettings });
+                               setLocalSettings({}); // Clear local settings so it falls back to DB settings
+                            } catch (error) {
+                               handleFirestoreError(error, OperationType.UPDATE, "settings/general");
+                            } finally {
+                               setIsSavingSettings(false);
+                            }
+                          }}
+                          className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-10 px-6 font-bold"
+                        >
+                          {isSavingSettings ? (
+                            <>Salvando...</>
+                          ) : (
+                            <><Save className="w-4 h-4 mr-2" /> Salvar</>
+                          )}
+                        </Button>
+                      </div>
                     </div>
                     
                     <div className="space-y-4">

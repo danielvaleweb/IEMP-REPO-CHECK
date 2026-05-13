@@ -50,16 +50,29 @@ export class ErrorBoundary extends Component<Props, State> {
                 </h1>
 
                 <p className="text-gray-400 mb-6">
-                  O limite diário gratuito do Firestore foi excedido.
-                  O banco de dados retornará ao normal amanhã.
+                  {this.props.isAdminPage 
+                    ? "O limite gratuito do Firestore foi excedido. Se você já assinou o plano Blaze, aguarde alguns instantes para a propagação total ou verifique o console do Firebase."
+                    : "O sistema está passando por uma manutenção programada. Por favor, tente novamente em instantes."}
                 </p>
 
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-6 py-2 bg-[#BF76FF] text-white rounded-full font-bold"
-                >
-                  Tentar novamente
-                </button>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-6 py-2 bg-[#BF76FF] text-white rounded-full font-bold"
+                  >
+                    Tentar novamente
+                  </button>
+                  <button
+                    onClick={() => {
+                      localStorage.clear();
+                      sessionStorage.clear();
+                      window.location.reload();
+                    }}
+                    className="px-6 py-2 border border-white/20 text-white hover:bg-white/5 rounded-full font-bold transition-colors"
+                  >
+                    Limpar Cache e Recarregar
+                  </button>
+                </div>
               </div>
             </div>
           );

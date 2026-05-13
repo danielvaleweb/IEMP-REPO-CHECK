@@ -17,8 +17,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { db } from "@/lib/firebase";
-import { doc, onSnapshot } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
+import { doc } from "firebase/firestore";
+import { firestoreService } from "@/services/firestoreService";
 
 const MOCK_RANKING = [
   { id: "1", name: "Irmão José", points: 1250, level: "Ancião", rank: 1 },
@@ -42,12 +43,15 @@ export default function Live() {
   const [settings, setSettings] = useState<any>({});
 
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, "settings", "general"), (docSnap) => {
-      if (docSnap.exists()) {
-        setSettings(docSnap.data());
+    const fetchSettings = async () => {
+      try {
+        const data = await firestoreService.getDoc<any>("settings", "general", 1000 * 60 * 60); // 1 hour TTL
+        if (data) setSettings(data);
+      } catch (err) {
+        console.error("Error fetching settings", err);
       }
-    });
-    return () => unsub();
+    };
+    fetchSettings();
   }, []);
 
   const channelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";

@@ -28,9 +28,11 @@ export default function Maintenance() {
           </svg>
         </div>
 
-        <h1 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Em Manutenção</h1>
+        <h1 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Processo de Migração</h1>
         <p className="text-gray-600 mb-8 text-lg">
-          Estamos atualizando nosso sistema para melhorias. Voltaremos em breve!
+          Estamos aumentando a segurança do nosso site e voltaremos hoje, 13/05/2026, às 20 horas.
+          <br /><br />
+          Pedimos desculpas pelo transtorno, mas é para o bem de todos!
         </p>
 
         <div className="bg-green-500/10 rounded-2xl p-6 border border-green-500/20">

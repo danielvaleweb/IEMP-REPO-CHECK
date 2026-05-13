@@ -474,6 +474,37 @@ async function startServer() {
     }
   });
 
+  app.post("/api/admin/update-firebase-config", async (req, res) => {
+    try {
+      const newConfig = req.body;
+      if (!newConfig.projectId || !newConfig.appId || !newConfig.apiKey) {
+        return res.status(400).json({ error: "Missing required config fields" });
+      }
+
+      // Read current config
+      const currentConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+      const currentConfig = JSON.parse(fs.readFileSync(currentConfigPath, "utf-8"));
+      
+      // Merge with new params
+      const updatedConfig = {
+        ...currentConfig,
+        projectId: newConfig.projectId,
+        appId: newConfig.appId,
+        apiKey: newConfig.apiKey,
+        authDomain: newConfig.authDomain,
+        storageBucket: newConfig.storageBucket,
+      };
+
+      fs.writeFileSync(currentConfigPath, JSON.stringify(updatedConfig, null, 2), "utf-8");
+      console.log("[Admin] Firebase Config has been updated via Migration UI.");
+      
+      res.json({ success: true, message: "Firebase config updated successfully" });
+    } catch (error) {
+      console.error("Erro ao atualizar firebase-applet-config.json:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

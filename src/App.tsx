@@ -26,6 +26,7 @@ import Favorites from "@/pages/Favorites";
 import Formulario from "@/pages/Formulario";
 import StaticPages from "@/pages/StaticPages";
 import Maintenance from "@/pages/Maintenance";
+import Migration from "@/pages/Migration";
 import { cn } from "@/lib/utils";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -89,6 +90,7 @@ function AppContent() {
             <Route path="/galeria" element={<Gallery />} />
             <Route path="/favoritos" element={<Favorites />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/admin/migration" element={<Migration />} />
             <Route path="/formulario" element={<Formulario />} />
             <Route path="/google" element={<Google />} />
             <Route path="/solicitacao" element={<Solicitacao />} />

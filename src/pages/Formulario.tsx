@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
-import { collection, onSnapshot, doc, updateDoc, setDoc } from "firebase/firestore";
+import { collection, doc, updateDoc, setDoc, orderBy } from "firebase/firestore";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Search, 
@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { firestoreService } from "@/services/firestoreService";
 
 interface MemberData {
   id: string;
@@ -46,13 +47,14 @@ interface MemberData {
 }
 
 export default function Formulario() {
-  const { user, profile, isAdmin, loading } = useAuth();
+  const { user, profile, isAdmin, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
   const [members, setMembers] = useState<MemberData[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMember, setSelectedMember] = useState<MemberData | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [success, setSuccess] = useState(false);
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
   const [availableSkills, setAvailableSkills] = useState<string[]>([]);
@@ -83,34 +85,35 @@ export default function Formulario() {
                    profile?.role === "Mídia";
 
   useEffect(() => {
-    if (!loading && !isAllowed) {
+    if (!authLoading && !isAllowed) {
       navigate("/");
     }
-  }, [loading, isAllowed, navigate]);
+  }, [authLoading, isAllowed, navigate]);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!isAllowed) return;
     
-    const unsub = onSnapshot(collection(db, "members"), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as MemberData));
-      data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
-      setMembers(data);
-    });
-
-    return () => unsub();
-  }, [isAllowed]);
-
-  useEffect(() => {
-    if (!isAllowed) return;
-    
-    const unsub = onSnapshot(doc(db, "settings", "skills"), (snap) => {
-      if (snap.exists()) {
-        setAvailableSkills(snap.data().list || []);
+    try {
+      setInitialLoading(true);
+      const [membersData, skillsData] = await Promise.all([
+        firestoreService.getCollection<any>("members", [orderBy("name", "asc")], 1000 * 60 * 60), // 1 hour TTL
+        firestoreService.getDoc<any>("settings", "skills", 1000 * 60 * 60 * 24) // 24 hours TTL
+      ]);
+      
+      setMembers(membersData);
+      if (skillsData) {
+        setAvailableSkills(skillsData.list || []);
       }
-    });
-
-    return () => unsub();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setInitialLoading(false);
+    }
   }, [isAllowed]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const filteredMembers = members.filter(m => 
     m.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -148,7 +151,9 @@ export default function Formulario() {
     }
     const updatedSkills = [...availableSkills, newSkillNameField.trim()];
     await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
+    firestoreService.clearCache("settings/skills");
     setNewSkillNameField("");
+    loadData();
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -183,7 +188,10 @@ export default function Formulario() {
       };
 
       await updateDoc(memberRef, dataToUpdate);
+      firestoreService.clearCache("members");
+      firestoreService.clearCache(`members/${selectedMember.id}`);
       setSuccess(true);
+      loadData();
       
       // Clear for new entry after delay
       setTimeout(() => {
@@ -199,7 +207,7 @@ export default function Formulario() {
     }
   };
 
-  if (loading) {
+  if (authLoading || initialLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />

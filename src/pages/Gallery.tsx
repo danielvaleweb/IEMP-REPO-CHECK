@@ -25,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, auth } from "@/lib/firebase";
-import { collection, query, orderBy, onSnapshot, doc, setDoc, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
+import { collection, query, orderBy, doc, setDoc, addDoc, serverTimestamp, deleteDoc } from "firebase/firestore";
 
 enum OperationType {
   CREATE = 'create',
