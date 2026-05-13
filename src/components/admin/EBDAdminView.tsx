@@ -40,10 +40,17 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
 
   const cleanTranscript = (text: string) => {
     if (!text) return '';
-    // Remove pattern like: "1 hora, 34 minutos e 12 segundos" or "15 minutos"
-    let cleaned = text.replace(/\b\d+\s+(?:horas?|minutos?|segundos?)(?:,\s*\d+\s+(?:minutos?|segundos?))?(?:\s+e\s+\d+\s+(?:minutos?|segundos?))?\b/gi, '');
-    // Remove pattern like: "1:13:12" or "15:30"
+    
+    // Remove pattern of time like "1 hora, 34 minutos e 12 segundos", "2 horas e 5 minutos", "45 segundos"
+    // Handle variations with accents and plural
+    let cleaned = text.replace(/\b\d+\s+(horas?|minutos?|segundos?)(,\s*\d+\s+(minutos?|segundos?))?(\s+e\s+\d+\s+(minutos?|segundos?))?\b/gi, '');
+    
+    // Remove simpler variations like "15min", "2h", etc if present
+    cleaned = cleaned.replace(/\b\d+\s*(h|min|s|seg)\b/gi, '');
+
+    // Remove pattern like: "1:13:12", "15:30", "01:05"
     cleaned = cleaned.replace(/\b\d{1,2}:\d{2}(?::\d{2})?\b/g, '');
+    
     // Clean up empty lines and extra spaces
     cleaned = cleaned.split('\n').map(line => line.trim()).filter(line => line).join('\n');
     return cleaned;

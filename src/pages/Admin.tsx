@@ -2489,8 +2489,8 @@ const Admin = () => {
     const loadInitialData = async () => {
       try {
         const [agendaData, postsData] = await Promise.all([
-          firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 10),
-          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 15)
+          firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60), // 1 hour TTL
+          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 60) // 1 hour TTL
         ]);
         
         setAgenda(agendaData);
@@ -2925,6 +2925,9 @@ const Admin = () => {
         localStorage.removeItem("cachedEvents_v3");
         localStorage.removeItem("cachedEventsTime_v3");
       }
+      
+      // Clear firestoreService cache
+      firestoreService.clearCache(collectionName);
 
       // Send auto chat messages to newly invited members
       try {
@@ -3154,6 +3157,9 @@ const Admin = () => {
       await deleteDoc(doc(db, col, id));
       logAction("excluir", col, `Excluiu item: ${itemToDelete?.title || itemToDelete?.name || id}`, itemToDelete, null);
       
+      // Clear firestoreService cache
+      firestoreService.clearCache(col);
+
       if (col === "posts") {
         localStorage.removeItem("cachedEvents_v3");
         localStorage.removeItem("cachedEventsTime_v3");

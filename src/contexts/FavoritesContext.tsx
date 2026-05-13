@@ -43,7 +43,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         const items = await firestoreService.getCollection<FavoriteItem>(
           `users/${user.uid}/favorites`, 
           [], 
-          1000 * 60 * 15 // 15 min TTL
+          1000 * 60 * 60 // 1 hour TTL
         );
         
         if (isMounted) {

@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Copy, Plus, Save, Key, User, ArrowLeft, Eye, EyeOff, Lock, Trash } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { db } from '@/lib/firebase';
+import { firestoreService } from '@/services/firestoreService';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
 
 export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
@@ -23,14 +24,17 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
 
   const SECURITY_PIN = "15634260"; // Updated per user request
 
-  useEffect(() => {
-    const q = query(collection(db, "saved-logins"), orderBy("createdAt", "desc"));
-    const unsubscribe = onSnapshot(q, (snap) => {
-      setLogins(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
+  const fetchLogins = async () => {
+    try {
+      const data = await firestoreService.getCollection<any>("saved-logins", [orderBy("createdAt", "desc")], 1000 * 60 * 15); // 15 min TTL
+      setLogins(data);
+    } catch (error) {
       console.error("Error fetching logins:", error);
-    });
-    return () => unsubscribe();
+    }
+  };
+
+  useEffect(() => {
+    fetchLogins();
   }, []);
 
   const handleSave = async () => {
@@ -51,6 +55,8 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
       setIsEditing(false);
       setSelectedItem(null);
       setFormData({});
+      firestoreService.clearCache("saved-logins");
+      fetchLogins();
     } catch (e) {
       console.error(e);
       alert("Erro ao salvar login.");
@@ -68,6 +74,8 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
         await deleteDoc(doc(db, "saved-logins", deletePasswordModal));
         setDeletePasswordModal(null);
         setDeletePasswordInput("");
+        firestoreService.clearCache("saved-logins");
+        fetchLogins();
       } catch (e) {
         console.error(e);
       }

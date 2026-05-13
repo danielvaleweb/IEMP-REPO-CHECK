@@ -89,11 +89,11 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log("[RadioContext] Initializing radio data...");
       const [tracksData, artistsData, playlistsData, vignettesData, systemSettings] = await Promise.all([
-        firestoreService.getCollection<any>("radio-playlist", [orderBy("order", "asc")], 1000 * 60 * 30),
-        firestoreService.getCollection<any>("radio-artists", [orderBy("name", "asc")], 1000 * 60 * 60),
-        firestoreService.getCollection<any>("playlists", [orderBy("createdAt", "desc")], 1000 * 60 * 30),
-        firestoreService.getCollection<any>("vignettes", [orderBy("createdAt", "desc")], 1000 * 60 * 60),
-        firestoreService.getDoc<any>("settings", "system", 1000 * 60 * 60)
+        firestoreService.getCollection<any>("radio-playlist", [orderBy("order", "asc")], 1000 * 60 * 60 * 12), // 12 hours
+        firestoreService.getCollection<any>("radio-artists", [orderBy("name", "asc")], 1000 * 60 * 60 * 24), // 24 hours
+        firestoreService.getCollection<any>("playlists", [orderBy("createdAt", "desc")], 1000 * 60 * 60 * 12), // 12 hours
+        firestoreService.getCollection<any>("vignettes", [orderBy("createdAt", "desc")], 1000 * 60 * 60 * 24), // 24 hours
+        firestoreService.getDoc<any>("settings", "system", 1000 * 60 * 60 * 24) // 24 hours
       ]);
 
       setTracks(tracksData);

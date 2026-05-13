@@ -49,9 +49,9 @@ export default function Home() {
   const [activeSimilarVideo, setActiveSimilarVideo] = useState<any | null>(null);
   
   // Use Cached Hooks
-  const { data: generalSettings, loading: loadingConfig } = useCachedDoc<any>("settings", "general", 1000 * 60 * 60); // 1 hour TTL for settings
-  const { data: blogData } = useCachedCollection<any>("blog", [limit(6)], 1000 * 60 * 30); // 30 min TTL for blog
-  const { data: videosData } = useCachedCollection<any>("videos", [orderBy("createdAt", "desc")], 1000 * 60 * 15); // 15 min TTL for videos
+  const { data: generalSettings, loading: loadingConfig } = useCachedDoc<any>("settings", "general", 1000 * 60 * 60 * 24); // 24 hours TTL for settings
+  const { data: blogData } = useCachedCollection<any>("blog", [limit(6)], 1000 * 60 * 60 * 6); // 6 hours TTL for blog
+  const { data: videosData } = useCachedCollection<any>("videos", [orderBy("createdAt", "desc")], 1000 * 60 * 60 * 6); // 6 hours TTL for videos
   
   // Welcome & LGPD Modals
   const [showWelcomeModal, setShowWelcomeModal] = useState(false);
@@ -238,7 +238,7 @@ export default function Home() {
     const fetchEvents = async () => {
       try {
         console.log("[Home] Fetching all events from firestoreService...");
-        const snapshot = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(40)], 1000 * 60 * 30);
+        const snapshot = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(40)], 1000 * 60 * 60 * 6); // 6 hours TTL
         
         const allEventsData = snapshot.map(data => {
           let displayDate = data.date || "";
@@ -361,7 +361,7 @@ export default function Home() {
           setMyList(JSON.parse(cached));
         }
 
-        const snapshot = await firestoreService.getCollection<any>(`users/${user.uid}/myList`, [], 1000 * 60 * 5);
+        const snapshot = await firestoreService.getCollection<any>(`users/${user.uid}/myList`, [], 1000 * 60 * 60); // 1 hour TTL
         if (isMounted) {
           const ids = snapshot.map(d => d.id);
           setMyList(ids);

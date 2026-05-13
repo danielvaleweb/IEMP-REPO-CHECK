@@ -88,12 +88,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("DEBUG: Buscando perfil para:", user.uid);
           
           // Use firestoreService to get profile with caching and deduplication
-          const profileDataFetched = await firestoreService.getDoc<any>("members", user.uid, 1000 * 60 * 60); // 1 hour TTL
+          const profileDataFetched = await firestoreService.getDoc<any>("members", user.uid, 1000 * 60 * 60 * 24); // 24 hours TTL
           
           let profileData = profileDataFetched;
 
           if (profileData?.linkedMemberId) {
-            const linkedProfile = await firestoreService.getDoc<any>("members", profileData.linkedMemberId, 1000 * 60 * 60);
+            const linkedProfile = await firestoreService.getDoc<any>("members", profileData.linkedMemberId, 1000 * 60 * 60 * 24);
             if (linkedProfile) {
               profileData = { ...linkedProfile, uid: user.uid };
             }
