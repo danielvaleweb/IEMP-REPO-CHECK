@@ -57,6 +57,7 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingText, setIsGeneratingText] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingPush, setIsSendingPush] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [generatedText, setGeneratedText] = useState("");
   
@@ -203,6 +204,47 @@ Estilo: ${styleInstruction}`;
     } catch (err) {
       console.error("Erro ao baixar:", err);
       alert("Erro ao baixar imagem.");
+    }
+  };
+
+  const handleSendPush = async () => {
+    const finalMessage = generatedText || message;
+    const finalTitle = title || type;
+    
+    if (!finalTitle || !finalMessage) {
+      alert("Preencha pelo menos o título e a mensagem para enviar a notificação.");
+      return;
+    }
+    
+    if (!window.confirm("Isso fará o celular dos usuários vibrar e exibirá a notificação na tela de bloqueio. Deseja realmente enviar o Push Notification agora?")) return;
+
+    setIsSendingPush(true);
+    try {
+      const res = await fetch("/backend/push/broadcast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          title: finalTitle,
+          message: finalMessage,
+          target: targetMode === "all" ? "all" : "specific",
+          userIds: targetMode === "segmented" ? selectedUsers : []
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Sucesso! Notificação disparada para os dispositivos.`);
+        // Automagically save it to history since it was actually pushed out
+        if (!isSaving) {
+           await handleSaveHistory();
+        }
+      } else {
+        alert("Erro retornado pelo servidor: " + (data.error || "Desconhecido"));
+      }
+    } catch (error) {
+      console.error("Erro ao enviar push:", error);
+      alert("Falha de conexão ao tentar enviar a notificação.");
+    } finally {
+      setIsSendingPush(false);
     }
   };
 
@@ -772,13 +814,22 @@ Estilo: ${styleInstruction}`;
                 </div>
               )}
 
-              <Button 
-                onClick={handleSaveHistory}
-                disabled={isSaving || (!title && !generatedText)}
-                className="w-full h-14 rounded-[20px] bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white font-black uppercase tracking-widest shadow-xl shadow-[#BF76FF]/20 mt-4 cursor-pointer"
-              >
-                {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : "Salvar no Histórico de Avisos"}
-              </Button>
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <Button 
+                  onClick={handleSaveHistory}
+                  disabled={isSaving || (!title && !generatedText && !message)}
+                  className="w-full h-14 rounded-[20px] bg-white border border-black/10 text-black hover:bg-gray-50 font-black uppercase tracking-widest cursor-pointer"
+                >
+                  {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : "Apenas Salvar Histórico"}
+                </Button>
+                <Button 
+                  onClick={handleSendPush}
+                  disabled={isSendingPush || (!title && !generatedText && !message)}
+                  className="w-full h-14 rounded-[20px] bg-gradient-to-r from-[#FF3B30] to-[#FF2D55] text-white font-black uppercase tracking-widest shadow-xl shadow-red-500/20 cursor-pointer flex items-center gap-2"
+                >
+                  {isSendingPush ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Bell className="w-5 h-5" /> Enviar Notificação Push</>}
+                </Button>
+              </div>
             </div>
           </div>
 
