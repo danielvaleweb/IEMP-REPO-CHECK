@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { lazy, Suspense, useState, useEffect, useMemo, useRef } from "react";
 import {
   LayoutDashboard,
   Image as ImageIcon,
@@ -94,12 +94,22 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { AvisosView } from "@/components/admin/AvisosView";
-import { EBDAdminView } from "@/components/admin/EBDAdminView";
-import { VideosView } from "@/components/admin/VideosView";
-import { EventosView } from "@/components/admin/EventosView";
-import { EventFeedbacksAdmin } from "@/components/admin/EventFeedbacksAdmin";
-import { SavedLoginsAdmin } from "@/components/admin/SavedLoginsAdmin";
+
+// Lazy sub-views
+const TonsView = lazy(() => import("@/components/admin/TonsView").then(m => ({ default: m.TonsView })));
+const AvisosView = lazy(() => import("@/components/admin/AvisosView").then(m => ({ default: m.AvisosView })));
+const EBDAdminView = lazy(() => import("@/components/admin/EBDAdminView").then(m => ({ default: m.EBDAdminView })));
+const VideosView = lazy(() => import("@/components/admin/VideosView").then(m => ({ default: m.VideosView })));
+const EventosView = lazy(() => import("@/components/admin/EventosView").then(m => ({ default: m.EventosView })));
+const EventFeedbacksAdmin = lazy(() => import("@/components/admin/EventFeedbacksAdmin").then(m => ({ default: m.EventFeedbacksAdmin })));
+const SavedLoginsAdmin = lazy(() => import("@/components/admin/SavedLoginsAdmin").then(m => ({ default: m.SavedLoginsAdmin })));
+
+const ViewLoader = () => (
+  <div className="flex flex-col items-center justify-center p-12 gap-4">
+    <Loader2 className="w-8 h-8 text-[#BF76FF] animate-spin" />
+    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest animate-pulse">Carregando visualização...</p>
+  </div>
+);
 
 const ROLE_COLORS: Record<string, string> = {
   "Direção": "#7f009b",
@@ -995,11 +1005,21 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
             <div className={cn("p-8 rounded-[32px] border transition-colors", isDark ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
               <h3 className={cn("text-xl font-bold mb-6 transition-colors", isDark ? "text-white" : "text-black")}>Habilidades</h3>
               <div className="flex flex-wrap gap-2">
-                {(member.skills || ["Liderança", "Música", "Comunicação", "Organização"]).map((skill: string, i: number) => (
-                  <span key={`skill-${skill}-${i}`} className={cn("px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors", isDark ? "bg-white/5 text-gray-400" : "bg-white text-gray-600 shadow-sm")}>
-                    {skill}
-                  </span>
-                ))}
+                {(() => {
+                  const skills = member.churchSkills
+                    ? member.churchSkills.split(',').map((s: string) => s.trim()).filter(Boolean)
+                    : (member.skills || []);
+
+                  if (skills.length === 0) {
+                    return <p className="text-xs text-gray-500 italic">Nenhuma habilidade informada</p>;
+                  }
+
+                  return skills.map((skill: string, i: number) => (
+                    <span key={`skill-${skill}-${i}`} className={cn("px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all", isDark ? "bg-white/10 text-[#BF76FF] border border-[#BF76FF]/20" : "bg-[#BF76FF]/5 text-[#BF76FF] border border-[#BF76FF]/10 shadow-sm")}>
+                      {skill}
+                    </span>
+                  ));
+                })()}
               </div>
             </div>
           </div>
@@ -1190,8 +1210,8 @@ const Admin = () => {
     { id: 'eventos', label: 'Eventos', icon: PartyPopper },
     { id: 'noticias', label: 'Notícias', icon: Newspaper },
     { id: 'videos', label: 'Vídeos', icon: Youtube },
+    { id: 'tons', label: 'Tons', icon: Music },
     { id: 'membros', label: 'Membros', icon: Users },
-    { id: 'visitantes', label: 'Visitantes', icon: UserSearch },
     { id: 'agenda', label: 'Agenda', icon: Clock },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
@@ -1200,7 +1220,7 @@ const Admin = () => {
 
   const [visibleTabs, setVisibleTabs] = useState<string[]>(() => {
     const savedVisible = localStorage.getItem('admin_visible_tabs');
-    let tabs = ['visao-geral', 'perfil', 'eventos', 'noticias', 'videos', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio', 'ebd', 'financas', 'logs', 'discipulado', 'configuracoes'];
+    let tabs = ['visao-geral', 'perfil', 'eventos', 'noticias', 'videos', 'tons', 'membros', 'visitantes', 'agenda', 'agenda-direcao', 'radio', 'ebd', 'financas', 'logs', 'discipulado', 'configuracoes'];
 
     if (savedVisible) {
       const parsed = JSON.parse(savedVisible);
@@ -1449,6 +1469,9 @@ const Admin = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [expandedNotifs, setExpandedNotifs] = useState<string[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
+  const [eventsLimit, setEventsLimit] = useState(4);
+  const [newsLimit, setNewsLimit] = useState(4);
+  const [videosLimit, setVideosLimit] = useState(4);
 
   useEffect(() => {
     if (chatUserParam && members.length > 0) {
@@ -2218,14 +2241,32 @@ const Admin = () => {
 
   const handleAddSkill = async () => {
     if (!newSkillName.trim()) return;
-    const updatedSkills = [...availableSkills, newSkillName.trim()];
-    await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
-    setNewSkillName("");
+    try {
+      const updatedSkills = [...availableSkills, newSkillName.trim()];
+      await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
+      setAvailableSkills(updatedSkills);
+      setNewSkillName("");
+      
+      if (logAction) {
+        logAction("criar", "settings/skills", `Adicionou nova habilidade: ${newSkillName.trim()}`);
+      }
+    } catch (err) {
+      console.error("Error adding skill:", err);
+    }
   };
 
   const handleRemoveSkill = async (skillToRemove: string) => {
-    const updatedSkills = availableSkills.filter(s => s !== skillToRemove);
-    await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
+    try {
+      const updatedSkills = availableSkills.filter(s => s !== skillToRemove);
+      await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
+      setAvailableSkills(updatedSkills);
+      
+      if (logAction) {
+        logAction("deletar", "settings/skills", `Removeu habilidade: ${skillToRemove}`);
+      }
+    } catch (err) {
+      console.error("Error removing skill:", err);
+    }
   };
 
   useEffect(() => {
@@ -2508,7 +2549,7 @@ const Admin = () => {
       try {
         const [agendaData, postsData, membersData] = await Promise.all([
           firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60), // 1 hour TTL
-          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 60), // 1 hour TTL
+          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(4)], 1000 * 60 * 60), // 1 hour TTL
           firestoreService.getCollection<any>("members", [], 1000 * 60 * 5) // 5 min TTL
         ]);
 
@@ -2552,10 +2593,10 @@ const Admin = () => {
     const loadTabData = async () => {
       try {
         if (activeTab === "eventos") {
-          const data = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 15);
+          const data = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(eventsLimit)], 1000 * 60 * 15);
           setPosts(data);
         } else if (activeTab === "noticias") {
-          const data = await firestoreService.getCollection<any>("blog", [limit(100)], 1000 * 60 * 15);
+          const data = await firestoreService.getCollection<any>("blog", [orderBy("createdAt", "desc"), limit(newsLimit)], 1000 * 60 * 15);
           setBlog(data);
         } else if (activeTab === "membros" || activeTab === "visitantes") {
           const data = await firestoreService.getCollection<any>("members", [], 1000 * 60 * 1); // 1 min TTL when opening tab
@@ -2577,7 +2618,7 @@ const Admin = () => {
           const data = await firestoreService.getCollection<any>("audit-logs", [orderBy("timestamp", "desc"), limit(100)], 1000 * 60 * 30);
           setLogs(data);
         } else if (activeTab === "videos") {
-          const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 60 * 24);
+          const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc"), limit(videosLimit)], 1000 * 60 * 60 * 24);
           setVideos(data);
         }
       } catch (err) {
@@ -2588,7 +2629,7 @@ const Admin = () => {
     if (activeTab !== "visao-geral" && activeTab !== "agenda" && activeTab !== "eventos") {
       loadTabData();
     }
-  }, [activeTab, user, isAdmin]);
+  }, [activeTab, user, isAdmin, eventsLimit, newsLimit, videosLimit]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -3912,7 +3953,7 @@ const Admin = () => {
                           key={item.id}
                           id={item.id}
                           icon={item.icon}
-                          active={activeTab === item.id}
+                          active={activeTab === item.id || (item.id === "membros" && activeTab === "visitantes")}
                           onClick={() => {
                             setActiveTab(item.id);
                             setIsEditing(false);
@@ -3945,7 +3986,7 @@ const Admin = () => {
                     render={
                       <button className={cn(
                         "flex items-center gap-3 w-full px-4 h-10 rounded-xl transition-all duration-300",
-                        isDarkMode ? "hover:bg-white/5 text-gray-500 hover:text-white" : "hover:bg-black/5 text-gray-400 hover:text-black"
+                        isDarkMode ? "hover:bg-white/5 text-gray-400 hover:text-white" : "hover:bg-black/5 text-gray-400 hover:text-black"
                       )} />
                     }
                   >
@@ -4003,11 +4044,11 @@ const Admin = () => {
                 {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
-                {canViewTab("visitantes") && <SidebarItem icon={UserSearch} active={activeTab === "visitantes" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visitantes"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Visitantes" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile notificationCount={canCreateEventDirectly ? pendingAgendaCount : 0} />}
                 {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("ebd") && <SidebarItem icon={GraduationCap} active={activeTab === "ebd" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("ebd"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="EBD" collapsed={true} isDark={isDarkMode} mobile />}
-                {canViewTab("membros") && <SidebarItem icon={Users} active={activeTab === "membros" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembersCount : 0} />}
+                {canViewTab("membros") && <SidebarItem icon={Users} active={(activeTab === "membros" || activeTab === "visitantes") && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); setShowVisitors(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembersCount : 0} />}
+                {canViewTab("tons") && <SidebarItem icon={Music} active={activeTab === "tons" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("tons"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Tons" collapsed={true} isDark={isDarkMode} mobile />}
                 <SidebarItem
                   icon={MessageSquare}
                   active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
@@ -4029,9 +4070,9 @@ const Admin = () => {
                     <Menu className="w-6 h-6" />
                     <span className="text-[10px] font-bold uppercase">Menu</span>
                   </SheetTrigger>
-                  <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6", isDarkMode ? "bg-[#0a0a0a] text-white" : "bg-white text-black")}>
+                  <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6 transition-colors duration-500", isDarkMode ? "bg-[#0b0016] text-white" : "bg-white text-black")}>
                     {/* Profile Section inside Mobile Menu */}
-                    <div className="flex items-center gap-4 p-4 border rounded-2xl bg-black/5 dark:bg-white/5 border-black/5 dark:border-white/5">
+                    <div className={cn("flex items-center gap-4 p-4 border rounded-2xl transition-colors", isDarkMode ? "bg-white/5 border-white/5" : "bg-gray-50 border-black/5 shadow-sm")}>
                       <div className="relative group">
                         <div className="w-[52px] h-[52px] rounded-full overflow-hidden border-[3px] border-[#BF76FF]/30 object-cover flex items-center justify-center shrink-0">
                           {profile?.photoURL ? (
@@ -4139,7 +4180,7 @@ const Admin = () => {
                       <SheetClose
                         className={cn(
                           "flex flex-col items-center justify-center gap-2 p-3 rounded-[20px] transition-all border outline-none",
-                          isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-white border-black/10 text-black shadow-sm"
+                          isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-black/5 text-black shadow-sm"
                         )}
                         onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}
                       >
@@ -4614,12 +4655,16 @@ const Admin = () => {
                     </div>
                   </div>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[220px] rounded-2xl p-2 border bg-roxo-bg border-white/5 shadow-2xl mt-2 text-white">
-                  <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Seu Status</DropdownMenuLabel>
+                <DropdownMenuContent align="end" className={cn("w-[260px] rounded-[32px] p-2 border shadow-2xl mt-4 overflow-hidden transition-all duration-300 animate-in fade-in zoom-in-95", isDarkMode ? "bg-[#0b0016] border-white/5 text-white" : "bg-white border-gray-100 text-black")}>
+                  <div className={cn("px-4 py-3 mb-2 border-b", isDarkMode ? "border-white/5" : "border-black/5")}>
+                    <p className="text-[10px] font-black tracking-widest text-gray-500 uppercase mb-1">Logado como</p>
+                    <p className="font-bold truncate">{profile?.name || user?.email}</p>
+                  </div>
+                  <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3 px-3">Seu Status</DropdownMenuLabel>
                   <DropdownMenuItem
                     className={cn(
                       "flex items-center justify-between rounded-xl p-3 cursor-pointer mb-2 transition-colors",
-                      (!profile?.status_online || profile?.status_online === 'online') ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "focus:bg-white/5 text-gray-300"
+                      (!profile?.status_online || profile?.status_online === 'online') ? (isDarkMode ? "bg-[#BF76FF]/10 text-[#BF76FF]" : "bg-[#BF76FF]/10 text-[#BF76FF]") : (isDarkMode ? "focus:bg-white/5 text-gray-300" : "focus:bg-black/5 text-gray-600")
                     )}
                     onClick={async () => {
                       if (!user) return;
@@ -4638,7 +4683,7 @@ const Admin = () => {
                   <DropdownMenuItem
                     className={cn(
                       "flex items-center justify-between rounded-xl p-3 cursor-pointer mb-2 transition-colors",
-                      profile?.status_online === 'busy' ? "bg-red-500/10 text-red-500" : "focus:bg-white/5 text-gray-300"
+                      profile?.status_online === 'busy' ? "bg-red-500/10 text-red-500" : (isDarkMode ? "focus:bg-white/5 text-gray-300" : "focus:bg-black/5 text-gray-600")
                     )}
                     onClick={async () => {
                       if (!user) return;
@@ -4657,7 +4702,7 @@ const Admin = () => {
                   <DropdownMenuItem
                     className={cn(
                       "flex items-center justify-between rounded-xl p-3 cursor-pointer mb-2 transition-colors",
-                      profile?.status_online === 'away' ? "bg-amber-500/10 text-amber-500" : "focus:bg-white/5 text-gray-300"
+                      profile?.status_online === 'away' ? "bg-amber-500/10 text-amber-500" : (isDarkMode ? "focus:bg-white/5 text-gray-300" : "focus:bg-black/5 text-gray-600")
                     )}
                     onClick={async () => {
                       if (!user) return;
@@ -4674,7 +4719,7 @@ const Admin = () => {
                   </DropdownMenuItem>
 
                   <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Aparência</DropdownMenuLabel>
-                  <div className="flex items-center gap-1 bg-white/5 p-1 rounded-xl mb-4">
+                  <div className={cn("flex items-center gap-1 p-1 rounded-xl mb-4", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                     <button
                       onClick={() => setIsDarkMode(false)}
                       className={cn("flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all", !isDarkMode ? "bg-white text-[#BF76FF] shadow-sm" : "text-gray-500 hover:text-gray-300")}
@@ -4684,19 +4729,19 @@ const Admin = () => {
                     </button>
                     <button
                       onClick={() => setIsDarkMode(true)}
-                      className={cn("flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all", isDarkMode ? "bg-white/10 text-[#BF76FF]" : "text-gray-500 hover:text-gray-300")}
+                      className={cn("flex-1 flex items-center justify-center gap-2 py-2 rounded-lg transition-all", isDarkMode ? (isDarkMode ? "bg-white/10 text-[#BF76FF]" : "bg-black/10 text-[#BF76FF]") : "text-gray-500 hover:text-gray-300")}
                     >
                       <Moon className="w-3.5 h-3.5" />
                       <span className="text-[10px] font-bold uppercase">Escuro</span>
                     </button>
                   </div>
 
-                  <div className="h-[1px] w-full bg-white/5 my-4"></div>
+                  <div className={cn("h-[1px] w-full my-4", isDarkMode ? "bg-white/5" : "bg-black/5")}></div>
 
                   <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Conta</DropdownMenuLabel>
-                  <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-white/5 cursor-pointer mb-2" onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}>
+                  <DropdownMenuItem className={cn("flex items-center gap-3 rounded-xl p-3 cursor-pointer mb-2", isDarkMode ? "focus:bg-white/5" : "focus:bg-black/5")} onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}>
                     <User className="w-5 h-5 text-gray-400 shrink-0" />
-                    <span className="font-bold text-gray-300">Meu Perfil</span>
+                    <span className={cn("font-bold", isDarkMode ? "text-gray-300" : "text-gray-700")}>Meu Perfil</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem className="flex items-center gap-3 rounded-xl p-3 focus:bg-red-500/10 cursor-pointer text-red-500 hover:text-red-400 transition-colors" onClick={handleLogoutAction}>
                     <LogOut className="w-5 h-5 shrink-0" />
@@ -5515,7 +5560,7 @@ const Admin = () => {
 
                                     {/* 1. Título */}
                                     <div className="space-y-2">
-                                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Título da Matéria</label>
+                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título da Matéria</label>
                                       <Input
                                         className={cn("border h-16 rounded-2xl px-6 text-xl font-black transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                         placeholder="Título impactante da notícia..."
@@ -5526,7 +5571,7 @@ const Admin = () => {
 
                                     {/* 2. Subtítulo */}
                                     <div className="space-y-2">
-                                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Subtítulo / Gravata</label>
+                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Subtítulo / Gravata</label>
                                       <Textarea
                                         className={cn("border min-h-[80px] rounded-2xl p-6 transition-all font-medium", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                         placeholder="Um resumo breve que aparece logo abaixo do título"
@@ -5537,7 +5582,7 @@ const Admin = () => {
 
                                     {/* 3. Fonte */}
                                     <div className="space-y-2">
-                                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Fonte da Matéria</label>
+                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Fonte da Matéria</label>
                                       <Input
                                         className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                         placeholder="Ex: Redação Ministério Profecia, G1, Gospel Prime..."
@@ -5548,7 +5593,7 @@ const Admin = () => {
 
                                     {/* 4. Social Sharing Preview */}
                                     <div className="py-4 border-y border-white/5 space-y-4">
-                                      <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Previsão de Compartilhamento</label>
+                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Previsão de Compartilhamento</label>
                                       <div className="flex gap-3">
                                         <div className="p-3 rounded-2xl bg-[#25D366]/10 text-[#25D366] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
                                           <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center text-white">
@@ -5580,7 +5625,7 @@ const Admin = () => {
                                     {/* 5. Video Script / URL */}
                                     <div className="space-y-4">
                                       <div className="flex items-center justify-between ml-2">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Vídeo de Destaque</label>
+                                        <label className={cn("text-[10px] font-black uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Vídeo de Destaque</label>
                                         <div className="flex gap-2">
                                           <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[8px] font-black uppercase tracking-widest border border-red-500/20">YouTube</span>
                                           <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[8px] font-black uppercase tracking-widest border border-purple-500/20">Instagram</span>
@@ -5588,7 +5633,7 @@ const Admin = () => {
                                         </div>
                                       </div>
                                       <Input
-                                        className={cn("border h-12 rounded-2xl px-6 transition-all italic", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                        className={cn("border h-12 rounded-2xl px-6 transition-all italic", isDarkMode ? "bg-cinza-input border-white/5 text-gray-300 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                         placeholder="Cole o link (YouTube, Instagram ou Shorts)..."
                                         value={formData.videoUrl || ""}
                                         onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
@@ -5599,17 +5644,15 @@ const Admin = () => {
                                     <div className="space-y-4 pt-4 border-t border-white/5">
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">URL da Imagem Capa</label>
+                                          <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>URL da Imagem Capa</label>
                                           <Input
-                                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-400 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                             placeholder="https://exemplo.com/cafe.jpg"
                                             value={formData.image || ""}
                                             onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                                           />
                                         </div>
                                         <div className="space-y-2">
-                                          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">Legenda da Imagem</label>
-                                          <Input
                                             className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                             placeholder="Fiel orando no monte"
                                             value={formData.imageCaption || ""}
@@ -5634,7 +5677,7 @@ const Admin = () => {
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Corpo da Matéria (Texto Principal)</label>
                                       </div>
                                       <Textarea
-                                        className={cn("border min-h-[300px] rounded-[32px] p-8 transition-all text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                        className={cn("border min-h-[300px] rounded-[32px] p-8 transition-all text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-cinza-input border-white/5 text-white/90 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                         placeholder="Escreva aqui a reportagem completa. Use parágrafos para melhor leitura."
                                         value={formData.content || ""}
                                         onChange={(e) => setFormData({ ...formData, content: e.target.value })}
@@ -5764,7 +5807,7 @@ const Admin = () => {
                             {(activeTab === "agenda" || activeTab === "agenda-direcao") && (
                               <div className="space-y-4">
                                 <div className="space-y-2">
-                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Título do Compromisso</label>
+                                  <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título do Compromisso</label>
                                   <Input
                                     className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                     placeholder="Ex: Visitar igreja no Grama"
@@ -5776,7 +5819,7 @@ const Admin = () => {
 
                                 <div className="grid grid-cols-1 gap-4">
                                   <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data e Horário</label>
+                                    <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Data e Horário</label>
                                     <div className="flex flex-col md:flex-row gap-3">
                                       <div className="flex-1 space-y-1">
                                         <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Data</p>
@@ -5823,7 +5866,7 @@ const Admin = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                   <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Local</label>
+                                    <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Local</label>
                                     <Input
                                       className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                       placeholder="Ex: Igreja Local..."
@@ -5833,7 +5876,7 @@ const Admin = () => {
                                     />
                                   </div>
                                   <div className="space-y-2 relative">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Organizador</label>
+                                    <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Organizador</label>
                                     <div className="relative">
                                       <Input
                                         className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
@@ -5881,7 +5924,7 @@ const Admin = () => {
                                 </div>
                                 {activeTab === "agenda-direcao" && (
                                   <div className="space-y-2">
-                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                                    <label className={cn("text-xs font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>
                                       A igreja foi convidada?
                                       {!isReadOnly && (
                                         <div className="flex gap-2 ml-4">
@@ -6120,11 +6163,21 @@ const Admin = () => {
                                               onClick={(e) => { e.stopPropagation(); handleRemoveSkill(skill); }}
                                               className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-400 transition-all ml-1"
                                             >
-                                              ×
+                                              <Trash2 className="w-3 h-3" />
                                             </button>
                                           </div>
                                         );
                                       })}
+                                    </div>
+
+                                    <div className="mt-4 pt-4 border-t border-white/10 flex justify-end">
+                                      <Button
+                                        type="button"
+                                        onClick={() => setShowSkillsDropdownAdmin(false)}
+                                        className="bg-[#BF76FF] hover:bg-[#A05ADB] text-white rounded-xl px-6 font-black uppercase text-[10px] tracking-widest h-10 transition-all shadow-lg shadow-[#BF76FF]/20"
+                                      >
+                                        Confirmar Seleção
+                                      </Button>
                                     </div>
                                   </motion.div>
                                 )}
@@ -6657,6 +6710,12 @@ const Admin = () => {
                     </div>
                   </div>
                 </Card>
+              ) : activeTab === "tons" ? (
+                <div className="space-y-6 pb-32">
+                  <Suspense fallback={<ViewLoader />}>
+                    <TonsView isDark={isDarkMode} members={members} />
+                  </Suspense>
+                </div>
               ) : (activeTab === "membros" || activeTab === "visitantes") && !isEditing ? (
                 <div className="space-y-6">
                   {viewingMember ? (
@@ -6693,45 +6752,51 @@ const Admin = () => {
 
                         <div className="flex gap-2">
                           {isAdminOrDev && (
-                            <Button
-                              className={cn(
-                                "w-full sm:w-auto rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg text-xs flex items-center gap-2",
-                                showPending 
-                                  ? (isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10")
-                                  : "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
-                              )}
-                              onClick={() => setShowPending(!showPending)}
-                            >
-                              {showPending ? (
-                                <><Users className="w-4 h-4" /> Ver Membros Ativos</>
-                              ) : (
+                            <>
+                              {!showPending && activeTab === "membros" ? (
                                 <>
-                                  <UserPlus className="w-4 h-4" /> 
-                                  Solicitações
+                                  <Button
+                                    className={cn(
+                                      "w-full sm:w-auto rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg text-xs flex items-center gap-2",
+                                      isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10"
+                                    )}
+                                    onClick={() => {
+                                      setActiveTab("visitantes");
+                                      setShowPending(false);
+                                    }}
+                                  >
+                                    <UserSearch className="w-4 h-4" /> 
+                                    Visitantes
+                                  </Button>
                                   {pendingMembers.length > 0 && (
-                                    <span className="bg-white text-red-500 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black ml-1">
-                                      {pendingMembers.length}
-                                    </span>
+                                    <Button
+                                      className="w-full sm:w-auto bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/20 rounded-xl h-11 px-4 font-bold truncate transition-all text-xs flex items-center gap-2"
+                                      onClick={() => setShowPending(true)}
+                                    >
+                                      <UserPlus className="w-4 h-4" />
+                                      Solicitações
+                                      <span className="bg-white text-red-500 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black ml-1">
+                                        {pendingMembers.length}
+                                      </span>
+                                    </Button>
                                   )}
                                 </>
+                              ) : (
+                                <Button
+                                  className={cn(
+                                    "w-full sm:w-auto rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg text-xs flex items-center gap-2",
+                                    isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10"
+                                  )}
+                                  onClick={() => {
+                                    setActiveTab("membros");
+                                    setShowPending(false);
+                                  }}
+                                >
+                                  <Users className="w-4 h-4" /> 
+                                  Ver Membros Ativos
+                                </Button>
                               )}
-                            </Button>
-                          )}
-                          {!showPending && canEditProfiles && (
-                            <Button
-                              className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-11 px-6 font-bold truncate"
-                              onClick={() => {
-                                setSelectedItem(null);
-                                setFormData({
-                                  role: activeTab === "visitantes" ? "Visitante" : "Membro",
-                                  status: activeTab === "visitantes" ? "approved" : "active"
-                                });
-                                setIsReadOnly(false);
-                                setIsEditing(true);
-                              }}
-                            >
-                              <Plus className="w-4 h-4 mr-2" /> {activeTab === "visitantes" ? "Novo Visitante" : "Novo Membro"}
-                            </Button>
+                            </>
                           )}
                         </div>
                       </div>
@@ -6946,48 +7011,62 @@ const Admin = () => {
                   </div>
                 </div>
               ) : activeTab === "videos" ? (
-                <VideosView isDark={isDarkMode} />
+                <Suspense fallback={<ViewLoader />}>
+                  <VideosView isDark={isDarkMode} />
+                </Suspense>
               ) : activeTab === "avisos" ? (
-                <AvisosView isDark={isDarkMode} />
+                <Suspense fallback={<ViewLoader />}>
+                  <AvisosView isDark={isDarkMode} />
+                </Suspense>
               ) : activeTab === "ebd" ? (
-                <EBDAdminView isDark={isDarkMode} />
+                <Suspense fallback={<ViewLoader />}>
+                  <EBDAdminView isDark={isDarkMode} />
+                </Suspense>
               ) : (activeTab === "eventos" || activeTab === "noticias") && !isEditing ? (
-                <EventosView
-                  events={filteredItems}
-                  isDark={isDarkMode}
-                  canEdit={canEdit}
-                  canDelete={canDelete}
-                  title={activeTab === "eventos" ? "Eventos do Mês" : "Notícias"}
-                  buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}
-                  buttonIcon={activeTab === "eventos" ? Plus : Newspaper}
-                  emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
-                  onNewEvent={() => {
-                    setSelectedItem(null);
-                    setFormData({
-                      organization: profile?.role || "Membro"
-                    });
-                    setIsReadOnly(false);
-                    setIsEditing(true);
-                  }}
-                  onViewEvent={(item) => {
-                    setSelectedItem(item);
-                    setFormData(item);
-                    setIsReadOnly(true);
-                    setIsEditing(true);
-                  }}
-                  onEditEvent={(item) => {
-                    setSelectedItem(item);
-                    setFormData(item);
-                    setIsReadOnly(false);
-                    setIsEditing(true);
-                  }}
-                  onDeleteEvent={(item) => {
-                    handleDelete(item, activeTab === "noticias" ? "blog" : "posts");
-                  }}
-                />
+                <Suspense fallback={<ViewLoader />}>
+                  <EventosView
+                    events={filteredItems}
+                    isDark={isDarkMode}
+                    canEdit={canEdit}
+                    canDelete={canDelete}
+                    onLoadMore={() => {
+                      if (activeTab === "eventos") setEventsLimit(prev => prev + 4);
+                      else setNewsLimit(prev => prev + 4);
+                    }}
+                    title={activeTab === "eventos" ? "Eventos do Mês" : "Notícias"}
+                    buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}
+                    buttonIcon={activeTab === "eventos" ? Plus : Newspaper}
+                    emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
+                    onNewEvent={() => {
+                      setSelectedItem(null);
+                      setFormData({
+                        organization: profile?.role || "Membro"
+                      });
+                      setIsReadOnly(false);
+                      setIsEditing(true);
+                    }}
+                    onViewEvent={(item) => {
+                      setSelectedItem(item);
+                      setFormData(item);
+                      setIsReadOnly(true);
+                      setIsEditing(true);
+                    }}
+                    onEditEvent={(item) => {
+                      setSelectedItem(item);
+                      setFormData(item);
+                      setIsReadOnly(false);
+                      setIsEditing(true);
+                    }}
+                    onDeleteEvent={(item) => {
+                      handleDelete(item, activeTab === "noticias" ? "blog" : "posts");
+                    }}
+                  />
+                </Suspense>
               ) : activeTab === "logins" ? (
                 <div className="space-y-6 pb-32">
-                  <SavedLoginsAdmin isDark={isDarkMode} />
+                  <Suspense fallback={<ViewLoader />}>
+                    <SavedLoginsAdmin isDark={isDarkMode} />
+                  </Suspense>
                 </div>
               ) : activeTab === "agenda" ? (
                 <div className="space-y-6 pb-32">
@@ -7178,6 +7257,11 @@ const Admin = () => {
                       })()}
                     </div>
                   </div>
+
+                  {/* Event Feedbacks Section */}
+                  <Suspense fallback={<ViewLoader />}>
+                    <EventFeedbacksAdmin isDark={isDarkMode} />
+                  </Suspense>
                 </div>
               ) : activeTab === "agenda-direcao" ? (
                 <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -8399,12 +8483,6 @@ const Admin = () => {
               </button>
             </div>
             <div className="flex gap-2">
-              <ActionIcon
-                icon={isDarkMode ? Sun : Moon}
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                active={false}
-                isDark={isDarkMode}
-              />
               {canViewTab("avisos") && (
                 <ActionIcon
                   icon={Megaphone}
@@ -9488,7 +9566,7 @@ const Admin = () => {
           </div>
           <div className="h-6 w-[1px] bg-white/5 mx-2" />
           <div className="text-[10px] font-black text-[#BF76FF] tracking-tighter bg-[#BF76FF]/10 px-3 py-0.5 rounded-full border border-[#BF76FF]/20">
-            Versão 1.0
+            Versão 1.2
           </div>
         </div>
       </footer>

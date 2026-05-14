@@ -30,13 +30,15 @@ import {
   doc, 
   query, 
   orderBy, 
-  serverTimestamp 
+  serverTimestamp,
+  limit
 } from "firebase/firestore";
 import { cn, getImageUrl } from "@/lib/utils";
 import { firestoreService } from "@/services/firestoreService";
 
 export function VideosView({ isDark }: { isDark: boolean }) {
   const [videos, setVideos] = useState<any[]>([]);
+  const [videoLimit, setVideoLimit] = useState(4);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [editingVideo, setEditingVideo] = useState<any>(null);
@@ -79,7 +81,7 @@ export function VideosView({ isDark }: { isDark: boolean }) {
   const loadVideos = async () => {
     try {
       setLoading(true);
-      const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc")], 1000 * 60 * 30);
+      const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc"), limit(videoLimit)], 1000 * 60 * 30);
       setVideos(data);
     } catch (err) {
       handleFirestoreError(err, OperationType.LIST, "videos");
@@ -90,7 +92,7 @@ export function VideosView({ isDark }: { isDark: boolean }) {
 
   useEffect(() => {
     loadVideos();
-  }, []);
+  }, [videoLimit]);
 
   const handleSaveVideo = async () => {
     if (!formData.title || !formData.url) return;
@@ -364,6 +366,18 @@ export function VideosView({ isDark }: { isDark: boolean }) {
             </div>
           )}
         </div>
+
+        {videos.length > 0 && videos.length >= videoLimit && (
+          <div className="flex justify-center mt-12">
+            <Button 
+              variant="outline"
+              className="rounded-2xl px-10 border-[#BF76FF]/20 hover:bg-[#BF76FF]/10 text-[#BF76FF] font-black uppercase tracking-widest text-xs h-14 transition-all active:scale-95"
+              onClick={() => setVideoLimit(prev => prev + 4)}
+            >
+              Ver mais vídeos
+            </Button>
+          </div>
+        )}
       </div>
       {/* Delete Confirmation Modal */}
       <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>

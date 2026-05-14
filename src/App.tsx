@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
@@ -12,33 +12,41 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import GlobalPlayer from "@/components/GlobalPlayer";
-import Home from "@/pages/Home";
-import Live from "@/pages/Live";
-import Gallery from "@/pages/Gallery";
-import Admin from "@/pages/Admin";
-import Google from "@/pages/Google";
-import About from "@/pages/About";
-import Bible from "@/pages/Bible";
-import Departments from "@/pages/Departments";
-import Discipleship from "@/pages/Discipleship";
-import EBD from "@/pages/EBD";
-import Favorites from "@/pages/Favorites";
-import Formulario from "@/pages/Formulario";
-import StaticPages from "@/pages/StaticPages";
-import Maintenance from "@/pages/Maintenance";
-import Migration from "@/pages/Migration";
 import { cn } from "@/lib/utils";
+import { Loader2 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { firestoreService } from "@/services/firestoreService";
 
-import EventDetails from "@/pages/EventDetails";
-import NoticiaDetalhe from "@/pages/NoticiaDetalhe";
+// Lazy loading pages
+const Home = lazy(() => import("@/pages/Home"));
+const Live = lazy(() => import("@/pages/Live"));
+const Gallery = lazy(() => import("@/pages/Gallery"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const Google = lazy(() => import("@/pages/Google"));
+const About = lazy(() => import("@/pages/About"));
+const Bible = lazy(() => import("@/pages/Bible"));
+const Departments = lazy(() => import("@/pages/Departments"));
+const Discipleship = lazy(() => import("@/pages/Discipleship"));
+const EBD = lazy(() => import("@/pages/EBD"));
+const Favorites = lazy(() => import("@/pages/Favorites"));
+const Formulario = lazy(() => import("@/pages/Formulario"));
+const StaticPages = lazy(() => import("@/pages/StaticPages"));
+const Maintenance = lazy(() => import("@/pages/Maintenance"));
+const Migration = lazy(() => import("@/pages/Migration"));
+const EventDetails = lazy(() => import("@/pages/EventDetails"));
+const NoticiaDetalhe = lazy(() => import("@/pages/NoticiaDetalhe"));
+const Solicitacao = lazy(() => import("@/pages/Solicitacao"));
+const Videos = lazy(() => import("@/pages/Videos"));
+const RadioPage = lazy(() => import("@/pages/Radio"));
+const Servicos = lazy(() => import("@/pages/Servicos"));
 
-import Solicitacao from "@/pages/Solicitacao";
-import Videos from "@/pages/Videos";
-import RadioPage from "@/pages/Radio";
-import Servicos from "@/pages/Servicos";
+const PageLoader = () => (
+  <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+    <Loader2 className="w-10 h-10 text-primary animate-spin" />
+    <p className="text-sm font-medium text-muted-foreground animate-pulse">Carregando...</p>
+  </div>
+);
 
 function AppContent() {
   const location = useLocation();
@@ -82,28 +90,30 @@ function AppContent() {
       {!isAdminPage && !isGooglePage && !isEventPage && !isSolicitacaoPage && <Navbar />}
       <main className="flex-grow flex flex-col">
         <ErrorBoundary isAdminPage={isAdminPage}>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/ao-vivo" element={<Live />} />
-            <Route path="/videos" element={<Videos />} />
-            <Route path="/radio" element={<RadioPage />} />
-            <Route path="/galeria" element={<Gallery />} />
-            <Route path="/favoritos" element={<Favorites />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/migration" element={<Migration />} />
-            <Route path="/formulario" element={<Formulario />} />
-            <Route path="/google" element={<Google />} />
-            <Route path="/solicitacao" element={<Solicitacao />} />
-            <Route path="/evento/:id" element={<EventDetails />} />
-            <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
-            <Route path="/quem-somos" element={<About />} />
-            <Route path="/biblia" element={<Bible />} />
-            <Route path="/departamentos/:dept" element={<Departments />} />
-            <Route path="/discipulado" element={<Discipleship />} />
-            <Route path="/ebd" element={<EBD />} />
-            <Route path="/servicos" element={<Servicos />} />
-            <Route path="/:page" element={<StaticPages />} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/ao-vivo" element={<Live />} />
+              <Route path="/videos" element={<Videos />} />
+              <Route path="/radio" element={<RadioPage />} />
+              <Route path="/galeria" element={<Gallery />} />
+              <Route path="/favoritos" element={<Favorites />} />
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/migration" element={<Migration />} />
+              <Route path="/formulario" element={<Formulario />} />
+              <Route path="/google" element={<Google />} />
+              <Route path="/solicitacao" element={<Solicitacao />} />
+              <Route path="/evento/:id" element={<EventDetails />} />
+              <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
+              <Route path="/quem-somos" element={<About />} />
+              <Route path="/biblia" element={<Bible />} />
+              <Route path="/departamentos/:dept" element={<Departments />} />
+              <Route path="/discipulado" element={<Discipleship />} />
+              <Route path="/ebd" element={<EBD />} />
+              <Route path="/servicos" element={<Servicos />} />
+              <Route path="/:page" element={<StaticPages />} />
+            </Routes>
+          </Suspense>
         </ErrorBoundary>
       </main>
       {!isAdminPage && !isGooglePage && !isSolicitacaoPage && <Footer />}

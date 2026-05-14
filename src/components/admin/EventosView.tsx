@@ -12,6 +12,7 @@ export function EventosView({
   onEditEvent, 
   onDeleteEvent, 
   onViewEvent,
+  onLoadMore,
   isDark,
   canEdit = false,
   canDelete = false,
@@ -25,6 +26,7 @@ export function EventosView({
   onEditEvent: (event: any) => void, 
   onDeleteEvent: (event: any) => void, 
   onViewEvent: (event: any) => void,
+  onLoadMore?: () => void,
   isDark?: boolean,
   canEdit?: boolean,
   canDelete?: boolean,
@@ -118,6 +120,18 @@ export function EventosView({
           </div>
         )}
       </div>
+
+      {onLoadMore && events.length > 0 && (
+        <div className="flex justify-center mt-8 pb-10">
+          <Button 
+            variant="outline"
+            className="rounded-xl px-8 border-[#BF76FF]/20 hover:bg-[#BF76FF]/10 text-[#BF76FF] font-bold uppercase tracking-widest text-xs h-12"
+            onClick={onLoadMore}
+          >
+            Ver mais
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
