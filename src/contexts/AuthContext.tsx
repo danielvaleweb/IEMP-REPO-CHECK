@@ -238,6 +238,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         type: "registration",
         memberId: uid,
         read: false,
+        userId: "admin",
         createdAt: new Date().toISOString()
       });
       
@@ -311,6 +312,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             type: "registration",
             memberId: visitorId,
             read: false,
+            userId: "admin",
             createdAt: new Date().toISOString()
           });
         }
