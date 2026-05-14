@@ -127,7 +127,15 @@ const PORT = 3000;
   });
 
   app.get("/backend/test", (req, res) => {
-    res.json({ status: "ok", env: process.env.NODE_ENV, time: new Date().toISOString() });
+    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+    const configExists = fs.existsSync(configPath);
+    res.json({ 
+      status: "ok", 
+      env: process.env.NODE_ENV, 
+      configExists,
+      cwd: process.cwd(),
+      time: new Date().toISOString() 
+    });
   });
 
   const parser = new XMLParser({
