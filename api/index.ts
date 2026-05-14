@@ -48,10 +48,22 @@ function getFirebase() {
   try {
     const apps = getApps();
     if (apps.length === 0) {
-      if (firebaseConfig.projectId) {
-        firebaseAdminApp = initializeApp({ projectId: firebaseConfig.projectId });
+      if (firebaseConfig.projectId && (process.env.FIREBASE_SERVICE_ACCOUNT || firebaseConfig.client_email)) {
+        // Se temos credenciais completas
+        const cert = process.env.FIREBASE_SERVICE_ACCOUNT 
+          ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
+          : firebaseConfig;
+        firebaseAdminApp = initializeApp({
+          credential: admin.credential.cert(cert),
+          projectId: firebaseConfig.projectId
+        });
       } else {
-        firebaseAdminApp = initializeApp();
+        // Tentativa de inicialização padrão (pode falhar no Vercel sem ADC)
+        try {
+          firebaseAdminApp = initializeApp({ projectId: firebaseConfig.projectId });
+        } catch (e) {
+          console.warn("[Firebase Admin] Could not initialize without full credentials");
+        }
       }
     } else {
       firebaseAdminApp = apps[0];
@@ -145,19 +157,30 @@ app.post("/backend/push/broadcast", async (req, res) => {
 
     // Envio via FCM
     if (fcmTokens.length > 0 && firebaseAdminApp) {
-      const messaging = getAdminMessaging(firebaseAdminApp);
-      const fcmMessages = fcmTokens.map(token => ({
-        token,
-        notification: { title, body: message, imageUrl: image },
-        data: { title, body: message, image }
-      }));
-      
-      const chunks = [];
-      for (let i = 0; i < fcmMessages.length; i += 500) {
-        chunks.push(fcmMessages.slice(i, i + 500));
-      }
-      for (const chunk of chunks) {
-        await messaging.sendEach(chunk);
+      try {
+        const messaging = getAdminMessaging(firebaseAdminApp);
+        const fcmMessages = fcmTokens.map(token => ({
+          token,
+          notification: { title, body: message, imageUrl: image },
+          data: { title, body: message, image }
+        }));
+        
+        const chunks = [];
+        for (let i = 0; i < fcmMessages.length; i += 500) {
+          chunks.push(fcmMessages.slice(i, i + 500));
+        }
+        for (const chunk of chunks) {
+          await messaging.sendEach(chunk);
+        }
+        console.log(`[Push] FCM messages sent to ${fcmTokens.length} tokens`);
+      } catch (fcmError: any) {
+        console.error("[Push] FCM failed (check service account):", fcmError.message);
+        // Não trava o envio total se apenas o FCM falhar por credenciais
+        if (fcmError.message.includes("credentials")) {
+          console.warn("[Push] FCM skipped due to missing/invalid credentials");
+        } else {
+          throw fcmError;
+        }
       }
     }
 
