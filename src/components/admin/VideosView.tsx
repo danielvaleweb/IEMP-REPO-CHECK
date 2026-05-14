@@ -262,13 +262,10 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                   <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Thumbnail Personalizada (Opcional)</label>
                   <UploadImages
                     maxFiles={1}
-                    onUploadComplete={(images) => setFormData({...formData, thumbnail: images[0].secure_url})}
+                    multiple={false}
+                    value={formData.thumbnail}
+                    onUploadComplete={(images) => setFormData({...formData, thumbnail: images[0]?.secure_url || ""})}
                   />
-                  {formData.thumbnail && (
-                    <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                      <img src={getImageUrl(formData.thumbnail)} alt="Preview" className="w-full h-full object-cover" />
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

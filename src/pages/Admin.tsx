@@ -4826,7 +4826,7 @@ const Admin = () => {
                           )}
                         </div>
                         <h4 className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                          {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Nova"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'noticias' ? 'Matéria' : activeTab === 'membros' ? 'Membro' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
+                          {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Nova"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'noticias' ? 'Matéria' : activeTab === 'membros' ? 'Perfil' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
                         </h4>
                       </div>
                     )}
@@ -5250,7 +5250,9 @@ const Admin = () => {
                                       {!isReadOnly ? (
                                         <UploadImages
                                           maxFiles={1}
-                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0].secure_url })}
+                                          multiple={false}
+                                          value={formData.image}
+                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
                                         />
                                       ) : (
                                         formData.image && (
@@ -5346,7 +5348,9 @@ const Admin = () => {
                                         {!isReadOnly ? (
                                           <UploadImages
                                             maxFiles={1}
-                                            onUploadComplete={(images) => setFormData({ ...formData, organizerImage: images[0].secure_url })}
+                                            multiple={false}
+                                            value={formData.organizerImage}
+                                            onUploadComplete={(images) => setFormData({ ...formData, organizerImage: images[0]?.secure_url || "" })}
                                           />
                                         ) : (
                                           formData.organizerImage && (
@@ -5515,6 +5519,7 @@ const Admin = () => {
                                         <div className="flex gap-2">
                                           <UploadImages
                                             maxFiles={10}
+                                            value={Array.isArray(formData.gallery) ? formData.gallery : []}
                                             onUploadComplete={(images) => {
                                               const newUrls = images.map(img => img.secure_url);
                                               setFormData({
@@ -5696,7 +5701,9 @@ const Admin = () => {
                                           {!isReadOnly ? (
                                             <UploadImages
                                               maxFiles={1}
-                                              onUploadComplete={(images) => setFormData({ ...formData, image: images[0].secure_url })}
+                                              multiple={false}
+                                              value={formData.image}
+                                              onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
                                             />
                                           ) : (
                                             formData.image && (
@@ -5717,14 +5724,7 @@ const Admin = () => {
                                           />
                                         </div>
                                       </div>
-                                      {formData.image && !isReadOnly && (
-                                        <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/10 group">
-                                          <img src={getImageUrl(formData.image)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
-                                          <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md p-3 rounded-2xl border border-white/10">
-                                            <p className="text-[10px] text-white/80 italic">{formData.imageCaption || "Sem legenda"}</p>
-                                          </div>
-                                        </div>
-                                      )}
+                                      {/* Removido preview redundante pois o componente já mostra */}
                                     </div>
 
                                     {/* 7. Conteúdo da Matéria */}
@@ -5748,14 +5748,15 @@ const Admin = () => {
                                         {!isReadOnly && (
                                           <UploadImages
                                             maxFiles={10}
+                                            value={typeof formData.gallery === 'string'
+                                              ? formData.gallery.split('\n').filter((l: string) => l.trim())
+                                              : (Array.isArray(formData.gallery) ? formData.gallery : [])}
                                             onUploadComplete={(images) => {
                                               const newUrls = images.map(img => img.secure_url);
                                               const currentGallery = typeof formData.gallery === 'string'
                                                 ? formData.gallery.split('\n').filter((l: string) => l.trim())
                                                 : (Array.isArray(formData.gallery) ? formData.gallery : []);
                                               
-                                              // Notícias seem to prefer joined string for gallery in some places, 
-                                              // but the component logic below handles both. We'll join them.
                                               setFormData({ 
                                                 ...formData, 
                                                 gallery: [...currentGallery, ...newUrls].join('\n') 
@@ -6061,7 +6062,9 @@ const Admin = () => {
                             {!isReadOnly ? (
                               <UploadImages
                                 maxFiles={1}
-                                onUploadComplete={(images) => setFormData({ ...formData, photoURL: images[0].secure_url })}
+                                multiple={false}
+                                value={formData.photoURL}
+                                onUploadComplete={(images) => setFormData({ ...formData, photoURL: images[0]?.secure_url || "" })}
                               />
                             ) : (
                               formData.photoURL && (
@@ -6076,7 +6079,9 @@ const Admin = () => {
                             {!isReadOnly ? (
                               <UploadImages
                                 maxFiles={1}
-                                onUploadComplete={(images) => setFormData({ ...formData, coverImage: images[0].secure_url })}
+                                multiple={false}
+                                value={formData.coverImage}
+                                onUploadComplete={(images) => setFormData({ ...formData, coverImage: images[0]?.secure_url || "" })}
                               />
                             ) : (
                               formData.coverImage && (

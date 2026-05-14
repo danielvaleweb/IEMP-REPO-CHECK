@@ -1,9 +1,22 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import imageCompression from 'browser-image-compression';
-import { Upload, X, CheckCircle2, AlertCircle, Loader2, ImageIcon, Trash2 } from 'lucide-react';
+import { 
+  Upload, 
+  X, 
+  CheckCircle2, 
+  AlertCircle, 
+  Loader2, 
+  ImageIcon, 
+  Trash2, 
+  Pencil, 
+  Download, 
+  RefreshCw,
+  Link as LinkIcon
+} from 'lucide-react';
 import { Progress } from './ui/progress';
-import { cn } from '../lib/utils';
+import { cn, getImageUrl } from '../lib/utils';
 import { Button } from './ui/button';
+import { Input } from './ui/input';
 
 interface CloudinaryResponse {
   secure_url: string;
@@ -14,10 +27,12 @@ interface CloudinaryResponse {
 
 interface UploadImagesProps {
   onUploadComplete: (results: CloudinaryResponse[]) => void;
+  onRemove?: (url: string) => void;
   maxFiles?: number;
   label?: string;
   className?: string;
   multiple?: boolean;
+  value?: string | string[];
 }
 
 const CLOUD_NAME = 'dvkgodvhm';
@@ -25,15 +40,33 @@ const UPLOAD_PRESET = 'site_uploads';
 
 export const UploadImages: React.FC<UploadImagesProps> = ({
   onUploadComplete,
+  onRemove,
   maxFiles = 5,
   label = 'Upload de Imagens',
   className,
-  multiple = true
+  multiple = true,
+  value
 }) => {
   const [uploading, setUploading] = useState(false);
-  const [previews, setPreviews] = useState<{ file: File; url: string; progress: number; status: 'idle' | 'compressing' | 'uploading' | 'done' | 'error' }[]>([]);
+  const [previews, setPreviews] = useState<{ file?: File; url: string; progress: number; status: 'idle' | 'compressing' | 'uploading' | 'done' | 'error' | 'existing' }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showOptions, setShowOptions] = useState<number | null>(null);
+
+  // Initialize previews from value
+  useEffect(() => {
+    if (value) {
+      const urls = Array.isArray(value) ? value : [value];
+      const existingPreviews = urls.filter(u => !!u).map(url => ({
+        url,
+        progress: 100,
+        status: 'existing' as const
+      }));
+      setPreviews(existingPreviews);
+    } else {
+      setPreviews([]);
+    }
+  }, [value]);
 
   const compressImage = async (file: File) => {
     const options = {
@@ -56,11 +89,6 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', UPLOAD_PRESET);
-    
-    // Cloudinary automatically handles f_auto, q_auto if configured in preset, 
-    // but we can't easily force it here without signed uploads or transformations on delivery.
-    // The requirement says: "Cloudinary deve usar f_auto,q_auto automaticamente"
-    // This is usually done on the URL retrieval side, but we can also add incoming transformations if the preset allows.
 
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
@@ -126,11 +154,9 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
       const item = newPreviews[i];
       
       try {
-        // Update status to compressing
         setPreviews(prev => prev.map(p => p.file === item.file ? { ...p, status: 'compressing' } : p));
-        const compressedFile = await compressImage(item.file);
+        const compressedFile = await compressImage(item.file!);
         
-        // Update status to uploading
         setPreviews(prev => prev.map(p => p.file === item.file ? { ...p, status: 'uploading' } : p));
         
         const result = await uploadToCloudinary(compressedFile as File, (progress) => {
@@ -157,12 +183,44 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
   };
 
   const removeFile = (index: number) => {
+    const url = previews[index].url;
+    if (onRemove) onRemove(url);
+    
     setPreviews(prev => {
       const newPrev = [...prev];
-      URL.revokeObjectURL(newPrev[index].url);
+      if (newPrev[index].file) URL.revokeObjectURL(newPrev[index].url);
       newPrev.splice(index, 1);
       return newPrev;
     });
+    
+    // If it's a single file, clear parent state
+    if (!multiple) {
+      onUploadComplete([]);
+    }
+  };
+
+  const downloadImage = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = `imagem-${Date.now()}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      window.open(url, '_blank');
+    }
+  };
+
+  const handleManualUrlChange = (index: number, newUrl: string) => {
+    setPreviews(prev => prev.map((p, i) => i === index ? { ...p, url: newUrl, status: 'existing' } : p));
+    if (!multiple) {
+      onUploadComplete([{ secure_url: newUrl, public_id: '', width: 0, height: 0 }]);
+    }
   };
 
   return (
@@ -170,10 +228,11 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={onDrop}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => !uploading && fileInputRef.current?.click()}
         className={cn(
           "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5",
-          uploading ? "opacity-50 pointer-events-none" : "border-gray-300 dark:border-gray-700"
+          uploading ? "opacity-50 pointer-events-none" : "border-gray-300 dark:border-gray-700",
+          previews.length > 0 && !multiple && "hidden" // Esconde dropzone se já tiver uma imagem em modo single
         )}
       >
         <input
@@ -202,49 +261,91 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
       )}
 
       {previews.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div className={cn("grid gap-6", multiple ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" : "grid-cols-1")}>
           {previews.map((item, index) => (
-            <div key={index} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900">
-              <img src={item.url} alt="Preview" className="w-full h-full object-cover" />
-              
-              <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <div key={index} className="space-y-3">
+              <div className="relative group aspect-video rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 shadow-lg">
+                <img src={getImageUrl(item.url)} alt="Preview" className="w-full h-full object-cover" />
+                
+                {/* Overlay with Pencil Icon - ALWAYS VISIBLE */}
+                <div 
+                  className={cn(
+                    "absolute inset-0 bg-black/20 flex items-center justify-center transition-opacity cursor-pointer opacity-100",
+                    showOptions === index && "bg-black/60"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowOptions(showOptions === index ? null : index);
+                  }}
+                >
+                  <div className="bg-white/90 backdrop-blur-md p-3 rounded-full border border-white shadow-xl text-blue-600 hover:scale-110 active:scale-95 transition-all">
+                    <Pencil className="w-5 h-5" />
+                  </div>
+                </div>
+
+                {/* Status Overlays */}
                 {item.status === 'compressing' && (
-                  <div className="flex flex-col items-center text-white">
-                    <Loader2 className="w-6 h-6 animate-spin mb-2" />
-                    <span className="text-[10px] uppercase font-bold">Comprimindo...</span>
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white">
+                    <Loader2 className="w-8 h-8 animate-spin mb-2" />
+                    <span className="text-xs uppercase font-black tracking-widest">Comprimindo...</span>
                   </div>
                 )}
                 {item.status === 'uploading' && (
-                  <div className="w-full px-4 flex flex-col items-center text-white">
-                    <Progress value={item.progress} className="h-1 mb-2" />
-                    <span className="text-[10px] uppercase font-bold">Enviando {Math.round(item.progress)}%</span>
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white px-8">
+                    <Progress value={item.progress} className="h-1.5 mb-2 w-full" />
+                    <span className="text-xs uppercase font-black tracking-widest">Enviando {Math.round(item.progress)}%</span>
                   </div>
                 )}
-                {item.status === 'done' && (
-                  <CheckCircle2 className="w-8 h-8 text-green-500" />
-                )}
-                {item.status === 'error' && (
-                  <AlertCircle className="w-8 h-8 text-red-500" />
-                )}
-                
-                {!uploading && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); removeFile(index); }}
-                    className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+
+                {/* Options Menu */}
+                {showOptions === index && (
+                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200 z-20">
+                    <div className="grid grid-cols-2 gap-3 w-full max-w-[200px]">
+                      <button 
+                        onClick={() => { setShowOptions(null); fileInputRef.current?.click(); }}
+                        className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white"
+                      >
+                        <RefreshCw className="w-5 h-5 text-blue-400" />
+                        <span className="text-[10px] font-bold uppercase">Trocar</span>
+                      </button>
+                      <button 
+                        onClick={() => { setShowOptions(null); downloadImage(item.url); }}
+                        className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white"
+                      >
+                        <Download className="w-5 h-5 text-blue-400" />
+                        <span className="text-[10px] font-bold uppercase">Baixar</span>
+                      </button>
+                      <button 
+                        onClick={() => { setShowOptions(null); removeFile(index); }}
+                        className="flex flex-col items-center gap-2 p-3 rounded-xl bg-red-500/20 hover:bg-red-500/40 transition-colors text-red-500 col-span-2"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        <span className="text-[10px] font-bold uppercase">Remover</span>
+                      </button>
+                    </div>
+                    <button 
+                      onClick={() => setShowOptions(null)}
+                      className="mt-4 p-2 text-white/40 hover:text-white transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
                 )}
               </div>
 
-              {item.status !== 'done' && item.status !== 'idle' && (
-                <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200">
-                  <div 
-                    className="h-full bg-blue-500 transition-all duration-300" 
-                    style={{ width: `${item.progress}%` }}
-                  />
+              {/* Manual URL Input */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 px-2">
+                  <LinkIcon className="w-3 h-3 text-blue-500" />
+                  <label className="text-[9px] font-black uppercase tracking-widest text-blue-500">Link da Imagem</label>
                 </div>
-              )}
+                <Input 
+                  value={item.url}
+                  onChange={(e) => handleManualUrlChange(index, e.target.value)}
+                  className="h-10 text-[11px] rounded-xl bg-black/5 border-blue-500/20 focus:border-blue-500/50 focus:bg-white/5 transition-all text-blue-600 dark:text-blue-400 font-medium"
+                  placeholder="https://exemplo.com/imagem.jpg"
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -252,3 +353,4 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
     </div>
   );
 };
+
