@@ -5660,8 +5660,10 @@ const Admin = () => {
                                           />
                                         </div>
                                         <div className="space-y-2">
-                                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                            placeholder="Fiel orando no monte"
+                                           <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Legenda da Imagem</label>
+                                           <Input
+                                             className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                             placeholder="Fiel orando no monte"
                                             value={formData.imageCaption || ""}
                                             onChange={(e) => setFormData({ ...formData, imageCaption: e.target.value })}
                                           />
