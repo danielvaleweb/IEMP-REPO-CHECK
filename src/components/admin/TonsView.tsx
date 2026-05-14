@@ -49,6 +49,29 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
     youtubeLink: ''
   });
 
+  const userRoles = useMemo(() => {
+    const roles = new Set<string>();
+    if (profile?.role) roles.add(profile.role);
+    if (profile?.roles && Array.isArray(profile.roles)) {
+      profile.roles.forEach((r: any) => roles.add(typeof r === 'string' ? r : r.name));
+    }
+    if (profile?.ministries && Array.isArray(profile.ministries)) {
+      profile.ministries.forEach((m: any) => roles.add(typeof m === 'object' ? m.name : m));
+    }
+    return Array.from(roles);
+  }, [profile]);
+
+  const isMasterAdmin = profile?.email === "iempministerioprofecia@gmail.com" || user?.email === "iempministerioprofecia@gmail.com";
+  const hasGlobalTonsPermission = isMasterAdmin || 
+                                  userRoles.includes("Administradores") || 
+                                  userRoles.includes("Desenvolvedor") ||
+                                  userRoles.includes("ED. TON");
+
+  const canEditVocalist = (vocalistId: string) => {
+    if (hasGlobalTonsPermission) return true;
+    return profile?.id === vocalistId;
+  };
+
   // Filter vocalists
   const vocalists = useMemo(() => {
     return members.filter(m => {
@@ -59,6 +82,11 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
       return hasCantoSkill;
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [members]);
+
+  const vocalistsForDropdown = useMemo(() => {
+    if (hasGlobalTonsPermission) return vocalists;
+    return vocalists.filter(v => v.id === profile?.id);
+  }, [vocalists, hasGlobalTonsPermission, profile]);
 
   useEffect(() => {
     const q = query(collection(db, "member-songs"), orderBy("createdAt", "desc"));
@@ -260,7 +288,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                         </div>
 
                         <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          {canEdit && (
+                          {canEdit && canEditVocalist(vocalist.id) && (
                             <button
                               onClick={() => handleEdit(song)}
                               className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors"
@@ -268,7 +296,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                               <Edit className="w-4 h-4" />
                             </button>
                           )}
-                          {canDelete && (
+                          {canDelete && canEditVocalist(vocalist.id) && (
                             <button
                               onClick={() => handleDelete(song.id)}
                               className="p-2 text-gray-400 hover:text-red-500 transition-colors"
@@ -281,7 +309,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                     </div>
                   ))}
 
-                  {canCreate && (
+                  {canCreate && canEditVocalist(vocalist.id) && (
                     <button
                       onClick={() => { resetForm(); setTargetMemberId(vocalist.id); setIsModalOpen(true); }}
                       className={cn(
@@ -328,7 +356,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                 disabled={isEditing}
               >
                 <option value="">Selecione um vocalista...</option>
-                {vocalists.map(v => (
+                {vocalistsForDropdown.map(v => (
                   <option key={v.id} value={v.id} className={isDark ? "bg-[#0f0f0f]" : "bg-white"}>{v.name}</option>
                 ))}
               </select>

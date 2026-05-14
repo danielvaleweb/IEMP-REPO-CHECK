@@ -132,7 +132,8 @@ const ROLE_COLORS: Record<string, string> = {
   "Membros": "#9e9e9e",
   "Visitante": "#b9ffa9",
   "Visitantes": "#b9ffa9",
-  "Administradores": "#BF76FF"
+  "Administradores": "#BF76FF",
+  "ED. TON": "#00FFCC"
 };
 
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
@@ -2090,6 +2091,7 @@ const Admin = () => {
     "Obreiro",
     "Recepcionista",
     "Administradores",
+    "ED. TON",
     "Visitante",
     "Membro"
   ], []);
