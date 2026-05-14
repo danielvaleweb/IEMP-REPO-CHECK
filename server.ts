@@ -30,7 +30,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize Firebase Config
-const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+const firebaseConfigPath = path.join(__dirname, "firebase-applet-config.json");
 const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
 
 // Initialize Firebase Admin
@@ -86,10 +86,9 @@ if (adminDb) {
 
 const expo = new Expo();
 
-async function startServer() {
-  const app = express();
-  app.use(express.json());
-  const PORT = 3000;
+export const app = express();
+app.use(express.json());
+const PORT = 3000;
 
   // Logging middleware
   app.use((req, res, next) => {
@@ -168,7 +167,7 @@ async function startServer() {
   app.post("/backend/push/broadcast", async (req, res) => {
     console.log("[Backend] /push/broadcast called", req.body);
     try {
-      const { title, message, target = "all", userIds = [] } = req.body;
+      const { title, message, image, target = "all", userIds = [] } = req.body;
       
       let expoTokens: string[] = [];
       let fcmTokens: string[] = [];
@@ -226,12 +225,12 @@ async function startServer() {
         return res.json({ success: true, sent: 0, message: "Nenhum token encontrado" });
       }
 
-      const expoTickets = await sendPushNotifications(expoTokens, title, message);
+      const expoTickets = await sendPushNotifications(expoTokens, title, message, { image });
       let fcmResult: any = null;
       
       try {
         if (fcmTokens.length > 0) {
-          fcmResult = await sendFCMPush(fcmTokens, title, message);
+          fcmResult = await sendFCMPush(fcmTokens, title, message, { image });
         }
       } catch (fcmErr) {
         console.error("Erro específico no envio FCM:", fcmErr);
@@ -316,7 +315,11 @@ async function startServer() {
     const messaging = getAdminMessaging(adminApp);
     const messages = tokens.map(token => ({
       token,
-      notification: { title, body },
+      notification: { 
+        title, 
+        body,
+        imageUrl: (data as any).image 
+      },
       data: { ...data, title, body } // Some webviews prefer data payload
     }));
 
@@ -532,9 +535,10 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
-}
+  if (process.env.NODE_ENV !== "production" || process.env.RUN_STANDALONE) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
 
-startServer();
+export default app;

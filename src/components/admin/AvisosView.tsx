@@ -36,6 +36,17 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
         })
       });
       
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Erro do servidor (${res.status}): ${text.substring(0, 100)}`);
+      }
+
+      const contentType = res.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text();
+        throw new Error("O servidor não retornou JSON. Verifique se o backend está rodando corretamente.");
+      }
+
       const data = await res.json();
       
       if (data.success) {
