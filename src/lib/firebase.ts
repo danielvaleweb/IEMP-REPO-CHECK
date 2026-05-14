@@ -1,8 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
-import firebaseConfig from "@/../firebase-applet-config.json";
+import prodConfig from "@/../firebase-applet-config.json";
+import devConfig from "@/../firebase-applet-config.dev.json";
 
+const firebaseConfig = import.meta.env.DEV ? devConfig : prodConfig;
 console.log("Initializing Firebase with config:", firebaseConfig.projectId);
 
 const app = initializeApp(firebaseConfig);
@@ -62,7 +64,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   }
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  
+
   // We no longer throw here to prevent unhandled promise rejections
   // that cause auto-fix loops and drain the user's credits.
 }
@@ -72,7 +74,7 @@ async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
-    if(error instanceof Error && error.message.includes('the client is offline')) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
       console.error("Please check your Firebase configuration. ");
     }
   }
