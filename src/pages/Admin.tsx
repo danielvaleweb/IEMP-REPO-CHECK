@@ -1556,34 +1556,29 @@ const Admin = () => {
         }
       });
     }
-
-    if (rolesMap.size === 0) rolesMap.set("Membro", false);
-
     return Array.from(rolesMap.entries()).map(([name, isLeader]) => ({ name, isLeader }));
   }, [profile, activeViewRole, isMasterAdmin]);
 
   const canRoleViewTab = (rName: string, rIsLeader: boolean, tab: string) => {
     if (rName === "Administradores" || rName === "Desenvolvedor" || isMasterAdmin) return true;
+    if (tab === "logins") return false;
 
-    if (tab === "logins") return false; // Strictly restricted to above roles
+    const rolePerms = settings.permissions?.[rName];
+
+    if (rolePerms?.tabs && tab in rolePerms.tabs) {
+      const tabPerm = rolePerms.tabs[tab];
+      if (typeof tabPerm === 'object') {
+        if (tabPerm.view !== undefined) return tabPerm.view;
+      } else {
+        return tabPerm;
+      }
+    }
 
     if (rName === "Direção") {
       if (tab !== "agenda-direcao" && tab !== "chat" && tab !== "visao-geral") return false;
       return true;
     }
 
-    if (tab === "agenda-direcao") {
-      const rNameLower = (rName || "").toLowerCase();
-      const isMediaOrSec = rNameLower === "mídia" || rNameLower === "midia" || rNameLower.includes("secretaria") || rNameLower.includes("secretário") || rNameLower.includes("secretario");
-      if (isMediaOrSec) {
-        if (!rIsLeader) return false;
-      }
-      if (rNameLower === "minis. louvor") return true; // Louvor can view
-    }
-
-    const rolePerms = settings.permissions?.[rName];
-
-    // Default values logic
     const getDefVal = () => {
       if (tab === "visao-geral") return true;
       if (tab === "avisos") return ["Administradores", "Desenvolvedor"].includes(rName);
@@ -1600,17 +1595,6 @@ const Admin = () => {
       return !["Membro", "Visitante", "Direção"].includes(rName);
     };
 
-    if (!rolePerms) return getDefVal();
-    
-    // Check for granular tab permissions first
-    if (rolePerms.tabs && tab in rolePerms.tabs) {
-      const tabPerm = rolePerms.tabs[tab];
-      if (typeof tabPerm === 'object') {
-        return tabPerm.view ?? getDefVal();
-      }
-      return tabPerm;
-    }
-    
     return getDefVal();
   };
 
@@ -2515,7 +2499,7 @@ const Admin = () => {
 
     // Fetch total counts only on dashboard or once
     const fetchCounts = async () => {
-      if (!isAdmin) return;
+      if (!isAdmin && !profile?.role) return;
 
       const safeGetCount = async (coll: any, label: string) => {
         try {
@@ -2599,7 +2583,7 @@ const Admin = () => {
 
   // Tab-specific data loading (On-demand)
   useEffect(() => {
-    if (!user || !isAdmin) return;
+    if (!user || (!isAdmin && !profile?.role)) return;
 
     // Load critical data on mount (Agenda for Home and Posts for Feed)
     const loadInitialData = async () => {
