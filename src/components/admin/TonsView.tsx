@@ -79,7 +79,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
       return;
     }
 
-    const youtubeId = extractYoutubeId(formData.youtubeLink) || undefined;
+    const youtubeId = extractYoutubeId(formData.youtubeLink) || null;
     
     const songPayload = {
       ...formData,
