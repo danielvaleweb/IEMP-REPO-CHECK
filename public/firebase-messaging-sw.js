@@ -23,3 +23,9 @@ fetch('/firebase-applet-config.json')
       self.registration.showNotification(notificationTitle, notificationOptions);
     });
   });
+
+// Dummy fetch listener to satisfy PWA installability requirements
+// The user explicitly stated they don't want offline caching, just the installability.
+self.addEventListener('fetch', (event) => {
+  // Pass through all requests to network
+});
