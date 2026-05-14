@@ -17,27 +17,6 @@ export default function RadioPage() {
   const { user, profile, isAdmin } = useAuth();
   const { tracks, radioArtists, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted, hasAccess } = useRadio();
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-[#0a0502] text-white font-sans pb-32 pt-32 flex flex-col items-center justify-center relative overflow-hidden px-4">
-        <div className="absolute inset-0 pointer-events-none z-0">
-          <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-tr from-transparent via-[#BF76FF]/10 to-[#FF4400]/10 rounded-full blur-[100px] opacity-60 translate-x-1/3 -translate-y-1/3" />
-        </div>
-        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-md w-full text-center relative z-10 shadow-2xl">
-          <RadioIcon className="w-16 h-16 text-[#FF4400] mx-auto mb-6 opacity-80" />
-          <h2 className="text-2xl font-bold mb-4">Página em Construção</h2>
-          <p className="text-white/60 mb-8 font-medium leading-relaxed">
-            Estamos preparando novidades incríveis para a Rádio da Igreja!
-            Em breve este recurso estará disponível para todos os membros.
-          </p>
-          <Button onClick={() => window.location.href = "/"} className="bg-gradient-to-r from-[#BF76FF] to-[#FF4400] text-white rounded-full font-bold px-8 h-12 w-full hover:scale-105 transition-transform">
-            Voltar ao Início
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   // App state
   const [activeTab, setActiveTab] = useState<'discover' | 'playlists' | 'live'>('discover');
   const [currentPlaylist, setCurrentPlaylist] = useState<any>(null);
@@ -45,6 +24,13 @@ export default function RadioPage() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [selectedArtist, setSelectedArtist] = useState<string | null>(null);
   const [artistProfileOpen, setArtistProfileOpen] = useState<any>(null);
+
+  // Modals
+  const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
+  const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState(false);
+  const [playlistToDelete, setPlaylistToDelete] = useState<string | null>(null);
+  const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
+  const [selectedTrackToAdd, setSelectedTrackToAdd] = useState<any>(null);
 
   // Derived state
   const artists = React.useMemo(() => {
@@ -83,12 +69,26 @@ export default function RadioPage() {
     }).slice(0, 10);
   }, [tracks]);
 
-  // Modals
-  const [isCreatePlaylistOpen, setIsCreatePlaylistOpen] = useState(false);
-  const [isAddToPlaylistOpen, setIsAddToPlaylistOpen] = useState(false);
-  const [playlistToDelete, setPlaylistToDelete] = useState<string | null>(null);
-  const [newPlaylistTitle, setNewPlaylistTitle] = useState('');
-  const [selectedTrackToAdd, setSelectedTrackToAdd] = useState<any>(null);
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0a0502] text-white font-sans pb-32 pt-32 flex flex-col items-center justify-center relative overflow-hidden px-4">
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-gradient-to-tr from-transparent via-[#BF76FF]/10 to-[#FF4400]/10 rounded-full blur-[100px] opacity-60 translate-x-1/3 -translate-y-1/3" />
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-3xl p-8 max-w-md w-full text-center relative z-10 shadow-2xl">
+          <RadioIcon className="w-16 h-16 text-[#FF4400] mx-auto mb-6 opacity-80" />
+          <h2 className="text-2xl font-bold mb-4">Página em Construção</h2>
+          <p className="text-white/60 mb-8 font-medium leading-relaxed">
+            Estamos preparando novidades incríveis para a Rádio da Igreja!
+            Em breve este recurso estará disponível para todos os membros.
+          </p>
+          <Button onClick={() => window.location.href = "/"} className="bg-gradient-to-r from-[#BF76FF] to-[#FF4400] text-white rounded-full font-bold px-8 h-12 w-full hover:scale-105 transition-transform">
+            Voltar ao Início
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const createPlaylist = async () => {
     if (!user || !newPlaylistTitle.trim()) return;
