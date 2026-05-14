@@ -7429,199 +7429,144 @@ const Admin = () => {
                         </div>
                       </div>
 
-                      <div className="space-y-4">
-                        <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
-                          <div className="flex flex-col gap-2">
-
-                            <Input
-                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Ex: @ministerio_profecia"
-                              value={localSettings.youtubeHandle ?? settings.youtubeHandle ?? "@ministerio_profecia"}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, youtubeHandle: e.target.value }));
-                              }}
-                            />
-                          </div>
-                          <div className="md:col-span-2">
-                            <p className="text-[10px] text-gray-500 italic pl-1">Essas configurações definem de qual canal o site buscará os vídeos e lives recentes.</p>
-                          </div>
-                        </div>
-                        <div className={cn("grid grid-cols-1 md:grid-cols-2 gap-4 p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
-                          <div className="md:col-span-2 border-b border-white/5 pb-2 mb-2">
-                            <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Banners Promocionais (Página Inicial - Grade com 3)</h5>
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem do Banner 1 (URL)</label>
-                            <Input
-                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Ex: https://..."
-                              value={localSettings.homeBannerImage ?? settings.homeBannerImage ?? ""}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, homeBannerImage: e.target.value }));
-                              }}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-2">
-                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Link do Banner 1 (Opcional)</label>
-                            <Input
-                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Ex: https://..."
-                              value={localSettings.homeBannerLink ?? settings.homeBannerLink ?? ""}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, homeBannerLink: e.target.value }));
-                              }}
-                            />
-                          </div>
-
-                          <div className="flex flex-col gap-2 mt-4 md:mt-0">
-                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem do Banner 2 (URL)</label>
-                            <Input
-                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Ex: https://..."
-                              value={localSettings.homeBannerImage2 ?? settings.homeBannerImage2 ?? ""}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, homeBannerImage2: e.target.value }));
-                              }}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-2 mt-4 md:mt-0">
-                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Link do Banner 2 (Opcional)</label>
-                            <Input
-                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Ex: https://..."
-                              value={localSettings.homeBannerLink2 ?? settings.homeBannerLink2 ?? ""}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, homeBannerLink2: e.target.value }));
-                              }}
-                            />
-                          </div>
-
-                          <div className="flex flex-col gap-2 mt-4 md:mt-0">
-                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem do Banner 3 (URL)</label>
-                            <Input
-                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Ex: https://..."
-                              value={localSettings.homeBannerImage3 ?? settings.homeBannerImage3 ?? ""}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, homeBannerImage3: e.target.value }));
-                              }}
-                            />
-                          </div>
-                          <div className="flex flex-col gap-2 mt-4 md:mt-0">
-                            <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Link do Banner 3 (Opcional)</label>
-                            <Input
-                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Ex: https://..."
-                              value={localSettings.homeBannerLink3 ?? settings.homeBannerLink3 ?? ""}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, homeBannerLink3: e.target.value }));
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div className={cn("flex items-center justify-between p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
-                          <div>
-                            <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Vídeos no Header (Início)</h5>
-                            <p className="text-sm text-gray-400">Ativa ou desativa a reprodução automática de vídeos no topo da página inicial.</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={localSettings.enableHeaderVideos ?? settings.enableHeaderVideos ?? true}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, enableHeaderVideos: e.target.checked }));
-                              }}
-                            />
-                            <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF]"></div>
-                          </label>
-                        </div>
-
-                        <div className={cn("flex items-center justify-between p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
-                          <div>
-                            <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Efeito Hover nos Vídeos</h5>
-                            <p className="text-sm text-gray-400">Ativa ou desativa o efeito de escala (Netflix style) ao passar o mouse nos cards de vídeo.</p>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={localSettings.videoCardsEnabled ?? settings.videoCardsEnabled ?? true}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, videoCardsEnabled: e.target.checked }));
-                              }}
-                            />
-                            <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF]"></div>
-                          </label>
-                        </div>
-
-                        <div className={cn("flex flex-col p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
-                          <div className="flex items-center justify-between mb-4">
-                            <div>
-                              <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Visibilidade do Menu Tons</h5>
-                              <p className="text-sm text-gray-400">Selecione quais cargos podem ver e acessar o menu de Tons.</p>
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-10">
+                        {/* YouTube Channel Config */}
+                        <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-red-500/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                          <div className="flex items-center gap-4 mb-8">
+                            <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 transition-transform group-hover:scale-110">
+                              <Youtube className="w-8 h-8" />
                             </div>
-                            <Music className="w-5 h-5 text-[#BF76FF]" />
+                            <div>
+                              <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>YouTube Profecia</h5>
+                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Sincronização de Vídeos & Lives</p>
+                            </div>
                           </div>
-
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {allRoles.map(role => {
-                              const allowedRoles = localSettings.tonsMenuRoles ?? settings.tonsMenuRoles ?? ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia", "Minis. louvor", "Minis. Jovens", "Minis. infantil", "Diácono", "Diaconisa", "Obreiro", "Recepcionista"];
-                              const isSelected = allowedRoles.includes(role);
-
-                              return (
-                                <label key={`config-tons-role-${role}`} className={cn(
-                                  "flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all",
-                                  isSelected
-                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/30 text-[#BF76FF]"
-                                    : isDarkMode ? "bg-white/5 border-white/5 text-gray-500 hover:border-white/20" : "bg-white border-black/5 text-gray-400 hover:border-black/20"
-                                )}>
+                          
+                          <div className="space-y-6">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">ID ou @ do Canal</label>
+                              <div className="relative">
+                                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">@</span>
+                                <Input
+                                  className={cn("border-none h-16 rounded-[24px] pl-10 pr-6 text-lg font-bold transition-all", isDarkMode ? "bg-cinza-input text-white focus:bg-white/5" : "bg-gray-100 text-black focus:bg-white")}
+                                  placeholder="ministerio_profecia"
+                                  value={localSettings.youtubeHandle ?? settings.youtubeHandle ?? "ministerio_profecia"}
+                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, youtubeHandle: e.target.value }))}
+                                />
+                              </div>
+                              <p className="text-[9px] text-gray-500 italic pl-2 opacity-60">Utilizado para carregar automaticamente os últimos vídeos no site.</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className={cn("p-4 rounded-[28px] border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Auto-Play Header</p>
+                                  <p className="text-[9px] text-gray-500">Vídeos no topo</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
                                   <input
                                     type="checkbox"
-                                    className="hidden"
-                                    checked={isSelected}
-                                    onChange={(e) => {
-                                      let newList;
-                                      if (e.target.checked) {
-                                        newList = [...allowedRoles, role];
-                                      } else {
-                                        newList = allowedRoles.filter((r: string) => r !== role);
-                                      }
-                                      setLocalSettings((prev: any) => ({ ...prev, tonsMenuRoles: newList }));
-                                    }}
+                                    className="sr-only peer"
+                                    checked={localSettings.enableHeaderVideos ?? settings.enableHeaderVideos ?? true}
+                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, enableHeaderVideos: e.target.checked }))}
                                   />
-                                  <div className={cn(
-                                    "w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all",
-                                    isSelected ? "bg-[#BF76FF] border-[#BF76FF]" : "border-gray-400"
-                                  )}>
-                                    {isSelected && <Check className="w-3 h-3 text-white" />}
-                                  </div>
-                                  <span className="text-[10px] font-bold uppercase truncate">{role}</span>
+                                  <div className="w-12 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
                                 </label>
-                              );
-                            })}
+                              </div>
+                              <div className={cn("p-4 rounded-[28px] border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Efeito Hover</p>
+                                  <p className="text-[9px] text-gray-500">Zoom nos cards</p>
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={localSettings.videoCardsEnabled ?? settings.videoCardsEnabled ?? true}
+                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, videoCardsEnabled: e.target.checked }))}
+                                  />
+                                  <div className="w-12 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                                </label>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-[10px] text-amber-500 font-bold mt-4 uppercase tracking-widest italic">* Administradores e Desenvolvedores sempre terão acesso.</p>
                         </div>
 
-                        <div className={cn("flex items-center justify-between p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-red-900/10 border-red-500/20" : "bg-red-50 border-red-500/10")}>
-                          <div>
-                            <h5 className="font-bold text-red-500">Modo de Manutenção</h5>
-                            <p className="text-sm text-gray-500">Ao ativar, todos os usuários comuns verão uma tela de "Em Manutenção" informando que o site está em atualização. Apenas administradores terão acesso a este painel.</p>
+                        {/* Banners Config */}
+                        <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-[#BF76FF]/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                          <div className="flex items-center gap-4 mb-8">
+                            <div className="w-14 h-14 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] transition-transform group-hover:scale-110">
+                              <ImageIcon className="w-8 h-8" />
+                            </div>
+                            <div>
+                              <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Banners Rotativos</h5>
+                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Grade de 3 Banners (Home)</p>
+                            </div>
+                          </div>
+
+                          <div className="space-y-6">
+                            {[1, 2, 3].map(i => (
+                              <div key={`banner-config-${i}`} className={cn("p-5 rounded-[28px] border space-y-4", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[10px] font-black uppercase text-[#BF76FF]">Banner 0{i}</span>
+                                  {localSettings[`homeBannerImage${i === 1 ? '' : i}`] && (
+                                    <div className="w-8 h-5 rounded-md overflow-hidden border border-white/10">
+                                      <img src={localSettings[`homeBannerImage${i === 1 ? '' : i}`]} className="w-full h-full object-cover" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">URL da Imagem</label>
+                                    <Input
+                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                      placeholder="https://..."
+                                      value={localSettings[`homeBannerImage${i === 1 ? '' : i}`] ?? settings[`homeBannerImage${i === 1 ? '' : i}`] ?? ""}
+                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerImage${i === 1 ? '' : i}`]: e.target.value }))}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Link de Destino</label>
+                                    <Input
+                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                      placeholder="https://..."
+                                      value={localSettings[`homeBannerLink${i === 1 ? '' : i}`] ?? settings[`homeBannerLink${i === 1 ? '' : i}`] ?? ""}
+                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerLink${i === 1 ? '' : i}`]: e.target.value }))}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Maintenance Mode Card (Footer of Section) */}
+                      <div className={cn("p-8 rounded-[40px] border mt-8 transition-all relative overflow-hidden", isDarkMode ? "bg-red-500/5 border-red-500/20" : "bg-red-50 border-red-500/10")}>
+                        <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 blur-[80px] rounded-full -mr-16 -mt-16" />
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+                          <div className="flex items-center gap-4 text-center sm:text-left">
+                            <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500">
+                              <ShieldCheck className="w-8 h-8" />
+                            </div>
+                            <div>
+                              <h5 className="text-xl font-black text-red-500 uppercase tracking-tighter">Modo de Manutenção</h5>
+                              <p className="text-xs text-gray-500 max-w-md">Ao ativar, apenas administradores poderão acessar o site. Usuários comuns verão uma tela de manutenção.</p>
+                            </div>
                           </div>
                           <label className="relative inline-flex items-center cursor-pointer">
                             <input
                               type="checkbox"
                               className="sr-only peer"
                               checked={localSettings.maintenanceMode ?? settings.maintenanceMode ?? false}
-                              onChange={(e) => {
-                                setLocalSettings((prev: any) => ({ ...prev, maintenanceMode: e.target.checked }));
-                              }}
+                              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, maintenanceMode: e.target.checked }))}
                             />
-                            <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500"></div>
+                            <div className="w-16 h-8 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500 shadow-lg shadow-red-500/20"></div>
                           </label>
                         </div>
                       </div>
+                    </div>
+
 
                       <div className={cn("pt-8 border-t transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
                         <h4 className={cn("text-xl font-bold mb-6 transition-colors", isDarkMode ? "text-white" : "text-black")}>Configuração de Permissões</h4>
@@ -7686,70 +7631,113 @@ const Admin = () => {
                                   ];
 
                                   return (
-                                    <div key={`tab-perm-card-${tab.id}`} className={cn("p-6 rounded-[32px] border transition-all hover:scale-[1.02]", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-sm")}>
-                                      <div className="flex items-center gap-3 mb-6">
-                                        <div className="w-10 h-10 rounded-xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
-                                          <tab.icon className="w-5 h-5" />
+                                    <div 
+                                      key={`tab-perm-card-${tab.id}`} 
+                                      className={cn(
+                                        "relative group p-8 rounded-[40px] border transition-all duration-500",
+                                        isDarkMode 
+                                          ? "bg-[#1a1a1a] border-white/[0.03] hover:border-[#BF76FF]/30 hover:shadow-[0_0_40px_-15px_rgba(191,118,255,0.2)]" 
+                                          : "bg-white border-black/[0.03] shadow-xl hover:shadow-[#BF76FF]/10"
+                                      )}
+                                    >
+                                      {/* Background Glow Effect */}
+                                      <div className="absolute inset-0 bg-gradient-to-br from-[#BF76FF]/0 to-[#BF76FF]/0 group-hover:from-[#BF76FF]/5 group-hover:to-transparent rounded-[40px] transition-all duration-700" />
+                                      
+                                      <div className="relative z-10">
+                                        <div className="flex items-center justify-between mb-8">
+                                          <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#BF76FF]/20 to-[#BF76FF]/5 flex items-center justify-center text-[#BF76FF] shadow-inner">
+                                              <tab.icon className="w-6 h-6" />
+                                            </div>
+                                            <div>
+                                              <span className={cn("font-black uppercase tracking-tighter text-base transition-colors", isDarkMode ? "text-white" : "text-black")}>
+                                                {tab.label}
+                                              </span>
+                                              <div className="h-0.5 w-0 group-hover:w-full bg-[#BF76FF] transition-all duration-500 rounded-full" />
+                                            </div>
+                                          </div>
+                                          <div className="w-2 h-2 rounded-full bg-[#BF76FF] animate-pulse shadow-[0_0_10px_#BF76FF]" />
                                         </div>
-                                        <span className="font-black uppercase tracking-tighter text-sm">{tab.label}</span>
-                                      </div>
 
-                                      <div className="grid grid-cols-2 gap-3">
-                                        {actions.map(action => {
-                                          const isChecked = getVal(action.id);
-                                          return (
-                                            <div 
-                                              key={`${tab.id}-${action.id}`}
-                                              onClick={async () => {
-                                                const newValue = !isChecked;
-                                                const currentTabs = rolePerms.tabs || {};
-                                                const currentTabData = typeof currentTabs[tab.id] === 'object' ? currentTabs[tab.id] : { 
-                                                  view: typeof currentTabs[tab.id] === 'boolean' ? currentTabs[tab.id] : canRoleViewTab(selectedPermissionRole, false, tab.id),
-                                                  create: rolePerms.create ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                  edit: rolePerms.edit ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                  delete: rolePerms.delete ?? !["Membro", "Visitante"].includes(selectedPermissionRole)
-                                                };
+                                        <div className="grid grid-cols-2 gap-4">
+                                          {actions.map(action => {
+                                            const isChecked = getVal(action.id);
+                                            return (
+                                              <div 
+                                                key={`${tab.id}-${action.id}`}
+                                                onClick={async () => {
+                                                  const newValue = !isChecked;
+                                                  const currentTabs = rolePerms.tabs || {};
+                                                  const currentTabData = typeof currentTabs[tab.id] === 'object' ? currentTabs[tab.id] : { 
+                                                    view: typeof currentTabs[tab.id] === 'boolean' ? currentTabs[tab.id] : canRoleViewTab(selectedPermissionRole, false, tab.id),
+                                                    create: rolePerms.create ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                    edit: rolePerms.edit ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                    delete: rolePerms.delete ?? !["Membro", "Visitante"].includes(selectedPermissionRole)
+                                                  };
 
-                                                const newPermissions = {
-                                                  ...settings.permissions,
-                                                  [selectedPermissionRole]: {
-                                                    ...rolePerms,
-                                                    tabs: {
-                                                      ...currentTabs,
-                                                      [tab.id]: {
-                                                        ...currentTabData,
-                                                        [action.id]: newValue
+                                                  const newPermissions = {
+                                                    ...settings.permissions,
+                                                    [selectedPermissionRole]: {
+                                                      ...rolePerms,
+                                                      tabs: {
+                                                        ...currentTabs,
+                                                        [tab.id]: {
+                                                          ...currentTabData,
+                                                          [action.id]: newValue
+                                                        }
                                                       }
                                                     }
-                                                  }
-                                                };
+                                                  };
 
-                                                try {
-                                                  await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
-                                                } catch (error) {
-                                                  handleFirestoreError(error, OperationType.WRITE, "settings/general");
-                                                }
-                                              }}
-                                              className={cn(
-                                                "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all",
-                                                isChecked 
-                                                  ? isDarkMode ? "bg-white/10 border-white/10" : "bg-black/5 border-black/5" 
-                                                  : "opacity-40 grayscale"
-                                              )}
-                                            >
-                                              <span className="text-[10px] font-black uppercase tracking-widest">{action.label}</span>
-                                              <div className={cn(
-                                                "w-4 h-4 rounded-md flex items-center justify-center transition-all",
-                                                isChecked ? "bg-[#BF76FF] text-white" : "border-2 border-gray-500"
-                                              )}>
-                                                {isChecked && <Check className="w-3 h-3" />}
+                                                  try {
+                                                    await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
+                                                  } catch (error) {
+                                                    handleFirestoreError(error, OperationType.WRITE, "settings/general");
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "group/btn relative flex flex-col items-center justify-center p-4 rounded-[24px] border transition-all duration-300 cursor-pointer overflow-hidden",
+                                                  isChecked 
+                                                    ? isDarkMode 
+                                                      ? "bg-[#BF76FF]/10 border-[#BF76FF]/40 shadow-[inset_0_0_20px_rgba(191,118,255,0.1)]" 
+                                                      : "bg-[#BF76FF]/5 border-[#BF76FF]/30" 
+                                                    : isDarkMode
+                                                      ? "bg-white/[0.02] border-white/[0.05] grayscale opacity-40 hover:opacity-70"
+                                                      : "bg-gray-50 border-black/[0.05] grayscale opacity-40 hover:opacity-70"
+                                                )}
+                                              >
+                                                {/* Inner Glow when active */}
+                                                {isChecked && (
+                                                  <div className="absolute inset-0 bg-gradient-to-t from-[#BF76FF]/10 to-transparent" />
+                                                )}
+                                                
+                                                <span className={cn(
+                                                  "text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors",
+                                                  isChecked ? "text-[#BF76FF]" : "text-gray-500"
+                                                )}>
+                                                  {action.label}
+                                                </span>
+
+                                                <div className={cn(
+                                                  "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-500",
+                                                  isChecked 
+                                                    ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.6)] scale-110" 
+                                                    : "bg-black/20 text-gray-600 scale-100"
+                                                )}>
+                                                  {isChecked ? (
+                                                    <Check className="w-4 h-4 stroke-[4]" />
+                                                  ) : (
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+                                                  )}
+                                                </div>
                                               </div>
-                                            </div>
-                                          );
-                                        })}
+                                            );
+                                          })}
+                                        </div>
                                       </div>
                                     </div>
                                   );
+
                                 })}
                               </div>
 
@@ -7809,11 +7797,10 @@ const Admin = () => {
                           </div>
                         )}
                       </div>
-                    </div>
-                  </Card>
-                </div>
-
+                    </Card>
+                  </div>
                 ) : activeTab === "logs" ? (
+
 
                 <div className="p-4 md:p-8">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">

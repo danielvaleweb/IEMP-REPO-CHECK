@@ -419,7 +419,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
             </div>
 
             <div className="space-y-2">
-              <label className={cn("text-[10px] font-black uppercase tracking-widest opacity-60 ml-1", isDark ? "text-gray-300" : "text-gray-600")}>Link do Youtube(OPCIONAL)</label>
+              <label className={cn("text-[10px] font-black uppercase tracking-widest opacity-60 ml-1", isDark ? "text-gray-300" : "text-gray-600")}>Link do Youtube (OPCIONAL)</label>
               <div className="relative">
                 <Youtube className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-red-500" />
                 <Input
