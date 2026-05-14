@@ -13,7 +13,7 @@ service cloud.firestore {
 
     function getRole() {
       return exists(/databases/$(database)/documents/members/$(request.auth.uid)) 
-        ? get(/databases/$(database)/documents/members/$(request.auth.uid)).data.role 
+        ? (get(/databases/$(database)/documents/members/$(request.auth.uid)).data.get('role', 'member'))
         : 'member';
     }
 
@@ -36,6 +36,7 @@ service cloud.firestore {
     function isEditor() {
       return isSignedIn() && (
         isAdmin() || 
+        isLeader() ||
         getRole().lower() == 'editor' || 
         getRole().lower() == 'mídia' || 
         getRole().lower() == 'secretaria' ||
@@ -48,7 +49,10 @@ service cloud.firestore {
         getRole().lower() == 'minis. infantil' ||
         getRole().lower() == 'recepcionista' ||
         getRole().lower() == 'coord. mulheres' ||
-        getRole().lower() == 'coord. coreografia'
+        getRole().lower() == 'coord. coreografia' ||
+        getRole().lower() == 'coord. vist. hospitalar' ||
+        getRole().lower() == 'lider' ||
+        getRole().lower() == 'líder'
       );
     }
 

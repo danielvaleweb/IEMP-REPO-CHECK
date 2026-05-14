@@ -1735,14 +1735,14 @@ const Admin = () => {
   }, [user, activeTab, auditSubTab, isMasterAdmin, canViewSettings]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !isAdmin) return;
     // Simple count of pending bugs for the notification badge
     const unsubBugCount = onSnapshot(
       query(collection(db, "bug-reports"), where("status", "==", "pending")),
       (snapshot) => setPendingBugsCount(snapshot.size)
     );
     return () => unsubBugCount();
-  }, [user]);
+  }, [user, isAdmin]);
 
   const handleLogoutAction = async () => {
     if (user) {
