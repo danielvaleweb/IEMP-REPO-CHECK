@@ -16,6 +16,7 @@ import {
   Youtube,
   LogIn,
   ChevronLeft,
+  Check,
   CheckCircle2,
   Eye,
   EyeOff,
@@ -1585,6 +1586,12 @@ const Admin = () => {
     const getDefVal = () => {
       if (tab === "visao-geral") return true;
       if (tab === "avisos") return ["Administradores", "Desenvolvedor"].includes(rName);
+      if (tab === "tons") {
+        if (settings.tonsMenuRoles && Array.isArray(settings.tonsMenuRoles)) {
+          return settings.tonsMenuRoles.includes(rName);
+        }
+        return !["Membro", "Visitante", "Direção"].includes(rName);
+      }
       if (tab === "agenda-direcao") {
         const isSpecLeader = (rName === "Mídia" || rName === "Secretaria" || rName === "Secretário") && rIsLeader;
         return ["Administradores", "Desenvolvedor", "Direção"].includes(rName) || isSpecLeader;
@@ -7492,6 +7499,55 @@ const Admin = () => {
                             />
                             <div className="w-14 h-7 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF]"></div>
                           </label>
+                        </div>
+
+                        <div className={cn("flex flex-col p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <h5 className={cn("font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Visibilidade do Menu Tons</h5>
+                              <p className="text-sm text-gray-400">Selecione quais cargos podem ver e acessar o menu de Tons.</p>
+                            </div>
+                            <Music className="w-5 h-5 text-[#BF76FF]" />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {allRoles.map(role => {
+                              const allowedRoles = localSettings.tonsMenuRoles ?? settings.tonsMenuRoles ?? ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia", "Minis. louvor", "Minis. Jovens", "Minis. infantil", "Diácono", "Diaconisa", "Obreiro", "Recepcionista"];
+                              const isSelected = allowedRoles.includes(role);
+                              
+                              return (
+                                <label key={`config-tons-role-${role}`} className={cn(
+                                  "flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all",
+                                  isSelected 
+                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/30 text-[#BF76FF]" 
+                                    : isDarkMode ? "bg-white/5 border-white/5 text-gray-500 hover:border-white/20" : "bg-white border-black/5 text-gray-400 hover:border-black/20"
+                                )}>
+                                  <input
+                                    type="checkbox"
+                                    className="hidden"
+                                    checked={isSelected}
+                                    onChange={(e) => {
+                                      let newList;
+                                      if (e.target.checked) {
+                                        newList = [...allowedRoles, role];
+                                      } else {
+                                        newList = allowedRoles.filter((r: string) => r !== role);
+                                      }
+                                      setLocalSettings((prev: any) => ({ ...prev, tonsMenuRoles: newList }));
+                                    }}
+                                  />
+                                  <div className={cn(
+                                    "w-4 h-4 rounded-md border flex items-center justify-center shrink-0 transition-all",
+                                    isSelected ? "bg-[#BF76FF] border-[#BF76FF]" : "border-gray-400"
+                                  )}>
+                                    {isSelected && <Check className="w-3 h-3 text-white" />}
+                                  </div>
+                                  <span className="text-[10px] font-bold uppercase truncate">{role}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          <p className="text-[10px] text-amber-500 font-bold mt-4 uppercase tracking-widest italic">* Administradores e Desenvolvedores sempre terão acesso.</p>
                         </div>
 
                         <div className={cn("flex items-center justify-between p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-red-900/10 border-red-500/20" : "bg-red-50 border-red-500/10")}>
