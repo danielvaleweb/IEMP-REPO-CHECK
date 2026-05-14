@@ -26,21 +26,29 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         isMasterAdmin() || 
-        getRole() == 'admin' || 
-        getRole() == 'Administradores' || 
-        getRole() == 'Desenvolvedor' ||
-        getRole() == 'Direção'
+        getRole().lower() == 'admin' || 
+        getRole().lower() == 'administradores' || 
+        getRole().lower() == 'desenvolvedor' ||
+        getRole().lower() == 'direção'
       );
     }
 
     function isEditor() {
       return isSignedIn() && (
         isAdmin() || 
-        getRole() == 'editor' || 
-        getRole() == 'Mídia' || 
-        getRole() == 'Secretaria' ||
-        getRole() == 'Minis. louvor' ||
-        getRole() == 'Obreiro'
+        getRole().lower() == 'editor' || 
+        getRole().lower() == 'mídia' || 
+        getRole().lower() == 'secretaria' ||
+        getRole().lower() == 'secretário' ||
+        getRole().lower() == 'minis. louvor' ||
+        getRole().lower() == 'obreiro' ||
+        getRole().lower() == 'diácono' ||
+        getRole().lower() == 'diaconisa' ||
+        getRole().lower() == 'minis. jovens' ||
+        getRole().lower() == 'minis. infantil' ||
+        getRole().lower() == 'recepcionista' ||
+        getRole().lower() == 'coord. mulheres' ||
+        getRole().lower() == 'coord. coreografia'
       );
     }
 
