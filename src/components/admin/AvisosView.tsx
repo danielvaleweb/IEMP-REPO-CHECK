@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Bell, Send, Calendar, Clock, Users, Trash2, CheckCircle2, AlertCircle, Loader2, Download, Image as ImageIcon, MessageSquare, Sparkles, Copy, X } from "lucide-react";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,11 +26,11 @@ const getApiKey = () => {
     if (typeof process !== "undefined" && process.env && process.env.GEMINI_API_KEY) {
       return process.env.GEMINI_API_KEY;
     }
-  } catch (e) {}
-  
+  } catch (e) { }
+
   const envKey = (import.meta as any).env.VITE_GEMINI_API_KEY;
   if (envKey) return envKey;
-  
+
   return "AIzaSyBiX-jCmF5SAhmU83_hnnu5jLsIRAnN_g4";
 };
 
@@ -45,14 +45,14 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
   const [reason, setReason] = useState("");
   const [hasVerse, setHasVerse] = useState(false);
   const [verse, setVerse] = useState("");
-  
+
   // Image Options
   const [formatType, setFormatType] = useState<"square" | "vertical">("square");
   const [artTheme, setArtTheme] = useState<"classic" | "modern" | "vibrant" | "abstract">("modern");
   const [bgColor, setBgColor] = useState("#FF4500");
   const [bgRef, setBgRef] = useState("");
   const [generatedBgUrl, setGeneratedBgUrl] = useState<string | null>(null);
-  
+
   // States
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingText, setIsGeneratingText] = useState(false);
@@ -60,12 +60,12 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
   const [isSendingPush, setIsSendingPush] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [generatedText, setGeneratedText] = useState("");
-  
+
   // Data
   const [announcements, setAnnouncements] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Targeting
   const [targetMode, setTargetMode] = useState<"all" | "segmented">("all");
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
@@ -142,7 +142,7 @@ Escreva apenas a mensagem final pronta para copiar e colar no WhatsApp, use negr
     setIsGeneratingImage(true);
     try {
       const ai = new GoogleGenAI({ apiKey: getApiKey() });
-      
+
       let styleInstruction = "";
       if (type === "Urgência") styleInstruction = "Cores fortes e impactantes, estilo dramático e urgente.";
       if (type === "Evento") styleInstruction = "Visual vibrante, acolhedor, iluminado, convidativo e com celebração.";
@@ -210,12 +210,12 @@ Estilo: ${styleInstruction}`;
   const handleSendPush = async () => {
     const finalMessage = generatedText || message;
     const finalTitle = title || type;
-    
+
     if (!finalTitle || !finalMessage) {
       alert("Preencha pelo menos o título e a mensagem para enviar a notificação.");
       return;
     }
-    
+
     if (!window.confirm("Isso fará o celular dos usuários vibrar e exibirá a notificação na tela de bloqueio. Deseja realmente enviar o Push Notification agora?")) return;
 
     setIsSendingPush(true);
@@ -223,7 +223,7 @@ Estilo: ${styleInstruction}`;
       const res = await fetch("/backend/push/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           title: finalTitle,
           message: finalMessage,
           target: targetMode === "all" ? "all" : "specific",
@@ -235,7 +235,7 @@ Estilo: ${styleInstruction}`;
         alert(`Sucesso! Notificação disparada para os dispositivos.`);
         // Automagically save it to history since it was actually pushed out
         if (!isSaving) {
-           await handleSaveHistory();
+          await handleSaveHistory();
         }
       } else {
         alert("Erro retornado pelo servidor: " + (data.error || "Desconhecido"));
@@ -295,7 +295,7 @@ Estilo: ${styleInstruction}`;
   };
 
   const toggleUserSelection = (userId: string) => {
-    setSelectedUsers(prev => 
+    setSelectedUsers(prev =>
       prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
     );
   };
@@ -345,7 +345,7 @@ Estilo: ${styleInstruction}`;
             <div className="space-y-4">
               <div>
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Tipo de Aviso</label>
-                <select 
+                <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                   className={cn("w-full h-12 rounded-2xl px-4 border transition-all appearance-none cursor-pointer", isDark ? "bg-black border-white/5 text-white" : "bg-white border-black/5 text-black")}
@@ -358,7 +358,7 @@ Estilo: ${styleInstruction}`;
 
               <div>
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Título</label>
-                <Input 
+                <Input
                   value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Reunião Geral Extraordinária"
                   className={cn("h-12 rounded-2xl border bg-transparent", isDark ? "border-white/5 text-white" : "border-black/5 text-black")}
                 />
@@ -367,14 +367,14 @@ Estilo: ${styleInstruction}`;
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Data</label>
-                  <Input 
+                  <Input
                     type="date" value={date} onChange={(e) => setDate(e.target.value)}
                     className={cn("h-12 rounded-2xl border bg-transparent [color-scheme:dark]", isDark ? "border-white/5 text-white" : "border-black/5 text-black [color-scheme:light]")}
                   />
                 </div>
                 <div>
                   <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Hora</label>
-                  <Input 
+                  <Input
                     type="time" value={time} onChange={(e) => setTime(e.target.value)}
                     className={cn("h-12 rounded-2xl border bg-transparent [color-scheme:dark]", isDark ? "border-white/5 text-white" : "border-black/5 text-black [color-scheme:light]")}
                   />
@@ -383,7 +383,7 @@ Estilo: ${styleInstruction}`;
 
               <div>
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Local</label>
-                <Input 
+                <Input
                   value={location} onChange={(e) => setLocation(e.target.value)} placeholder="Ex: Templo Sede"
                   className={cn("h-12 rounded-2xl border bg-transparent", isDark ? "border-white/5 text-white" : "border-black/5 text-black")}
                 />
@@ -391,7 +391,7 @@ Estilo: ${styleInstruction}`;
 
               <div>
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Mensagem/Detalhes</label>
-                <Textarea 
+                <Textarea
                   value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Detalhes adicionais..."
                   className={cn("min-h-[80px] rounded-2xl border bg-transparent", isDark ? "border-white/5 text-white" : "border-black/5 text-black")}
                 />
@@ -399,14 +399,14 @@ Estilo: ${styleInstruction}`;
 
               <div>
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Motivo (Opcional)</label>
-                <Input 
+                <Input
                   value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Por que estamos avisando?"
                   className={cn("h-12 rounded-2xl border bg-transparent", isDark ? "border-white/5 text-white" : "border-black/5 text-black")}
                 />
               </div>
 
               <div className="flex items-center gap-3 py-2">
-                <input 
+                <input
                   type="checkbox" id="hasVerse" checked={hasVerse} onChange={(e) => setHasVerse(e.target.checked)}
                   className="w-5 h-5 rounded"
                 />
@@ -416,7 +416,7 @@ Estilo: ${styleInstruction}`;
               {hasVerse && (
                 <div>
                   <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Qual Versículo?</label>
-                  <Textarea 
+                  <Textarea
                     value={verse} onChange={(e) => setVerse(e.target.value)} placeholder="Tudo posso naquele que me fortalece..."
                     className={cn("min-h-[60px] rounded-2xl border bg-transparent", isDark ? "border-white/5 text-white" : "border-black/5 text-black")}
                   />
@@ -430,17 +430,17 @@ Estilo: ${styleInstruction}`;
             <h3 className={cn("font-bold mb-6 flex items-center gap-2", isDark ? "text-white" : "text-black")}>
               Configuração Visual da Imagem
             </h3>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Button 
+                <Button
                   onClick={() => setFormatType("square")}
                   variant={formatType === "square" ? "default" : "outline"}
                   className={cn("h-12 rounded-2xl font-bold transition-all border", formatType === "square" ? "bg-[#BF76FF] hover:bg-[#a656f0] text-white" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
                 >
                   Quadrado (Instagram)
                 </Button>
-                <Button 
+                <Button
                   onClick={() => setFormatType("vertical")}
                   variant={formatType === "vertical" ? "default" : "outline"}
                   className={cn("h-12 rounded-2xl font-bold transition-all border", formatType === "vertical" ? "bg-[#BF76FF] hover:bg-[#a656f0] text-white" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
@@ -452,28 +452,28 @@ Estilo: ${styleInstruction}`;
               <div className="pt-2">
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-2 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Tema Visual</label>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                  <Button 
+                  <Button
                     onClick={() => setArtTheme("modern")}
                     variant={artTheme === "modern" ? "default" : "outline"}
                     className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "modern" ? "bg-[#FF4500] hover:bg-[#E03E00] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
                   >
                     Modern
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => setArtTheme("vibrant")}
                     variant={artTheme === "vibrant" ? "default" : "outline"}
                     className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "vibrant" ? "bg-[#00BFFF] hover:bg-[#00A8E0] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
                   >
                     Vibrant
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => setArtTheme("abstract")}
                     variant={artTheme === "abstract" ? "default" : "outline"}
                     className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "abstract" ? "bg-[#8A2BE2] hover:bg-[#7A24C2] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
                   >
                     Abstract
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => setArtTheme("classic")}
                     variant={artTheme === "classic" ? "default" : "outline"}
                     className={cn("h-10 rounded-xl font-bold transition-all border text-[10px] uppercase tracking-widest", artTheme === "classic" ? "bg-[#BF76FF] hover:bg-[#a656f0] text-white border-transparent" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
@@ -486,14 +486,14 @@ Estilo: ${styleInstruction}`;
               <div>
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-white/40" : "text-gray-500")}>Cor Principal</label>
                 <div className="flex gap-2">
-                  <input 
-                    type="color" 
-                    value={bgColor} 
+                  <input
+                    type="color"
+                    value={bgColor}
                     onChange={(e) => setBgColor(e.target.value)}
                     className="w-12 h-12 rounded-xl cursor-pointer border-0 p-0"
                   />
-                  <Input 
-                    value={bgColor} 
+                  <Input
+                    value={bgColor}
                     onChange={(e) => setBgColor(e.target.value)}
                     className={cn("h-12 rounded-xl flex-1 border font-mono font-bold", isDark ? "bg-black border-white/5 text-white" : "bg-white border-black/5 text-black")}
                   />
@@ -504,13 +504,13 @@ Estilo: ${styleInstruction}`;
                 <label className={cn("text-[10px] font-black uppercase tracking-widest mb-1 block ml-2", isDark ? "text-[#BF76FF]" : "text-[#a656f0]")}>
                   Gerar Imagem de Fundo (Integração IA)
                 </label>
-                <Textarea 
-                  value={bgRef} 
-                  onChange={(e) => setBgRef(e.target.value)} 
+                <Textarea
+                  value={bgRef}
+                  onChange={(e) => setBgRef(e.target.value)}
                   placeholder="Ex: Um pôr do sol urbano, luzes douradas e uma igreja iluminada..."
                   className={cn("min-h-[80px] rounded-2xl border bg-[#BF76FF]/5 mb-3", isDark ? "border-[#BF76FF]/20 text-white" : "border-[#BF76FF]/20 text-black")}
                 />
-                <Button 
+                <Button
                   onClick={handleGenerateBgImage}
                   disabled={isGeneratingImage || !bgRef}
                   className="w-full h-12 rounded-2xl bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white font-bold cursor-pointer"
@@ -518,9 +518,9 @@ Estilo: ${styleInstruction}`;
                   {isGeneratingImage ? <Loader2 className="w-5 h-5 animate-spin mx-auto" /> : <><Sparkles className="w-4 h-4 mr-2" /> Gerar Fundo com IA</>}
                 </Button>
               </div>
-              
+
               {generatedBgUrl && (
-                 <Button 
+                <Button
                   onClick={() => setGeneratedBgUrl(null)}
                   variant="ghost"
                   className="w-full text-red-500 font-bold hover:bg-red-500/10 h-10 rounded-xl mt-2 cursor-pointer"
@@ -537,16 +537,16 @@ Estilo: ${styleInstruction}`;
           {/* Pré-visualização Mágica */}
           <div className={cn("p-6 rounded-[32px] border overflow-hidden flex flex-col items-center", isDark ? "bg-[#1A1A1A] border-white/5" : "bg-white border-black/5 shadow-sm")}>
             <div className="w-full flex items-center justify-between mb-4">
-               <h3 className={cn("font-bold flex items-center gap-2", isDark ? "text-white" : "text-black")}>
-                 <ImageIcon className="w-4 h-4" /> Pré-visualização da Arte
-               </h3>
-               <Button onClick={handleDownloadImage} className="h-10 px-6 rounded-2xl bg-black hover:bg-black/80 text-white font-bold cursor-pointer" variant="outline">
-                 <Download className="w-4 h-4 mr-2" /> Baixar 
-               </Button>
+              <h3 className={cn("font-bold flex items-center gap-2", isDark ? "text-white" : "text-black")}>
+                <ImageIcon className="w-4 h-4" /> Pré-visualização da Arte
+              </h3>
+              <Button onClick={handleDownloadImage} className="h-10 px-6 rounded-2xl bg-black hover:bg-black/80 text-white font-bold cursor-pointer" variant="outline">
+                <Download className="w-4 h-4 mr-2" /> Baixar
+              </Button>
             </div>
-            
+
             <div className="w-full p-4 overflow-auto flex items-center justify-center bg-gray-100 dark:bg-black/20 rounded-2xl border border-gray-200 dark:border-white/10" style={{ maxHeight: '600px' }}>
-              <div 
+              <div
                 ref={artboardRef}
                 style={{
                   width: formatType === "square" ? "400px" : "360px",
@@ -561,22 +561,22 @@ Estilo: ${styleInstruction}`;
                 {!generatedBgUrl && (
                   <div className="absolute inset-0 bg-gradient-to-b from-black/0 to-black/50 pointer-events-none" />
                 )}
-                
+
                 <div className="relative z-10 flex flex-col h-full w-full">
                   {artTheme === "classic" && (
                     <div className="flex flex-col h-full">
                       <div className="uppercase tracking-widest text-[10px] font-black opacity-80 mb-2">
                         {type}
                       </div>
-                      <h1 className={cn("font-black mb-4 leading-tight", 
+                      <h1 className={cn("font-black mb-4 leading-tight",
                         formatType === "square" ? "text-4xl" : "text-4xl mt-10",
                         type === "Urgência" ? "text-red-400" : "text-white"
                       )}>
                         {title || "Escreva um Título"}
                       </h1>
-                      
+
                       <p className="text-sm opacity-90 mb-auto leading-relaxed overflow-hidden">
-                         {message ? (message.length > 150 ? message.substring(0, 150) + "..." : message) : "A mensagem ou os detalhes aparecerão aqui."}
+                        {message ? (message.length > 150 ? message.substring(0, 150) + "..." : message) : "A mensagem ou os detalhes aparecerão aqui."}
                       </p>
 
                       <div className="space-y-2 mt-4 bg-black/30 p-4 rounded-2xl backdrop-blur-md">
@@ -599,7 +599,7 @@ Estilo: ${styleInstruction}`;
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="mt-6 text-[8px] uppercase tracking-widest font-bold opacity-50 text-center">
                         Igreja Evangélica Ministério Profecia
                       </div>
@@ -616,12 +616,12 @@ Estilo: ${styleInstruction}`;
                           {title ? title.toUpperCase() : "ESCREVA UM TÍTULO"}
                         </h1>
                       </div>
-                      
+
                       <div className="relative z-10 bg-gradient-to-t from-black via-black/80 to-transparent pt-16 pb-6 -mx-8 -mb-8 px-8">
                         <p className="text-white/90 text-[13px] font-medium leading-snug mb-5 border-l-4 border-white pl-3 max-w-[90%]">
-                           {message ? (message.length > 120 ? message.substring(0, 120) + "..." : message) : "A mensagem ou detalhes aparecerão aqui..."}
+                          {message ? (message.length > 120 ? message.substring(0, 120) + "..." : message) : "A mensagem ou detalhes aparecerão aqui..."}
                         </p>
-                        
+
                         <div className="flex flex-wrap gap-2">
                           {date && (
                             <div className="bg-white text-black px-3 py-1.5 rounded-lg text-xs font-black shadow-lg uppercase tracking-wider">
@@ -640,7 +640,7 @@ Estilo: ${styleInstruction}`;
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Decorative elements */}
                       <div className="absolute top-1/2 left-4 w-40 h-40 bg-white rounded-full blur-[100px] -z-0 opacity-20 mix-blend-overlay" />
                     </div>
@@ -650,37 +650,37 @@ Estilo: ${styleInstruction}`;
                     <div className="flex flex-col h-full relative">
                       <div className="absolute -top-20 -right-20 w-64 h-64 bg-white/20 rounded-[100px] rotate-45 backdrop-blur-lg" />
                       <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-black/20 rounded-[80px] -rotate-12 backdrop-blur-lg" />
-                      
+
                       <div className="relative z-10 flex flex-col h-full justify-between pb-2">
                         <div className="bg-white text-black rounded-[32px] p-6 shadow-2xl mt-4 relative border border-white/40">
-                           <div className="absolute -top-4 -right-2 text-[10px] font-black uppercase tracking-widest bg-yellow-400 text-black px-4 py-1.5 rounded-full shadow-lg border-2 border-white">
-                             {type}
-                           </div>
-                           <h1 className="font-black text-[32px] leading-[1.1] mb-3 tracking-tight">
-                             {title || "Escreva um Título"}
-                           </h1>
-                           <p className="text-gray-600 text-sm font-semibold leading-relaxed">
-                             {message ? (message.length > 120 ? message.substring(0, 120) + "..." : message) : "A mensagem aparecerá aqui. Adicione os detalhes importantes."}
-                           </p>
+                          <div className="absolute -top-4 -right-2 text-[10px] font-black uppercase tracking-widest bg-yellow-400 text-black px-4 py-1.5 rounded-full shadow-lg border-2 border-white">
+                            {type}
+                          </div>
+                          <h1 className="font-black text-[32px] leading-[1.1] mb-3 tracking-tight">
+                            {title || "Escreva um Título"}
+                          </h1>
+                          <p className="text-gray-600 text-sm font-semibold leading-relaxed">
+                            {message ? (message.length > 120 ? message.substring(0, 120) + "..." : message) : "A mensagem aparecerá aqui. Adicione os detalhes importantes."}
+                          </p>
                         </div>
-                        
+
                         <div className="space-y-3 mt-auto">
-                           {date && (
-                             <div className="ml-8 mr-4 bg-white/20 backdrop-blur-xl border border-white/40 text-white rounded-3xl p-4 shadow-xl flex items-center gap-3">
-                               <div className="bg-white p-2.5 rounded-2xl shadow-sm"><Calendar className="w-5 h-5 text-black" /></div>
-                               <div>
-                                 <div className="text-[10px] uppercase font-black opacity-90 tracking-widest text-[#FFD700]">Data do Evento</div>
-                                 <div className="font-black text-lg">{format(new Date(date + "T00:00:00"), "dd 'de' MMMM", { locale: ptBR })}</div>
-                               </div>
-                             </div>
-                           )}
-                           
-                           {(time || location) && (
-                             <div className="mr-8 ml-4 bg-black/40 backdrop-blur-xl border border-white/20 text-white rounded-3xl p-4 shadow-xl flex justify-between items-center">
-                               {time && <div className="font-bold flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-400" /> {time}</div>}
-                               {location && <div className="font-bold flex items-center gap-2 text-sm max-w-[120px] truncate"><Users className="w-4 h-4 text-yellow-400" /> {location}</div>}
-                             </div>
-                           )}
+                          {date && (
+                            <div className="ml-8 mr-4 bg-white/20 backdrop-blur-xl border border-white/40 text-white rounded-3xl p-4 shadow-xl flex items-center gap-3">
+                              <div className="bg-white p-2.5 rounded-2xl shadow-sm"><Calendar className="w-5 h-5 text-black" /></div>
+                              <div>
+                                <div className="text-[10px] uppercase font-black opacity-90 tracking-widest text-[#FFD700]">Data do Evento</div>
+                                <div className="font-black text-lg">{format(new Date(date + "T00:00:00"), "dd 'de' MMMM", { locale: ptBR })}</div>
+                              </div>
+                            </div>
+                          )}
+
+                          {(time || location) && (
+                            <div className="mr-8 ml-4 bg-black/40 backdrop-blur-xl border border-white/20 text-white rounded-3xl p-4 shadow-xl flex justify-between items-center">
+                              {time && <div className="font-bold flex items-center gap-2"><Clock className="w-4 h-4 text-yellow-400" /> {time}</div>}
+                              {location && <div className="font-bold flex items-center gap-2 text-sm max-w-[120px] truncate"><Users className="w-4 h-4 text-yellow-400" /> {location}</div>}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -688,35 +688,35 @@ Estilo: ${styleInstruction}`;
 
                   {artTheme === "abstract" && (
                     <div className="flex flex-col h-full items-center justify-center text-center relative px-2">
-                       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95 pointer-events-none -mx-8 -my-8" />
-                       
-                       <div className="relative z-10 w-full mb-auto mt-6">
-                         <div className="text-[10px] font-black tracking-[0.4em] uppercase opacity-80 mb-6 text-[#FFD700] border-b border-white/20 pb-4 inline-block px-4">
-                           {type}
-                         </div>
-                       </div>
-                       
-                       <div className="relative z-10 mb-12 w-full">
-                         <h1 className="font-black text-5xl leading-[0.95] tracking-tighter mb-6 uppercase drop-shadow-2xl">
-                           {title || "TÍTULO AQUI"}
-                         </h1>
-                         <div className="w-16 h-[2px] bg-[#FFD700] mx-auto mb-6" />
-                         <p className="text-[13px] font-medium opacity-90 leading-relaxed max-w-[90%] mx-auto shadow-black drop-shadow-md">
-                           {message ? (message.length > 180 ? message.substring(0, 180) + "..." : message) : "A mensagem ou os detalhes aparecerão aqui."}
-                         </p>
-                       </div>
-                       
-                       <div className="relative z-10 mt-auto w-full border-t border-white/20 pt-5 pb-2 mb-2 flex justify-between items-center px-4 bg-black/20 backdrop-blur-sm rounded-xl">
-                         <div className="text-left">
-                           {date && <div className="font-black text-[15px] tracking-widest text-[#FFD700]">{format(new Date(date + "T00:00:00"), "dd.MM.yy")}</div>}
-                           {time && <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">{time}</div>}
-                         </div>
-                         {location && (
-                           <div className="text-right text-[10px] font-black uppercase tracking-widest opacity-90 max-w-[130px] leading-tight">
-                             {location}
-                           </div>
-                         )}
-                       </div>
+                      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/40 to-black/95 pointer-events-none -mx-8 -my-8" />
+
+                      <div className="relative z-10 w-full mb-auto mt-6">
+                        <div className="text-[10px] font-black tracking-[0.4em] uppercase opacity-80 mb-6 text-[#FFD700] border-b border-white/20 pb-4 inline-block px-4">
+                          {type}
+                        </div>
+                      </div>
+
+                      <div className="relative z-10 mb-12 w-full">
+                        <h1 className="font-black text-5xl leading-[0.95] tracking-tighter mb-6 uppercase drop-shadow-2xl">
+                          {title || "TÍTULO AQUI"}
+                        </h1>
+                        <div className="w-16 h-[2px] bg-[#FFD700] mx-auto mb-6" />
+                        <p className="text-[13px] font-medium opacity-90 leading-relaxed max-w-[90%] mx-auto shadow-black drop-shadow-md">
+                          {message ? (message.length > 180 ? message.substring(0, 180) + "..." : message) : "A mensagem ou os detalhes aparecerão aqui."}
+                        </p>
+                      </div>
+
+                      <div className="relative z-10 mt-auto w-full border-t border-white/20 pt-5 pb-2 mb-2 flex justify-between items-center px-4 bg-black/20 backdrop-blur-sm rounded-xl">
+                        <div className="text-left">
+                          {date && <div className="font-black text-[15px] tracking-widest text-[#FFD700]">{format(new Date(date + "T00:00:00"), "dd.MM.yy")}</div>}
+                          {time && <div className="text-[10px] font-bold opacity-80 uppercase tracking-widest mt-1">{time}</div>}
+                        </div>
+                        {location && (
+                          <div className="text-right text-[10px] font-black uppercase tracking-widest opacity-90 max-w-[130px] leading-tight">
+                            {location}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -730,8 +730,8 @@ Estilo: ${styleInstruction}`;
               <h3 className={cn("font-bold flex items-center gap-2", isDark ? "text-white" : "text-black")}>
                 Mensagem Para Disparo
               </h3>
-              <Button 
-                onClick={handleGenerateText} 
+              <Button
+                onClick={handleGenerateText}
                 disabled={isGeneratingText || (!title && !message)}
                 className="h-10 px-4 rounded-xl bg-gradient-to-r from-[#25D366] to-[#1DA851] text-white font-bold cursor-pointer"
               >
@@ -739,8 +739,8 @@ Estilo: ${styleInstruction}`;
                 Gerar Texto
               </Button>
             </div>
-            
-            <Textarea 
+
+            <Textarea
               value={generatedText}
               onChange={(e) => setGeneratedText(e.target.value)}
               placeholder="Gere o texto clicando no botão acima ou digite manualmente sua mensagem..."
@@ -750,14 +750,14 @@ Estilo: ${styleInstruction}`;
             {/* Ações de Envio */}
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <Button 
+                <Button
                   onClick={() => setTargetMode("all")}
                   variant={targetMode === "all" ? "default" : "outline"}
                   className={cn("h-12 rounded-2xl font-bold transition-all border cursor-pointer", targetMode === "all" ? "bg-black text-white hover:opacity-90" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
                 >
                   Lista de Transmissão (Todos)
                 </Button>
-                <Button 
+                <Button
                   onClick={() => setTargetMode("segmented")}
                   variant={targetMode === "segmented" ? "default" : "outline"}
                   className={cn("h-12 rounded-2xl font-bold transition-all border cursor-pointer", targetMode === "segmented" ? "bg-black text-white hover:opacity-90" : (isDark ? "bg-black border-white/5 text-white hover:text-white" : "bg-white border-black/5 text-black hover:text-black"))}
@@ -771,7 +771,7 @@ Estilo: ${styleInstruction}`;
                   <p className={cn("text-sm font-medium mb-3", isDark ? "text-white/70" : "text-gray-600")}>
                     Para enviar para todos de uma vez e evitar bloqueios pelo WhatsApp, recomendamos usar a funcionalidade de <strong>Lista de Transmissão</strong> no seu celular ou copiar a mensagem pronta abaixo e enviar no grupo da igreja.
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => {
                       navigator.clipboard.writeText(generatedText);
                       alert("Mensagem copiada! Abra o WhatsApp e cole no grupo ou janela desejada.");
@@ -790,16 +790,16 @@ Estilo: ${styleInstruction}`;
                     {members.filter(m => m.phone && !!m.name && m.name.trim() !== '').map(m => (
                       <div key={m.id} className={cn("flex items-center justify-between p-3 rounded-xl border", isDark ? "bg-black/50 border-white/5" : "bg-white border-black/5")}>
                         <div className="flex items-center gap-3">
-                           <input 
-                             type="checkbox" 
-                             checked={selectedUsers.includes(m.id)}
-                             onChange={() => toggleUserSelection(m.id)}
-                             className="w-4 h-4 rounded appearance-none checked:bg-[#25D366] border border-gray-400 cursor-pointer"
-                           />
-                           <div>
-                             <p className={cn("text-sm font-bold leading-none", isDark ? "text-white" : "text-black")}>{m.name}</p>
-                             <p className="text-[10px] text-gray-500 mt-1">{m.phone || "Sem contato"} • {m.role || "Visitante"}</p>
-                           </div>
+                          <input
+                            type="checkbox"
+                            checked={selectedUsers.includes(m.id)}
+                            onChange={() => toggleUserSelection(m.id)}
+                            className="w-4 h-4 rounded appearance-none checked:bg-[#25D366] border border-gray-400 cursor-pointer"
+                          />
+                          <div>
+                            <p className={cn("text-sm font-bold leading-none", isDark ? "text-white" : "text-black")}>{m.name}</p>
+                            <p className="text-[10px] text-gray-500 mt-1">{m.phone || "Sem contato"} • {m.role || "Visitante"}</p>
+                          </div>
                         </div>
                         <Button
                           disabled={!generatedText || !m.phone}
@@ -815,14 +815,14 @@ Estilo: ${styleInstruction}`;
               )}
 
               <div className="grid grid-cols-2 gap-4 mt-4">
-                <Button 
+                <Button
                   onClick={handleSaveHistory}
                   disabled={isSaving || (!title && !generatedText && !message)}
                   className="w-full h-14 rounded-[20px] bg-white border border-black/10 text-black hover:bg-gray-50 font-black uppercase tracking-widest cursor-pointer"
                 >
                   {isSaving ? <Loader2 className="w-5 h-5 animate-spin" /> : "Apenas Salvar Histórico"}
                 </Button>
-                <Button 
+                <Button
                   onClick={handleSendPush}
                   disabled={isSendingPush || (!title && !generatedText && !message)}
                   className="w-full h-14 rounded-[20px] bg-gradient-to-r from-[#FF3B30] to-[#FF2D55] text-white font-black uppercase tracking-widest shadow-xl shadow-red-500/20 cursor-pointer flex items-center gap-2"
@@ -862,7 +862,7 @@ Estilo: ${styleInstruction}`;
                         {formatDateSafely(ann.createdAt)}
                       </p>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setDeleteId(ann.id)}
                       className="opacity-0 group-hover:opacity-100 p-2 text-gray-500 hover:text-red-500 transition-all shrink-0 cursor-pointer"
                     >
@@ -886,8 +886,8 @@ Estilo: ${styleInstruction}`;
           </DialogHeader>
           <DialogFooter className="flex gap-2 mt-4">
             <Button variant="ghost" onClick={() => setDeleteId(null)} className="flex-1">Cancelar</Button>
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={confirmDeleteAnnouncement}
               className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl"
             >
