@@ -1,5 +1,5 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
+// import { createServer as createViteServer } from "vite"; // Removido do topo para evitar erro no Vercel
 import path from "path";
 import { XMLParser } from "fast-xml-parser";
 import { Expo } from "expo-server-sdk";
@@ -30,8 +30,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Initialize Firebase Config
-const firebaseConfigPath = path.join(__dirname, "firebase-applet-config.json");
-const firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+let firebaseConfig: any = {};
+const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
+if (fs.existsSync(firebaseConfigPath)) {
+  firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
+} else {
+  console.warn("[Firebase] Config file not found at", firebaseConfigPath);
+  // Fallback para variáveis de ambiente se necessário
+}
 
 // Initialize Firebase Admin
 let adminApp: any;
@@ -52,13 +58,15 @@ try {
     adminApp = apps[0];
   }
 } catch (e) {
-  console.error("[Firebase Admin] Initial initialization failed, trying fallback with only projectId:", (e as Error).message);
-  try {
-    adminApp = initializeApp({
-      projectId: firebaseConfig.projectId
-    });
-  } catch (inner) {
-    console.error("[Firebase Admin] Critical failure:", (inner as Error).message);
+  console.error("[Firebase Admin] Initial initialization failed:", (e as Error).message);
+  if (firebaseConfig.projectId) {
+    try {
+      adminApp = initializeApp({
+        projectId: firebaseConfig.projectId
+      });
+    } catch (inner) {
+      console.error("[Firebase Admin] Critical failure:", (inner as Error).message);
+    }
   }
 }
 
@@ -66,8 +74,20 @@ try {
 const adminDb = adminApp ? getAdminFirestore(adminApp, firebaseConfig.firestoreDatabaseId) : null;
 
 // Initialize Firebase Client (Server-side)
-const clientApp = initializeClientApp(firebaseConfig, "server-client");
-const clientDb = getClientFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
+let clientApp: any;
+let clientDb: any;
+
+if (firebaseConfig.apiKey) {
+  try {
+    clientApp = initializeClientApp(firebaseConfig, "server-client");
+    clientDb = getClientFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
+    console.log("[Firebase] Client SDK initialized successfully");
+  } catch (e) {
+    console.error("[Firebase] Client SDK initialization failed:", (e as Error).message);
+  }
+} else {
+  console.warn("[Firebase] Skipping Client SDK initialization due to missing config");
+}
 
 // Primary database access point
 // Prefere adminDb, mas use clientDb se adminDb falhar nos testes de conexão
@@ -195,7 +215,7 @@ const PORT = 3000;
             if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
           });
         }
-      } else {
+      } else if (clientDb) {
         if (target === "all") {
           const snapshot = await getDocs(collection(clientDb, "members"));
           snapshot.docs.forEach(doc => {
@@ -216,6 +236,10 @@ const PORT = 3000;
             if (res?.fcm && Array.isArray(res.fcm)) fcmTokens.push(...res.fcm);
           });
         }
+      }
+
+      if (!adminDb && !clientDb) {
+        throw new Error("Banco de dados não disponível. Verifique as credenciais do Firebase no servidor.");
       }
 
       expoTokens = [...new Set(expoTokens)].filter(t => !!t);
@@ -508,8 +532,8 @@ const PORT = 3000;
     }
   });
 
-  // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { 
         middlewareMode: true
@@ -534,6 +558,16 @@ const PORT = 3000;
       }
     });
   }
+
+  // Global Error Handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("[Global Error Handler]", err);
+    res.status(500).json({ 
+      error: "Erro interno no servidor", 
+      message: err.message,
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined 
+    });
+  });
 
   if (process.env.NODE_ENV !== "production" || process.env.RUN_STANDALONE) {
     app.listen(PORT, "0.0.0.0", () => {
