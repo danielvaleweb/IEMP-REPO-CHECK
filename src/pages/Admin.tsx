@@ -2001,21 +2001,21 @@ const Admin = () => {
   };
 
   const allRoles = useMemo(() => [
-    "Administradores", 
     "Direção", 
     "Secretaria", 
     "Desenvolvedor", 
     "Mídia", 
-    "Diácono", 
-    "Diaconisa", 
-    "Obreiro",
-    "Minis. infantil", 
-    "Minis. louvor", 
-    "Minis. Jovens",
     "Coord. Mulheres",
     "Coord. Coreografia",
     "Coord. Vist. Hospitalar",
+    "Minis. louvor", 
+    "Minis. Jovens",
+    "Minis. infantil", 
+    "Diácono", 
+    "Diaconisa", 
+    "Obreiro",
     "Recepcionista",
+    "Administradores",
     "Visitante",
     "Membro"
   ], []);
@@ -2792,19 +2792,21 @@ const Admin = () => {
       
       // Sanitize all values in dataToSave recursively to remove any 'undefined'
       const sanitizeData = (obj: any): any => {
+        if (obj === undefined) return null;
+        if (!obj || typeof obj !== 'object') return obj;
         if (Array.isArray(obj)) {
           return obj.map(v => sanitizeData(v)).filter(v => v !== undefined);
         }
-        if (obj !== null && typeof obj === 'object') {
-          return Object.entries(obj).reduce((acc, [key, value]) => {
-            const sanitized = sanitizeData(value);
-            if (sanitized !== undefined) {
-              acc[key] = sanitized;
-            }
-            return acc;
-          }, {} as any);
-        }
-        return obj === undefined ? null : obj;
+        // Preserve Firebase Timestamps and other special objects
+        if (obj.seconds !== undefined || obj._seconds !== undefined) return obj;
+        
+        return Object.entries(obj).reduce((acc, [key, value]) => {
+          const sanitized = sanitizeData(value);
+          if (sanitized !== undefined) {
+            acc[key] = sanitized;
+          }
+          return acc;
+        }, {} as any);
       };
 
       let dataToSave = sanitizeData(formData);
@@ -3039,6 +3041,16 @@ const Admin = () => {
               userIds: invitedIds
             })
           }).catch(e => console.error("Erro ao notificar convidados:", e));
+        }
+
+        if (activeTab === "membros" || activeTab === "visitantes") {
+          confetti({
+            particleCount: 150,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#BF76FF', '#7300FF', '#CC7EFF', '#ffffff']
+          });
+          alert("Alterações salvas com sucesso!");
         }
 
         setIsEditing(false);
@@ -6595,7 +6607,7 @@ const Admin = () => {
                                   onClick={handleSave}
                                   disabled={isSubmitting}
                                 >
-                                  <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
+                                  <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : (activeTab === 'membros' || activeTab === 'visitantes') ? "Salvar Alterações" : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
                                 </Button>
                               </div>
                             )}
@@ -6806,45 +6818,121 @@ const Admin = () => {
                         )}
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {activeMembersForDisplay.map((member, i) => (
-                        <div key={member.id || i} className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-sm")}>
-                          <TeamMember 
-                            key={member.id || i}
-                            member={member}
-                            active={member.email === user?.email}
-                            onWhatsApp={() => openWhatsApp(member)}
-                            onNoWhatsApp={() => setNoWhatsAppUser(member)}
-                            onViewProfile={() => {
-                              setViewingMember(member);
-                            }}
-                            onEditProfile={(canEditProfiles || member.email === user?.email) ? () => {
-                              setSelectedItem(member);
-                              setFormData(member);
-                              setIsReadOnly(false);
-                              setIsEditing(true);
-                              setViewingMember(null);
-                            } : undefined}
-                            onUpdateRole={(m) => {
-                              setMemberToProcess(m);
-                              setIsRoleEditModalOpen(true);
-                            }}
-                            onReject={(m) => {
-                              setMemberToProcess(m);
-                              setIsMemberRejectModalOpen(true);
-                            }}
-                            onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member, "members") : undefined}
-                            isDark={isDarkMode}
-                            isAdmin={isAdmin}
-                            logAction={logAction}
-                          />
-                        </div>
-                      ))}
-                      {activeMembersForDisplay.length === 0 && (
-                        <div className="col-span-full text-center py-12 text-gray-500">
-                          {showPending ? "Nenhuma solicitação de cadastro pendente." : "Nenhum membro ativo encontrado."}
-                        </div>
-                      )}
+                    <div className="space-y-12">
+                      {(() => {
+                        // Agrupar membros por cargo para exibição hierárquica
+                        const groups = allRoles.reduce((acc, role) => {
+                          if (role === "Diaconisa") return acc; // Agrupado com Diácono
+                          
+                          const roleName = role === "Diácono" ? "Diácono/Diaconisa" : role;
+                          const membersInRole = activeMembersForDisplay.filter(m => {
+                            // Extrair todos os cargos possíveis (do campo role, roles e ministries)
+                            const mRoles = new Set<string>();
+                            if (m.role) mRoles.add(m.role);
+                            if (m.roles && Array.isArray(m.roles)) {
+                              m.roles.forEach((r: any) => mRoles.add(typeof r === 'string' ? r : r.name));
+                            }
+                            if (m.ministries && Array.isArray(m.ministries)) {
+                              m.ministries.forEach((min: any) => mRoles.add(typeof min === 'string' ? min : min.name));
+                            }
+                            
+                            const rolesArray = Array.from(mRoles).map(r => r.toLowerCase().trim());
+                            const targetRole = role.toLowerCase().trim();
+                            
+                            if (targetRole === "diácono" || targetRole === "diaconisa") {
+                              return rolesArray.some(r => r.includes("diácono") || r.includes("diacono") || r.includes("diaconisa"));
+                            }
+                            return rolesArray.some(r => r === targetRole || r.includes(targetRole));
+                          });
+
+                          if (membersInRole.length > 0) {
+                            acc.push({ name: roleName, members: membersInRole, color: ROLE_COLORS[role] || "#BF76FF" });
+                          }
+                          return acc;
+                        }, [] as { name: string, members: any[], color: string }[]);
+
+                        // Outros que não se encaixam nos cargos principais
+                        const otherMembers = activeMembersForDisplay.filter(m => {
+                          const mRoles = new Set<string>();
+                          if (m.role) mRoles.add(m.role);
+                          if (m.roles && Array.isArray(m.roles)) {
+                            m.roles.forEach((r: any) => mRoles.add(typeof r === 'string' ? r : r.name));
+                          }
+                          if (m.ministries && Array.isArray(m.ministries)) {
+                            m.ministries.forEach((min: any) => mRoles.add(typeof min === 'string' ? min : min.name));
+                          }
+                          const rolesArray = Array.from(mRoles).map(r => r.toLowerCase().trim());
+                          return !allRoles.some(role => {
+                            const targetRole = role.toLowerCase().trim();
+                            if (targetRole === "diácono" || targetRole === "diaconisa") {
+                              return rolesArray.some(r => r.includes("diácono") || r.includes("diacono") || r.includes("diaconisa"));
+                            }
+                            return rolesArray.some(r => r === targetRole || r.includes(targetRole));
+                          });
+                        });
+
+                        if (otherMembers.length > 0) {
+                          groups.push({ name: "Outros", members: otherMembers, color: "#8E8E93" });
+                        }
+
+                        if (groups.length === 0) {
+                          return (
+                            <div className="text-center py-12 text-gray-500">
+                              {showPending ? "Nenhuma solicitação de cadastro pendente." : "Nenhum membro ativo encontrado."}
+                            </div>
+                          );
+                        }
+
+                        return groups.map((group) => (
+                          <div key={`group-${group.name}`} className="space-y-6">
+                            <div className="flex items-center gap-4">
+                              <div className="w-2 h-6 rounded-full" style={{ backgroundColor: group.color }} />
+                              <h3 className="text-sm font-black uppercase tracking-[0.3em]" style={{ color: isDarkMode ? "white" : "black" }}>
+                                {group.name}
+                              </h3>
+                              <div className="h-px flex-1" style={{ backgroundColor: isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)" }} />
+                              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{group.members.length} {group.members.length === 1 ? "membro" : "membros"}</span>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {group.members.map((member, i) => (
+                                <div key={member.id || i} className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${i * 30}ms` }}>
+                                  <div className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                                    <TeamMember 
+                                      member={member}
+                                      active={member.email === user?.email}
+                                      onWhatsApp={() => openWhatsApp(member)}
+                                      onNoWhatsApp={() => setNoWhatsAppUser(member)}
+                                      onViewProfile={() => {
+                                        setViewingMember(member);
+                                      }}
+                                      onEditProfile={(canEditProfiles || member.email === user?.email) ? () => {
+                                        setSelectedItem(member);
+                                        setFormData(member);
+                                        setIsReadOnly(false);
+                                        setIsEditing(true);
+                                        setViewingMember(null);
+                                      } : undefined}
+                                      onUpdateRole={(m) => {
+                                        setMemberToProcess(m);
+                                        setIsRoleEditModalOpen(true);
+                                      }}
+                                      onReject={(m) => {
+                                        setMemberToProcess(m);
+                                        setIsMemberRejectModalOpen(true);
+                                      }}
+                                      onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member, "members") : undefined}
+                                      isDark={isDarkMode}
+                                      isAdmin={isAdminOrDev}
+                                      logAction={logAction}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ));
+                      })()}
                     </div>
                   </>
                 )}
@@ -8543,16 +8631,24 @@ const Admin = () => {
                 <div className="space-y-8">
                   {(() => {
                     const getPrimaryRole = (m: any) => {
-                      const leaderRoles = (m.ministries || []).filter((min: any) => typeof min === 'object' && min.isLeader).map((min: any) => min.name);
-                      if (leaderRoles.length > 0) {
-                        for (const role of allRoles) {
-                          if (leaderRoles.includes(role)) return role;
-                        }
+                      const allMemberRoles = new Set<string>();
+                      if (m.role) allMemberRoles.add(m.role.toLowerCase().trim());
+                      if (m.roles && Array.isArray(m.roles)) {
+                        m.roles.forEach((r: any) => allMemberRoles.add((typeof r === 'string' ? r : r.name).toLowerCase().trim()));
                       }
-                      const memberRoles = (m.ministries || []).map((min: any) => typeof min === 'string' ? min : min.name);
-                      if (m.role) memberRoles.push(m.role);
+                      if (m.ministries && Array.isArray(m.ministries)) {
+                        m.ministries.forEach((min: any) => allMemberRoles.add((typeof min === 'string' ? min : min.name).toLowerCase().trim()));
+                      }
+
+                      const rolesArray = Array.from(allMemberRoles);
+
                       for (const role of allRoles) {
-                        if (memberRoles.includes(role)) return role;
+                        const targetRole = role.toLowerCase().trim();
+                        if (targetRole === "diácono" || targetRole === "diaconisa") {
+                          if (rolesArray.some(r => r.includes("diácono") || r.includes("diacono") || r.includes("diaconisa"))) return "Diácono";
+                        } else {
+                          if (rolesArray.some(r => r === targetRole || r.includes(targetRole))) return role;
+                        }
                       }
                       return m.role === "Visitante" ? "Visitante" : "Membro";
                     };
@@ -8570,7 +8666,7 @@ const Admin = () => {
                       <>
                         {/* Team Categories - Now visible to all members */}
                         {(() => {
-                           const allPossibleRoles = ["Diácono", "Desenvolvedor", "Mídia", "Secretaria", "Obreiro", "Diaconisa", "Direção", "Minis. infantil", "Minis. louvor", "Minis. Jovens", "Coord. Mulheres", "Coord. Coreografia", "Coord. Vist. Hospitalar", "Recepcionista"];
+                           const allPossibleRoles = allRoles.filter(r => !["Membro", "Visitante", "Administradores", "Diaconisa"].includes(r));
                            
                            return allPossibleRoles.map(rawRole => {
                              const isDiaconia = rawRole === "Diácono";
