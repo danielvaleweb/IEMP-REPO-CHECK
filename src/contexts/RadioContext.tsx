@@ -3,7 +3,6 @@ import { collection, query, orderBy, onSnapshot, doc, getDoc } from 'firebase/fi
 import { db, handleFirestoreError, OperationType } from '@/lib/firebase';
 import ReactPlayer from 'react-player';
 import { useAuth } from '@/contexts/AuthContext';
-import { firestoreService } from '@/services/firestoreService';
 
 interface RadioContextProps {
   tracks: any[];
@@ -34,9 +33,6 @@ interface RadioContextProps {
   setIsMuted: (v: boolean) => void;
   playerRef: any;
   hasAccess: boolean;
-  initRadio: (force?: boolean) => Promise<void>;
-  isInitializing: boolean;
-  isInitialized: boolean;
 }
 
 // ... unchanged interface the rest of the way up to RadioProvider ...
@@ -50,8 +46,6 @@ export function useRadio() {
   }
   return context;
 }
-
-const Player = ReactPlayer as any;
 
 export function RadioProvider({ children }: { children: React.ReactNode }) {
   const { user, profile, isGuest } = useAuth();
@@ -76,38 +70,45 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
 
   const [tracksSinceLastVignette, setTracksSinceLastVignette] = useState(0);
-  const [isInitializing, setIsInitializing] = useState(false);
-  const [isInitialized, setIsInitialized] = useState(false);
 
   const playerRef = useRef<any>(null);
 
-  const initRadio = async (force = false) => {
-    if (isInitialized && !force) return;
-    if (isInitializing) return;
-    
-    setIsInitializing(true);
-    try {
-      console.log("[RadioContext] Initializing radio data...");
-      const [tracksData, artistsData, playlistsData, vignettesData, systemSettings] = await Promise.all([
-        firestoreService.getCollection<any>("radio-playlist", [orderBy("order", "asc")], 1000 * 60 * 60 * 12), // 12 hours
-        firestoreService.getCollection<any>("radio-artists", [orderBy("name", "asc")], 1000 * 60 * 60 * 24), // 24 hours
-        firestoreService.getCollection<any>("playlists", [orderBy("createdAt", "desc")], 1000 * 60 * 60 * 12), // 12 hours
-        firestoreService.getCollection<any>("vignettes", [orderBy("createdAt", "desc")], 1000 * 60 * 60 * 24), // 24 hours
-        firestoreService.getDoc<any>("settings", "system", 1000 * 60 * 60 * 24) // 24 hours
-      ]);
+  useEffect(() => {
+    const unsubTracks = onSnapshot(query(collection(db, "radio-playlist"), orderBy("order", "asc")), (snap) => {
+      setTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "radio-playlist"));
 
-      setTracks(tracksData);
-      setRadioArtists(artistsData);
-      setPlaylists(playlistsData);
-      setVignettes(vignettesData);
-      if (systemSettings) setSettings(systemSettings);
-      setIsInitialized(true);
-    } catch (err) {
-      console.error("[RadioContext] Error initializing radio data:", err);
-    } finally {
-      setIsInitializing(false);
-    }
-  };
+    const unsubArtists = onSnapshot(query(collection(db, "radio-artists"), orderBy("name", "asc")), (snap) => {
+      setRadioArtists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "radio-artists"));
+
+    const unsubPlaylists = onSnapshot(query(collection(db, "playlists"), orderBy("createdAt", "desc")), (snap) => {
+      setPlaylists(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "playlists"));
+
+    const unsubVignettes = onSnapshot(query(collection(db, "vignettes"), orderBy("createdAt", "desc")), (snap) => {
+      setVignettes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }, (err) => handleFirestoreError(err, OperationType.LIST, "vignettes"));
+
+    const getSystemSettings = async () => {
+      try {
+        const snap = await getDoc(doc(db, "settings", "system"));
+        if (snap.exists()) {
+          setSettings(snap.data());
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, "settings/system");
+      }
+    };
+    getSystemSettings();
+
+    return () => {
+      unsubTracks();
+      unsubArtists();
+      unsubPlaylists();
+      unsubVignettes();
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasAccess && isPlaying) {
@@ -159,12 +160,12 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
 
     // Se temos vinhetas e já tocaram 3 músicas, tocar uma vinheta
     if (!currentTrack?.isVignette && vignettes.length > 0 && tracksSinceLastVignette >= 3) {
-       const randomVignette = vignettes[Math.floor(Math.random() * vignettes.length)];
-       setCurrentTrack({ ...randomVignette, isVignette: true });
-       setTracksSinceLastVignette(0);
-       setIsPlaying(true);
-       setIsPlayerMinimized(false);
-       return;
+      const randomVignette = vignettes[Math.floor(Math.random() * vignettes.length)];
+      setCurrentTrack({ ...randomVignette, isVignette: true });
+      setTracksSinceLastVignette(0);
+      setIsPlaying(true);
+      setIsPlayerMinimized(false);
+      return;
     }
 
     const nextIdx = (currentIndex + 1) % queue.length;
@@ -222,7 +223,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
         const title = isLiveMode ? (settings?.radioTitle || "Rádio Ao Vivo") : currentTrack?.title || "Sintonizado";
         const artist = isLiveMode ? "Rádio" : currentTrack?.artist || "Ministério Profecia";
         const artwork = [];
-        
+
         let imageUrl = "/placeholder.jpg";
         if (currentTrack?.youtubeId) {
           imageUrl = `https://img.youtube.com/vi/${currentTrack.youtubeId}/mqdefault.jpg`;
@@ -237,7 +238,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
         navigator.mediaSession.setActionHandler('pause', () => setIsPlaying(false));
         navigator.mediaSession.setActionHandler('previoustrack', () => handlersRef.current.playPrev());
         navigator.mediaSession.setActionHandler('nexttrack', () => handlersRef.current.playNext());
-        
+
         // This attempts to prevent stopping by marking the session active
         navigator.mediaSession.playbackState = "playing";
       } else {
@@ -257,51 +258,35 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     return "";
   };
 
-  const silentAudioRef = useRef<HTMLAudioElement>(null);
-
-  useEffect(() => {
-    if (silentAudioRef.current) {
-      if (isPlaying) {
-        const playPromise = silentAudioRef.current.play();
-        if (playPromise !== undefined) {
-          playPromise.catch(() => {});
-        }
-      } else {
-        silentAudioRef.current.pause();
-      }
-    }
-  }, [isPlaying]);
-
   return (
     <RadioContext.Provider value={{
       tracks, radioArtists, playlists, vignettes, settings,
       isLiveMode, queue, currentIndex, currentTrack, isPlaying, setIsPlaying,
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
-      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess,
-      initRadio, isInitializing, isInitialized
+      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess
     } as any}>
       {children}
       {/* Hidden Global Player */}
       <div className="hidden">
         {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
-          <Player 
-            key={getUrlToPlay()}
+          <ReactPlayer
             ref={playerRef}
-            url={getUrlToPlay()} 
-            playing={isPlaying} 
+            src={getUrlToPlay()}
+            playing={isPlaying}
             volume={volume}
             muted={isMuted}
-            onProgress={(state: any) => setProgress(state.playedSeconds)}
-            onDuration={setDuration}
+            onTimeUpdate={handleProgress}
+            onDurationChange={handleDurationChange}
             onEnded={playNext}
-            playsinline={true}
+            playsInline={true}
             config={{
               youtube: {
-                playerVars: {
+                playsInline: true,
+                params: {
                   playsinline: 1
                 }
-              },
+              } as any,
               file: {
                 forceAudio: true,
                 attributes: {
@@ -312,16 +297,24 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
             } as any}
           />
         )}
-        
+
         {/* Silent audio to keep the browser instance alive in the background on mobile devices */}
-        <audio 
+        <audio
           src="data:audio/mp3;base64,//OlkAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAAFAAAHOwADBQgLDhATFhkcHSAjJigrLjEzNjk8P0JDREVHSlBTVFhZXV9iZWdqbXF0d3p+gYOGiYyPkZWWmJydoKSnqqyvsbS3ubvAwcLEx8rMz9PU1tna3eDi5ebp7O/x9Pf5/P8AAAA8TEFNRTMuMTAwA8EAAAAALisAABRAJAwCAgAEAAcBzgAAO6mO/QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA//Olk0A8AAMwBAADQgDZwAAAAADwAA"
           loop
           autoPlay={isPlaying}
           muted={false}
           playsInline
           style={{ display: 'none' }}
-          ref={silentAudioRef}
+          ref={(audio) => {
+            if (audio) {
+              if (isPlaying) {
+                audio.play().catch(() => { });
+              } else {
+                audio.pause();
+              }
+            }
+          }}
         />
       </div>
     </RadioContext.Provider>
