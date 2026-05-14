@@ -23,35 +23,10 @@ export default defineConfig(({mode}) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
-      chunkSizeWarningLimit: 1000,
+      chunkSizeWarningLimit: 2000,
       rollupOptions: {
         output: {
-          manualChunks: (id) => {
-            if (id.includes('node_modules')) {
-              if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom')) {
-                return 'react-core';
-              }
-              if (id.includes('firebase')) {
-                return 'firebase-bundle';
-              }
-              if (id.includes('lucide-react')) {
-                return 'icons';
-              }
-              if (id.includes('motion') || id.includes('framer-motion')) {
-                return 'animations';
-              }
-              if (id.includes('date-fns')) {
-                return 'date-utils';
-              }
-              if (id.includes('jspdf')) {
-                return 'pdf-utils';
-              }
-              if (id.includes('react-player')) {
-                return 'video-player';
-              }
-              return 'vendor';
-            }
-          },
+          manualChunks: undefined // Desativado para evitar dependências circulares
         },
       },
     },
