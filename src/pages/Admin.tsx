@@ -1203,6 +1203,7 @@ const Admin = () => {
   const [chatListSubTab, setChatListSubTab] = useState<"chats" | "contacts">("chats");
   const [chatSearch, setChatSearch] = useState("");
   const [showClearGalleryDialog, setShowClearGalleryDialog] = useState(false);
+  const [selectedPermissionRole, setSelectedPermissionRole] = useState<string | null>(null);
   const [mentionSearch, setMentionSearch] = useState("");
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
 
@@ -2512,22 +2513,23 @@ const Admin = () => {
       fetchCounts();
     }
 
-    // Load Settings and Skills (Cached)
-    const loadSettingsAndSkills = async () => {
-      try {
-        const [settingsData, skillsData] = await Promise.all([
-          firestoreService.getDoc<any>("settings", "general", 1000 * 60 * 60), // 1 hour TTL
-          firestoreService.getDoc<any>("settings", "skills", 1000 * 60 * 60 * 24) // 24 hours TTL
-        ]);
+    // Load Settings and Skills (Real-time for settings, Cached for skills)
+    const unsubSettings = onSnapshot(doc(db, "settings", "general"), (doc) => {
+      if (doc.exists()) {
+        setSettings(doc.data());
+      }
+    });
 
-        if (settingsData) setSettings(settingsData);
+    const loadSkills = async () => {
+      try {
+        const skillsData = await firestoreService.getDoc<any>("settings", "skills", 1000 * 60 * 60 * 24); // 24 hours TTL
         if (skillsData) setAvailableSkills(skillsData.list || []);
       } catch (err) {
-        console.error("Error loading settings/skills", err);
+        console.error("Error loading skills", err);
       }
     };
 
-    loadSettingsAndSkills();
+    loadSkills();
 
     // Load Notifications (Always keep this real-time but limited)
     let unsubNotifs = () => { };
@@ -2544,6 +2546,7 @@ const Admin = () => {
 
     return () => {
       unsubNotifs();
+      unsubSettings();
     };
   }, [user, isAdmin, activeTab]);
 
@@ -7573,33 +7576,64 @@ const Admin = () => {
 
                       <div className={cn("pt-8 border-t transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
                         <h4 className={cn("text-xl font-bold mb-6 transition-colors", isDarkMode ? "text-white" : "text-black")}>Permissões por Cargo</h4>
-                        <div className="space-y-4">
-                          {allRoles.map(role => (
-                            <div key={`role-permission-${role}`} className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5")}>
-                              <div className="flex items-center justify-between mb-4">
-                                <h5 className="font-bold text-[#BF76FF]">{role === "Administradores" ? "Administrador Master" : role}</h5>
+                        
+                        {/* Role Selector */}
+                        <div className="flex flex-wrap gap-2 mb-8 p-2 rounded-[24px] bg-black/5 dark:bg-white/5">
+                          {allRoles.map(role => {
+                            const isSelected = selectedPermissionRole === role;
+                            return (
+                              <button
+                                key={`role-selector-${role}`}
+                                onClick={() => setSelectedPermissionRole(role)}
+                                className={cn(
+                                  "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                  isSelected 
+                                    ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" 
+                                    : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
+                                )}
+                              >
+                                {role}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {selectedPermissionRole ? (
+                          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <div className={cn("p-8 rounded-[32px] border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5 shadow-xl")}>
+                              <div className="flex items-center justify-between mb-8">
+                                <h5 className="text-2xl font-black text-[#BF76FF] uppercase tracking-tighter">
+                                  {selectedPermissionRole === "Administradores" ? "Administrador Master" : selectedPermissionRole}
+                                </h5>
                               </div>
-                              <div className="space-y-6">
-                                <div>
-                                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 block">Ações Disponíveis</span>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {[
-                                      { label: "Criar/Editar", key: "edit" },
-                                      { label: "Excluir", key: "delete" },
-                                      { label: "Apagar fotos", key: "deletePhotos" },
-                                      { label: "Gerenciar Perfis", key: "editProfiles" }
-                                    ].map(perm => {
-                                      let defaultPerm = true;
-                                      if (perm.key === "editProfiles") {
-                                        defaultPerm = role === "Administradores" || role === "Desenvolvedor";
-                                      } else {
-                                        defaultPerm = !["Membro", "Visitante"].includes(role);
-                                      }
-                                      const isChecked = settings.permissions?.[role]?.[perm.key] ?? defaultPerm;
+
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                {/* Section: Menus */}
+                                <div className="space-y-4">
+                                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block mb-4">Menus Visíveis</span>
+                                  <div className="space-y-3">
+                                    {menuItems.map(tab => {
+                                      const defaultVals: any = {};
+                                      menuItems.forEach(item => {
+                                        if (item.id === "visao-geral") {
+                                          defaultVals[item.id] = true;
+                                        } else if (item.id === "avisos") {
+                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(selectedPermissionRole);
+                                        } else if (item.id === "agenda-direcao") {
+                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção"].includes(selectedPermissionRole) || selectedPermissionRole.includes("Secretaria") || selectedPermissionRole === "Mídia";
+                                        } else if (item.id === "logins") {
+                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(selectedPermissionRole);
+                                        } else {
+                                          defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(selectedPermissionRole);
+                                        }
+                                      });
+
+                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.tabs?.[tab.id] ?? defaultVals[tab.id];
+                                      
                                       return (
-                                        <div key={perm.key} className={cn("flex items-center justify-between p-3 rounded-xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                                          <span className="text-xs text-gray-400">{perm.label}</span>
-                                          <label className="relative inline-flex items-center cursor-pointer scale-75">
+                                        <div key={`perm-menu-${tab.id}`} className={cn("flex items-center justify-between p-4 rounded-2xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{tab.label}</span>
+                                          <label className="relative inline-flex items-center cursor-pointer">
                                             <input
                                               type="checkbox"
                                               className="sr-only peer"
@@ -7608,23 +7642,22 @@ const Admin = () => {
                                                 const newValue = e.target.checked;
                                                 const newPermissions = {
                                                   ...settings.permissions,
-                                                  [role]: {
-                                                    ...(settings.permissions?.[role] || {
-                                                      edit: !["Membro", "Visitante"].includes(role),
-                                                      delete: !["Membro", "Visitante"].includes(role),
-                                                      deletePhotos: !["Membro", "Visitante"].includes(role),
-                                                      editProfiles: role === "Administradores" || role === "Desenvolvedor",
+                                                  [selectedPermissionRole]: {
+                                                    ...(settings.permissions?.[selectedPermissionRole] || {
+                                                      edit: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      delete: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      deletePhotos: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      editProfiles: selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor",
                                                       tabs: {}
                                                     }),
-                                                    [perm.key]: newValue
+                                                    tabs: {
+                                                      ...(settings.permissions?.[selectedPermissionRole]?.tabs || {}),
+                                                      [tab.id]: newValue
+                                                    }
                                                   }
                                                 };
                                                 try {
-                                                  try {
-                                                    await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
-                                                  } catch (e) {
-                                                    handleFirestoreError(e, OperationType.UPDATE, 'settings/general');
-                                                  }
+                                                  await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
                                                 } catch (error) {
                                                   handleFirestoreError(error, OperationType.WRITE, "settings/general");
                                                 }
@@ -7638,63 +7671,117 @@ const Admin = () => {
                                   </div>
                                 </div>
 
-                                <div>
-                                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3 block">Páginas Visíveis</span>
-                                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                                    {menuItems.map(tab => {
-                                      const defaultVals: any = {};
-                                      menuItems.forEach(item => {
-                                        if (item.id === "visao-geral") {
-                                          defaultVals[item.id] = true;
-                                        } else if (item.id === "avisos") {
-                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(role);
-                                        } else if (item.id === "agenda-direcao") {
-                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção"].includes(role) || role.includes("Secretaria") || role === "Mídia"; // Permissão para líderes de mídia/secretaria é gerenciada no nível do usuário
-                                        } else if (item.id === "logins") {
-                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(role);
-                                        } else {
-                                          defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(role);
-                                        }
-                                      });
-
-                                      const isChecked = settings.permissions?.[role]?.tabs?.[tab.id] ?? defaultVals[tab.id];
+                                {/* Section: Opções */}
+                                <div className="space-y-4">
+                                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block mb-4">Ações (Permissões)</span>
+                                  <div className="space-y-3">
+                                    {[
+                                      { label: "Ver", key: "view" },
+                                      { label: "Criar", key: "create" },
+                                      { label: "Editar", key: "edit" },
+                                      { label: "Excluir", key: "delete" }
+                                    ].map(perm => {
+                                      const defaultPerm = !["Membro", "Visitante"].includes(selectedPermissionRole);
+                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? defaultPerm;
                                       return (
-                                        <button
-                                          key={tab.id}
-                                          onClick={async () => {
-                                            const newPermissions = {
-                                              ...settings.permissions,
-                                              [role]: {
-                                                ...(settings.permissions?.[role] || { edit: true, delete: true, tabs: {} }),
-                                                tabs: {
-                                                  ...(settings.permissions?.[role]?.tabs || {}),
-                                                  [tab.id]: !isChecked
+                                        <div key={`perm-action-${perm.key}`} className={cn("flex items-center justify-between p-4 rounded-2xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{perm.label}</span>
+                                          <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              className="sr-only peer"
+                                              checked={isChecked}
+                                              onChange={async (e) => {
+                                                const newValue = e.target.checked;
+                                                const newPermissions = {
+                                                  ...settings.permissions,
+                                                  [selectedPermissionRole]: {
+                                                    ...(settings.permissions?.[selectedPermissionRole] || {
+                                                      edit: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      delete: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      deletePhotos: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      editProfiles: selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor",
+                                                      tabs: {}
+                                                    }),
+                                                    [perm.key]: newValue
+                                                  }
+                                                };
+                                                try {
+                                                  await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
+                                                } catch (error) {
+                                                  handleFirestoreError(error, OperationType.WRITE, "settings/general");
                                                 }
-                                              }
-                                            };
-                                            try {
-                                              await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
-                                            } catch (error) {
-                                              handleFirestoreError(error, OperationType.WRITE, "settings/general");
-                                            }
-                                          }}
-                                          className={cn(
-                                            "px-3 py-2 rounded-xl text-[10px] font-bold border transition-all",
-                                            isChecked
-                                              ? "bg-[#BF76FF]/10 text-[#BF76FF] border-[#BF76FF]/30 shadow-lg shadow-[#BF76FF]/10"
-                                              : "bg-transparent text-gray-500 border-gray-700 hover:border-gray-500"
-                                          )}
-                                        >
-                                          {tab.id === 'avisos' ? 'Avisos' : tab.label}
-                                        </button>
+                                              }}
+                                            />
+                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                                          </label>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Section: Opções Administrativas */}
+                                <div className="space-y-4">
+                                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block mb-4">Opções Administrativas</span>
+                                  <div className="space-y-3">
+                                    {[
+                                      { label: "Apagar fotos", key: "deletePhotos" },
+                                      { label: "Gerenciar Perfis", key: "editProfiles" }
+                                    ].map(perm => {
+                                      let defaultPerm = false;
+                                      if (perm.key === "editProfiles") {
+                                        defaultPerm = selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor";
+                                      } else {
+                                        defaultPerm = !["Membro", "Visitante"].includes(selectedPermissionRole);
+                                      }
+                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? defaultPerm;
+                                      return (
+                                        <div key={`perm-admin-${perm.key}`} className={cn("flex items-center justify-between p-4 rounded-2xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{perm.label}</span>
+                                          <label className="relative inline-flex items-center cursor-pointer">
+                                            <input
+                                              type="checkbox"
+                                              className="sr-only peer"
+                                              checked={isChecked}
+                                              onChange={async (e) => {
+                                                const newValue = e.target.checked;
+                                                const newPermissions = {
+                                                  ...settings.permissions,
+                                                  [selectedPermissionRole]: {
+                                                    ...(settings.permissions?.[selectedPermissionRole] || {
+                                                      edit: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      delete: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      deletePhotos: !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                      editProfiles: selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor",
+                                                      tabs: {}
+                                                    }),
+                                                    [perm.key]: newValue
+                                                  }
+                                                };
+                                                try {
+                                                  await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
+                                                } catch (error) {
+                                                  handleFirestoreError(error, OperationType.WRITE, "settings/general");
+                                                }
+                                              }}
+                                            />
+                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                                          </label>
+                                        </div>
                                       );
                                     })}
                                   </div>
                                 </div>
                               </div>
                             </div>
-                          ))}
-                        </div>
+                          </div>
+                        ) : (
+                          <div className={cn("p-12 rounded-[32px] border border-dashed flex flex-col items-center justify-center text-center", isDarkMode ? "border-white/10 bg-white/5" : "border-black/10 bg-black/5")}>
+                            <ShieldCheck className="w-12 h-12 text-gray-500 mb-4 opacity-20" />
+                            <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Selecione um cargo para gerenciar permissões</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </Card>
