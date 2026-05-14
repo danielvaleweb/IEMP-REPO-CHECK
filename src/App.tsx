@@ -32,7 +32,7 @@ const EBD = lazy(() => import("@/pages/EBD"));
 const Favorites = lazy(() => import("@/pages/Favorites"));
 const Formulario = lazy(() => import("@/pages/Formulario"));
 const StaticPages = lazy(() => import("@/pages/StaticPages"));
-const Maintenance = lazy(() => import("@/pages/Maintenance"));
+import Maintenance from "@/pages/Maintenance";
 const Migration = lazy(() => import("@/pages/Migration"));
 const EventDetails = lazy(() => import("@/pages/EventDetails"));
 const NoticiaDetalhe = lazy(() => import("@/pages/NoticiaDetalhe"));
