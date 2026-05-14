@@ -16,10 +16,12 @@ export function EventosView({
   isDark,
   canEdit = false,
   canDelete = false,
+  canCreate = false,
   title = "Eventos do Mês",
   buttonLabel = "Cadastrar novo evento",
   emptyLabel = "Nenhum item cadastrado.",
   buttonIcon: ButtonIcon = Plus
+
 }: { 
   events: any[], 
   onNewEvent: () => void, 
@@ -30,17 +32,20 @@ export function EventosView({
   isDark?: boolean,
   canEdit?: boolean,
   canDelete?: boolean,
+  canCreate?: boolean,
   title?: string,
   buttonLabel?: string,
   emptyLabel?: string,
   buttonIcon?: any
 }) {
+
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>{title}</h2>
-        {canEdit && (
+        {canCreate && (
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+
             <Button 
               className="flex-1 sm:flex-initial bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer"
               onClick={onNewEvent}

@@ -1601,7 +1601,16 @@ const Admin = () => {
     };
 
     if (!rolePerms) return getDefVal();
-    if (rolePerms.tabs && tab in rolePerms.tabs) return rolePerms.tabs[tab];
+    
+    // Check for granular tab permissions first
+    if (rolePerms.tabs && tab in rolePerms.tabs) {
+      const tabPerm = rolePerms.tabs[tab];
+      if (typeof tabPerm === 'object') {
+        return tabPerm.view ?? getDefVal();
+      }
+      return tabPerm;
+    }
+    
     return getDefVal();
   };
 
@@ -1615,12 +1624,52 @@ const Admin = () => {
     return userRolesArray.some(r => canRoleViewTab(r.name, r.isLeader, tab));
   };
 
-  const canEdit = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
-    return settings.permissions?.[r.name]?.edit ?? defaultEditPerm;
-  });
+  const hasPermission = (action: 'view' | 'create' | 'edit' | 'delete', tab?: string) => {
+    if (isEffectivelyAdmin) return true;
+    const targetTab = tab || activeTab;
+
+    return userRolesArray.some(r => {
+      const rolePerms = settings.permissions?.[r.name];
+      if (!rolePerms) {
+        if (action === 'view') return canRoleViewTab(r.name, r.isLeader, targetTab);
+        return !["Membro", "Visitante"].includes(r.name);
+      }
+
+      // Check granular tab-specific permissions
+      if (rolePerms.tabs?.[targetTab] && typeof rolePerms.tabs[targetTab] === 'object') {
+        if (action in rolePerms.tabs[targetTab]) {
+          return rolePerms.tabs[targetTab][action];
+        }
+      }
+
+      // Fallback for 'view' (tabs boolean check)
+      if (action === 'view') {
+        if (rolePerms.tabs?.[targetTab] !== undefined) {
+          const tabVal = rolePerms.tabs[targetTab];
+          return typeof tabVal === 'object' ? tabVal.view : tabVal;
+        }
+        return canRoleViewTab(r.name, r.isLeader, targetTab);
+      }
+
+      // Fallback to global role-based permissions
+      if (rolePerms[action] !== undefined) return rolePerms[action];
+
+      // Final fallback
+      return !["Membro", "Visitante"].includes(r.name);
+    });
+  };
+
+  const canCreate = hasPermission('create');
+  const canEdit = hasPermission('edit');
+  const canDelete = hasPermission('delete');
 
   const canCreateEventDirectly = isEffectivelyAdmin || userRolesArray.some(r => {
+    // Mantendo lógica legada se não houver permissão explícita
+    const rolePerms = settings.permissions?.[r.name];
+    if (rolePerms?.tabs?.agenda && typeof rolePerms.tabs.agenda === 'object' && rolePerms.tabs.agenda.create !== undefined) {
+      return rolePerms.tabs.agenda.create;
+    }
+    
     return r.name === "Desenvolvedor" ||
       r.name === "Administradores" ||
       r.name === "Secretaria" ||
@@ -1635,20 +1684,18 @@ const Admin = () => {
     r.name === "Secretário"
   );
 
-  const canDelete = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
-    return settings.permissions?.[r.name]?.delete ?? defaultEditPerm;
-  });
-
   const canEditProfiles = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditProfilesPerm = r.name === "Administradores" || r.name === "Desenvolvedor";
-    return settings.permissions?.[r.name]?.editProfiles ?? defaultEditProfilesPerm;
+    const rolePerms = settings.permissions?.[r.name];
+    if (rolePerms?.editProfiles !== undefined) return rolePerms.editProfiles;
+    return r.name === "Administradores" || r.name === "Desenvolvedor";
   });
 
   const canDeletePhotos = isEffectivelyAdmin || userRolesArray.some(r => {
-    const defaultEditPerm = !["Membro", "Visitante"].includes(r.name);
-    return settings.permissions?.[r.name]?.deletePhotos ?? defaultEditPerm;
+    const rolePerms = settings.permissions?.[r.name];
+    if (rolePerms?.deletePhotos !== undefined) return rolePerms.deletePhotos;
+    return !["Membro", "Visitante"].includes(r.name);
   });
+
 
   const [hasLoggedLogin, setHasLoggedLogin] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -6725,9 +6772,10 @@ const Admin = () => {
               ) : activeTab === "tons" ? (
                 <div className="space-y-6 pb-32">
                   <Suspense fallback={<ViewLoader />}>
-                    <TonsView isDark={isDarkMode} members={members} />
+                    <TonsView isDark={isDarkMode} members={members} canCreate={canCreate} canEdit={canEdit} canDelete={canDelete} />
                   </Suspense>
                 </div>
+
               ) : (activeTab === "membros" || activeTab === "visitantes") && !isEditing ? (
                 <div className="space-y-6">
                   {viewingMember ? (
@@ -6961,7 +7009,7 @@ const Admin = () => {
                     <p className="text-sm text-gray-500">
                       {radioSubTab === "tracks" ? "Gerencie a playlist de louvores do YouTube." : radioSubTab === "vignettes" ? "Gerencie as vinhetas e chamadas rápidas." : "Cadastre perfis de artistas tocados na rádio."}
                     </p>
-                    {canEdit && (
+                    {canCreate && (
                       <Button
                         className="bg-gradient-to-r from-[#BF76FF] to-[#8E44AD] hover:opacity-90 text-white rounded-xl h-12 px-6 font-bold"
                         onClick={() => {
@@ -7041,6 +7089,7 @@ const Admin = () => {
                     isDark={isDarkMode}
                     canEdit={canEdit}
                     canDelete={canDelete}
+                    canCreate={canCreate}
                     onLoadMore={() => {
                       if (activeTab === "eventos") setEventsLimit(prev => prev + 4);
                       else setNewsLimit(prev => prev + 4);
@@ -7279,7 +7328,7 @@ const Admin = () => {
                 <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
                     <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Agenda da Direção</h2>
-                    {canEdit && (
+                    {canCreate && (
                       <Button
                         variant="outline"
                         onClick={() => setIsImportEventDialogOpen(true)}
@@ -7575,7 +7624,7 @@ const Admin = () => {
                       </div>
 
                       <div className={cn("pt-8 border-t transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
-                        <h4 className={cn("text-xl font-bold mb-6 transition-colors", isDarkMode ? "text-white" : "text-black")}>Permissões por Cargo</h4>
+                        <h4 className={cn("text-xl font-bold mb-6 transition-colors", isDarkMode ? "text-white" : "text-black")}>Configuração de Permissões</h4>
 
                         {/* Role Selector */}
                         <div className="flex flex-wrap gap-2 mb-8 p-2 rounded-[24px] bg-black/5 dark:bg-white/5">
@@ -7600,91 +7649,127 @@ const Admin = () => {
 
                         {selectedPermissionRole ? (
                           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className={cn("p-8 rounded-[32px] border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5 shadow-xl")}>
-                              <div className="flex items-center justify-between mb-8">
-                                <h5 className="text-2xl font-black text-[#BF76FF] uppercase tracking-tighter">
-                                  {selectedPermissionRole === "Administradores" ? "Administrador Master" : selectedPermissionRole}
-                                </h5>
+                            <div className={cn("p-6 md:p-10 rounded-[40px] border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5 shadow-2xl")}>
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                                <div>
+                                  <h5 className="text-3xl font-black text-[#BF76FF] uppercase tracking-tighter mb-2">
+                                    {selectedPermissionRole === "Administradores" ? "Administrador Master" : selectedPermissionRole}
+                                  </h5>
+                                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Defina o que este cargo pode acessar e realizar em cada menu.</p>
+                                </div>
+                                <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10">
+                                  <ShieldCheck className="w-5 h-5 text-[#BF76FF]" />
+                                  <span className="text-[10px] font-black uppercase text-[#BF76FF] tracking-widest">Gestão de Acesso</span>
+                                </div>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                {/* Section: Menus */}
-                                <div className="space-y-4">
-                                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block mb-4">Menus Visíveis</span>
-                                  <div className="space-y-3">
-                                    {menuItems.map(tab => {
-                                      const defaultVals: any = {};
-                                      menuItems.forEach(item => {
-                                        if (item.id === "visao-geral") {
-                                          defaultVals[item.id] = true;
-                                        } else if (item.id === "avisos") {
-                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(selectedPermissionRole);
-                                        } else if (item.id === "agenda-direcao") {
-                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor", "Direção"].includes(selectedPermissionRole) || selectedPermissionRole.includes("Secretaria") || selectedPermissionRole === "Mídia";
-                                        } else if (item.id === "logins") {
-                                          defaultVals[item.id] = ["Administradores", "Desenvolvedor"].includes(selectedPermissionRole);
-                                        } else {
-                                          defaultVals[item.id] = !["Membro", "Visitante", "Direção"].includes(selectedPermissionRole);
-                                        }
-                                      });
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {menuItems.map(tab => {
+                                  // Determinar valores atuais
+                                  const rolePerms = settings.permissions?.[selectedPermissionRole] || {};
+                                  const tabData = rolePerms.tabs?.[tab.id];
+                                  
+                                  const getVal = (action: string) => {
+                                    if (tabData && typeof tabData === 'object') return tabData[action] ?? true;
+                                    if (action === 'view') {
+                                      if (tabData === true || tabData === false) return tabData;
+                                      return canRoleViewTab(selectedPermissionRole, false, tab.id);
+                                    }
+                                    return rolePerms[action] ?? !["Membro", "Visitante"].includes(selectedPermissionRole);
+                                  };
 
-                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.tabs?.[tab.id] ?? defaultVals[tab.id];
+                                  const actions = [
+                                    { id: 'view', label: 'Ver', color: 'blue' },
+                                    { id: 'create', label: 'Criar', color: 'green' },
+                                    { id: 'edit', label: 'Editar', color: 'amber' },
+                                    { id: 'delete', label: 'Excluir', color: 'red' }
+                                  ];
 
-                                      return (
-                                        <div key={`perm-menu-${tab.id}`} className={cn("flex items-center justify-between p-4 rounded-2xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                                          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{tab.label}</span>
-                                          <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                              type="checkbox"
-                                              className="sr-only peer"
-                                              checked={isChecked}
-                                              onChange={async (e) => {
-                                                const newValue = e.target.checked;
+                                  return (
+                                    <div key={`tab-perm-card-${tab.id}`} className={cn("p-6 rounded-[32px] border transition-all hover:scale-[1.02]", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                                      <div className="flex items-center gap-3 mb-6">
+                                        <div className="w-10 h-10 rounded-xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
+                                          <tab.icon className="w-5 h-5" />
+                                        </div>
+                                        <span className="font-black uppercase tracking-tighter text-sm">{tab.label}</span>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 gap-3">
+                                        {actions.map(action => {
+                                          const isChecked = getVal(action.id);
+                                          return (
+                                            <div 
+                                              key={`${tab.id}-${action.id}`}
+                                              onClick={async () => {
+                                                const newValue = !isChecked;
+                                                const currentTabs = rolePerms.tabs || {};
+                                                const currentTabData = typeof currentTabs[tab.id] === 'object' ? currentTabs[tab.id] : { 
+                                                  view: typeof currentTabs[tab.id] === 'boolean' ? currentTabs[tab.id] : canRoleViewTab(selectedPermissionRole, false, tab.id),
+                                                  create: rolePerms.create ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                  edit: rolePerms.edit ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                  delete: rolePerms.delete ?? !["Membro", "Visitante"].includes(selectedPermissionRole)
+                                                };
+
                                                 const newPermissions = {
                                                   ...settings.permissions,
                                                   [selectedPermissionRole]: {
-                                                    ...(settings.permissions?.[selectedPermissionRole] || {
-                                                      edit: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      delete: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      deletePhotos: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      editProfiles: selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor",
-                                                      tabs: {}
-                                                    }),
+                                                    ...rolePerms,
                                                     tabs: {
-                                                      ...(settings.permissions?.[selectedPermissionRole]?.tabs || {}),
-                                                      [tab.id]: newValue
+                                                      ...currentTabs,
+                                                      [tab.id]: {
+                                                        ...currentTabData,
+                                                        [action.id]: newValue
+                                                      }
                                                     }
                                                   }
                                                 };
+
                                                 try {
                                                   await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
                                                 } catch (error) {
                                                   handleFirestoreError(error, OperationType.WRITE, "settings/general");
                                                 }
                                               }}
-                                            />
-                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
-                                          </label>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
+                                              className={cn(
+                                                "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all",
+                                                isChecked 
+                                                  ? isDarkMode ? "bg-white/10 border-white/10" : "bg-black/5 border-black/5" 
+                                                  : "opacity-40 grayscale"
+                                              )}
+                                            >
+                                              <span className="text-[10px] font-black uppercase tracking-widest">{action.label}</span>
+                                              <div className={cn(
+                                                "w-4 h-4 rounded-md flex items-center justify-center transition-all",
+                                                isChecked ? "bg-[#BF76FF] text-white" : "border-2 border-gray-500"
+                                              )}>
+                                                {isChecked && <Check className="w-3 h-3" />}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
 
-                                {/* Section: Opções */}
-                                <div className="space-y-4">
-                                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block mb-4">Ações (Permissões)</span>
-                                  <div className="space-y-3">
+                              {/* Footer: Admin Options */}
+                              <div className={cn("mt-12 pt-10 border-t flex flex-wrap gap-6", isDarkMode ? "border-white/5" : "border-black/5")}>
+                                <div className="space-y-4 flex-1 min-w-[300px]">
+                                  <h6 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Permissões Globais / Administrativas</h6>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     {[
-                                      { label: "Ver", key: "view" },
-                                      { label: "Criar", key: "create" },
-                                      { label: "Editar", key: "edit" },
-                                      { label: "Excluir", key: "delete" }
+                                      { label: "Gerenciar Perfis", key: "editProfiles" },
+                                      { label: "Apagar fotos da Galeria", key: "deletePhotos" }
                                     ].map(perm => {
-                                      const defaultPerm = !["Membro", "Visitante"].includes(selectedPermissionRole);
-                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? defaultPerm;
+                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? (
+                                        perm.key === "editProfiles" 
+                                          ? (selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor")
+                                          : !["Membro", "Visitante"].includes(selectedPermissionRole)
+                                      );
+
                                       return (
-                                        <div key={`perm-action-${perm.key}`} className={cn("flex items-center justify-between p-4 rounded-2xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                        <div key={`global-perm-${perm.key}`} className={cn("flex items-center justify-between p-4 rounded-[24px] border", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-sm")}>
                                           <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{perm.label}</span>
                                           <label className="relative inline-flex items-center cursor-pointer">
                                             <input
@@ -7696,66 +7781,7 @@ const Admin = () => {
                                                 const newPermissions = {
                                                   ...settings.permissions,
                                                   [selectedPermissionRole]: {
-                                                    ...(settings.permissions?.[selectedPermissionRole] || {
-                                                      edit: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      delete: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      deletePhotos: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      editProfiles: selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor",
-                                                      tabs: {}
-                                                    }),
-                                                    [perm.key]: newValue
-                                                  }
-                                                };
-                                                try {
-                                                  await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
-                                                } catch (error) {
-                                                  handleFirestoreError(error, OperationType.WRITE, "settings/general");
-                                                }
-                                              }}
-                                            />
-                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
-                                          </label>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-
-                                {/* Section: Opções Administrativas */}
-                                <div className="space-y-4">
-                                  <span className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] block mb-4">Opções Administrativas</span>
-                                  <div className="space-y-3">
-                                    {[
-                                      { label: "Apagar fotos", key: "deletePhotos" },
-                                      { label: "Gerenciar Perfis", key: "editProfiles" }
-                                    ].map(perm => {
-                                      let defaultPerm = false;
-                                      if (perm.key === "editProfiles") {
-                                        defaultPerm = selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor";
-                                      } else {
-                                        defaultPerm = !["Membro", "Visitante"].includes(selectedPermissionRole);
-                                      }
-                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? defaultPerm;
-                                      return (
-                                        <div key={`perm-admin-${perm.key}`} className={cn("flex items-center justify-between p-4 rounded-2xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                                          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{perm.label}</span>
-                                          <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                              type="checkbox"
-                                              className="sr-only peer"
-                                              checked={isChecked}
-                                              onChange={async (e) => {
-                                                const newValue = e.target.checked;
-                                                const newPermissions = {
-                                                  ...settings.permissions,
-                                                  [selectedPermissionRole]: {
-                                                    ...(settings.permissions?.[selectedPermissionRole] || {
-                                                      edit: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      delete: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      deletePhotos: !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                      editProfiles: selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor",
-                                                      tabs: {}
-                                                    }),
+                                                    ...(settings.permissions?.[selectedPermissionRole] || {}),
                                                     [perm.key]: newValue
                                                   }
                                                 };
@@ -7786,7 +7812,9 @@ const Admin = () => {
                     </div>
                   </Card>
                 </div>
-              ) : activeTab === "logs" ? (
+
+                ) : activeTab === "logs" ? (
+
                 <div className="p-4 md:p-8">
                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
                     <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Auditoria</h2>
@@ -8246,7 +8274,7 @@ const Admin = () => {
                   </div>
                   <h4 className="text-xl font-bold mb-2 text-white">Selecione um item para editar</h4>
                   <p className="text-gray-400">Ou clique no botão "Novo Item" para criar um novo registro.</p>
-                  {canEdit && (
+                  {canCreate && (
                     <Button
                       className="mt-6 bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-12 px-8 font-bold cursor-pointer"
                       onClick={() => {

@@ -22,15 +22,22 @@ interface Song {
   createdAt: any;
 }
 
-export function TonsView({ isDark, members }: { isDark: boolean, members: any[] }) {
-  const { user, profile, isAdmin } = useAuth();
+export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
+  isDark: boolean,
+  members: any[],
+  canCreate: boolean,
+  canEdit: boolean,
+  canDelete: boolean
+}) {
+  const { user, profile } = useAuth();
+
   const { playTrack, isPlaying, currentTrack } = useRadio();
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingSongId, setEditingSongId] = useState<string | null>(null);
   const [targetMemberId, setTargetMemberId] = useState<string>('');
-  
+
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,9 +53,9 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
   const vocalists = useMemo(() => {
     return members.filter(m => {
       const skillsStr = (m.churchSkills || "").toLowerCase();
-      const hasCantoSkill = skillsStr.includes('canto') || 
-                          (m.skills || []).some((s: string) => s.toLowerCase().includes('canto'));
-      
+      const hasCantoSkill = skillsStr.includes('canto') ||
+        (m.skills || []).some((s: string) => s.toLowerCase().includes('canto'));
+
       return hasCantoSkill;
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [members]);
@@ -80,7 +87,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
     }
 
     const youtubeId = extractYoutubeId(formData.youtubeLink) || null;
-    
+
     const songPayload = {
       ...formData,
       memberId: targetMemberId,
@@ -137,7 +144,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
 
   const handlePlaySong = (song: Song) => {
     if (!song.youtubeId) return;
-    
+
     const track = {
       id: `song-${song.id}`,
       title: song.name,
@@ -145,11 +152,11 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
       youtubeId: song.youtubeId,
       thumbnail: `https://img.youtube.com/vi/${song.youtubeId}/mqdefault.jpg`
     };
-    
+
     playTrack(track, [track]);
   };
 
-  const filteredVocalists = vocalists.filter(v => 
+  const filteredVocalists = vocalists.filter(v =>
     v.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -184,7 +191,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
           filteredVocalists.map((vocalist) => {
             const vocalistSongs = songs.filter(s => s.memberId === vocalist.id);
             return (
-              <Card 
+              <Card
                 key={vocalist.id}
                 className={cn(
                   "p-6 rounded-[32px] border-none shadow-xl overflow-hidden relative",
@@ -210,7 +217,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <div className={cn("px-4 py-2 rounded-xl text-xs font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500")}>
                       {vocalistSongs.length} {vocalistSongs.length === 1 ? 'música' : 'músicas'}
@@ -220,7 +227,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {vocalistSongs.map(song => (
-                    <div 
+                    <div
                       key={song.id}
                       className={cn(
                         "group p-4 rounded-2xl border transition-all flex items-center justify-between",
@@ -228,7 +235,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
                       )}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div 
+                        <div
                           className={cn(
                             "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-all",
                             song.youtubeId ? "bg-[#BF76FF] text-white hover:scale-105 active:scale-95 shadow-lg shadow-[#BF76FF]/30" : "bg-gray-400/20 text-gray-400 cursor-default"
@@ -251,35 +258,41 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
                         <div className="text-center px-3 py-1 rounded-lg bg-[#BF76FF]/10 border border-[#BF76FF]/20">
                           <span className="text-xs font-black text-[#BF76FF]">{song.key}</span>
                         </div>
-                        
+
                         <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
-                            onClick={() => handleEdit(song)}
-                            className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(song.id)}
-                            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => handleEdit(song)}
+                              className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(song.id)}
+                              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
                   ))}
-                  
-                  <button 
-                    onClick={() => { resetForm(); setTargetMemberId(vocalist.id); setIsModalOpen(true); }}
-                    className={cn(
-                      "flex items-center justify-center gap-2 p-4 rounded-2xl border border-dashed transition-all hover:scale-[1.02]",
-                      isDark ? "border-white/10 text-gray-500 hover:border-[#BF76FF]/50 hover:text-[#BF76FF] hover:bg-[#BF76FF]/5" : "border-black/10 text-gray-400 hover:border-[#BF76FF]/50 hover:text-[#BF76FF] hover:bg-[#BF76FF]/5"
-                    )}
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span className="text-xs font-bold uppercase tracking-widest">Adicionar Música</span>
-                  </button>
+
+                  {canCreate && (
+                    <button
+                      onClick={() => { resetForm(); setTargetMemberId(vocalist.id); setIsModalOpen(true); }}
+                      className={cn(
+                        "flex items-center justify-center gap-2 p-4 rounded-2xl border border-dashed transition-all hover:scale-[1.02]",
+                        isDark ? "border-white/10 text-gray-500 hover:border-[#BF76FF]/50 hover:text-[#BF76FF] hover:bg-[#BF76FF]/5" : "border-black/10 text-gray-400 hover:border-[#BF76FF]/50 hover:text-[#BF76FF] hover:bg-[#BF76FF]/5"
+                      )}
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span className="text-xs font-bold uppercase tracking-widest">Adicionar Música</span>
+                    </button>
+                  )}
                 </div>
               </Card>
             );
@@ -293,7 +306,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
         )}
       </div>
 
-      <Dialog open={isModalOpen} onOpenChange={(open) => { if(!open) resetForm(); setIsModalOpen(open); }}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => { if (!open) resetForm(); setIsModalOpen(open); }}>
         <DialogContent className={cn("rounded-[32px] border-none shadow-2xl max-w-lg", isDark ? "bg-[#0f0f0f] text-white" : "bg-white text-black")}>
           <DialogHeader>
             <DialogTitle className={cn("text-2xl font-black tracking-tight", isDark ? "text-white" : "text-black")}>{isEditing ? 'Editar Música' : 'Cadastrar Nova Música'}</DialogTitle>
@@ -305,7 +318,7 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
           <div className="space-y-6 py-6">
             <div className="space-y-2">
               <label className={cn("text-[10px] font-black uppercase tracking-widest opacity-60 ml-1", isDark ? "text-gray-300" : "text-gray-600")}>Vocalista</label>
-              <select 
+              <select
                 value={targetMemberId}
                 onChange={(e) => setTargetMemberId(e.target.value)}
                 className={cn(
@@ -324,10 +337,10 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className={cn("text-[10px] font-black uppercase tracking-widest opacity-60 ml-1", isDark ? "text-gray-300" : "text-gray-600")}>Nome da Música</label>
-                <Input 
+                <Input
                   placeholder="Ex: Hosana"
                   value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   className={cn("h-12 rounded-2xl border-none", isDark ? "bg-white/5" : "bg-black/5")}
                 />
               </div>
@@ -397,22 +410,22 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
 
             <div className="space-y-2">
               <label className={cn("text-[10px] font-black uppercase tracking-widest opacity-60 ml-1", isDark ? "text-gray-300" : "text-gray-600")}>Quem canta (Referência)</label>
-              <Input 
+              <Input
                 placeholder="Ex: Hillsong Worship"
                 value={formData.singer}
-                onChange={(e) => setFormData({...formData, singer: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, singer: e.target.value })}
                 className={cn("h-12 rounded-2xl border-none", isDark ? "bg-white/5" : "bg-black/5")}
               />
             </div>
 
             <div className="space-y-2">
-              <label className={cn("text-[10px] font-black uppercase tracking-widest opacity-60 ml-1", isDark ? "text-gray-300" : "text-gray-600")}>Link do Youtube</label>
+              <label className={cn("text-[10px] font-black uppercase tracking-widest opacity-60 ml-1", isDark ? "text-gray-300" : "text-gray-600")}>Link do Youtube(OPCIONAL)</label>
               <div className="relative">
                 <Youtube className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-red-500" />
-                <Input 
+                <Input
                   placeholder="https://www.youtube.com/watch?v=..."
                   value={formData.youtubeLink}
-                  onChange={(e) => setFormData({...formData, youtubeLink: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, youtubeLink: e.target.value })}
                   className={cn("h-12 rounded-2xl border-none pl-12", isDark ? "bg-white/5" : "bg-black/5")}
                 />
               </div>
@@ -420,14 +433,14 @@ export function TonsView({ isDark, members }: { isDark: boolean, members: any[] 
           </div>
 
           <DialogFooter className="gap-3">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => setIsModalOpen(false)}
               className={cn("rounded-2xl h-12 px-6 font-bold", isDark ? "hover:bg-white/5" : "hover:bg-black/5")}
             >
               Cancelar
             </Button>
-            <Button 
+            <Button
               onClick={handleSaveSong}
               className="bg-[#BF76FF] hover:bg-[#a65de6] text-white rounded-2xl h-12 px-8 font-bold flex-1"
             >
