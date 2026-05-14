@@ -287,7 +287,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                           <span className="text-xs font-black text-[#BF76FF]">{song.key}</span>
                         </div>
 
-                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center">
                           {canEdit && canEditVocalist(vocalist.id) && (
                             <button
                               onClick={() => handleEdit(song)}
