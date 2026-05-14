@@ -655,6 +655,10 @@ function MemberProfile({ member, onBack, onEdit, isDark, notifications, logs, ag
   }, [member.birthDate]);
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
     if (isBirthdayToday) {
       const duration = 3 * 1000;
       const animationEnd = Date.now() + duration;
@@ -6684,129 +6688,33 @@ const Admin = () => {
                             {showPending ? "Solicitações de Cadastro" : activeTab === "visitantes" ? "Visitantes Cadastrados" : "Membros da Equipe"}
                           </h2>
                           <div className="flex items-center gap-2">
-                            {(isMasterAdmin || profile?.role === "Desenvolvedor") && pendingMembers.length > 0 && activeTab === "membros" && (
-                              <button
-                                onClick={() => {
-                                  setShowPending(!showPending);
-                                }}
-                                className={cn(
-                                  "text-xs font-bold px-3 py-1.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer",
-                                  showPending
-                                    ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
-                                    : isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10"
-                                )}>
-                                {showPending ? "Ver Membros Ativos" : "Solicitações"}
-                                {!showPending && (
-                                  <span className="bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black">
-                                    {pendingMembers.length}
-                                  </span>
-                                )}
-                              </button>
-                            )}
                           </div>
                         </div>
 
                         <div className="flex gap-2">
-                          {!showPending && isAdminOrDev && (
+                          {isAdminOrDev && (
                             <Button
-                              className="w-full sm:w-auto bg-purple-500 hover:bg-purple-600 text-white rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg shadow-purple-500/20 text-xs hidden lg:flex"
-                              onClick={async () => {
-                                if (!window.confirm("Deseja realmente corrigir duplicidades e erros nos cargos de todos os membros?")) return;
-
-                                try {
-                                  let updated = 0;
-                                  for (const m of members) {
-                                    let changed = false;
-                                    let newTitle = m.role || "";
-
-                                    const rawRls = m.roles && Array.isArray(m.roles) ? [...m.roles] : (m.roles ? [m.roles] : []);
-                                    const rawMins = m.ministries && Array.isArray(m.ministries) ? [...m.ministries] : (m.ministries ? [m.ministries] : []);
-
-                                    const isDiaconiaVariant = (r: string) => {
-                                      if (typeof r !== 'string') return false;
-                                      const low = r.toLowerCase();
-                                      return low.includes('diác') || low.includes('diac');
-                                    };
-
-                                    const isExplicitDiaconisa = (r: string) => {
-                                      if (typeof r !== 'string') return false;
-                                      const low = r.toLowerCase();
-                                      return low === 'diaconisa' || low === 'diaconisa (mulher)';
-                                    };
-
-                                    const allStringsToTest = [
-                                      newTitle,
-                                      ...rawRls,
-                                      ...rawMins.map((x: any) => typeof x === 'string' ? x : (x && x.name ? x.name : ""))
-                                    ].filter(Boolean) as string[];
-
-                                    const hasAnyDiaconia = allStringsToTest.some(isDiaconiaVariant);
-
-                                    if (hasAnyDiaconia) {
-                                      const isDiaconisa = allStringsToTest.some(isExplicitDiaconisa);
-                                      const correctTerm = isDiaconisa ? "Diaconisa" : "Diácono";
-
-                                      // Fix roles list
-                                      const rlsSet = new Set<string>();
-                                      for (const r of rawRls) {
-                                        if (isDiaconiaVariant(r)) {
-                                          rlsSet.add(correctTerm);
-                                          if (r !== correctTerm) changed = true;
-                                        } else {
-                                          rlsSet.add(r);
-                                        }
-                                      }
-
-                                      // Fix ministries list
-                                      const minMap = new Map<string, any>();
-                                      for (const min of rawMins) {
-                                        if (typeof min === 'string') {
-                                          if (isDiaconiaVariant(min)) {
-                                            minMap.set(correctTerm, correctTerm);
-                                            if (min !== correctTerm) changed = true;
-                                          } else {
-                                            minMap.set(min, min);
-                                          }
-                                        } else if (min && typeof min === 'object' && min.name) {
-                                          let updatedMin = { ...min };
-                                          if (isDiaconiaVariant(min.name)) {
-                                            updatedMin.name = correctTerm;
-                                            minMap.set(correctTerm, updatedMin);
-                                            if (min.name !== correctTerm) changed = true;
-                                          } else {
-                                            minMap.set(min.name, updatedMin);
-                                          }
-                                        }
-                                      }
-
-                                      if (isDiaconiaVariant(m.role)) {
-                                        newTitle = correctTerm;
-                                        if (m.role !== correctTerm) changed = true;
-                                      }
-
-                                      // Deduplicate everything
-                                      if (Array.from(rlsSet).length !== rawRls.length) changed = true;
-                                      if (Array.from(minMap.values()).length !== rawMins.length) changed = true;
-
-                                      if (changed) {
-                                        const updates: any = {
-                                          roles: Array.from(rlsSet),
-                                          ministries: Array.from(minMap.values())
-                                        };
-                                        if (newTitle !== m.role) updates.role = newTitle;
-                                        await updateDoc(doc(db, "members", m.id), updates);
-                                        updated++;
-                                      }
-                                    }
-                                  }
-                                  alert(`Refinamento concluído! ${updated} perfis corrigidos.\nAtualize a página para ver as mudanças.`);
-                                  window.location.reload();
-                                } catch (e) {
-                                  alert("Erro: " + String(e));
-                                }
-                              }}
+                              className={cn(
+                                "w-full sm:w-auto rounded-xl h-11 px-4 font-bold truncate transition-all shadow-lg text-xs flex items-center gap-2",
+                                showPending 
+                                  ? (isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/5 text-black hover:bg-black/10")
+                                  : "bg-red-500 hover:bg-red-600 text-white shadow-red-500/20"
+                              )}
+                              onClick={() => setShowPending(!showPending)}
                             >
-                              <RefreshCcw className="w-4 h-4 mr-2" /> Refinar Membros
+                              {showPending ? (
+                                <><Users className="w-4 h-4" /> Ver Membros Ativos</>
+                              ) : (
+                                <>
+                                  <UserPlus className="w-4 h-4" /> 
+                                  Solicitações
+                                  {pendingMembers.length > 0 && (
+                                    <span className="bg-white text-red-500 text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-black ml-1">
+                                      {pendingMembers.length}
+                                    </span>
+                                  )}
+                                </>
+                              )}
                             </Button>
                           )}
                           {!showPending && canEditProfiles && (
