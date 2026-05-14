@@ -2254,7 +2254,7 @@ const Admin = () => {
       await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
       setAvailableSkills(updatedSkills);
       setNewSkillName("");
-      
+
       if (logAction) {
         logAction("criar", "settings/skills", `Adicionou nova habilidade: ${newSkillName.trim()}`);
       }
@@ -2268,7 +2268,7 @@ const Admin = () => {
       const updatedSkills = availableSkills.filter(s => s !== skillToRemove);
       await setDoc(doc(db, "settings", "skills"), { list: updatedSkills });
       setAvailableSkills(updatedSkills);
-      
+
       if (logAction) {
         logAction("deletar", "settings/skills", `Removeu habilidade: ${skillToRemove}`);
       }
@@ -5663,10 +5663,10 @@ const Admin = () => {
                                           />
                                         </div>
                                         <div className="space-y-2">
-                                           <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Legenda da Imagem</label>
-                                           <Input
-                                             className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                             placeholder="Fiel orando no monte"
+                                          <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Legenda da Imagem</label>
+                                          <Input
+                                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                            placeholder="Fiel orando no monte"
                                             value={formData.imageCaption || ""}
                                             onChange={(e) => setFormData({ ...formData, imageCaption: e.target.value })}
                                           />
@@ -6777,7 +6777,7 @@ const Admin = () => {
                                       setShowPending(false);
                                     }}
                                   >
-                                    <UserSearch className="w-4 h-4" /> 
+                                    <UserSearch className="w-4 h-4" />
                                     Visitantes
                                   </Button>
                                   {pendingMembers.length > 0 && (
@@ -6804,7 +6804,7 @@ const Admin = () => {
                                     setShowPending(false);
                                   }}
                                 >
-                                  <Users className="w-4 h-4" /> 
+                                  <Users className="w-4 h-4" />
                                   Ver Membros Ativos
                                 </Button>
                               )}
@@ -7514,17 +7514,17 @@ const Admin = () => {
                             </div>
                             <Music className="w-5 h-5 text-[#BF76FF]" />
                           </div>
-                          
+
                           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                             {allRoles.map(role => {
                               const allowedRoles = localSettings.tonsMenuRoles ?? settings.tonsMenuRoles ?? ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia", "Minis. louvor", "Minis. Jovens", "Minis. infantil", "Diácono", "Diaconisa", "Obreiro", "Recepcionista"];
                               const isSelected = allowedRoles.includes(role);
-                              
+
                               return (
                                 <label key={`config-tons-role-${role}`} className={cn(
                                   "flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all",
-                                  isSelected 
-                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/30 text-[#BF76FF]" 
+                                  isSelected
+                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/30 text-[#BF76FF]"
                                     : isDarkMode ? "bg-white/5 border-white/5 text-gray-500 hover:border-white/20" : "bg-white border-black/5 text-gray-400 hover:border-black/20"
                                 )}>
                                   <input
@@ -7576,7 +7576,7 @@ const Admin = () => {
 
                       <div className={cn("pt-8 border-t transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
                         <h4 className={cn("text-xl font-bold mb-6 transition-colors", isDarkMode ? "text-white" : "text-black")}>Permissões por Cargo</h4>
-                        
+
                         {/* Role Selector */}
                         <div className="flex flex-wrap gap-2 mb-8 p-2 rounded-[24px] bg-black/5 dark:bg-white/5">
                           {allRoles.map(role => {
@@ -7587,8 +7587,8 @@ const Admin = () => {
                                 onClick={() => setSelectedPermissionRole(role)}
                                 className={cn(
                                   "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                  isSelected 
-                                    ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20" 
+                                  isSelected
+                                    ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
                                     : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
                                 )}
                               >
@@ -7629,7 +7629,7 @@ const Admin = () => {
                                       });
 
                                       const isChecked = settings.permissions?.[selectedPermissionRole]?.tabs?.[tab.id] ?? defaultVals[tab.id];
-                                      
+
                                       return (
                                         <div key={`perm-menu-${tab.id}`} className={cn("flex items-center justify-between p-4 rounded-2xl transition-colors", isDarkMode ? "bg-white/5" : "bg-black/5")}>
                                           <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{tab.label}</span>

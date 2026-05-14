@@ -38,7 +38,9 @@ service cloud.firestore {
         isAdmin() || 
         getRole() == 'editor' || 
         getRole() == 'Mídia' || 
-        getRole() == 'Secretaria'
+        getRole() == 'Secretaria' ||
+        getRole() == 'Minis. louvor' ||
+        getRole() == 'Obreiro'
       );
     }
 
@@ -195,6 +197,12 @@ service cloud.firestore {
     match /musics/{musicId} {
       allow read, list, get: if true;
       allow create, update: if (isMasterAdmin() || isEditor()) && isValidMusic(incoming());
+      allow delete: if isMasterAdmin() || isAdmin();
+    }
+
+    match /member-songs/{songId} {
+      allow read, list, get: if true;
+      allow create, update: if (isMasterAdmin() || isEditor());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
