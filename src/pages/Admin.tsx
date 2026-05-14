@@ -97,6 +97,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 
 // Lazy sub-views
+import { UploadImages } from "@/components/UploadImages";
 const TonsView = lazy(() => import("@/components/admin/TonsView").then(m => ({ default: m.TonsView })));
 const AvisosView = lazy(() => import("@/components/admin/AvisosView").then(m => ({ default: m.AvisosView })));
 const EBDAdminView = lazy(() => import("@/components/admin/EBDAdminView").then(m => ({ default: m.EBDAdminView })));
@@ -5245,18 +5246,18 @@ const Admin = () => {
                                     </div>
 
                                     <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">URL da Imagem de Capa</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        placeholder="https://exemplo.com/imagem.jpg"
-                                        value={formData.image || ""}
-                                        onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                      {formData.image && (
-                                        <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                          <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                        </div>
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Imagem de Capa</label>
+                                      {!isReadOnly ? (
+                                        <UploadImages
+                                          maxFiles={1}
+                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0].secure_url })}
+                                        />
+                                      ) : (
+                                        formData.image && (
+                                          <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                            <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          </div>
+                                        )
                                       )}
                                     </div>
                                   </div>
@@ -5341,14 +5342,19 @@ const Admin = () => {
                                         />
                                       </div>
                                       <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Foto do Organizador (URL)</label>
-                                        <Input
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                          placeholder="https://..."
-                                          value={formData.organizerImage || ""}
-                                          onChange={(e) => setFormData({ ...formData, organizerImage: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Foto do Organizador</label>
+                                        {!isReadOnly ? (
+                                          <UploadImages
+                                            maxFiles={1}
+                                            onUploadComplete={(images) => setFormData({ ...formData, organizerImage: images[0].secure_url })}
+                                          />
+                                        ) : (
+                                          formData.organizerImage && (
+                                            <div className="mt-2 w-20 h-20 rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                              <img src={getImageUrl(formData.organizerImage)} alt="Preview" className="w-full h-full object-cover" />
+                                            </div>
+                                          )
+                                        )}
                                       </div>
                                     </div>
 
@@ -5507,17 +5513,16 @@ const Admin = () => {
                                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Galeria de Fotos</label>
                                       {!isReadOnly && (
                                         <div className="flex gap-2">
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            className="h-8 rounded-xl bg-[#BF76FF] text-white font-bold text-[9px] uppercase tracking-widest"
-                                            onClick={() => {
-                                              const url = prompt("Cole a URL da imagem:");
-                                              if (url) setFormData({ ...formData, gallery: [...(Array.isArray(formData.gallery) ? formData.gallery : []), url] });
+                                          <UploadImages
+                                            maxFiles={10}
+                                            onUploadComplete={(images) => {
+                                              const newUrls = images.map(img => img.secure_url);
+                                              setFormData({
+                                                ...formData,
+                                                gallery: [...(Array.isArray(formData.gallery) ? formData.gallery : []), ...newUrls]
+                                              });
                                             }}
-                                          >
-                                            <Plus className="w-3 h-3 mr-1" /> adicionar foto individual
-                                          </Button>
+                                          />
                                           <Button
                                             type="button"
                                             className="h-8 rounded-xl bg-red-600 text-white hover:bg-[#450a0a] hover:text-red-500 font-bold text-[9px] uppercase tracking-widest transition-colors shadow-lg"
@@ -5687,13 +5692,19 @@ const Admin = () => {
                                     <div className="space-y-4 pt-4 border-t border-white/5">
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                          <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>URL da Imagem Capa</label>
-                                          <Input
-                                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-400 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                            placeholder="https://exemplo.com/cafe.jpg"
-                                            value={formData.image || ""}
-                                            onChange={(e) => setFormData({ ...formData, image: e.target.value })}
-                                          />
+                                          <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem de Capa</label>
+                                          {!isReadOnly ? (
+                                            <UploadImages
+                                              maxFiles={1}
+                                              onUploadComplete={(images) => setFormData({ ...formData, image: images[0].secure_url })}
+                                            />
+                                          ) : (
+                                            formData.image && (
+                                              <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/10 group">
+                                                <img src={getImageUrl(formData.image)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
+                                              </div>
+                                            )
+                                          )}
                                         </div>
                                         <div className="space-y-2">
                                           <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Legenda da Imagem</label>
@@ -5702,10 +5713,11 @@ const Admin = () => {
                                             placeholder="Fiel orando no monte"
                                             value={formData.imageCaption || ""}
                                             onChange={(e) => setFormData({ ...formData, imageCaption: e.target.value })}
+                                            readOnly={isReadOnly}
                                           />
                                         </div>
                                       </div>
-                                      {formData.image && (
+                                      {formData.image && !isReadOnly && (
                                         <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/10 group">
                                           <img src={getImageUrl(formData.image)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
                                           <div className="absolute bottom-4 left-4 right-4 bg-black/60 backdrop-blur-md p-3 rounded-2xl border border-white/10">
@@ -5734,18 +5746,22 @@ const Admin = () => {
                                       <div className="flex items-center justify-between ml-2">
                                         <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Galeria / Fotos Enviadas</label>
                                         {!isReadOnly && (
-                                          <Button
-                                            type="button"
-                                            onClick={() => {
+                                          <UploadImages
+                                            maxFiles={10}
+                                            onUploadComplete={(images) => {
+                                              const newUrls = images.map(img => img.secure_url);
                                               const currentGallery = typeof formData.gallery === 'string'
                                                 ? formData.gallery.split('\n').filter((l: string) => l.trim())
                                                 : (Array.isArray(formData.gallery) ? formData.gallery : []);
-                                              setFormData({ ...formData, gallery: [...currentGallery, ""].join('\n') });
+                                              
+                                              // Notícias seem to prefer joined string for gallery in some places, 
+                                              // but the component logic below handles both. We'll join them.
+                                              setFormData({ 
+                                                ...formData, 
+                                                gallery: [...currentGallery, ...newUrls].join('\n') 
+                                              });
                                             }}
-                                            className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all text-[10px] font-black uppercase px-4"
-                                          >
-                                            <Plus className="w-3 h-3 mr-2" /> Adicionar Foto
-                                          </Button>
+                                          />
                                         )}
                                       </div>
 
@@ -6041,24 +6057,34 @@ const Admin = () => {
                       <div className="space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Perfil (URL)</label>
-                            <Input
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="https://exemplo.com/foto.jpg"
-                              value={formData.photoURL || ""}
-                              onChange={(e) => setFormData({ ...formData, photoURL: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Perfil</label>
+                            {!isReadOnly ? (
+                              <UploadImages
+                                maxFiles={1}
+                                onUploadComplete={(images) => setFormData({ ...formData, photoURL: images[0].secure_url })}
+                              />
+                            ) : (
+                              formData.photoURL && (
+                                <div className="mt-2 w-20 h-20 rounded-full overflow-hidden border border-white/5 bg-black/20">
+                                  <img src={getImageUrl(formData.photoURL)} alt="Preview" className="w-full h-full object-cover" />
+                                </div>
+                              )
+                            )}
                           </div>
                           <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Capa (URL)</label>
-                            <Input
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="https://exemplo.com/capa.jpg"
-                              value={formData.coverImage || ""}
-                              onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Capa</label>
+                            {!isReadOnly ? (
+                              <UploadImages
+                                maxFiles={1}
+                                onUploadComplete={(images) => setFormData({ ...formData, coverImage: images[0].secure_url })}
+                              />
+                            ) : (
+                              formData.coverImage && (
+                                <div className="mt-2 aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                  <img src={getImageUrl(formData.coverImage)} alt="Preview" className="w-full h-full object-cover" />
+                                </div>
+                              )
+                            )}
                           </div>
                         </div>
 

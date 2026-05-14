@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { UploadImages } from "@/components/UploadImages";
 import { 
   Plus, 
   Trash2, 
@@ -259,12 +260,15 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Thumbnail Personalizada (Opcional)</label>
-                  <Input 
-                    value={formData.thumbnail}
-                    onChange={(e) => setFormData({...formData, thumbnail: e.target.value})}
-                    placeholder="Deixe vazio para usar a do YouTube"
-                    className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+                  <UploadImages
+                    maxFiles={1}
+                    onUploadComplete={(images) => setFormData({...formData, thumbnail: images[0].secure_url})}
                   />
+                  {formData.thumbnail && (
+                    <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                      <img src={getImageUrl(formData.thumbnail)} alt="Preview" className="w-full h-full object-cover" />
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
