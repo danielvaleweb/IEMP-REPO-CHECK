@@ -460,17 +460,17 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
             </div>
           </div>
 
-          <DialogFooter className="gap-3">
+          <DialogFooter className="flex flex-col sm:flex-row gap-3">
             <Button
               variant="ghost"
               onClick={() => setIsModalOpen(false)}
-              className={cn("rounded-2xl h-12 px-6 font-bold", isDark ? "hover:bg-white/5" : "hover:bg-black/5")}
+              className={cn("rounded-2xl h-12 px-6 font-bold w-full sm:flex-1", isDark ? "hover:bg-white/5" : "hover:bg-black/5")}
             >
               Cancelar
             </Button>
             <Button
               onClick={handleSaveSong}
-              className="bg-[#BF76FF] hover:bg-[#a65de6] text-white rounded-2xl h-12 px-8 font-bold flex-1"
+              className="bg-[#BF76FF] hover:bg-[#a65de6] text-white rounded-2xl h-12 px-8 font-bold w-full sm:flex-1"
             >
               <Save className="w-4 h-4 mr-2" /> {isEditing ? 'Salvar Alterações' : 'Cadastrar Música'}
             </Button>
