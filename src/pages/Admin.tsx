@@ -1550,6 +1550,7 @@ const Admin = () => {
   const [showBugSuccess, setShowBugSuccess] = useState(false);
   const [bugReports, setBugReports] = useState<any[]>([]);
   const [auditSubTab, setAuditSubTab] = useState<"logs" | "bugs">("logs");
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
@@ -3925,8 +3926,8 @@ const Admin = () => {
               {!isSidebarCollapsed && (
                 <div className="flex flex-col items-start leading-none gap-0 pl-1">
                   <div className="flex items-center gap-1.5">
-                    <span className={cn("font-black text-base tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Ministerio</span>
-                    <span className={cn("font-light text-base tracking-tight uppercase", isDarkMode ? "text-white/80" : "text-gray-600")}>Profecia</span>
+                    <span className={cn("font-light text-base tracking-tight", isDarkMode ? "text-white/80" : "text-gray-600")}>Ministério</span>
+                    <span className={cn("font-black text-base tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Profecia</span>
                   </div>
                   <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
                 </div>
@@ -4145,16 +4146,38 @@ const Admin = () => {
                 <Sheet>
                   <SheetTrigger
                     className={cn(
-                      "flex flex-col items-center justify-center gap-1 p-2 rounded-xl transition-all outline-none",
+                      "flex items-center justify-center p-2 rounded-xl transition-all outline-none group shrink-0",
                       isDarkMode ? "text-gray-400" : "text-gray-500"
                     )}
                   >
-                    <Menu className="w-6 h-6" />
-                    <span className="text-[10px] font-bold uppercase">Menu</span>
+                    <motion.div
+                      whileTap={{ scale: 0.9, rotate: -5 }}
+                      whileHover={{ scale: 1.05 }}
+                      className={cn(
+                        "w-10 h-10 rounded-full overflow-hidden border-2 transition-all shrink-0 p-0.5 bg-white/5",
+                        profile?.status_online === 'busy' ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" :
+                        profile?.status_online === 'away' ? "border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]" :
+                        "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                      )}
+                    >
+                      <div className="w-full h-full rounded-full overflow-hidden">
+                        {profile?.photoURL ? (
+                          <img src={profile.photoURL} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/10 text-[#BF76FF] font-black text-xs">
+                            {profile?.name?.[0] || 'U'}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
                   </SheetTrigger>
-                  <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-y-auto scrollbar-hide flex flex-col gap-6 transition-colors duration-500", isDarkMode ? "bg-[#0b0016] text-white" : "bg-white text-black")}>
+                  <SheetContent side="bottom" className={cn("rounded-t-[32px] p-6 border-none max-h-[90vh] overflow-visible flex flex-col gap-6 transition-all duration-150 [&>button:last-child]:hidden", isDarkMode ? "bg-[#0b0016] text-white" : "bg-white text-black")}>
+                    {/* Floating Header Actions (Outside Modal) */}
+                    <div className="absolute -top-6 left-0 right-0 flex flex-col items-center gap-4 pointer-events-none">
+                      <div className="w-12 h-1.5 bg-white/30 rounded-full mb-2" />
+                    </div>
                     {/* Profile Section inside Mobile Menu */}
-                    <div className={cn("flex items-center gap-4 p-4 border rounded-2xl transition-colors", isDarkMode ? "bg-white/5 border-white/5" : "bg-gray-50 border-black/5 shadow-sm")}>
+                    <div className={cn("flex items-center gap-4 p-4 border rounded-2xl transition-colors mt-2", isDarkMode ? "bg-white/5 border-white/5" : "bg-gray-50 border-black/5 shadow-sm")}>
                       <div className="relative group">
                         <div className="w-[52px] h-[52px] rounded-full overflow-hidden border-[3px] border-[#BF76FF]/30 object-cover flex items-center justify-center shrink-0">
                           {profile?.photoURL ? (
@@ -4277,94 +4300,6 @@ const Admin = () => {
                         <span className="font-bold text-[10px] uppercase">Encerrar Sessão</span>
                       </button>
                     </div>
-
-                    <div className="h-[1px] w-full bg-black/5 dark:bg-white/5"></div>
-
-                    <div className="space-y-6">
-                      {/* Search Field inside Menu (Always Visible) */}
-                      <div className="space-y-3">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Busca Rápida</p>
-                        <div className="relative group">
-                          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-                          <input
-                            type="text"
-                            placeholder="Pesquisar no painel..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className={cn(
-                              "w-full rounded-2xl py-4 pl-12 pr-4 text-sm outline-none border transition-all",
-                              isDarkMode ? "bg-cinza-input border-white/10 text-white focus:border-[#BF76FF]/50" : "bg-white border-black/5 text-black focus:border-[#BF76FF]/50"
-                            )}
-                          />
-                        </div>
-
-                        {/* Search Results / Recommendations inside Menu */}
-                        {globalSearchResults.length > 0 && searchQuery && (
-                          <div className="space-y-2 mt-2">
-                            {globalSearchResults.slice(0, 4).map((res, i) => (
-                              <button
-                                key={`search-res-list-${res.type}-${res.item?.id || i}`}
-                                onClick={() => {
-                                  if (res.type === 'membros') setViewingMember(res.item);
-                                  setSelectedItem(res.item);
-                                  setFormData({ ...res.item });
-                                  setActiveTab(res.type);
-                                  setIsEditing(!(res.type === 'membros' || res.type === 'agenda' || res.type === 'agenda-direcao'));
-                                  setIsReadOnly(true);
-                                  setSearchQuery("");
-                                }}
-                                className={cn(
-                                  "w-full flex items-center gap-3 p-4 rounded-2xl transition-all text-left border",
-                                  isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-white border-black/5 hover:bg-gray-50 shadow-sm"
-                                )}
-                              >
-                                <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                                  <res.icon className="w-5 h-5 text-[#BF76FF]" />
-                                </div>
-                                <div className="flex flex-col min-w-0 flex-1">
-                                  <span className={cn("text-xs font-bold truncate", isDarkMode ? "text-white" : "text-black")}>{res.title}</span>
-                                  <span className="text-[10px] text-gray-500 truncate">{res.sub}</span>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-gray-500" />
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-3">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Acesso Rápido</p>
-                        <div className="grid grid-cols-3 gap-2">
-                          {menuItems.map(item => (
-                            canViewTab(item.id) && (
-                              <SheetClose
-                                key={`mobile-menu-${item.id}`}
-                                onClick={() => { setActiveTab(item.id); setRightSidebarView("hidden"); }}
-                                className={cn(
-                                  "h-16 flex flex-col items-center justify-center gap-1.5 rounded-[20px] transition-all border outline-none",
-                                  activeTab === item.id
-                                    ? "bg-[#BF76FF] text-white border-transparent"
-                                    : isDarkMode ? "bg-white/5 border-white/5 text-gray-400" : "bg-white border-black/5 text-gray-600 shadow-sm"
-                                )}
-                              >
-                                <item.icon className="w-5 h-5" />
-                                <span className="text-[8px] font-bold uppercase truncate w-full px-1">{item.label}</span>
-                              </SheetClose>
-                            )
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Opções do Sistema</p>
-                        <div className="grid grid-cols-1 gap-2">
-                          {/* Settings removed from here - now strictly in header */}
-                          <div className={cn("text-[10px] text-gray-500 px-2 italic", isDarkMode ? "opacity-40" : "opacity-60")}>
-                            Configurações acessíveis via cabeçalho
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </SheetContent>
                 </Sheet>
               </div>
@@ -4376,16 +4311,52 @@ const Admin = () => {
         {/* Main Content Area */}
         <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-roxo-bg" : "bg-gray-50")}>
           {/* Mobile Header */}
-          <header className={cn("md:hidden flex h-16 px-6 items-center justify-end border-b transition-colors shrink-0 z-10", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
-            <DropdownMenu>
-              <DropdownMenuTrigger className="focus:outline-none">
-                <div className="relative group p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer">
-                  <Bell className={cn("w-[24px] h-[24px] transition-colors", isDarkMode ? "text-gray-500" : "text-gray-400")} />
-                  {displayNotifications.some(n => !n.read) && (
-                    <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0a0a0a]" />
-                  )}
-                </div>
-              </DropdownMenuTrigger>
+          <header className={cn("md:hidden flex h-16 px-6 items-center justify-between border-b transition-colors shrink-0 z-10", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
+            {/* Logo */}
+            <div className="flex items-center gap-2 pl-1">
+              <div className="flex items-center gap-1.5 leading-none">
+                <span className={cn("text-lg tracking-tighter", isDarkMode ? "text-gray-400 font-medium" : "text-gray-500 font-medium")}>Ministério</span>
+                <span className={cn("text-lg tracking-tighter font-black uppercase", isDarkMode ? "text-white" : "text-black")}>Profecia</span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-0.5">
+              {/* Search Icon */}
+              <button
+                onClick={() => setIsMobileSearchOpen(true)}
+                className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all text-gray-500 hover:text-[#BF76FF]"
+                title="Buscar"
+              >
+                <Search className="w-[24px] h-[24px]" />
+              </button>
+
+              <button
+                onClick={() => setIsReportingBug(true)}
+                className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all text-gray-500 hover:text-[#BF76FF]"
+                title="Reportar Bug"
+              >
+                <Bug className="w-[24px] h-[24px]" />
+              </button>
+
+              {canViewTab("config") && (
+                <button
+                  onClick={() => { setActiveTab("config"); setRightSidebarView("hidden"); }}
+                  className={cn("p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all", activeTab === "config" ? "text-[#BF76FF]" : "text-gray-500 hover:text-[#BF76FF]")}
+                  title="Configurações"
+                >
+                  <Settings className="w-[24px] h-[24px]" />
+                </button>
+              )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger className="focus:outline-none">
+                  <div className="relative group p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer">
+                    <Bell className={cn("w-[24px] h-[24px] transition-colors", isDarkMode ? "text-gray-500" : "text-gray-400")} />
+                    {displayNotifications.some(n => !n.read) && (
+                      <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0a0a0a]" />
+                    )}
+                  </div>
+                </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className={cn("w-[320px] rounded-[24px] p-0 border shadow-2xl mt-4 overflow-hidden", isDarkMode ? "bg-roxo-bg border-white/5 text-white" : "bg-white border-black/5 text-black")}>
                 <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
                   <div>
@@ -4473,7 +4444,8 @@ const Admin = () => {
                   </div>
                 </div>
               </DropdownMenuContent>
-            </DropdownMenu>
+              </DropdownMenu>
+            </div>
           </header>
 
           {/* Desktop Header */}
@@ -4564,7 +4536,27 @@ const Admin = () => {
               </AnimatePresence>
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
+              {/* Bug Report Button */}
+              <button
+                onClick={() => setIsReportingBug(true)}
+                className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all text-gray-500 hover:text-[#BF76FF]"
+                title="Reportar Bug"
+              >
+                <Bug className="w-[26px] h-[26px]" />
+              </button>
+
+              {/* Settings Button */}
+              {canViewTab("config") && (
+                <button
+                  onClick={() => { setActiveTab("config"); setRightSidebarView("hidden"); }}
+                  className={cn("p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all", activeTab === "config" ? "text-[#BF76FF]" : "text-gray-500 hover:text-[#BF76FF]")}
+                  title="Configurações"
+                >
+                  <Settings className="w-[26px] h-[26px]" />
+                </button>
+              )}
+
               {/* Notifications Bell */}
               <DropdownMenu>
                 <DropdownMenuTrigger className="focus:outline-none">
@@ -6246,7 +6238,7 @@ const Admin = () => {
                                         placeholder="Nova habilidade..."
                                         value={newSkillName}
                                         onChange={(e) => setNewSkillName(e.target.value)}
-                                        className="h-10 text-xs"
+                                        className={cn("h-10 text-xs", isDarkMode ? "bg-black border-white/10 text-white placeholder:text-gray-600" : "bg-gray-50 border-black/5 text-black")}
                                       />
                                       <Button onClick={handleAddSkill} size="sm" className="bg-[#BF76FF] text-white">Adicionar</Button>
                                     </div>
@@ -6936,7 +6928,7 @@ const Admin = () => {
                           </div>
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                           {isAdminOrDev && (
                             <>
                               {!showPending && activeTab === "membros" ? (
@@ -9546,11 +9538,11 @@ const Admin = () => {
                   </div>
                 </div>
 
-                <DialogFooter className="flex gap-3 sm:gap-2 p-8 pt-4 bg-transparent border-t border-white/5">
+                <DialogFooter className="grid grid-cols-2 gap-3 p-8 pt-4 bg-transparent border-t border-white/5">
                   <Button
                     variant="ghost"
                     onClick={() => setIsReportingBug(false)}
-                    className="flex-1 rounded-2xl h-12 font-bold cursor-pointer"
+                    className={cn("w-full rounded-2xl h-12 font-bold cursor-pointer transition-all", isDarkMode ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10")}
                     disabled={isSavingBug}
                   >
                     Cancelar
@@ -9558,9 +9550,9 @@ const Admin = () => {
                   <Button
                     onClick={handleReportBug}
                     disabled={!bugDescription.trim() || isSavingBug}
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 font-bold cursor-pointer shadow-lg shadow-red-500/20"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white rounded-2xl h-12 font-black uppercase tracking-widest text-[10px] cursor-pointer shadow-lg shadow-red-500/20 active:scale-95 transition-all"
                   >
-                    {isSavingBug ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar Relatório"}
+                    {isSavingBug ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enviar"}
                   </Button>
                 </DialogFooter>
               </>
@@ -9856,6 +9848,91 @@ const Admin = () => {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Search Overlay */}
+      <AnimatePresence>
+        {isMobileSearchOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] md:hidden"
+          >
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={() => setIsMobileSearchOpen(false)} />
+            <motion.div
+              initial={{ y: -20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className={cn(
+                "relative w-full max-h-[80vh] border-b p-6 flex flex-col",
+                isDarkMode ? "bg-[#0b0016] border-white/10" : "bg-white border-black/5"
+              )}
+            >
+              <div className="flex items-center gap-4 mb-6">
+                <Search className="w-5 h-5 text-[#BF76FF]" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="O que você está procurando?"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className={cn(
+                    "flex-1 bg-transparent border-none outline-none text-lg font-bold placeholder:text-gray-600",
+                    isDarkMode ? "text-white" : "text-black"
+                  )}
+                />
+                <button onClick={() => setIsMobileSearchOpen(false)} className="p-2 rounded-full hover:bg-white/5">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto scrollbar-hide">
+                {globalSearchResults.length > 0 ? (
+                  <div className="space-y-2">
+                    {globalSearchResults.map((res, i) => (
+                      <button
+                        key={`mobile-search-res-${i}`}
+                        onClick={() => {
+                          if (res.type === 'membros') setViewingMember(res.item);
+                          setSelectedItem(res.item);
+                          setFormData({ ...res.item });
+                          setActiveTab(res.type);
+                          setIsEditing(!(res.type === 'membros' || res.type === 'agenda' || res.type === 'visitantes'));
+                          setIsReadOnly(true);
+                          setIsMobileSearchOpen(false);
+                          setSearchQuery("");
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-4 p-4 rounded-2xl transition-all border",
+                          isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-gray-50 border-black/5 hover:bg-gray-100"
+                        )}
+                      >
+                        <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                          <res.icon className="w-5 h-5 text-[#BF76FF]" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={cn("font-bold text-sm truncate", isDarkMode ? "text-white" : "text-black")}>{res.title}</p>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{res.sub}</p>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-500" />
+                      </button>
+                    ))}
+                  </div>
+                ) : searchQuery.length >= 2 ? (
+                  <div className="py-12 text-center opacity-40">
+                    <p className="text-xs font-bold uppercase tracking-widest text-gray-500">Nenhum resultado encontrado</p>
+                  </div>
+                ) : (
+                  <div className="py-12 text-center opacity-20">
+                    <Search className="w-12 h-12 mx-auto mb-4" />
+                    <p className="text-xs font-bold uppercase tracking-widest">Digite para buscar</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
