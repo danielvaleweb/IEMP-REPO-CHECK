@@ -1219,12 +1219,14 @@ const Admin = () => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         if (data && data.type === 'REGISTER_TOKEN' && data.token && user) {
-          console.log("DEBUG: Recebido token do app:", data.token);
+          console.log("DEBUG: Recebido token do app (Registro desativado):", data.token);
+          /* 
           await fetch("/backend/push/register", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ userId: user.uid, token: data.token })
           });
+          */
         }
       } catch (e) {
         // Ignora mensagens que não são JSON ou não são para nós
@@ -1508,6 +1510,7 @@ const Admin = () => {
       });
 
       // Gatilho: Push Notification para o chat
+      /*
       fetch("/backend/push/broadcast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1518,6 +1521,7 @@ const Admin = () => {
           userIds: [activeChatUser.id]
         })
       }).catch(e => console.error("Erro ao enviar push:", e));
+      */
 
     } catch (err) {
       console.error("Erro ao enviar mensagem", err);
@@ -3183,6 +3187,7 @@ const Admin = () => {
       }
 
       // Gatilho: Notificação de Novo Evento/Notícia se solicitado
+      /*
       if (formData.notifyAll) {
         fetch("/backend/push/broadcast", {
           method: "POST",
@@ -3209,6 +3214,7 @@ const Admin = () => {
           })
         }).catch(e => console.error("Erro ao notificar convidados:", e));
       }
+      */
 
       if (activeTab === "membros" || activeTab === "visitantes") {
         confetti({
@@ -4931,6 +4937,7 @@ const Admin = () => {
                                 await updateDoc(doc(db, "members", selectedItem.id), updateData);
                                 firestoreService.clearCache("members");
                                 // Gatilho: Notificação de aprovação
+                                /*
                                 fetch("/backend/push/broadcast", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
@@ -4941,6 +4948,7 @@ const Admin = () => {
                                     userIds: [selectedItem.id]
                                   })
                                 }).catch(e => console.error("Erro ao notificar aprovação:", e));
+                                */
                                 const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi APROVADO! Você já pode acessar usando seu e-mail e a senha padrão (admin).`;
                                 if (selectedItem.phone) {
                                   window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
