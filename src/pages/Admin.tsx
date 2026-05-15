@@ -321,7 +321,8 @@ function CalendarView({
   newEventButtonLabel = "Cadastrar novo evento",
   deleteButtonLabel = "Excluir",
   canImportExisting = false,
-  onImportExisting
+  onImportExisting,
+  agendaType = 'general'
 }: {
   agenda: any[],
   onNewEvent: (date: Date) => void,
@@ -341,7 +342,8 @@ function CalendarView({
   newEventButtonLabel?: string,
   deleteButtonLabel?: string,
   canImportExisting?: boolean,
-  onImportExisting?: () => void
+  onImportExisting?: () => void,
+  agendaType?: 'general' | 'direcao'
 }) {
   const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -430,7 +432,7 @@ function CalendarView({
               >
                 <div className={cn(
                   "text-right text-[8px] md:text-xs font-black mb-1 md:mb-2 transition-colors",
-                  day.getDay() === 6 ? "text-green-500" : isDark ? "text-white/20" : "text-gray-400"
+                  agendaType === 'direcao' ? "text-green-500" : "text-[#BF76FF]"
                 )}>{format(day, dateFormat)}</div>
                 <div className="space-y-0.5 md:space-y-1">
                   {dayEvents.slice(0, 3).map((event, j) => (
@@ -438,11 +440,15 @@ function CalendarView({
                       key={`calendar-event-${day.toISOString()}-${j}-${event.id || 'no-id'}`}
                       className={cn(
                         "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded-lg truncate transition-colors relative group/event font-bold",
-                        event.status === 'pending'
-                          ? "bg-yellow-500/20 text-yellow-500"
-                          : day.getDay() === 6
-                            ? "bg-green-500/10 text-green-500"
-                            : "bg-[#BF76FF]/10 text-[#BF76FF]"
+                        (event.originalType || event.type) === 'agenda-direcao'
+                          ? "bg-green-500/10 text-green-500"
+                          : (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post'
+                            ? "bg-[#BF76FF]/10 text-[#BF76FF]"
+                            : event.status === 'pending'
+                              ? "bg-yellow-500/20 text-yellow-500"
+                              : agendaType === 'direcao'
+                                ? "bg-green-500/10 text-green-500"
+                                : "bg-[#BF76FF]/10 text-[#BF76FF]"
                       )}
                     >
                       <span className="md:inline hidden tracking-tight leading-none">{event.title}</span>
@@ -453,7 +459,12 @@ function CalendarView({
                         isDark ? "bg-roxo-bg/95 border-white/10 text-white" : "bg-white/95 border-black/10 text-black"
                       )}>
                         <div className="flex items-center gap-2 mb-2">
-                          <div className={cn("w-1.5 h-1.5 rounded-full", day.getDay() === 6 ? "bg-green-500" : "bg-[#BF76FF]")} />
+                          <div className={cn(
+                          "w-1.5 h-1.5 rounded-full",
+                          (event.originalType || event.type) === 'agenda-direcao' ? "bg-green-500" :
+                          (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post' ? "bg-[#BF76FF]" :
+                          agendaType === 'direcao' ? "bg-green-500" : "bg-[#BF76FF]"
+                        )} />
                           <p className={cn("font-black text-sm whitespace-normal tracking-tight leading-tight", isDark ? "text-white" : "text-black")}>{event.title}</p>
                         </div>
                         <div className="space-y-1.5 pt-2 border-t border-white/5">
@@ -3083,6 +3094,24 @@ const Admin = () => {
           read: true
         });
       }
+      
+      // Update local state immediately for instant feedback
+      const savedItem = { 
+        ...dataToSave, 
+        id: itemDocId,
+        // Mock some fields that come from DB if not present
+        createdAt: dataToSave.createdAt || { toDate: () => new Date() }
+      };
+      
+      if (collectionName === "posts") setPosts(prev => selectedItem?.id ? prev.map(p => p.id === itemDocId ? { ...p, ...savedItem } : p) : [savedItem, ...prev]);
+      if (collectionName === "blog") setBlog(prev => selectedItem?.id ? prev.map(b => b.id === itemDocId ? { ...b, ...savedItem } : b) : [savedItem, ...prev]);
+      if (collectionName === "agenda") setAgenda(prev => selectedItem?.id ? prev.map(a => a.id === itemDocId ? { ...a, ...savedItem } : a) : [...prev, savedItem]);
+      if (collectionName === "agenda-direcao") setAgendaDirecao(prev => selectedItem?.id ? prev.map(a => a.id === itemDocId ? { ...a, ...savedItem } : a) : [...prev, savedItem]);
+      if (collectionName === "members") setMembers(prev => selectedItem?.id ? prev.map(m => m.id === itemDocId ? { ...m, ...savedItem } : m) : [savedItem, ...prev]);
+      if (collectionName === "videos") setVideos(prev => selectedItem?.id ? prev.map(v => v.id === itemDocId ? { ...v, ...savedItem } : v) : [savedItem, ...prev]);
+      if (collectionName === "vignettes") setVignettes(prev => selectedItem?.id ? prev.map(v => v.id === itemDocId ? { ...v, ...savedItem } : v) : [savedItem, ...prev]);
+      if (collectionName === "radio-playlist") setRadioTracks(prev => selectedItem?.id ? prev.map(t => t.id === itemDocId ? { ...t, ...savedItem } : t) : [...prev, savedItem]);
+      if (collectionName === "radio-artists") setRadioArtists(prev => selectedItem?.id ? prev.map(a => a.id === itemDocId ? { ...a, ...savedItem } : a) : [...prev, savedItem]);
 
       // Clear events cache if we're working with posts
       if (collectionName === "posts") {
@@ -3311,10 +3340,19 @@ const Admin = () => {
         createdAt: serverTimestamp(),
         authorId: user?.uid || profile?.id || "admin",
         authorName: user?.displayName || profile?.name || "Admin",
-        status: 'approved'
+        status: 'approved',
+        originalType: sourceType // Persist original agenda type for coloring
       };
 
-      await addDoc(collection(db, targetCollection), dataToSave);
+      const docRef = await addDoc(collection(db, targetCollection), {
+        ...dataToSave,
+        isImported: true // Flag to mark as extracted/imported for blue color
+      });
+
+      // Update local state immediately
+      const savedItem = { ...dataToSave, id: docRef.id, isImported: true };
+      if (targetCollection === "agenda") setAgenda(prev => [...prev, savedItem]);
+      if (targetCollection === "agenda-direcao") setAgendaDirecao(prev => [...prev, savedItem]);
 
       // Log Activity
       await addDoc(collection(db, "notifications"), {
@@ -3374,6 +3412,20 @@ const Admin = () => {
       setDeleteConfirm(null);
     } finally {
       setIsSubmitting(false);
+      
+      // Update local state immediately
+      if (deleteConfirm) {
+        const { id, collection: col } = deleteConfirm;
+        if (col === "posts") setPosts(prev => prev.filter(p => p.id !== id));
+        if (col === "blog") setBlog(prev => prev.filter(b => b.id !== id));
+        if (col === "agenda") setAgenda(prev => prev.filter(a => a.id !== id));
+        if (col === "agenda-direcao") setAgendaDirecao(prev => prev.filter(a => a.id !== id));
+        if (col === "members") setMembers(prev => prev.filter(m => m.id !== id));
+        if (col === "videos") setVideos(prev => prev.filter(v => v.id !== id));
+        if (col === "vignettes") setVignettes(prev => prev.filter(v => v.id !== id));
+        if (col === "radio-playlist") setRadioTracks(prev => prev.filter(t => t.id !== id));
+        if (col === "radio-artists") setRadioArtists(prev => prev.filter(a => a.id !== id));
+      }
     }
   };
 
@@ -7371,6 +7423,7 @@ const Admin = () => {
                       const col = item.type === 'post' ? 'posts' : 'agenda';
                       handleDelete(item, col);
                     }}
+                    agendaType="general"
                   />
                 </div>
               ) : activeTab === "visao-geral" ? (
@@ -7576,6 +7629,7 @@ const Admin = () => {
                     onDeleteEvent={(item) => {
                       handleDelete(item, "agenda-direcao");
                     }}
+                    agendaType="direcao"
                   />
                 </div>
               ) : activeTab === "conversas" ? (
@@ -10308,7 +10362,6 @@ function UpcomingEvents({ agenda, isDark, isAdmin, onView }: { agenda: any[], is
     </div>
   );
 }
-
 function ActivityItem({ user, action, time, isDark }: { user: string, action: string, time: string, isDark?: boolean }) {
   return (
     <div className={cn("flex items-center justify-between py-2 border-b last:border-0", isDark ? "border-white/5" : "border-black/5")}>
