@@ -10211,7 +10211,7 @@ function UpcomingEvents({ agenda, isDark, isAdmin, onView }: { agenda: any[], is
         const colorClass = colors[index % colors.length];
 
         return (
-          <div key={event.id} className="flex gap-4 md:gap-8 group">
+          <div key={event.id} className="flex items-center gap-4 md:gap-8 group">
             {/* Date Section */}
             <div className="flex flex-col items-center shrink-0 w-12 md:w-20">
               <span className={cn("text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-1", isDark ? "text-gray-500" : "text-gray-400")}>
