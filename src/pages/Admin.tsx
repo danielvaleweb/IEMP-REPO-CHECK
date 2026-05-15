@@ -2081,6 +2081,7 @@ const Admin = () => {
         status_online: status,
         lastUpdated: serverTimestamp()
       });
+      firestoreService.clearCache("members");
       if (setProfile && profile) {
         setProfile({ ...profile, status_online: status });
       }
@@ -2105,6 +2106,7 @@ const Admin = () => {
         ministries: [selectedRoleForEdit],
         updatedAt: serverTimestamp()
       });
+      firestoreService.clearCache("members");
       setIsRoleEditModalOpen(false);
       setMemberToProcess(null);
       if (logAction) {
@@ -2127,6 +2129,7 @@ const Admin = () => {
 
       // Delete the pending member
       await deleteDoc(doc(db, "members", memberToProcess.id));
+      firestoreService.clearCache("members");
 
       setIsMemberRejectModalOpen(false);
       setRejectionReason("");
@@ -2738,6 +2741,9 @@ const Admin = () => {
       loadTabData();
     }
   }, [activeTab, user, isAdmin, eventsLimit, newsLimit, videosLimit]);
+
+  // Radio Specific Listeners (Reverted to standard load in loadTabData)
+
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -4923,6 +4929,7 @@ const Admin = () => {
                                 }
 
                                 await updateDoc(doc(db, "members", selectedItem.id), updateData);
+                                firestoreService.clearCache("members");
                                 // Gatilho: Notificação de aprovação
                                 fetch("/backend/push/broadcast", {
                                   method: "POST",
@@ -4960,6 +4967,7 @@ const Admin = () => {
                                   // Prompt blocked, use default reason
                                 }
                                 await updateDoc(doc(db, "members", selectedItem.id), { status: "rejected", rejectReason: reason });
+                                firestoreService.clearCache("members");
                                 const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi REPROVADO. Motivo: ${reason}`;
                                 if (selectedItem.phone) {
                                   window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
@@ -10458,6 +10466,7 @@ function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, o
                   }
                 }
                 await updateDoc(doc(db, "members", member.id), updateData);
+                firestoreService.clearCache("members");
 
                 // WhatsApp Logic
                 const roleName = formatRoles(member);

@@ -14,7 +14,7 @@ import {
   signInAnonymously
 } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, query, where, getDocs, onSnapshot } from "firebase/firestore";
 import { firestoreService } from "@/services/firestoreService";
 
 interface AuthContextType {
@@ -69,73 +69,75 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("DEBUG: Erro no retorno do redirecionamento:", error);
     });
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let profileUnsubscribe: (() => void) | null = null;
+
+    const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("DEBUG: onAuthStateChanged disparado, user:", user?.email);
       setFirebaseUser(user);
       
+      // Clean up previous profile listener if any
+      if (profileUnsubscribe) {
+        profileUnsubscribe();
+        profileUnsubscribe = null;
+      }
+
       if (user) {
         try {
-          // Check session cache first
-          const cacheKey = `profile_cache_${user.uid}`;
-          const cachedProfile = sessionStorage.getItem(cacheKey);
-          if (cachedProfile) {
-            console.log("DEBUG: Perfil carregado do cache de sessão");
-            setProfile(JSON.parse(cachedProfile));
-            setLoading(false);
-            return;
-          }
-
-          console.log("DEBUG: Buscando perfil para:", user.uid);
+          console.log("DEBUG: Iniciando listener de tempo real para perfil:", user.uid);
           
-          // Use firestoreService to get profile with caching and deduplication
-          const profileDataFetched = await firestoreService.getDoc<any>("members", user.uid, 1000 * 60 * 60 * 24); // 24 hours TTL
+          const userRef = doc(db, "members", user.uid);
           
-          let profileData = profileDataFetched;
+          profileUnsubscribe = onSnapshot(userRef, async (snapshot) => {
+            if (snapshot.exists()) {
+              let profileData = { id: snapshot.id, ...snapshot.data() } as any;
 
-          if (profileData?.linkedMemberId) {
-            const linkedProfile = await firestoreService.getDoc<any>("members", profileData.linkedMemberId, 1000 * 60 * 60 * 24);
-            if (linkedProfile) {
-              profileData = { ...linkedProfile, uid: user.uid };
-            }
-          }
+              // Handle linked members
+              if (profileData.linkedMemberId) {
+                const linkedRef = doc(db, "members", profileData.linkedMemberId);
+                const linkedSnap = await getDoc(linkedRef);
+                if (linkedSnap.exists()) {
+                  profileData = { ...linkedSnap.data(), id: linkedSnap.id, uid: user.uid };
+                }
+              }
 
-          if (!profileData && user.email === "iempministerioprofecia@gmail.com") {
-             console.log("DEBUG: Perfil não encontrado, criando admin.");
-             const newProfile = {
+              console.log("DEBUG: Perfil atualizado em tempo real:", profileData.name);
+              setProfile(profileData);
+              
+              // Invalidate cache for members whenever the current profile changes
+              // to ensure consistency across the app
+              firestoreService.clearCache("members");
+            } else if (user.email === "iempministerioprofecia@gmail.com") {
+              // Create admin profile if missing
+              console.log("DEBUG: Perfil não encontrado, criando admin.");
+              const newProfile = {
                 name: user.displayName || "Admin",
                 email: user.email,
                 role: "Administradores",
                 status: "active",
                 createdAt: new Date().toISOString()
               };
-              try {
-                const userRef = doc(db, "members", user.uid);
-                await setDoc(userRef, newProfile);
-                profileData = { id: user.uid, ...newProfile };
-                firestoreService.clearCache("members"); // Invalidate cache after create
-              } catch (e) {
-                 console.warn("Could not create admin profile", e);
-                 profileData = { id: user.uid, ...newProfile }; // Fallback in memory
-              }
-          }
+              await setDoc(userRef, newProfile);
+              firestoreService.clearCache("members");
+            }
+            setLoading(false);
+          }, (err) => {
+            console.error("DEBUG: Erro no listener de perfil:", err);
+            setLoading(false);
+          });
 
-          setProfile(profileData);
         } catch (error) {
           console.error("DEBUG: Erro ao processar perfil no onAuthStateChanged:", error);
+          setLoading(false);
         }
       } else {
         setProfile(null);
-        // Clear all profile caches on logout
-        const keys = Object.keys(sessionStorage);
-        keys.forEach(k => { if(k.startsWith('profile_cache_')) sessionStorage.removeItem(k); });
+        setLoading(false);
       }
-      
-      console.log("DEBUG: Finalizando processamento de auth, user:", user?.email, "loading = false");
-      setLoading(false);
     });
 
     return () => {
-      unsubscribe();
+      authUnsubscribe();
+      if (profileUnsubscribe) profileUnsubscribe();
     };
   }, []);
 
