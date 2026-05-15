@@ -4537,25 +4537,6 @@ const Admin = () => {
             </div>
 
             <div className="flex items-center gap-4">
-              {/* Bug Report Button */}
-              <button
-                onClick={() => setIsReportingBug(true)}
-                className="p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all text-gray-500 hover:text-[#BF76FF]"
-                title="Reportar Bug"
-              >
-                <Bug className="w-[26px] h-[26px]" />
-              </button>
-
-              {/* Settings Button */}
-              {canViewTab("config") && (
-                <button
-                  onClick={() => { setActiveTab("config"); setRightSidebarView("hidden"); }}
-                  className={cn("p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all", activeTab === "config" ? "text-[#BF76FF]" : "text-gray-500 hover:text-[#BF76FF]")}
-                  title="Configurações"
-                >
-                  <Settings className="w-[26px] h-[26px]" />
-                </button>
-              )}
 
               {/* Notifications Bell */}
               <DropdownMenu>
