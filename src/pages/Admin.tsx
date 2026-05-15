@@ -3232,13 +3232,19 @@ const Admin = () => {
   }, [posts, agenda]);
 
   const eventsToImport = useMemo(() => {
-    return mergedAgenda.filter(item =>
+    const fromDirecao = agendaDirecao.map(a => ({ ...a, type: 'agenda-direcao' }));
+    const allSources = [...mergedAgenda, ...fromDirecao];
+    
+    return allSources.filter(item =>
       item.title?.toLowerCase().includes(importSearch.toLowerCase()) ||
       item.location?.toLowerCase().includes(importSearch.toLowerCase())
     );
-  }, [mergedAgenda, importSearch]);
+  }, [mergedAgenda, agendaDirecao, importSearch]);
 
   const handleImportEvent = async (event: any) => {
+    const targetCollection = activeTab === "agenda-direcao" ? "agenda-direcao" : "agenda";
+    const tabLabel = activeTab === "agenda-direcao" ? "agenda da direção" : "agenda geral";
+
     try {
       const dataToSave = {
         title: event.title,
@@ -3255,12 +3261,12 @@ const Admin = () => {
         authorName: user?.displayName || profile?.name || "Admin"
       };
 
-      await addDoc(collection(db, "agenda-direcao"), dataToSave);
+      await addDoc(collection(db, targetCollection), dataToSave);
 
       // Log Activity
       await addDoc(collection(db, "notifications"), {
         title: "Atividade",
-        message: `Importou evento para agenda da direção: ${dataToSave.title}`,
+        message: `Importou evento para ${tabLabel}: ${dataToSave.title}`,
         type: "activity",
         memberId: user?.uid || profile?.id || "admin",
         createdAt: serverTimestamp(),
@@ -3268,8 +3274,10 @@ const Admin = () => {
       });
 
       setIsImportEventDialogOpen(false);
+      // Clear firestoreService cache
+      firestoreService.clearCache(targetCollection);
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, "agenda-direcao");
+      handleFirestoreError(error, OperationType.WRITE, targetCollection);
     }
   };
 
@@ -7232,12 +7240,21 @@ const Admin = () => {
                 <div className="space-y-6 pb-32">
                   <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
                     <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Agenda Geral</h2>
+                    {hasPermission('create', 'agenda') && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsImportEventDialogOpen(true)}
+                        className={cn("rounded-xl border-dashed border-[#BF76FF] text-[#BF76FF] hover:bg-[#BF76FF]/10 cursor-pointer flex")}
+                      >
+                        <LinkIcon className="w-4 h-4 mr-2" /> Adicionar Existente
+                      </Button>
+                    )}
                   </div>
                   <CalendarView
                     agenda={mergedAgenda}
                     isDark={isDarkMode}
-                    canEdit={canEdit || canCreateEventDirectly}
-                    canDelete={canDelete}
+                    canEdit={hasPermission('edit', 'agenda')}
+                    canDelete={hasPermission('delete', 'agenda')}
                     canCreateDirectly={canCreateEventDirectly}
                     canRequestDate={true}
                     canNotify={canNotifyOrganizer}
@@ -7327,7 +7344,18 @@ const Admin = () => {
                     </div>
 
                     <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                      <UpcomingEvents agenda={mergedAgenda} isDark={isDarkMode} isAdmin={isAdminOrDev} />
+                      <UpcomingEvents 
+                        agenda={mergedAgenda} 
+                        isDark={isDarkMode} 
+                        isAdmin={isAdminOrDev} 
+                        onView={(item) => {
+                          setSelectedItem(item);
+                          setFormData(item);
+                          setActiveTab(item.type === 'post' ? 'eventos' : 'agenda');
+                          setIsReadOnly(true);
+                          setIsEditing(true);
+                        }}
+                      />
                     </div>
                   </div>
 
@@ -7431,7 +7459,7 @@ const Admin = () => {
                       <Button
                         variant="outline"
                         onClick={() => setIsImportEventDialogOpen(true)}
-                        className={cn("rounded-xl border-dashed border-[#BF76FF] text-[#BF76FF] hover:bg-[#BF76FF]/10 cursor-pointer hidden md:flex")}
+                        className={cn("rounded-xl border-dashed border-[#BF76FF] text-[#BF76FF] hover:bg-[#BF76FF]/10 cursor-pointer flex")}
                       >
                         <LinkIcon className="w-4 h-4 mr-2" /> Adicionar Existente
                       </Button>
@@ -10083,29 +10111,25 @@ function ListItem({ title, subtitle, image, icon: Icon, active, status, onClick 
   );
 }
 
-function UpcomingEvents({ agenda, isDark, isAdmin }: { agenda: any[], isDark: boolean, isAdmin?: boolean }) {
+function UpcomingEvents({ agenda, isDark, isAdmin, onView }: { agenda: any[], isDark: boolean, isAdmin?: boolean, onView?: (item: any) => void }) {
   const upcoming = agenda
-    .filter(item => {
-      // Filter out pending items
-      if (item.status === 'pending') return false;
+    .filter(event => {
+      // Filtrar itens pendentes
+      if (event.status === 'pending') return false;
 
-      try {
-        return isAfter(new Date(item.date), subDays(new Date(), 1));
-      } catch (e) {
-        return false;
-      }
+      const date = new Date(event.date);
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      return date >= now;
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .slice(0, 20);
 
   if (upcoming.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
-        <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mb-4", isDark ? "bg-white/5" : "bg-gray-100")}>
-          <CalendarDays className={cn("w-8 h-8", isDark ? "text-white/20" : "text-gray-500")} />
-        </div>
-        <p className={cn("font-bold", isDark ? "text-white/40" : "text-gray-500")}>Nenhum evento próximo agendado.</p>
-        <p className={cn("text-xs mt-1", isDark ? "text-white/20" : "text-gray-600")}>Fique atento às novidades da nossa congregação.</p>
+      <div className="flex flex-col items-center justify-center py-12 opacity-40">
+        <Calendar className="w-12 h-12 mb-4" />
+        <p className="text-sm font-bold uppercase tracking-widest">Nenhum compromisso próximo</p>
       </div>
     );
   }
@@ -10139,10 +10163,13 @@ function UpcomingEvents({ agenda, isDark, isAdmin }: { agenda: any[], isDark: bo
             </div>
 
             {/* Content Section */}
-            <div className={cn(
-              "flex-1 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border transition-all relative overflow-hidden group-hover:-translate-y-1 group-hover:shadow-2xl",
-              isDark ? "bg-white/[0.03] border-white/5 hover:bg-white/5" : "bg-white border-black/5 shadow-sm hover:shadow-lg"
-            )}>
+            <div 
+              onClick={() => onView?.(event)}
+              className={cn(
+                "flex-1 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border transition-all relative overflow-hidden group-hover:-translate-y-1 group-hover:shadow-2xl cursor-pointer",
+                isDark ? "bg-white/[0.03] border-white/5 hover:bg-white/5" : "bg-white border-black/5 shadow-sm hover:shadow-lg"
+              )}
+            >
               <div className={cn("absolute top-0 left-0 bottom-0 w-1.5 md:w-2", colorClass)} />
 
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
