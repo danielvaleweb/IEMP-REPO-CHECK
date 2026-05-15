@@ -349,7 +349,7 @@ export default function Navbar() {
                       </Link>
                     ) : (
                       <div className="space-y-3">
-                        <div className="flex items-center gap-3 mb-4 p-2 rounded-2xl bg-white/5">
+                        <div className="flex items-center gap-3 p-2 rounded-2xl bg-white/5">
                           <Avatar className="h-10 w-10 border border-white/20">
                             <AvatarImage src={user.photoURL || ""} alt={profile?.name || user.displayName || ""} />
                             <AvatarFallback className="bg-primary/20 text-primary">{(profile?.name || user.displayName)?.[0] || "U"}</AvatarFallback>
@@ -358,22 +358,10 @@ export default function Navbar() {
                             <span className="text-sm font-bold truncate">{profile?.name || user.displayName}</span>
                             <span className="text-[10px] text-white/40 truncate">{profile?.email || user.email}</span>
                           </div>
+                          <button onClick={logout} className="ml-auto p-2 text-red-500 hover:bg-red-500/10 rounded-full transition-colors">
+                            <LogOut className="w-5 h-5" />
+                          </button>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          {!isGuest && (
-                            <Button render={<Link to="/admin" />} variant="outline" className="rounded-full border-white/10 h-11 text-sm">
-                              Acessar Painel
-                            </Button>
-                          )}
-                          <Button onClick={logout} variant="ghost" className={cn("rounded-full text-red-500 hover:bg-red-500/10 h-11 text-sm", isGuest && "col-span-2")}>
-                            Sair
-                          </Button>
-                        </div>
-                        {isAdmin && (
-                          <Button render={<Link to="/admin" />} className="w-full rounded-full bg-primary/20 text-primary hover:bg-primary/30 h-11 text-sm border border-primary/20">
-                            Painel Admin
-                          </Button>
-                        )}
                       </div>
                     )}
                   </div>

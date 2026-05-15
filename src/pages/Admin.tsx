@@ -83,7 +83,10 @@ import {
   GraduationCap,
   Wrench,
   Bug,
-  Database
+  Database,
+  Bold,
+  Italic,
+  Smile
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -1112,6 +1115,7 @@ const Admin = () => {
   const [isGuestModalOpen, setIsGuestModalOpen] = useState(false);
   const [guestData, setGuestData] = useState({ name: "", phone: "" });
   const [guestError, setGuestError] = useState("");
+  const bioRef = useRef<HTMLTextAreaElement>(null);
 
   const formatPhone = (value: string) => {
     if (!value) return value;
@@ -1148,6 +1152,40 @@ const Admin = () => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleInsertMarkdown = (type: 'bold' | 'italic' | 'emoji', emoji?: string) => {
+    const textarea = bioRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const before = text.substring(0, start);
+    const selected = text.substring(start, end);
+    const after = text.substring(end);
+
+    let newText = "";
+    let newCursorPos = 0;
+
+    if (type === 'bold') {
+      newText = `${before}**${selected}**${after}`;
+      newCursorPos = selected.length > 0 ? start + selected.length + 4 : start + 2;
+    } else if (type === 'italic') {
+      newText = `${before}*${selected}*${after}`;
+      newCursorPos = selected.length > 0 ? start + selected.length + 2 : start + 1;
+    } else if (type === 'emoji') {
+      newText = `${before}${emoji}${after}`;
+      newCursorPos = start + (emoji?.length || 0);
+    }
+
+    setFormData((prev: any) => ({ ...prev, bio: newText }));
+
+    // Reset focus and cursor position
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
   };
 
   // 4. Ponte para receber o Token do Expo via WebView
@@ -6260,6 +6298,77 @@ const Admin = () => {
                               </AnimatePresence>
                             </div>
                           </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                              <FileText className="w-3.5 h-3.5" /> Biografia
+                            </label>
+                            {!isReadOnly && (
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleInsertMarkdown('bold');
+                                  }}
+                                  title="Negrito"
+                                >
+                                  <Bold className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
+                                  onMouseDown={(e) => {
+                                    e.preventDefault();
+                                    handleInsertMarkdown('italic');
+                                  }}
+                                  title="Itálico"
+                                >
+                                  <Italic className="w-4 h-4" />
+                                </Button>
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
+                                      title="Emojis"
+                                    >
+                                      <Smile className="w-4 h-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className={cn("p-2 grid grid-cols-5 gap-1 min-w-[160px] z-[100]", isDarkMode ? "bg-[#1A1A1A] border-white/10" : "bg-white border-black/10")}>
+                                    {["😀", "😍", "🙏", "✨", "🔥", "❤️", "🙌", "😊", "😎", "✝️", "📖", "⛪", "🎶", "🕊️", "💎"].map(emoji => (
+                                      <button
+                                        key={emoji}
+                                        type="button"
+                                        className="w-8 h-8 flex items-center justify-center hover:bg-[#BF76FF]/20 rounded-lg transition-colors text-lg"
+                                        onClick={() => handleInsertMarkdown('emoji', emoji)}
+                                      >
+                                        {emoji}
+                                      </button>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </div>
+                            )}
+                          </div>
+                          <Textarea
+                            ref={bioRef}
+                            className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")}
+                            placeholder="Fale um pouco sobre você (quem é você, há quanto tempo está na igreja, etc)..."
+                            value={formData.bio !== undefined ? formData.bio : (formData.additionalInfo || "")}
+                            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                            readOnly={isReadOnly}
+                          />
                         </div>
 
                         <div className="space-y-4">
