@@ -7481,7 +7481,7 @@ const Admin = () => {
                                     <input
                                       type="checkbox"
                                       checked={isSelected}
-                                      disabled={isReadOnly}
+                                      disabled={isReadOnly || !isAdminOrDev}
                                       onChange={(e) => {
                                         const currentMinistries = formData.ministries || [];
                                         if (e.target.checked) {
@@ -7507,7 +7507,7 @@ const Admin = () => {
                                         type="checkbox"
                                         id={`leader-${role}`}
                                         checked={isLeader}
-                                        disabled={isReadOnly}
+                                        disabled={isReadOnly || !isAdminOrDev}
                                         onChange={(e) => {
                                           const currentMinistries = formData.ministries || [];
                                           setFormData({
@@ -8562,6 +8562,7 @@ const Admin = () => {
 
                         const weekBirthdays = members.filter(m => {
                           if (!m.birthDate || m.status === 'pending' || m.status === 'visitor_session') return false;
+                          if (m.role === 'Administradores' || m.role === 'Desenvolvedor') return false;
                           try {
                             const birth = parseISO(m.birthDate + "T12:00:00");
                             const currentBirthday = new Date(now.getFullYear(), birth.getMonth(), birth.getDate());
