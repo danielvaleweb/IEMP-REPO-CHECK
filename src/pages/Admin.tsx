@@ -2832,8 +2832,35 @@ const Admin = () => {
   // Search Logic
   const filteredItems = useMemo(() => {
     const query = searchQuery.toLowerCase();
-    if (activeTab === "eventos") return posts.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
-    if (activeTab === "noticias") return blog.filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query));
+
+    // Helper: parse event date field (supports "DD/MM/YYYY", "YYYY-MM-DD", or Timestamp)
+    const parseEventDate = (p: any): number => {
+      // Try the event-specific date string first
+      if (p.date) {
+        const d = p.date as string;
+        // Format: DD/MM/YYYY
+        const brMatch = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (brMatch) return new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`).getTime();
+        // Format: YYYY-MM-DD or ISO
+        const parsed = new Date(d).getTime();
+        if (!isNaN(parsed)) return parsed;
+      }
+      // Fallback: createdAt (Firestore Timestamp or string)
+      if (p.createdAt?.toDate) return p.createdAt.toDate().getTime();
+      if (p.createdAt) return new Date(p.createdAt).getTime();
+      return 0;
+    };
+
+    if (activeTab === "eventos") {
+      return posts
+        .filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query))
+        .sort((a, b) => parseEventDate(b) - parseEventDate(a));
+    }
+    if (activeTab === "noticias") {
+      return blog
+        .filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query))
+        .sort((a, b) => parseEventDate(b) - parseEventDate(a));
+    }
     if (activeTab === "radio") {
       if (radioSubTab === "vignettes") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
       if (radioSubTab === "artists") return radioArtists.filter(a => a.name?.toLowerCase().includes(query));
@@ -2850,7 +2877,7 @@ const Admin = () => {
     if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     if (activeTab === "agenda-direcao") return agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
     return [];
-  }, [activeTab, searchQuery, posts, members, agenda, agendaDirecao, vignettes, radioTracks, radioSubTab]);
+  }, [activeTab, searchQuery, posts, blog, members, visitors, agenda, agendaDirecao, vignettes, radioTracks, radioArtists, radioSubTab]);
 
   const [checkingFolders, setCheckingFolders] = useState<Record<number, boolean>>({});
   const [folderVerified, setFolderVerified] = useState<Record<number, boolean>>({});
