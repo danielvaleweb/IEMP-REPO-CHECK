@@ -104,8 +104,13 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
       xhr.onload = () => {
         if (xhr.status === 200) {
           const response = JSON.parse(xhr.responseText);
+          // ✨ Inject Cloudinary optimizations (WebP + auto quality) into the stored URL
+          const rawUrl: string = response.secure_url;
+          const optimizedUrl = rawUrl.includes('/upload/') && !rawUrl.includes('q_auto')
+            ? rawUrl.replace('/upload/', '/upload/q_auto/f_auto/')
+            : rawUrl;
           resolve({
-            secure_url: response.secure_url,
+            secure_url: optimizedUrl,
             public_id: response.public_id,
             width: response.width,
             height: response.height

@@ -22,6 +22,15 @@ export function getImageUrl(idOrUrl: string | undefined | null) {
     }
   }
 
+  // ✨ Auto-optimize Cloudinary URLs: inject q_auto/f_auto for WebP + quality compression
+  if (idOrUrl.includes("res.cloudinary.com") && idOrUrl.includes("/upload/")) {
+    // Avoid double-injecting if already optimized
+    if (!idOrUrl.includes("q_auto") && !idOrUrl.includes("f_auto")) {
+      return idOrUrl.replace("/upload/", "/upload/q_auto/f_auto/");
+    }
+    return idOrUrl;
+  }
+
   if (idOrUrl.startsWith("http") || idOrUrl.startsWith("data:") || idOrUrl.startsWith("blob:")) {
     return idOrUrl;
   }
