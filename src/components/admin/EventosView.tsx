@@ -1,10 +1,32 @@
 import { useState } from "react";
-import { Plus, Edit, Trash2, Eye, Calendar, MapPin, Clock } from "lucide-react";
+import { Plus, Edit, Trash2, Eye, Calendar, MapPin, ChevronDown, Newspaper } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { cn, getImageUrl } from "@/lib/utils";
+
+// Helper: Formata data para "DD/MM/AAAA às HH:00h"
+function formatEventDate(dateStr: string | undefined): string {
+  if (!dateStr) return "";
+  try {
+    // ISO format: "2026-06-06T17:00" or "2026-06-06T17:00:00"
+    if (dateStr.includes("T")) {
+      const [datePart, timePart] = dateStr.split("T");
+      const [y, m, d] = datePart.split("-");
+      const [h, min] = timePart.split(":");
+      const timeStr = min && min !== "00" ? `${h}:${min}h` : `${h}:00h`;
+      return `${d}/${m}/${y} às ${timeStr}`;
+    }
+    // Already "DD/MM/YYYY"
+    if (dateStr.match(/^\d{2}\/\d{2}\/\d{4}$/)) return dateStr;
+    // "YYYY-MM-DD"
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [y, m, d] = dateStr.split("-");
+      return `${d}/${m}/${y}`;
+    }
+    return dateStr;
+  } catch {
+    return dateStr;
+  }
+}
 
 export function EventosView({ 
   events, 
@@ -13,12 +35,13 @@ export function EventosView({
   onDeleteEvent, 
   onViewEvent,
   onLoadMore,
+  hasMore,
   isDark,
   canEdit = false,
   canDelete = false,
   canCreate = false,
-  title = "Eventos do Mês",
-  buttonLabel = "Cadastrar novo evento",
+  title = "Eventos",
+  buttonLabel = "Novo Evento",
   emptyLabel = "Nenhum item cadastrado.",
   buttonIcon: ButtonIcon = Plus
 
@@ -29,6 +52,7 @@ export function EventosView({
   onDeleteEvent: (event: any) => void, 
   onViewEvent: (event: any) => void,
   onLoadMore?: () => void,
+  hasMore?: boolean,
   isDark?: boolean,
   canEdit?: boolean,
   canDelete?: boolean,
@@ -40,42 +64,25 @@ export function EventosView({
 }) {
   const [activeMobileMenuId, setActiveMobileMenuId] = useState<string | null>(null);
 
+  const isNews = buttonLabel === "Nova matéria";
+
   return (
     <div className="p-6 h-full flex flex-col">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>{title}</h2>
         {canCreate && (
-          <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
-            {buttonLabel === "Nova matéria" ? (
-              <Button 
-                className="flex-1 sm:flex-initial bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-[#7300FF]/15 border-none"
-                onClick={() => onNewEvent()}
-              >
-                <ButtonIcon className="w-4 h-4 mr-2" /> {buttonLabel}
-              </Button>
-            ) : (
-              <>
-                <Button 
-                  className="flex-1 sm:flex-initial bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-[#FF0A6C]/25 border-none transition-all duration-300"
-                  onClick={() => onNewEvent('evento')}
-                >
-                  <Plus className="w-4.5 h-4.5 mr-1" /> Novo evento
-                </Button>
-                <Button 
-                  className="flex-1 sm:flex-initial bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] hover:opacity-90 text-black rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-[#00FFFF]/20 border-none transition-all duration-300"
-                  onClick={() => onNewEvent('culto')}
-                >
-                  <Plus className="w-4.5 h-4.5 mr-1 text-black" /> Novo culto
-                </Button>
-                <Button 
-                  className="flex-1 sm:flex-initial bg-gradient-to-r from-[#FFE53B] to-[#FF2525] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-[#FF2525]/25 border-none transition-all duration-300"
-                  onClick={() => onNewEvent('visita')}
-                >
-                  <Plus className="w-4.5 h-4.5 mr-1" /> Nova visita
-                </Button>
-              </>
+          <Button
+            className={cn(
+              "rounded-xl h-12 px-6 font-bold cursor-pointer shadow-lg border-none transition-all duration-300 flex items-center gap-2",
+              isNews
+                ? "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white shadow-[#7300FF]/15"
+                : "bg-gradient-to-r from-[#FF0A6C] to-[#7300FF] hover:opacity-90 text-white shadow-[#FF0A6C]/25"
             )}
-          </div>
+            onClick={() => onNewEvent(isNews ? undefined : 'evento')}
+          >
+            <ButtonIcon className="w-4 h-4" />
+            {isNews ? "Nova matéria" : "Novo Evento"}
+          </Button>
         )}
       </div>
 
@@ -225,11 +232,11 @@ export function EventosView({
 
                 <h3 className="text-xl font-black text-white mb-2 line-clamp-2 drop-shadow-lg leading-tight uppercase tracking-tight">{event.title}</h3>
                 <div className="flex items-center gap-2 text-xs text-white/90 mb-1 font-bold drop-shadow">
-                  <Calendar className={cn("w-4 h-4", accentTextColor)} />
-                  <span>{event.date}</span>
+                  <Calendar className={cn("w-4 h-4 shrink-0", accentTextColor)} />
+                  <span>{formatEventDate(event.date)}</span>
                 </div>
                 <div className="flex items-center gap-2 text-xs text-white/70 font-medium drop-shadow-sm">
-                  <MapPin className={cn("w-4 h-4", accentTextColor)} />
+                  <MapPin className={cn("w-4 h-4 shrink-0", accentTextColor)} />
                   <span className="line-clamp-1">{event.location || event.category || "Notícia"}</span>
                 </div>
               </div>
@@ -244,15 +251,25 @@ export function EventosView({
         )}
       </div>
 
-      {onLoadMore && events.length > 0 && (
-        <div className="flex justify-center mt-8 pb-10">
-          <Button 
-            variant="outline"
-            className="rounded-xl px-8 border-[#BF76FF]/20 hover:bg-[#BF76FF]/10 text-[#BF76FF] font-bold uppercase tracking-widest text-xs h-12"
+      {/* Ver Mais — design premium */}
+      {onLoadMore && hasMore && events.length > 0 && (
+        <div className="flex justify-center mt-10 pb-6">
+          <button
             onClick={onLoadMore}
+            className={cn(
+              "group relative flex items-center gap-3 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 cursor-pointer overflow-hidden",
+              isDark
+                ? "bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-[#BF76FF]/40 hover:shadow-[0_0_30px_rgba(191,118,255,0.15)]"
+                : "bg-black/5 hover:bg-black/10 text-black border border-black/10 hover:border-[#BF76FF]/40 hover:shadow-[0_0_30px_rgba(191,118,255,0.15)]"
+            )}
           >
-            Ver mais
-          </Button>
+            {/* Animated gradient background on hover */}
+            <span className="absolute inset-0 bg-gradient-to-r from-[#BF76FF]/0 via-[#BF76FF]/5 to-[#BF76FF]/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <span className="relative z-10 flex items-center gap-3">
+              <ChevronDown className="w-4 h-4 text-[#BF76FF] transition-transform duration-300 group-hover:translate-y-0.5" />
+              Ver mais
+            </span>
+          </button>
         </div>
       )}
     </div>

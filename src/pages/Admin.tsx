@@ -1564,9 +1564,9 @@ const Admin = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [expandedNotifs, setExpandedNotifs] = useState<string[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
-  const [eventsLimit, setEventsLimit] = useState(4);
-  const [newsLimit, setNewsLimit] = useState(4);
-  const [videosLimit, setVideosLimit] = useState(4);
+  const [eventsLimit, setEventsLimit] = useState(5);
+  const [newsLimit, setNewsLimit] = useState(5);
+  const [videosLimit, setVideosLimit] = useState(5);
 
   useEffect(() => {
     if (chatUserParam && members.length > 0) {
@@ -8427,9 +8427,10 @@ const Admin = () => {
                     canEdit={canEdit}
                     canDelete={canDelete}
                     canCreate={canCreate}
+                    hasMore={activeTab === "eventos" ? posts.length >= eventsLimit : blog.length >= newsLimit}
                     onLoadMore={() => {
-                      if (activeTab === "eventos") setEventsLimit(prev => prev + 4);
-                      else setNewsLimit(prev => prev + 4);
+                      if (activeTab === "eventos") setEventsLimit(prev => prev + 5);
+                      else setNewsLimit(prev => prev + 5);
                     }}
                     title={activeTab === "eventos" ? "Eventos do Mês" : "Notícias"}
                     buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}

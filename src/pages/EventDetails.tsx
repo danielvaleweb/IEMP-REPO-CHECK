@@ -920,7 +920,8 @@ export default function EventDetails() {
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[150px] md:auto-rows-[240px] gap-3 md:gap-4 relative group/gallery z-10">
+                    {/* CSS Columns masonry — sem furos, sem spans variáveis */}
+                    <div className="relative group/gallery z-10">
 
                       {/* Blur Overlay for Guests */}
                       {!user && (
@@ -952,76 +953,76 @@ export default function EventDetails() {
                         </motion.div>
                       )}
 
-                      {visibleImages.map((imgId: string, index: number) => {
-                        const thumbUrl = `/api/drive-image?id=${imgId}&thumb=1`; // ~50KB miniatura
-                        const fullUrl  = `/api/drive-image?id=${imgId}`;          // full size p/ abrir
-                        let spanClasses = "col-span-1 row-span-1";
-                        if (index % 7 === 0) spanClasses = "col-span-2 row-span-2";
-                        else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1";
-                        else if (index % 7 === 5) spanClasses = "col-span-1 row-span-2";
+                      {/* Masonry via CSS columns — sem furos */}
+                      <div
+                        className="[column-count:2] md:[column-count:3] lg:[column-count:4] [column-gap:12px]"
+                      >
+                        {visibleImages.map((imgId: string, index: number) => {
+                          const thumbUrl = `/api/drive-image?id=${imgId}&thumb=1`;
+                          const fullUrl  = `/api/drive-image?id=${imgId}`;
 
-                        return (
-                          <div
-                            key={`drive-img-${fi}-${imgId}-${index}`}
-                            data-drive-img="true"
-                            className={cn(
-                              "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
-                              spanClasses,
-                              !user && "filter blur-xl opacity-50 cursor-not-allowed scale-[0.98]",
-                              user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 hover:scale-[1.02] border border-white/10"
-                            )}
-                            onClick={() => user && setSelectedPhotoIndex(folder.images.length * fi + index)}
-                          >
-                            {/* Skeleton shimmer while loading */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-white/[0.07] to-white/[0.03] animate-pulse" />
-                            <WatermarkOverlay title={event.title} />
-                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                            <img
-                              src={thumbUrl}
-                              alt={`Foto ${index + 1}`}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out relative z-[1]"
-                              onLoad={(e) => {
-                                // Remove shimmer once loaded
-                                const shimmer = (e.target as HTMLElement).previousElementSibling?.previousElementSibling as HTMLElement;
-                                if (shimmer) shimmer.style.display = 'none';
-                              }}
-                              onError={(e) => {
-                                const parent = (e.target as HTMLElement).closest('[data-drive-img]') as HTMLElement;
-                                if (parent) parent.style.display = 'none';
-                              }}
-                            />
-                            {user && (
-                              <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
-                                <Button
-                                  className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
-                                  onClick={(e) => { e.stopPropagation(); window.open(fullUrl, '_blank'); }}
-                                >
-                                  <Eye className="w-5 h-5" />
-                                </Button>
-                                <Button
-                                  className="pointer-events-auto bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 cursor-pointer"
-                                  onClick={(e) => { e.stopPropagation(); sharePhoto(fullUrl); }}
-                                >
-                                  <Share className="w-5 h-5" />
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          return (
+                            <div
+                              key={`drive-img-${fi}-${imgId}-${index}`}
+                              data-drive-img="true"
+                              className={cn(
+                                "mb-3 break-inside-avoid rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
+                                !user && "filter blur-xl opacity-50 cursor-not-allowed",
+                                user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 border border-white/10"
+                              )}
+                              onClick={() => user && setSelectedPhotoIndex(folder.images.length * fi + index)}
+                            >
+                              {/* Skeleton shimmer */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-white/[0.07] to-white/[0.03] animate-pulse" />
+                              <WatermarkOverlay title={event.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={thumbUrl}
+                                alt={`Foto ${index + 1}`}
+                                loading="lazy"
+                                decoding="async"
+                                className="w-full h-auto block group-hover:scale-105 transition-transform duration-700 ease-out relative z-[1]"
+                                onLoad={(e) => {
+                                  const shimmer = (e.target as HTMLElement).previousElementSibling?.previousElementSibling as HTMLElement;
+                                  if (shimmer) shimmer.style.display = 'none';
+                                }}
+                                onError={(e) => {
+                                  const parent = (e.target as HTMLElement).closest('[data-drive-img]') as HTMLElement;
+                                  if (parent) parent.style.display = 'none';
+                                }}
+                              />
+                              {user && (
+                                <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
+                                  <Button
+                                    className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
+                                    onClick={(e) => { e.stopPropagation(); window.open(fullUrl, '_blank'); }}
+                                  >
+                                    <Eye className="w-5 h-5" />
+                                  </Button>
+                                  <Button
+                                    className="pointer-events-auto bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 cursor-pointer"
+                                    onClick={(e) => { e.stopPropagation(); sharePhoto(fullUrl); }}
+                                  >
+                                    <Share className="w-5 h-5" />
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* "Ver mais" button per folder */}
                     {hasMore && (
                       <div className="flex justify-center mt-8">
-                        <Button
+                        <button
                           onClick={() => setDriveVisibleCounts(prev => ({ ...prev, [fi]: (prev[fi] ?? 4) + 5 }))}
-                          className="bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full px-8 py-3 h-auto uppercase tracking-widest text-xs font-bold transition-all hover:scale-105 cursor-pointer"
+                          className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-[#BF76FF]/40 uppercase tracking-widest text-xs font-bold transition-all duration-300 hover:shadow-[0_0_30px_rgba(191,118,255,0.15)] cursor-pointer"
                         >
-                          Ver mais ({folder.images.length - folderVisible} restantes)
-                        </Button>
+                          <span>Ver mais</span>
+                          <span className="text-white/40 font-normal">({folder.images.length - folderVisible} restantes)</span>
+                        </button>
                       </div>
                     )}
                   </div>
