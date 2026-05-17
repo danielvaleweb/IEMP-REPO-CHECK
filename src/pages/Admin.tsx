@@ -1616,6 +1616,7 @@ const Admin = () => {
   }, [isDarkMode]);
 
   const [activeTab, setActiveTab] = useState("visao-geral");
+  const [chartTimeFilter, setChartTimeFilter] = useState<'month'|'year'|'all'>('year');
   const [radioSubTab, setRadioSubTab] = useState<"vignettes" | "tracks" | "artists">("tracks");
 
   const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
@@ -8475,49 +8476,222 @@ const Admin = () => {
                 <div className="space-y-8 md:space-y-12 flex flex-col">
                   {/* Section: Summary Cards */}
                   {isAdminOrDev && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mt-4">
-                      <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                          <Users className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
-                        </div>
-                        <div>
-                          <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Membros</p>
-                          <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>
-                            {members.filter(m => {
-                              const rolesStr = formatRoles(m).toLowerCase();
-                              const isVisitor = rolesStr.includes("visitante") || m.status === "visitor";
-                              return !isVisitor && m.status !== "visitor_session" && m.status !== "pending";
-                            }).length}
-                          </h4>
-                        </div>
-                      </Card>
-                      <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center shrink-0">
-                          <UserSearch className="w-5 h-5 md:w-6 md:h-6 text-[#BF76FF]" />
-                        </div>
-                        <div>
-                          <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Visitantes</p>
-                          <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{visitors.length}</h4>
-                        </div>
-                      </Card>
-                      <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center shrink-0">
-                          <Calendar className="w-5 h-5 md:w-6 md:h-6 text-orange-500" />
-                        </div>
-                        <div>
-                          <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Agenda</p>
-                          <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.agenda}</h4>
-                        </div>
-                      </Card>
-                      <Card className={cn("border-white/5 p-4 md:p-6 rounded-3xl transition-all flex flex-col items-center justify-center text-center gap-3 hover:scale-105", isDarkMode ? "bg-[#222] shadow-2xl border-white/5" : "bg-white shadow-lg border-black/5")}>
-                        <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-primary/10 flex items-center justify-center shrink-0">
-                          <MessageSquare className="w-5 h-5 md:w-6 md:h-6 text-primary" />
-                        </div>
-                        <div>
-                          <p className={cn("text-[8px] md:text-[10px] font-bold uppercase tracking-widest mb-1", isDarkMode ? "text-white/30" : "text-gray-500")}>Avisos</p>
-                          <h4 className={cn("text-lg md:text-2xl font-black transition-colors leading-none", isDarkMode ? "text-white" : "text-black")}>{counts.unreadNotifications}</h4>
-                        </div>
-                      </Card>
+                    <div className="mt-4">
+                      {(() => {
+                        // TIME BUCKETS (Line Chart)
+                        const now = new Date();
+                        let buckets: any[] = [];
+                        
+                        if (chartTimeFilter === 'month') {
+                          buckets = Array.from({length: 4}).map((_, i) => {
+                            const dEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (i * 7));
+                            const dStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((i + 1) * 7));
+                            return { label: `Sem. ${4 - i}`, start: dStart, end: dEnd, eventos: 0, visitas: 0, cultos: 0 };
+                          }).reverse();
+                        } else if (chartTimeFilter === 'year') {
+                          const monthsStr = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+                          buckets = Array.from({length: 6}).map((_, i) => {
+                            const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+                            return { label: monthsStr[d.getMonth()], start: new Date(d.getFullYear(), d.getMonth(), 1), end: new Date(d.getFullYear(), d.getMonth() + 1, 0), eventos: 0, visitas: 0, cultos: 0 };
+                          });
+                        } else {
+                          buckets = Array.from({length: 4}).map((_, i) => {
+                            const year = now.getFullYear() - (3 - i);
+                            return { label: `${year}`, start: new Date(year, 0, 1), end: new Date(year, 11, 31, 23, 59, 59), eventos: 0, visitas: 0, cultos: 0 };
+                          });
+                        }
+                        
+                        posts.forEach(p => {
+                          if (!p.date || !p.typeEvent) return;
+                          const pd = new Date(p.date.split('T')[0]);
+                          if (isNaN(pd.getTime())) return;
+                          for (let b of buckets) {
+                            if (pd >= b.start && pd <= b.end) {
+                              if (p.typeEvent === 'evento') b.eventos++;
+                              if (p.typeEvent === 'visita') b.visitas++;
+                              if (p.typeEvent === 'culto') b.cultos++;
+                              break;
+                            }
+                          }
+                        });
+
+                        const maxValueLine = Math.max(1, ...buckets.flatMap(b => [b.eventos, b.visitas, b.cultos]));
+                        
+                        const width = 800;
+                        const height = 300;
+                        const paddingX = 60;
+                        const paddingY = 40;
+                        
+                        const getPath = (key: 'eventos'|'visitas'|'cultos') => {
+                          if (buckets.length === 0) return { d: '', pts: [] };
+                          const pts = buckets.map((b, i) => ({
+                            x: paddingX + i * ((width - 2 * paddingX) / Math.max(1, buckets.length - 1)),
+                            y: height - paddingY - (b[key] / maxValueLine) * (height - 2 * paddingY)
+                          }));
+                          let d = `M ${pts[0].x},${pts[0].y} `;
+                          for (let i = 0; i < pts.length - 1; i++) {
+                            const cpX = (pts[i].x + pts[i+1].x) / 2;
+                            d += `C ${cpX},${pts[i].y} ${cpX},${pts[i+1].y} ${pts[i+1].x},${pts[i+1].y} `;
+                          }
+                          return { d, pts };
+                        };
+
+                        const evLine = getPath('eventos');
+                        const cuLine = getPath('cultos');
+                        const viLine = getPath('visitas');
+
+                        // ROLES DONUT CHART
+                        const roleColors = ['#BF76FF', '#FFFFFF', '#FF007F', '#FFD700', '#00FFFF', '#39FF14', '#FF4500', '#1E90FF', '#FF1493', '#00FA9A', '#9370DB', '#FF8C00'];
+                        const roleCountsMap: Record<string, number> = {};
+                        members.forEach(m => {
+                          if (m.role === 'Administradores' || m.role === 'Administrador Master' || m.role === 'Desenvolvedor' || m.status === 'visitor') return;
+                          if (!m.role) return;
+                          roleCountsMap[m.role] = (roleCountsMap[m.role] || 0) + 1;
+                        });
+                        const roleData = Object.entries(roleCountsMap).map(([label, value], i) => ({
+                          label, value: value as number, color: roleColors[i % roleColors.length]
+                        })).sort((a,b) => b.value - a.value);
+
+                        const totalRoles = roleData.reduce((acc, item) => acc + item.value, 0) || 1;
+                        const radius = 40;
+                        const circumference = 2 * Math.PI * radius;
+                        let accPct = 0;
+                        const pieSlices = roleData.map(item => {
+                          const pct = item.value / totalRoles;
+                          const strokeLen = pct * circumference;
+                          const offset = -accPct * circumference;
+                          accPct += pct;
+                          return { ...item, strokeLen, offset };
+                        });
+
+                        return (
+                          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                            
+                            {/* MULTILINE TIME CHART */}
+                            <div className={cn("xl:col-span-2 p-6 md:p-8 rounded-[32px] border transition-all overflow-hidden relative", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                                <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter", isDarkMode ? "text-white" : "text-black")}>
+                                  Histórico de Atividades
+                                </h4>
+                                <div className={cn("flex items-center gap-1 p-1 rounded-[16px] border", isDarkMode ? "bg-black border-white/10" : "bg-gray-100 border-black/10")}>
+                                  {(['month', 'year', 'all'] as const).map(t => (
+                                    <button 
+                                      key={t}
+                                      onClick={() => setChartTimeFilter(t)}
+                                      className={cn(
+                                        "px-4 py-1.5 rounded-[12px] text-xs font-bold transition-all",
+                                        chartTimeFilter === t 
+                                          ? (isDarkMode ? "bg-white/10 text-white" : "bg-white shadow text-black") 
+                                          : (isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-500 hover:text-black")
+                                      )}
+                                    >
+                                      {t === 'month' ? '1 Mês' : t === 'year' ? '1 Ano' : 'Tudo'}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              <div className="w-full overflow-x-auto scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0">
+                                <div className="min-w-[600px] w-full">
+                                  <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-xl overflow-visible">
+                                    {/* Y-axis grid & labels */}
+                                    {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+                                      const yVal = height - paddingY - ratio * (height - 2 * paddingY);
+                                      const labelVal = Math.round(ratio * maxValueLine);
+                                      return (
+                                        <g key={`y-axis-${idx}`}>
+                                          <line x1="20" y1={yVal} x2={width - 20} y2={yVal} stroke={isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeWidth="1" strokeDasharray="4 4" />
+                                          <text x="15" y={yVal + 4} textAnchor="end" className={cn("text-[10px] font-bold", isDarkMode ? "fill-gray-500" : "fill-gray-400")}>{labelVal}</text>
+                                        </g>
+                                      );
+                                    })}
+
+                                    {/* Eventos (Roxo) */}
+                                    <path d={evLine.d} fill="none" stroke="#BF76FF" strokeWidth="4" strokeLinecap="round" />
+                                    {/* Cultos (Branco) */}
+                                    <path d={cuLine.d} fill="none" stroke={isDarkMode ? "#FFFFFF" : "#333333"} strokeWidth="4" strokeLinecap="round" />
+                                    {/* Visitas (Rosa) */}
+                                    <path d={viLine.d} fill="none" stroke="#FF007F" strokeWidth="4" strokeLinecap="round" />
+                                    
+                                    {/* Points & X-axis Labels */}
+                                    {buckets.map((b, i) => {
+                                      const evPt = evLine.pts[i];
+                                      const cuPt = cuLine.pts[i];
+                                      const viPt = viLine.pts[i];
+                                      return (
+                                        <g key={`point-${i}`}>
+                                          <circle cx={evPt.x} cy={evPt.y} r="4" fill="#BF76FF" className="hover:r-6 transition-all" />
+                                          <circle cx={cuPt.x} cy={cuPt.y} r="4" fill={isDarkMode ? "#FFFFFF" : "#333333"} className="hover:r-6 transition-all" />
+                                          <circle cx={viPt.x} cy={viPt.y} r="4" fill="#FF007F" className="hover:r-6 transition-all" />
+                                          
+                                          <text x={evPt.x} y={height - 10} textAnchor="middle" className={cn("text-[10px] font-bold uppercase tracking-widest", isDarkMode ? "fill-gray-400" : "fill-gray-500")}>
+                                            {b.label}
+                                          </text>
+                                        </g>
+                                      );
+                                    })}
+                                  </svg>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center justify-center gap-6 mt-4">
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#BF76FF]"></div><span className={cn("text-[10px] font-bold uppercase", isDarkMode?"text-white":"text-black")}>Eventos</span></div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{backgroundColor: isDarkMode ? "#FFFFFF" : "#333333"}}></div><span className={cn("text-[10px] font-bold uppercase", isDarkMode?"text-white":"text-black")}>Cultos</span></div>
+                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#FF007F]"></div><span className={cn("text-[10px] font-bold uppercase", isDarkMode?"text-white":"text-black")}>Visitas</span></div>
+                              </div>
+                            </div>
+
+                            {/* ROLES DONUT CHART */}
+                            <div className={cn("p-6 md:p-8 rounded-[32px] border transition-all flex flex-col", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                              <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter mb-8", isDarkMode ? "text-white" : "text-black")}>
+                                Cargos no Sistema
+                              </h4>
+                              
+                              <div className="flex flex-col md:flex-row xl:flex-col items-center gap-8 flex-1">
+                                <div className="relative w-48 h-48 md:w-56 md:h-56 shrink-0 group/chart">
+                                  <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 drop-shadow-2xl overflow-visible">
+                                    {pieSlices.map((slice, i) => (
+                                      <circle
+                                        key={i}
+                                        cx="50" cy="50" r={radius}
+                                        fill="transparent"
+                                        stroke={slice.color}
+                                        strokeWidth="16"
+                                        strokeDasharray={`${slice.strokeLen} ${circumference}`}
+                                        strokeDashoffset={slice.offset}
+                                        className="transition-all duration-300 hover:stroke-[22px] cursor-pointer opacity-90 hover:opacity-100"
+                                      >
+                                        <title>{slice.label}: {slice.value} membros</title>
+                                      </circle>
+                                    ))}
+                                  </svg>
+                                  {/* Center text */}
+                                  <div className={cn("absolute inset-[25%] rounded-full flex flex-col items-center justify-center pointer-events-none bg-transparent")}>
+                                    <div className={cn("text-2xl font-black leading-none", isDarkMode ? "text-white" : "text-black")}>{roleData.length === 0 ? 0 : totalRoles}</div>
+                                    <div className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-1">Cargos</div>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex-1 w-full max-h-56 overflow-y-auto scrollbar-hide flex flex-col gap-1.5">
+                                  {roleData.length === 0 && (
+                                    <p className="text-xs font-bold text-gray-500 text-center">Nenhum cargo ativo.</p>
+                                  )}
+                                  {roleData.map((item, idx) => (
+                                    <div key={idx} className={cn("flex items-center justify-between p-2.5 rounded-xl border border-transparent transition-colors", isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5")}>
+                                      <div className="flex items-center gap-3 overflow-hidden">
+                                        <div className="w-3 h-3 rounded-full shrink-0 shadow-sm" style={{ backgroundColor: item.color }} />
+                                        <span className={cn("text-[10px] font-bold uppercase truncate", isDarkMode ? "text-gray-300" : "text-gray-600")} title={item.label}>{item.label}</span>
+                                      </div>
+                                      <span className={cn("text-xs font-black", isDarkMode ? "text-white" : "text-black")}>{item.value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                            
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
