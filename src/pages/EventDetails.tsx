@@ -799,7 +799,115 @@ export default function EventDetails() {
            </div>
         )}
 
-        {/* Contact Buttons Space */}
+        {/* Drive Folders Photo Gallery */}
+        {event.driveFolders && Array.isArray(event.driveFolders) && event.driveFolders.some((f: any) => f.images && f.images.length > 0) && (() => {
+          const foldersWithImages = event.driveFolders.filter((f: any) => f.images && f.images.length > 0);
+          return (
+            <div id="fototeca" className="w-full mt-24 animate-in fade-in slide-in-from-bottom-8 duration-500 delay-300">
+              <div className="flex flex-col items-start w-full mb-12">
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="w-8 h-[2px] bg-[#BF76FF]" />
+                  <h3 className="text-4xl lg:text-5xl font-black uppercase tracking-tighter text-white">
+                    Fototeca do Evento
+                  </h3>
+                </div>
+                <p className="text-gray-400 mt-2 max-w-lg mb-4 ml-12">Encontre a sua, mande para um amigo.</p>
+              </div>
+
+              {foldersWithImages.map((folder: any, fi: number) => (
+                <div key={`drive-folder-${fi}`} className="mb-16">
+                  {foldersWithImages.length > 1 && (
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-2 h-2 rounded-full bg-[#BF76FF]" />
+                      <h4 className="text-lg font-black uppercase tracking-tight text-white/80">{folder.title || `Pasta ${fi + 1}`}</h4>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[150px] md:auto-rows-[240px] gap-3 md:gap-4 relative group/gallery z-10">
+
+                    {/* Blur Overlay for Guests */}
+                    {!user && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="absolute inset-x-0 inset-y-0 z-30 flex flex-col items-center justify-center p-6 text-center bg-black/40 backdrop-blur-md rounded-[2.5rem]"
+                      >
+                        <motion.div
+                          initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                          animate={{ scale: 1, opacity: 1, y: 0 }}
+                          transition={{ delay: 0.2, type: "spring", damping: 20 }}
+                          className="relative bg-[#10001D]/80 backdrop-blur-3xl border border-white/10 p-8 md:p-12 rounded-[2.5rem] shadow-2xl flex flex-col items-center justify-center gap-6 max-w-sm"
+                        >
+                          <div className="w-20 h-20 rounded-[2rem] bg-[#BF76FF]/20 flex items-center justify-center text-[#BF76FF] mb-2 border border-[#BF76FF]/30">
+                            <Lock className="w-10 h-10" />
+                          </div>
+                          <div className="space-y-2">
+                            <p className="text-2xl font-black uppercase tracking-tighter text-white">Fotos Restritas</p>
+                            <p className="text-sm font-medium text-gray-400 leading-relaxed">Faça login para ver e baixar todas as fotos deste evento.</p>
+                          </div>
+                          <Button
+                            onClick={() => navigate("/admin")}
+                            className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white shadow-2xl h-14 px-10 rounded-2xl w-full uppercase tracking-widest text-xs font-black transition-all hover:scale-[1.02] active:scale-95 cursor-pointer"
+                          >
+                            Fazer Login
+                          </Button>
+                        </motion.div>
+                      </motion.div>
+                    )}
+
+                    {folder.images.map((imgId: string, index: number) => {
+                      const imgUrl = `https://lh3.googleusercontent.com/d/${imgId}`;
+                      let spanClasses = "col-span-1 row-span-1";
+                      if (index % 7 === 0) spanClasses = "col-span-2 row-span-2";
+                      else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1";
+                      else if (index % 7 === 5) spanClasses = "col-span-1 row-span-2";
+
+                      return (
+                        <div
+                          key={`drive-img-${fi}-${imgId}-${index}`}
+                          className={cn(
+                            "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500",
+                            spanClasses,
+                            !user && "filter blur-xl opacity-50 cursor-not-allowed scale-[0.98]",
+                            user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 hover:scale-[1.02] border border-white/10"
+                          )}
+                          onClick={() => user && setSelectedPhotoIndex(folder.images.length * fi + index)}
+                        >
+                          <WatermarkOverlay title={event.title} />
+                          <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                          <img
+                            src={imgUrl}
+                            alt={`Foto ${index + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                          />
+                          {user && (
+                            <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
+                              <Button
+                                className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); window.open(imgUrl, '_blank'); }}
+                              >
+                                <Eye className="w-5 h-5" />
+                              </Button>
+                              <Button
+                                className="pointer-events-auto bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); sharePhoto(imgUrl); }}
+                              >
+                                <Share className="w-5 h-5" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

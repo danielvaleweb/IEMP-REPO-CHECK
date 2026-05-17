@@ -2767,7 +2767,7 @@ const Admin = () => {
       }
     };
 
-    if (activeTab !== "visao-geral" && activeTab !== "agenda" && activeTab !== "eventos") {
+    if (activeTab !== "visao-geral" && activeTab !== "agenda") {
       loadTabData();
     }
   }, [activeTab, user, isAdmin, eventsLimit, newsLimit, videosLimit]);
