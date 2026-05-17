@@ -126,12 +126,12 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
     // Validations
     const validFiles = fileList.filter(file => {
       const isValidType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
-      const isValidSize = file.size <= 10 * 1024 * 1024; // 10MB
+      const isValidSize = file.size <= 3 * 1024 * 1024; // 3MB
       return isValidType && isValidSize;
     });
 
     if (validFiles.length !== fileList.length) {
-      setError('Alguns arquivos foram ignorados (apenas JPG, PNG, WEBP até 10MB)');
+      setError('Alguns arquivos foram ignorados (apenas JPG, PNG, WEBP até 3MB)');
     } else {
       setError(null);
     }
@@ -225,124 +225,112 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
 
   return (
     <div className={cn("space-y-4", className)}>
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={onDrop}
-        onClick={() => !uploading && fileInputRef.current?.click()}
-        className={cn(
-          "border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center cursor-pointer transition-all hover:bg-black/5 dark:hover:bg-white/5",
-          uploading ? "opacity-50 pointer-events-none" : "border-gray-300 dark:border-gray-700",
-          previews.length > 0 && !multiple && "hidden" // Esconde dropzone se já tiver uma imagem em modo single
-        )}
-      >
-        <input
-          type="file"
-          ref={fileInputRef}
-          className="hidden"
-          accept="image/jpeg,image/png,image/webp"
-          multiple={multiple}
-          onChange={(e) => e.target.files && handleFiles(e.target.files)}
-        />
-        <div className="bg-blue-500/10 p-4 rounded-full mb-4">
-          <Upload className="w-8 h-8 text-blue-500" />
-        </div>
-        <p className="font-bold text-center">{label}</p>
-        <p className="text-xs text-gray-500 text-center mt-1">
-          Arraste e solte ou clique para selecionar<br />
-          JPG, PNG, WEBP até 10MB
-        </p>
-      </div>
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/jpeg,image/png,image/webp"
+        multiple={multiple}
+        disabled={uploading}
+        onChange={(e) => e.target.files && handleFiles(e.target.files)}
+      />
+
+      {/* Sleek Button to trigger Upload (Only show if multiple or if no preview yet in single mode) */}
+      {(!previews.length || multiple) && (
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => fileInputRef.current?.click()}
+          className={cn(
+            "h-14 w-full md:w-auto px-6 rounded-2xl flex items-center justify-center gap-3 font-black uppercase text-[11px] tracking-widest border transition-all cursor-pointer shadow-sm active:scale-[0.98]",
+            uploading 
+              ? "bg-[#BF76FF]/10 border-[#BF76FF]/20 text-[#BF76FF]/50 cursor-not-allowed" 
+              : "bg-black/[0.04] border-black/10 text-black hover:bg-black/[0.06] hover:border-[#BF76FF]/50 dark:bg-white/5 dark:border-white/10 dark:text-white dark:hover:bg-white/10 dark:hover:border-[#BF76FF]/50 hover:shadow-[0_0_15px_rgba(191,118,255,0.15)]"
+          )}
+        >
+          {uploading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin text-[#BF76FF]" />
+              <span>Enviando Imagem...</span>
+            </>
+          ) : (
+            <>
+              <Upload className="w-4 h-4 text-[#BF76FF]" />
+              <span>Enviar Imagem (3MB Máx)</span>
+            </>
+          )}
+        </button>
+      )}
 
       {error && (
-        <div className="flex items-center gap-2 p-3 rounded-lg bg-red-500/10 text-red-500 text-sm">
-          <AlertCircle className="w-4 h-4" />
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-red-500/10 text-red-500 text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-300">
+          <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {previews.length > 0 && (
-        <div className={cn("grid gap-6", multiple ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" : "grid-cols-1")}>
+        <div className={cn("grid gap-4 mt-2", multiple ? "grid-cols-1 sm:grid-cols-2 md:grid-cols-3" : "grid-cols-1")}>
           {previews.map((item, index) => (
-            <div key={index} className="space-y-3">
-              <div className="relative group aspect-video rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 bg-gray-100 dark:bg-gray-900 shadow-lg">
-                <img src={getImageUrl(item.url)} alt="Preview" className="w-full h-full object-cover" />
-                
-                {/* Overlay with Pencil Icon - ALWAYS VISIBLE */}
-                <div 
-                  className={cn(
-                    "absolute inset-0 bg-black/20 flex items-center justify-center transition-opacity cursor-pointer opacity-100",
-                    showOptions === index && "bg-black/60"
+            <div key={index} className={cn("p-4 rounded-3xl border flex flex-col gap-3 relative overflow-hidden transition-all bg-black/[0.02] border-black/5 dark:bg-white/[0.02] dark:border-white/5")}>
+              <div className="flex gap-4 items-center">
+                {/* Image Thumbnail */}
+                <div className="relative w-20 h-20 rounded-2xl overflow-hidden border border-black/10 dark:border-white/10 bg-black/40 flex-shrink-0 group">
+                  <img src={getImageUrl(item.url)} alt="Thumbnail" className="w-full h-full object-cover" />
+                  
+                  {/* Status Overlay */}
+                  {item.status === 'compressing' && (
+                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#BF76FF]" />
+                    </div>
                   )}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowOptions(showOptions === index ? null : index);
-                  }}
-                >
-                  <div className="bg-white/90 backdrop-blur-md p-3 rounded-full border border-white shadow-xl text-blue-600 hover:scale-110 active:scale-95 transition-all">
-                    <Pencil className="w-5 h-5" />
-                  </div>
+                  {item.status === 'uploading' && (
+                    <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center text-white">
+                      <Loader2 className="w-5 h-5 animate-spin text-[#BF76FF]" />
+                      <span className="text-[8px] font-black">{Math.round(item.progress)}%</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Status Overlays */}
-                {item.status === 'compressing' && (
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white">
-                    <Loader2 className="w-8 h-8 animate-spin mb-2" />
-                    <span className="text-xs uppercase font-black tracking-widest">Comprimindo...</span>
-                  </div>
-                )}
-                {item.status === 'uploading' && (
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-white px-8">
-                    <Progress value={item.progress} className="h-1.5 mb-2 w-full" />
-                    <span className="text-xs uppercase font-black tracking-widest">Enviando {Math.round(item.progress)}%</span>
-                  </div>
-                )}
-
-                {/* Options Menu */}
-                {showOptions === index && (
-                  <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center p-4 animate-in fade-in zoom-in-95 duration-200 z-20">
-                    <div className="grid grid-cols-2 gap-3 w-full max-w-[200px]">
-                      <button 
-                        onClick={() => { setShowOptions(null); fileInputRef.current?.click(); }}
-                        className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white"
-                      >
-                        <RefreshCw className="w-5 h-5 text-blue-400" />
-                        <span className="text-[10px] font-bold uppercase">Trocar</span>
-                      </button>
-                      <button 
-                        onClick={() => { setShowOptions(null); downloadImage(item.url); }}
-                        className="flex flex-col items-center gap-2 p-3 rounded-xl bg-white/10 hover:bg-white/20 transition-colors text-white"
-                      >
-                        <Download className="w-5 h-5 text-blue-400" />
-                        <span className="text-[10px] font-bold uppercase">Baixar</span>
-                      </button>
-                      <button 
-                        onClick={() => { setShowOptions(null); removeFile(index); }}
-                        className="flex flex-col items-center gap-2 p-3 rounded-xl bg-red-500/20 hover:bg-red-500/40 transition-colors text-red-500 col-span-2"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                        <span className="text-[10px] font-bold uppercase">Remover</span>
-                      </button>
-                    </div>
-                    <button 
-                      onClick={() => setShowOptions(null)}
-                      className="mt-4 p-2 text-white/40 hover:text-white transition-colors"
+                {/* Info & Options */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-700 dark:text-gray-300 truncate">
+                    {item.file ? item.file.name : "Imagem Configurada"}
+                  </p>
+                  <p className="text-[9px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    {item.file ? `${(item.file.size / 1024 / 1024).toFixed(2)} MB` : "Link Externo"}
+                  </p>
+                  
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => downloadImage(item.url)}
+                      className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
                     >
-                      <X className="w-5 h-5" />
+                      Baixar
+                    </button>
+                    <span className="text-gray-400 dark:text-gray-600 text-[9px]">•</span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(index)}
+                      className="text-[9px] font-black uppercase tracking-widest text-red-500 hover:underline cursor-pointer"
+                    >
+                      Remover
                     </button>
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Manual URL Input */}
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 px-2">
-                  <LinkIcon className="w-3 h-3 text-blue-500" />
-                  <label className="text-[9px] font-black uppercase tracking-widest text-blue-500">Link da Imagem</label>
+              {/* Manual URL Link Input */}
+              <div className="space-y-1 mt-1">
+                <div className="flex items-center gap-1.5 px-1">
+                  <LinkIcon className="w-3 h-3 text-[#BF76FF]" />
+                  <label className="text-[9px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Link da Imagem</label>
                 </div>
                 <Input 
                   value={item.url}
                   onChange={(e) => handleManualUrlChange(index, e.target.value)}
-                  className="h-10 text-[11px] rounded-xl bg-black/5 border-blue-500/20 focus:border-blue-500/50 focus:bg-white/5 transition-all text-blue-600 dark:text-blue-400 font-medium"
+                  className="h-10 text-[11px] rounded-xl bg-black/[0.04] dark:bg-black/20 border-black/5 dark:border-white/5 focus:border-[#BF76FF]/40 focus:bg-white/5 transition-all text-gray-800 dark:text-white font-mono"
                   placeholder="https://exemplo.com/imagem.jpg"
                 />
               </div>

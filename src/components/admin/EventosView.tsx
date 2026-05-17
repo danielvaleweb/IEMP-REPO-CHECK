@@ -24,7 +24,7 @@ export function EventosView({
 
 }: { 
   events: any[], 
-  onNewEvent: () => void, 
+  onNewEvent: (type?: 'evento' | 'culto' | 'visita') => void, 
   onEditEvent: (event: any) => void, 
   onDeleteEvent: (event: any) => void, 
   onViewEvent: (event: any) => void,
@@ -44,14 +44,36 @@ export function EventosView({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
         <h2 className={cn("text-2xl font-bold transition-colors", isDark ? "text-white" : "text-black")}>{title}</h2>
         {canCreate && (
-          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-
-            <Button 
-              className="flex-1 sm:flex-initial bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer"
-              onClick={onNewEvent}
-            >
-              <ButtonIcon className="w-4 h-4 mr-2" /> {buttonLabel}
-            </Button>
+          <div className="flex flex-wrap gap-2.5 w-full sm:w-auto">
+            {buttonLabel === "Nova matéria" ? (
+              <Button 
+                className="flex-1 sm:flex-initial bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-[#7300FF]/15 border-none"
+                onClick={() => onNewEvent()}
+              >
+                <ButtonIcon className="w-4 h-4 mr-2" /> {buttonLabel}
+              </Button>
+            ) : (
+              <>
+                <Button 
+                  className="flex-1 sm:flex-initial bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-[#7300FF]/20 border-none"
+                  onClick={() => onNewEvent('evento')}
+                >
+                  <Plus className="w-4.5 h-4.5 mr-1" /> Eventos
+                </Button>
+                <Button 
+                  className="flex-1 sm:flex-initial bg-[#00A859] hover:bg-[#008A49] text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-emerald-500/20 border-none"
+                  onClick={() => onNewEvent('culto')}
+                >
+                  <Plus className="w-4.5 h-4.5 mr-1" /> Cultos
+                </Button>
+                <Button 
+                  className="flex-1 sm:flex-initial bg-amber-500 hover:bg-amber-600 text-white rounded-xl h-14 sm:h-12 px-6 font-bold cursor-pointer apple-button shadow-lg shadow-amber-500/20 border-none"
+                  onClick={() => onNewEvent('visita')}
+                >
+                  <Plus className="w-4.5 h-4.5 mr-1" /> Visita
+                </Button>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -307,13 +307,15 @@ export default function Home() {
             typeEvent: data.typeEvent || "evento",
             hideFromClicks: data.hideFromClicks || false,
             menuSource: data.menuSource,
-            status: data.status
+            status: data.status,
+            hidden: data.hidden || false
           };
         }).filter(e => 
           e.title && 
           e.title.trim() !== "" && 
           e.menuSource !== "agenda" && 
-          e.status !== "pending"
+          e.status !== "pending" &&
+          !e.hidden
         );
 
         const nowMidnight = new Date();

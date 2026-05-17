@@ -110,6 +110,18 @@ const EventosView = lazy(() => import("@/components/admin/EventosView").then(m =
 const EventFeedbacksAdmin = lazy(() => import("@/components/admin/EventFeedbacksAdmin").then(m => ({ default: m.EventFeedbacksAdmin })));
 const SavedLoginsAdmin = lazy(() => import("@/components/admin/SavedLoginsAdmin").then(m => ({ default: m.SavedLoginsAdmin })));
 
+const slugify = (text: string) => {
+  return (text || "")
+    .toString()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // remove acentos
+    .replace(/[^\w\s-]/g, '')       // remove caracteres especiais
+    .replace(/\s+/g, '-')           // substitui espaços por -
+    .replace(/--+/g, '-')           // remove hífens duplicados
+    .trim();
+};
+
 const ViewLoader = () => (
   <div className="flex flex-col items-center justify-center p-12 gap-4">
     <Loader2 className="w-8 h-8 text-[#BF76FF] animate-spin" />
@@ -2808,6 +2820,168 @@ const Admin = () => {
     return [];
   }, [activeTab, searchQuery, posts, members, agenda, agendaDirecao, vignettes, radioTracks, radioSubTab]);
 
+  const [checkingFolders, setCheckingFolders] = useState<Record<number, boolean>>({});
+  const [folderVerified, setFolderVerified] = useState<Record<number, boolean>>({});
+
+  const checkFolderAccessibility = async (link: string, index: number) => {
+    if (!link) return false;
+    setCheckingFolders(prev => ({ ...prev, [index]: true }));
+    
+    let folderId = link.trim();
+    if (folderId.includes("drive.google.com")) {
+      const folderPatterns = [
+        /\/folders\/([a-zA-Z0-9-_]+)/,
+        /[?&]id=([a-zA-Z0-9-_]+)/,
+        /\/open\?id=([a-zA-Z0-9-_]+)/,
+        /\/drive\/mobile\/folders\/([a-zA-Z0-9-_]+)/
+      ];
+      for (const pattern of folderPatterns) {
+        const match = folderId.match(pattern);
+        if (match) {
+          folderId = match[1];
+          break;
+        }
+      }
+    }
+    
+    try {
+      const response = await fetch(`/api/drive-proxy?id=${folderId}`);
+      if (response.ok) {
+        const content = await response.text();
+        if (!content.includes("Google Drive - Vírus") && !content.includes("Login de Contas do Google")) {
+          setFolderVerified(prev => ({ ...prev, [index]: true }));
+          setCheckingFolders(prev => ({ ...prev, [index]: false }));
+          return true;
+        }
+      }
+    } catch (e) {
+      console.error("Live check folder error", e);
+    }
+    
+    setFolderVerified(prev => ({ ...prev, [index]: false }));
+    setCheckingFolders(prev => ({ ...prev, [index]: false }));
+    return false;
+  };
+
+  const syncSpecificFolder = async (index: number) => {
+    const folders = [...(formData.driveFolders || [])];
+    const folder = folders[index];
+    if (!folder || !folder.link) return;
+
+    setIsSyncing(true);
+    let folderId = folder.link;
+
+    if (folderId.includes("drive.google.com")) {
+      const folderPatterns = [
+        /\/folders\/([a-zA-Z0-9-_]+)/,
+        /[?&]id=([a-zA-Z0-9-_]+)/,
+        /\/open\?id=([a-zA-Z0-9-_]+)/,
+        /\/drive\/mobile\/folders\/([a-zA-Z0-9-_]+)/
+      ];
+
+      for (const pattern of folderPatterns) {
+        const match = folderId.match(pattern);
+        if (match) {
+          folderId = match[1];
+          break;
+        }
+      }
+    }
+
+    try {
+      const response = await fetch(`/api/drive-proxy?id=${folderId}`);
+      if (!response.ok) {
+        alert("Erro ao acessar a pasta do Google Drive.");
+        setIsSyncing(false);
+        return;
+      }
+
+      const content = await response.text();
+      const ids: string[] = [];
+
+      const jsonPattern = /"([a-zA-Z0-9-_]{25,})","[^"]+",\d+[^\]]+?"image\/[a-z]+"/g;
+      const jsonMatches = content.match(jsonPattern);
+      if (jsonMatches) {
+        jsonMatches.forEach((m: string) => {
+          const idMatch = m.match(/"([a-zA-Z0-9-_]{25,})"/);
+          if (idMatch && !idMatch[1].includes('-header') && !idMatch[1].includes('flip-list')) {
+            ids.push(idMatch[1]);
+          }
+        });
+      }
+
+      if (ids.length === 0) {
+        const genericIdRegex = /"([a-zA-Z0-9-_]{28,35})"/g;
+        let m;
+        const blacklist = [
+          'flip-list', 'last-modified', 'header', 'view-header', 'folder-view',
+          'accessibility', 'selection', 'grid-view', 'list-view', 'caption'
+        ];
+        while ((m = genericIdRegex.exec(content)) !== null) {
+          const id = m[1];
+          const isBlacklisted = blacklist.some(term => id.includes(term));
+          if (id !== folderId && !isBlacklisted && id.length >= 28) {
+            ids.push(id);
+          }
+        }
+      }
+
+      if (ids.length === 0) {
+        const thumbRegex = /\/d\/([a-zA-Z0-9-_]{25,})/g;
+        let m;
+        while ((m = thumbRegex.exec(content)) !== null) {
+          if (m[1] !== folderId) ids.push(m[1]);
+        }
+      }
+
+      const uniqueIds = Array.from(new Set(ids)).filter((id: string) =>
+        id !== folderId &&
+        !["drive-sdk", "docs-python", "googledrive"].includes(id) &&
+        (!id.includes('-') || id.length > 30)
+      );
+
+      if (uniqueIds.length > 0) {
+        folder.images = uniqueIds;
+        setFormData({
+          ...formData,
+          driveFolders: folders
+        });
+        alert(`${uniqueIds.length} fotos importadas e sincronizadas com sucesso para a pasta "${folder.title || 'Galeria'}"!`);
+      } else {
+        alert("Nenhuma imagem pública encontrada nesta pasta. Certifique-se de que a pasta está compartilhada como 'Qualquer pessoa com o link'.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao sincronizar pasta.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const groupedMembersByRole = useMemo(() => {
+    const groups: Record<string, any[]> = {};
+    const activeMembers = members.filter(m => m.status !== "pending" && m.name && m.name.trim() !== "");
+    activeMembers.forEach(member => {
+      let roles: string[] = [];
+      if (member.ministries && Array.isArray(member.ministries) && member.ministries.length > 0) {
+        roles = member.ministries.map((m: any) => typeof m === 'string' ? m : m.name);
+      } else if (member.role) {
+        roles = [member.role];
+      } else {
+        roles = ["Membro"];
+      }
+      const uniqueRoles = Array.from(new Set(roles));
+      uniqueRoles.forEach(r => {
+        const formatted = r === "Administradores" ? "Administrador Master" : r === "Desenvolvimento" ? "Desenvolvedor" : r;
+        if (!groups[formatted]) {
+          groups[formatted] = [];
+        }
+        groups[formatted].push(member);
+      });
+    });
+    return groups;
+  }, [members]);
+
   const syncDriveFolder = async () => {
     if (!formData.driveFolderId) {
       alert("Por favor, cole os links das pastas do Google Drive primeiro.");
@@ -3093,6 +3267,92 @@ const Admin = () => {
           createdAt: serverTimestamp(),
           read: true
         });
+      }
+
+      // Sync Event to Agenda Geral and Agenda Direção
+      if (collectionName === "posts") {
+        const hasInvitedMembers = dataToSave.invitedMembers && dataToSave.invitedMembers.length > 0;
+        
+        // 1. Sync to Agenda Geral ('agenda' collection)
+        try {
+          const agendaQuery = query(collection(db, "agenda"), where("eventId", "==", itemDocId));
+          const agendaSnapshot = await getDocs(agendaQuery);
+          
+          if (hasInvitedMembers) {
+            const agendaData = {
+              title: dataToSave.title,
+              date: dataToSave.date,
+              endTime: dataToSave.endTime || "",
+              location: dataToSave.location || "",
+              eventId: itemDocId,
+              invitedMembers: dataToSave.invitedMembers,
+              inviteChurch: dataToSave.inviteChurch || false,
+              menuSource: "agenda",
+              hidden: dataToSave.hidden || false,
+              updatedAt: serverTimestamp()
+            };
+            
+            if (!agendaSnapshot.empty) {
+              const docRef = agendaSnapshot.docs[0].ref;
+              await setDoc(docRef, agendaData, { merge: true });
+            } else {
+              await addDoc(collection(db, "agenda"), {
+                ...agendaData,
+                createdAt: serverTimestamp()
+              });
+            }
+          } else {
+            for (const docSnap of agendaSnapshot.docs) {
+              await deleteDoc(docSnap.ref);
+            }
+          }
+        } catch (e) {
+          console.error("Error syncing to Agenda Geral", e);
+        }
+
+        // 2. Sync to Agenda da Direção ('agenda-direcao' collection)
+        try {
+          const hasDirecao = dataToSave.invitedMembers?.some((invitedMember: any) => {
+            const m = members.find(mb => mb.id === invitedMember.id);
+            if (!m) return false;
+            const rolesStr = formatRoles(m).toLowerCase();
+            return rolesStr.includes("direção") || rolesStr.includes("direcao");
+          });
+          
+          const direcaoQuery = query(collection(db, "agenda-direcao"), where("eventId", "==", itemDocId));
+          const direcaoSnapshot = await getDocs(direcaoQuery);
+          
+          if (hasDirecao) {
+            const direcaoData = {
+              title: dataToSave.title,
+              date: dataToSave.date,
+              endTime: dataToSave.endTime || "",
+              location: dataToSave.location || "",
+              eventId: itemDocId,
+              invitedMembers: dataToSave.invitedMembers,
+              inviteChurch: dataToSave.inviteChurch || false,
+              menuSource: "agenda-direcao",
+              hidden: dataToSave.hidden || false,
+              updatedAt: serverTimestamp()
+            };
+            
+            if (!direcaoSnapshot.empty) {
+              const docRef = direcaoSnapshot.docs[0].ref;
+              await setDoc(docRef, direcaoData, { merge: true });
+            } else {
+              await addDoc(collection(db, "agenda-direcao"), {
+                ...direcaoData,
+                createdAt: serverTimestamp()
+              });
+            }
+          } else {
+            for (const docSnap of direcaoSnapshot.docs) {
+              await deleteDoc(docSnap.ref);
+            }
+          }
+        } catch (e) {
+          console.error("Error syncing to Agenda Direcao", e);
+        }
       }
       
       // Update local state immediately for instant feedback
@@ -5286,103 +5546,35 @@ const Admin = () => {
                           <div className="space-y-6">
                             {activeTab === "eventos" && (
                               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {/* 1. Tipo de Evento no Topo */}
+                                {/* 1. Tipo de Registro Selector (Sleek Apple style segmented control) */}
                                 <div className="space-y-4">
-                                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-500" : "text-gray-400")}>Selecione o Tipo de Registro</label>
-                                  <div className={cn("p-1.5 rounded-[24px] flex gap-2 w-full", isDarkMode ? "bg-cinza-input" : "bg-gray-100/50 border border-black/5")}>
-                                    <button
-                                      type="button"
-                                      disabled={isReadOnly}
-                                      className={cn(
-                                        "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300",
-                                        formData.typeEvent === 'culto'
-                                          ? "bg-white text-black shadow-lg opacity-100"
-                                          : "bg-cinza-input text-white opacity-30"
-                                      )}
-                                      onClick={() => setFormData({ ...formData, typeEvent: 'culto' })}
-                                    >
-                                      Culto
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={isReadOnly}
-                                      className={cn(
-                                        "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300",
-                                        formData.typeEvent !== 'culto'
-                                          ? "bg-white text-black shadow-lg opacity-100"
-                                          : "bg-cinza-input text-white opacity-30"
-                                      )}
-                                      onClick={() => setFormData({ ...formData, typeEvent: 'evento' })}
-                                    >
-                                      Evento
-                                    </button>
+                                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Tipo de Registro</label>
+                                  <div className={cn("p-1.5 rounded-[24px] flex gap-2 w-full apple-card", isDarkMode ? "bg-cinza-input" : "bg-gray-100/50 border border-black/5")}>
+                                    {(['evento', 'culto', 'visita'] as const).map((t) => (
+                                      <button
+                                        key={t}
+                                        type="button"
+                                        disabled={isReadOnly}
+                                        className={cn(
+                                          "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                          formData.typeEvent === t || (!formData.typeEvent && t === 'evento')
+                                            ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                            : isDarkMode ? "bg-transparent text-white/50 hover:text-white" : "bg-transparent text-black/50 hover:text-black"
+                                        )}
+                                        onClick={() => setFormData({ ...formData, typeEvent: t })}
+                                      >
+                                        {t === 'evento' ? 'Evento' : t === 'culto' ? 'Culto' : 'Visita'}
+                                      </button>
+                                    ))}
                                   </div>
                                 </div>
 
-                                {/* Campos Condicionais */}
-                                {formData.typeEvent === 'culto' ? (
+                                {/* Form Fields based on Type */}
+                                {(formData.typeEvent === 'culto') ? (
+                                  /* --- CULTO FORM --- */
                                   <div className="space-y-6">
                                     <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Culto: Ex: Culto da família</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        placeholder="Título do Culto..."
-                                        value={formData.title || ""}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Bio do Evento</label>
-                                      <Textarea
-                                        className={cn("min-h-[120px] rounded-[32px] p-8 border transition-all leading-relaxed", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        placeholder="Conte mais sobre o culto..."
-                                        value={formData.content || ""}
-                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
-                                      <Input
-                                        type="date"
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
-                                        onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link da pasta do Drive (Galeria)</label>
-                                      <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                          <LinkIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF]" />
-                                          <Input
-                                            className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                            placeholder="https://drive.google.com/..."
-                                            value={formData.driveFolderId || ""}
-                                            onChange={(e) => setFormData({ ...formData, driveFolderId: e.target.value })}
-                                            readOnly={isReadOnly}
-                                          />
-                                        </div>
-                                        {!isReadOnly && (
-                                          <Button
-                                            type="button"
-                                            onClick={syncDriveFolder}
-                                            disabled={!formData.driveFolderId || isSyncing}
-                                            className="h-14 px-6 rounded-2xl bg-[#00A859] hover:bg-[#008A49] text-white border-none transition-all font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(0,168,89,0.3)] hover:shadow-[0_0_30px_rgba(0,168,89,0.5)] active:scale-95"
-                                          >
-                                            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />} Sincronizar
-                                          </Button>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Imagem de Capa</label>
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa do Culto (Imagem)</label>
                                       {!isReadOnly ? (
                                         <UploadImages
                                           maxFiles={1}
@@ -5398,16 +5590,25 @@ const Admin = () => {
                                         )
                                       )}
                                     </div>
-                                  </div>
-                                ) : (
-                                  <div className="space-y-6">
+
                                     <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Evento</label>
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Culto: Ex: Culto da Família</label>
                                       <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        placeholder="Ex: Conferência de Jovens 2024"
+                                        className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                        placeholder="Título do Culto..."
                                         value={formData.title || ""}
                                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        readOnly={isReadOnly}
+                                      />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Bio do Culto</label>
+                                      <Textarea
+                                        className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                        placeholder="Conte mais sobre o culto..."
+                                        value={formData.content || ""}
+                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                                         readOnly={isReadOnly}
                                       />
                                     </div>
@@ -5417,7 +5618,7 @@ const Admin = () => {
                                         <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
                                         <Input
                                           type="date"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
                                           value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
                                           onChange={(e) => {
                                             const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
@@ -5426,13 +5627,13 @@ const Admin = () => {
                                           readOnly={isReadOnly}
                                         />
                                       </div>
-                                      <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início:</label>
+                                      
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
                                         <div className="relative">
-                                          <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF] z-10" />
                                           <Input
                                             type="time"
-                                            className={cn("h-14 rounded-2xl pl-10 pr-4 border transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
                                             value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
                                             onChange={(e) => {
                                               const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
@@ -5442,11 +5643,369 @@ const Admin = () => {
                                           />
                                         </div>
                                       </div>
-                                      <div className="space-y-1">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término:</label>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
                                         <Input
                                           type="time"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          value={formData.endTime || ""}
+                                          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                ) : formData.typeEvent === 'visita' ? (
+                                  /* --- VISITA FORM --- */
+                                  <div className="space-y-6">
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa da Visita (Imagem)</label>
+                                      {!isReadOnly ? (
+                                        <UploadImages
+                                          maxFiles={1}
+                                          multiple={false}
+                                          value={formData.image}
+                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                        />
+                                      ) : (
+                                        formData.image && (
+                                          <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                            <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título da Visita (Ex: Visita Hospitalar, Visita ao Lar)</label>
+                                      <Input
+                                        className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                        placeholder="Título da Visita..."
+                                        value={formData.title || ""}
+                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        readOnly={isReadOnly}
+                                      />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Descrição / Bio da Visita</label>
+                                      <Textarea
+                                        className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                        placeholder="Descreva o propósito da visita..."
+                                        value={formData.content || ""}
+                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                        readOnly={isReadOnly}
+                                      />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
+                                        <Input
+                                          type="date"
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
+                                          onChange={(e) => {
+                                            const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
+                                            setFormData({ ...formData, date: `${e.target.value}T${time}` });
+                                          }}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+                                      
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
+                                        <div className="relative">
+                                          <Input
+                                            type="time"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
+                                            onChange={(e) => {
+                                              const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
+                                              setFormData({ ...formData, date: `${date}T${e.target.value}` });
+                                            }}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
+                                        <Input
+                                          type="time"
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          value={formData.endTime || ""}
+                                          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Local / Endereço da Visita</label>
+                                      <div className="relative">
+                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF]" />
+                                        <Input
+                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Ex: Rua, Número, Bairro, Cidade..."
+                                          value={formData.location || ""}
+                                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Nome do Organizador / Responsável</label>
+                                        <Input
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Ex: Diác. João Silva"
+                                          value={formData.organizer || ""}
+                                          onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+                                      
+                                      {isAdminOrDev && (
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Contato do Organizador (Visível somente para ADM)</label>
+                                          <Input
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            placeholder="Ex: (31) 98765-4321"
+                                            value={formData.organizerContact || ""}
+                                            onChange={(e) => setFormData({ ...formData, organizerContact: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
+
+                                     <div className="space-y-2">
+                                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações Importantes</label>
+                                       <Textarea
+                                         className={cn("min-h-[100px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                         placeholder="Alguma recomendação ou detalhe importante sobre a visita..."
+                                         value={formData.importantNotes || ""}
+                                         onChange={(e) => setFormData({ ...formData, importantNotes: e.target.value })}
+                                         readOnly={isReadOnly}
+                                       />
+                                     </div>
+
+                                     {/* church member scale divided by cargo */}
+                                     <div className="space-y-4">
+                                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Participação de Membros na Visita?</label>
+                                       <div className="flex gap-2.5">
+                                         <button
+                                           type="button"
+                                           disabled={isReadOnly}
+                                           className={cn(
+                                             "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                             formData.memberParticipation
+                                               ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                               : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                         )}
+                                         onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
+                                       >
+                                         Sim
+                                       </button>
+                                       <button
+                                         type="button"
+                                         disabled={isReadOnly}
+                                         className={cn(
+                                           "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                           !formData.memberParticipation
+                                             ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                             : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                         )}
+                                         onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
+                                       >
+                                         Não
+                                       </button>
+                                     </div>
+                                   </div>
+
+                                   {formData.memberParticipation && (
+                                     <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
+                                       <div className="flex items-center justify-between">
+                                         <h4 className="text-xs font-black uppercase text-[#BF76FF] tracking-widest">Escala de Membros por Cargo</h4>
+                                         <span className="text-[10px] font-bold text-gray-400">
+                                           {formData.invitedMembers?.length || 0} membros selecionados
+                                         </span>
+                                       </div>
+                                       
+                                       <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
+                                         {Object.entries(groupedMembersByRole)
+                                           .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
+                                           .map(([roleName, roleMembers]) => {
+                                             const allSelected = roleMembers.every(m => formData.invitedMembers?.some((im: any) => im.id === m.id));
+                                             
+                                             return (
+                                               <div key={`role-group-${roleName}`} className="space-y-2.5">
+                                                 <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl">
+                                                   <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                   {!isReadOnly && (
+                                                     <button
+                                                       type="button"
+                                                       onClick={() => {
+                                                         const currentInvited = formData.invitedMembers || [];
+                                                         if (allSelected) {
+                                                           const roleIds = new Set(roleMembers.map(rm => rm.id));
+                                                           setFormData({
+                                                             ...formData,
+                                                             invitedMembers: currentInvited.filter((im: any) => !roleIds.has(im.id))
+                                                           });
+                                                         } else {
+                                                           const currentIds = new Set(currentInvited.map((im: any) => im.id));
+                                                           const toAdd = roleMembers
+                                                             .filter(rm => !currentIds.has(rm.id))
+                                                             .map(rm => ({ id: rm.id, name: rm.name, photo: rm.photoURL }));
+                                                           setFormData({
+                                                             ...formData,
+                                                             invitedMembers: [...currentInvited, ...toAdd]
+                                                           });
+                                                         }
+                                                       }}
+                                                       className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
+                                                     >
+                                                       {allSelected ? "Desmarcar Todos" : "Selecionar Todos"}
+                                                     </button>
+                                                   )}
+                                                 </div>
+                                                 
+                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                   {roleMembers.map((member) => {
+                                                     const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
+                                                     return (
+                                                       <button
+                                                         key={`member-scale-${member.id}`}
+                                                         type="button"
+                                                         disabled={isReadOnly}
+                                                         onClick={() => {
+                                                           const currentInvited = formData.invitedMembers || [];
+                                                           if (isSelected) {
+                                                             setFormData({
+                                                               ...formData,
+                                                               invitedMembers: currentInvited.filter((im: any) => im.id !== member.id)
+                                                             });
+                                                           } else {
+                                                             setFormData({
+                                                               ...formData,
+                                                               invitedMembers: [...currentInvited, { id: member.id, name: member.name, photo: member.photoURL }]
+                                                             });
+                                                           }
+                                                         }}
+                                                         className={cn(
+                                                           "flex items-center gap-3 p-3 rounded-xl border transition-all text-left w-full cursor-pointer",
+                                                           isSelected
+                                                             ? "bg-[#BF76FF]/10 border-[#BF76FF] text-white"
+                                                             : isDarkMode ? "bg-white/[0.01] border-white/5 text-gray-400 hover:bg-white/[0.03] hover:text-white" : "bg-black/[0.01] border-black/5 text-gray-600 hover:bg-black/[0.03] hover:text-black"
+                                                         )}
+                                                       >
+                                                         <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 border border-white/10 shrink-0">
+                                                           {member.photoURL ? (
+                                                             <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
+                                                           ) : (
+                                                             <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-500">
+                                                               <Users className="w-4 h-4" />
+                                                             </div>
+                                                           )}
+                                                         </div>
+                                                         <span className="text-[11px] font-bold truncate">{member.name}</span>
+                                                       </button>
+                                                     );
+                                                   })}
+                                                 </div>
+                                               </div>
+                                             );
+                                           })}
+                                       </div>
+                                     </div>
+                                   )}
+                                   <div className="hidden">
+                                    </div>
+                                  </div>
+                                ) : (
+                                  /* --- EVENTO FORM (FULL) --- */
+                                  <div className="space-y-6">
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa do Evento (Banner)</label>
+                                      {!isReadOnly ? (
+                                        <UploadImages
+                                          maxFiles={1}
+                                          multiple={false}
+                                          value={formData.image}
+                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                        />
+                                      ) : (
+                                        formData.image && (
+                                          <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                            <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Evento</label>
+                                      <Input
+                                        className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                        placeholder="Ex: Conferência de Jovens 2026"
+                                        value={formData.title || ""}
+                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        readOnly={isReadOnly}
+                                      />
+                                    </div>
+
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Biografia do Evento</label>
+                                      <Textarea
+                                        className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                        placeholder="Descreva o evento com todos os detalhes..."
+                                        value={formData.content || ""}
+                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                        readOnly={isReadOnly}
+                                      />
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
+                                        <Input
+                                          type="date"
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
+                                          onChange={(e) => {
+                                            const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
+                                            setFormData({ ...formData, date: `${e.target.value}T${time}` });
+                                          }}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+                                      
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
+                                        <div className="relative">
+                                          
+                                          <Input
+                                            type="time"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
+                                            onChange={(e) => {
+                                              const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
+                                              setFormData({ ...formData, date: `${date}T${e.target.value}` });
+                                            }}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
+                                        <Input
+                                          type="time"
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
                                           value={formData.endTime || ""}
                                           onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                                           readOnly={isReadOnly}
@@ -5459,7 +6018,7 @@ const Admin = () => {
                                       <div className="relative">
                                         <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF]" />
                                         <Input
-                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
+                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
                                           placeholder="Ex: Igreja IEMP - Sede"
                                           value={formData.location || ""}
                                           onChange={(e) => setFormData({ ...formData, location: e.target.value })}
@@ -5468,17 +6027,51 @@ const Admin = () => {
                                       </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Evento Interno / Externo (Sleek Apple segmented toggle) */}
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Evento Interno ou Externo?</label>
+                                      <div className="flex gap-2.5">
+                                        <button
+                                          type="button"
+                                          disabled={isReadOnly}
+                                          className={cn(
+                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                            formData.scope === 'externo'
+                                              ? (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                              : "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                          )}
+                                          onClick={() => setFormData({ ...formData, scope: 'interno' })}
+                                        >
+                                          Interno
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={isReadOnly}
+                                          className={cn(
+                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                            formData.scope === 'externo'
+                                              ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                              : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                          )}
+                                          onClick={() => setFormData({ ...formData, scope: 'externo' })}
+                                        >
+                                          Externo
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Nome do Organizador</label>
                                         <Input
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                          placeholder="Ex: Pr. João Silva"
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Ex: Pra. Ana Clara"
                                           value={formData.organizer || ""}
                                           onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
                                           readOnly={isReadOnly}
                                         />
                                       </div>
+                                      
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Foto do Organizador</label>
                                         {!isReadOnly ? (
@@ -5496,133 +6089,384 @@ const Admin = () => {
                                           )
                                         )}
                                       </div>
+
+                                      {isAdminOrDev && (
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Contato do Organizador (ADM ONLY)</label>
+                                          <Input
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            placeholder="Ex: (31) 99876-5432"
+                                            value={formData.organizerContact || ""}
+                                            onChange={(e) => setFormData({ ...formData, organizerContact: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      )}
                                     </div>
 
-                                    <div className="flex items-center gap-4 p-6 rounded-[24px] bg-white/5 border border-white/5">
-                                      <div className="flex-1">
-                                        <h4 className="text-xs font-black uppercase text-white tracking-widest mb-1">Deve Convidar Igreja?</h4>
-                                        <p className="text-[10px] text-gray-400">Mostrar convite automático para membros</p>
-                                      </div>
-                                      <input
-                                        type="checkbox"
-                                        className="w-6 h-6 accent-[#BF76FF] rounded-lg cursor-pointer"
-                                        checked={formData.inviteChurch || false}
-                                        onChange={(e) => setFormData({ ...formData, inviteChurch: e.target.checked })}
-                                        disabled={isReadOnly}
-                                      />
-                                    </div>
 
+                                    {/* church member scale divided by cargo */}
                                     <div className="space-y-4">
-                                      <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Adicionar convidado/palestrante</label>
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Participação de Membros no Evento?</label>
+                                      <div className="flex gap-2.5">
+                                        <button
+                                          type="button"
+                                          disabled={isReadOnly}
+                                          className={cn(
+                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                            formData.memberParticipation
+                                              ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                              : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                          )}
+                                          onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
+                                        >
+                                          Sim
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={isReadOnly}
+                                          className={cn(
+                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                            !formData.memberParticipation
+                                              ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                              : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                          )}
+                                          onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
+                                        >
+                                          Não
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {formData.memberParticipation && (
+                                      <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
+                                        <div className="flex items-center justify-between">
+                                          <h4 className="text-xs font-black uppercase text-[#BF76FF] tracking-widest">Escala de Membros por Cargo</h4>
+                                          <span className="text-[10px] font-bold text-gray-400">
+                                            {formData.invitedMembers?.length || 0} membros selecionados
+                                          </span>
+                                        </div>
+                                        
+                                        <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
+                                          {Object.entries(groupedMembersByRole)
+                                            .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
+                                            .map(([roleName, roleMembers]) => {
+                                              const allSelected = roleMembers.every(m => formData.invitedMembers?.some((im: any) => im.id === m.id));
+                                              
+                                              return (
+                                                <div key={`role-group-${roleName}`} className="space-y-2.5">
+                                                  <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl">
+                                                    <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                    {!isReadOnly && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          const currentInvited = formData.invitedMembers || [];
+                                                          if (allSelected) {
+                                                            const roleIds = new Set(roleMembers.map(rm => rm.id));
+                                                            setFormData({
+                                                              ...formData,
+                                                              invitedMembers: currentInvited.filter((im: any) => !roleIds.has(im.id))
+                                                            });
+                                                          } else {
+                                                            const currentIds = new Set(currentInvited.map((im: any) => im.id));
+                                                            const toAdd = roleMembers
+                                                              .filter(rm => !currentIds.has(rm.id))
+                                                              .map(rm => ({ id: rm.id, name: rm.name, photo: rm.photoURL }));
+                                                            setFormData({
+                                                              ...formData,
+                                                              invitedMembers: [...currentInvited, ...toAdd]
+                                                            });
+                                                          }
+                                                        }}
+                                                        className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline"
+                                                      >
+                                                        {allSelected ? "Remover Todos" : "Selecionar Todos"}
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                  
+                                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 px-1">
+                                                    {roleMembers.map((member) => {
+                                                      const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
+                                                      return (
+                                                        <div
+                                                          key={`member-select-${member.id}`}
+                                                          onClick={() => {
+                                                            if (isReadOnly) return;
+                                                            const currentInvited = formData.invitedMembers || [];
+                                                            if (isSelected) {
+                                                              setFormData({
+                                                                ...formData,
+                                                                invitedMembers: currentInvited.filter((im: any) => im.id !== member.id)
+                                                              });
+                                                            } else {
+                                                              setFormData({
+                                                                ...formData,
+                                                                invitedMembers: [...currentInvited, { id: member.id, name: member.name, photo: member.photoURL }]
+                                                              });
+                                                            }
+                                                          }}
+                                                          className={cn(
+                                                            "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                                            isSelected
+                                                              ? "bg-[#BF76FF]/15 border-[#BF76FF]/35"
+                                                              : "bg-white/[0.01] border-white/5 hover:bg-white/[0.04]"
+                                                          )}
+                                                        >
+                                                          <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 shrink-0">
+                                                              {member.photoURL ? (
+                                                                <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" />
+                                                              ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold text-xs">
+                                                                  {member.name?.[0]}
+                                                                </div>
+                                                              )}
+                                                            </div>
+                                                            <span className="text-[11px] font-bold text-white truncate max-w-[120px]">{member.name}</span>
+                                                          </div>
+                                                          <div className={cn(
+                                                            "w-5 h-5 rounded-md flex items-center justify-center transition-all",
+                                                            isSelected ? "bg-[#BF76FF] text-white" : "bg-white/10 text-transparent"
+                                                          )}>
+                                                            <Check className="w-3.5 h-3.5" />
+                                                          </div>
+                                                        </div>
+                                                      );
+                                                    })}
+                                                  </div>
+                                                </div>
+                                              );
+                                            })}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* External Guests */}
+                                    <div className="space-y-4">
+                                      <div className="flex items-center justify-between ml-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Participação de Convidados (Externos)</label>
                                         {!isReadOnly && (
                                           <Button
                                             type="button"
                                             onClick={() => {
                                               const current = Array.isArray(formData.guests) ? formData.guests : [];
-                                              setFormData({ ...formData, guests: [...current, { name: "", image: "", role: "" }] });
+                                              setFormData({ ...formData, guests: [...current, { name: "", image: "", congregation: "" }] });
                                             }}
                                             className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px]"
                                           >
-                                            <Plus className="w-3 h-3 mr-2" /> Adicionar
+                                            <Plus className="w-3 h-3 mr-2" /> Novo Convidado
                                           </Button>
                                         )}
                                       </div>
-                                      <div className="space-y-3">
+                                      <div className="space-y-4">
                                         {(formData.guests || []).map((guest: any, i: number) => (
-                                          <div key={`guest-${i}`} className={cn("p-4 rounded-2xl border relative group grid grid-cols-1 md:grid-cols-3 gap-3", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5")}>
-                                            <Input placeholder="Nome" value={guest.name} onChange={(e) => {
-                                              const g = [...formData.guests]; g[i].name = e.target.value; setFormData({ ...formData, guests: g });
-                                            }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
-                                            <Input placeholder="Cargo" value={guest.role} onChange={(e) => {
-                                              const g = [...formData.guests]; g[i].role = e.target.value; setFormData({ ...formData, guests: g });
-                                            }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
-                                            <Input placeholder="Foto URL" value={guest.image} onChange={(e) => {
-                                              const g = [...formData.guests]; g[i].image = e.target.value; setFormData({ ...formData, guests: g });
-                                            }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
-                                            <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xl">
-                                              <X className="w-3 h-3" />
-                                            </Button>
+                                          <div key={`guest-${i}`} className={cn("p-5 rounded-[24px] border relative group grid grid-cols-1 md:grid-cols-3 gap-4", isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-black/5 bg-black/[0.01]")}>
+                                            <div className="space-y-1">
+                                              <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome</label>
+                                              <Input placeholder="Nome Completo" value={guest.name || ""} onChange={(e) => {
+                                                const g = [...formData.guests]; g[i].name = e.target.value; setFormData({ ...formData, guests: g });
+                                              }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                            </div>
+                                            <div className="space-y-1">
+                                              <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Congregação</label>
+                                              <Input placeholder="Ex: Assembleia de Deus" value={guest.congregation || ""} onChange={(e) => {
+                                                const g = [...formData.guests]; g[i].congregation = e.target.value; setFormData({ ...formData, guests: g });
+                                              }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                            </div>
+                                            <div className="space-y-1">
+                                              <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Foto URL / Link</label>
+                                              <Input placeholder="Link da foto..." value={guest.image || ""} onChange={(e) => {
+                                                const g = [...formData.guests]; g[i].image = e.target.value; setFormData({ ...formData, guests: g });
+                                              }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                            </div>
+                                            {!isReadOnly && (
+                                              <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500/10 text-red-500 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                <X className="w-3.5 h-3.5" />
+                                              </Button>
+                                            )}
                                           </div>
                                         ))}
                                       </div>
                                     </div>
 
+                                    {/* YouTube Video Link */}
                                     <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do vídeo</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        placeholder="https://youtube.com/..."
-                                        value={formData.videoUrl || ""}
-                                        onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Música de Fundo (Biblioteca da Rádio)</label>
-                                      <Select
-                                        value={formData.bgMusicId || "none"}
-                                        onValueChange={(val) => setFormData({ ...formData, bgMusicId: val === "none" ? "" : val })}
-                                        disabled={isReadOnly}
-                                      >
-                                        <SelectTrigger className={cn("w-full h-14 rounded-2xl border transition-all px-6 text-[11px] font-bold uppercase tracking-widest", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")}>
-                                          <SelectValue placeholder="Selecione uma música..." />
-                                        </SelectTrigger>
-                                        <SelectContent className={cn("rounded-2xl border border-white/5 shadow-2xl p-2 max-h-[300px]", isDarkMode ? "bg-[#1f1f1f] text-white" : "bg-white text-black")}>
-                                          <SelectItem value="none" className="rounded-xl focus:bg-[#BF76FF] focus:text-white uppercase font-bold text-[10px] tracking-widest py-3.5 px-4 cursor-pointer transition-colors">
-                                            Nenhuma música
-                                          </SelectItem>
-                                          {radioTracks.map((track: any) => (
-                                            <SelectItem key={track.id} value={track.id} className="rounded-xl focus:bg-[#BF76FF] focus:text-white uppercase font-bold text-[10px] tracking-widest py-3.5 px-4 cursor-pointer transition-colors">
-                                              {track.title}
-                                            </SelectItem>
-                                          ))}
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">url da moldura (criar foto)</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        placeholder="https://..."
-                                        value={formData.frameUrl || ""}
-                                        onChange={(e) => setFormData({ ...formData, frameUrl: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Links das pastas do drive</label>
-                                      <div className="flex gap-2">
-                                        <div className="relative flex-1">
-                                          <LinkIcon className="absolute left-4 top-4 w-4 h-4 text-[#BF76FF]" />
-                                          <textarea
-                                            className={cn("min-h-[56px] py-4 rounded-2xl pl-12 pr-6 border transition-all w-full resize-y", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                            placeholder="https://drive.google.com/...\n(Um link por linha para adicionar várias pastas)"
-                                            value={formData.driveFolderId || ""}
-                                            onChange={(e) => setFormData({ ...formData, driveFolderId: e.target.value })}
-                                            readOnly={isReadOnly}
-                                            rows={2}
-                                          />
-                                        </div>
-                                        {!isReadOnly && (
-                                          <Button
-                                            type="button"
-                                            onClick={syncDriveFolder}
-                                            disabled={!formData.driveFolderId || isSyncing}
-                                            className="h-14 px-6 rounded-2xl bg-[#00A859] hover:bg-[#008A49] text-white border-none transition-all font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(0,168,89,0.3)] hover:shadow-[0_0_30px_rgba(0,168,89,0.5)] active:scale-95"
-                                          >
-                                            {isSyncing ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardDrive className="w-4 h-4" />} Sincronizar
-                                          </Button>
-                                        )}
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do Vídeo no YouTube</label>
+                                      <div className="relative">
+                                        <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                                        <Input
+                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="https://www.youtube.com/watch?v=..."
+                                          value={formData.videoUrl || ""}
+                                          onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
                                       </div>
+                                    </div>
+
+                                    {/* Photo Frame Link */}
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Moldura da Foto (Criar minha foto) link/upload</label>
+                                      {!isReadOnly ? (
+                                        <UploadImages
+                                          maxFiles={1}
+                                          multiple={false}
+                                          value={formData.frameUrl}
+                                          onUploadComplete={(images) => setFormData({ ...formData, frameUrl: images[0]?.secure_url || "" })}
+                                        />
+                                      ) : (
+                                        formData.frameUrl && (
+                                          <div className="mt-2 w-32 h-32 rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                            <img src={getImageUrl(formData.frameUrl)} alt="Preview" className="w-full h-full object-cover" />
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+
+                                    {/* Observations / custom fields */}
+                                    <div className="space-y-2">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações Importantes</label>
+                                      <Textarea
+                                        className={cn("min-h-[100px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                        placeholder="Ex: Trazer roupa branca, Chegar 30min antes..."
+                                        value={formData.observations || ""}
+                                        onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                                        readOnly={isReadOnly}
+                                      />
                                     </div>
                                   </div>
                                 )}
                               </div>
                             )}
+
+                            {/* Google Drive Multi-Folder Syncer (Shared among all types) */}
+                            <div className="space-y-4 mt-6">
+                              <div className="flex items-center justify-between ml-2">
+                                <div className="space-y-0.5">
+                                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Google Drive: Pastas de Fotos</label>
+                                  <p className="text-[9px] text-gray-400 font-medium">Sincronize pastas de fotos públicas do Drive para exibir na galeria.</p>
+                                </div>
+                                {!isReadOnly && (
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      const current = formData.driveFolders || [];
+                                      setFormData({
+                                        ...formData,
+                                        driveFolders: [...current, { title: "", link: "", images: [] }]
+                                      });
+                                    }}
+                                    className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px] cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3 mr-2" /> Nova Pasta
+                                  </Button>
+                                )}
+                              </div>
+
+                              <div className="grid grid-cols-1 gap-4">
+                                {(formData.driveFolders || []).map((folder: any, i: number) => {
+                                  const isChecking = checkingFolders[i];
+                                  const isVerified = folderVerified[i];
+
+                                  return (
+                                    <div key={i} className={cn("p-6 rounded-[28px] border transition-all relative overflow-hidden", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5 shadow-sm")}>
+                                      {!isReadOnly && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const current = [...formData.driveFolders];
+                                            current.splice(i, 1);
+                                            setFormData({ ...formData, driveFolders: current });
+                                          }}
+                                          className="absolute top-4 right-4 text-red-500 hover:text-red-600 transition-colors p-2 hover:bg-red-500/10 rounded-full cursor-pointer"
+                                        >
+                                          <Trash2 className="w-4 h-4" />
+                                        </button>
+                                      )}
+
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome da Pasta (Ex: Dia 1, Louvor)</label>
+                                          <Input
+                                            className={cn("h-12 rounded-xl px-4 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={folder.title || ""}
+                                            onChange={(e) => {
+                                              const current = [...formData.driveFolders];
+                                              current[i].title = e.target.value;
+                                              setFormData({ ...formData, driveFolders: current });
+                                            }}
+                                            placeholder="Nome da Pasta..."
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Link da Pasta do Google Drive (Compartilhado Público)</label>
+                                          <div className="flex gap-2">
+                                            <Input
+                                              className={cn("h-12 rounded-xl px-4 border transition-all apple-input flex-1", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                              value={folder.link || ""}
+                                              onChange={(e) => {
+                                                const current = [...formData.driveFolders];
+                                                current[i].link = e.target.value;
+                                                setFormData({ ...formData, driveFolders: current });
+                                                if (e.target.value.length > 20) {
+                                                  checkFolderAccessibility(e.target.value, i);
+                                                }
+                                              }}
+                                              placeholder="https://drive.google.com/..."
+                                              readOnly={isReadOnly}
+                                            />
+                                            {!isReadOnly && (
+                                              <Button
+                                                type="button"
+                                                onClick={() => syncSpecificFolder(i)}
+                                                disabled={!folder.link || isSyncing}
+                                                className="h-12 px-4 rounded-xl bg-[#00A859] hover:bg-[#008A49] text-white border-none transition-all font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(0,168,89,0.2)]"
+                                              >
+                                                {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />} Sincronizar
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {folder.link && (
+                                        <div className="flex items-center gap-2 mt-3 ml-1">
+                                          {isChecking ? (
+                                            <span className="text-[9px] font-bold text-gray-400 animate-pulse flex items-center gap-1">
+                                              <Loader2 className="w-3 h-3 animate-spin text-[#BF76FF]" /> Verificando acessibilidade no Drive...
+                                            </span>
+                                          ) : isVerified ? (
+                                            <span className="text-[9px] font-bold text-green-500 flex items-center gap-1">
+                                              <CheckCircle2 className="w-3 h-3 text-green-500" /> Pasta pública e acessível. Pronto para sincronizar.
+                                            </span>
+                                          ) : (
+                                            <span className="text-[9px] font-bold text-amber-500 flex items-center gap-1">
+                                              <AlertCircle className="w-3 h-3 text-amber-500" /> Acesso restrito ou ID inválido. Compartilhe como "Qualquer pessoa com o link".
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+
+                                      {folder.images && folder.images.length > 0 && (
+                                        <div className="text-[9px] font-medium text-gray-400 mt-2 ml-1">
+                                          ✓ {folder.images.length} fotos importadas nesta pasta.
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {(!formData.driveFolders || formData.driveFolders.length === 0) && (
+                                  <div className="py-6 border border-dashed border-white/10 rounded-[24px] text-center opacity-40 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                                    Nenhuma pasta do Drive configurada
+                                  </div>
+                                )}
+                              </div>
+                            </div>
 
                             {activeTab === "noticias" && (
                               <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -5936,10 +6780,10 @@ const Admin = () => {
                                       <div className="flex-1 space-y-1">
                                         <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Início</p>
                                         <div className="relative">
-                                          <Clock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF] z-10" />
+                                          
                                           <Input
                                             type="time"
-                                            className={cn("border h-14 rounded-2xl pl-10 pr-4 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                            className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                             value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
                                             onChange={(e) => {
                                               const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
@@ -6950,42 +7794,79 @@ const Admin = () => {
                           )}
                         </>
                       ) : !isReadOnly && (
-                        <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto order-1 sm:order-2 sm:ml-auto">
-                          {activeTab === "eventos" && (
-                            <>
-                              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-[#BF76FF]/10 border border-[#BF76FF]/20">
-                                <input
-                                  type="checkbox"
-                                  id="notifyAllGlobal"
-                                  className="w-5 h-5 accent-[#BF76FF] rounded-lg cursor-pointer"
-                                  checked={formData.notifyAll || false}
-                                  onChange={(e) => setFormData({ ...formData, notifyAll: e.target.checked })}
-                                />
-                                <label htmlFor="notifyAllGlobal" className="text-[10px] font-black text-[#BF76FF] uppercase tracking-[0.2em] cursor-pointer select-none">
-                                  Notificar push
-                                </label>
+                        <div className="flex flex-col items-end gap-3 w-full sm:w-auto order-1 sm:order-2 sm:ml-auto">
+                          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                            {activeTab === "eventos" && (
+                              <>
+                                <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-[#BF76FF]/10 border border-[#BF76FF]/20">
+                                  <input
+                                    type="checkbox"
+                                    id="notifyAllGlobal"
+                                    className="w-5 h-5 accent-[#BF76FF] rounded-lg cursor-pointer"
+                                    checked={formData.notifyAll || false}
+                                    onChange={(e) => setFormData({ ...formData, notifyAll: e.target.checked })}
+                                  />
+                                  <label htmlFor="notifyAllGlobal" className="text-[10px] font-black text-[#BF76FF] uppercase tracking-[0.2em] cursor-pointer select-none">
+                                    Notificar push
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-red-500/10 border border-red-500/20">
+                                  <input
+                                    type="checkbox"
+                                    id="hideFromClicks"
+                                    className="w-5 h-5 accent-red-500 rounded-lg cursor-pointer"
+                                    checked={formData.hideFromClicks || false}
+                                    onChange={(e) => setFormData({ ...formData, hideFromClicks: e.target.checked })}
+                                  />
+                                  <label htmlFor="hideFromClicks" className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] cursor-pointer select-none">
+                                    Ocultar de Clicks Recentes
+                                  </label>
+                                </div>
+                                <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                                  <input
+                                    type="checkbox"
+                                    id="hidden"
+                                    className="w-5 h-5 accent-amber-600 rounded-lg cursor-pointer"
+                                    checked={formData.hidden || false}
+                                    onChange={(e) => setFormData({ ...formData, hidden: e.target.checked })}
+                                  />
+                                  <label htmlFor="hidden" className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] cursor-pointer select-none">
+                                    Ocultar Registro (Link Direto)
+                                  </label>
+                                </div>
+                              </>
+                            )}
+                            <Button
+                              className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50"
+                              onClick={handleSave}
+                              disabled={isSubmitting}
+                            >
+                              <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : (activeTab === 'membros' || activeTab === 'visitantes') ? "Salvar Alterações" : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
+                            </Button>
+                          </div>
+
+                          {/* Link de Acesso Direto - Exibido apenas se hidden estiver marcado */}
+                          {activeTab === "eventos" && formData.hidden && (
+                            <div className="w-full p-4 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF]">Link de Acesso Direto</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const link = `https://ministerioprofecia.com.br/eventos/${slugify(formData.title || "novo-registro")}`;
+                                    navigator.clipboard.writeText(link);
+                                    alert("Link copiado para a área de transferência!");
+                                  }}
+                                  className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
+                                >
+                                  Copiar Link
+                                </button>
                               </div>
-                              <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-red-500/10 border border-red-500/20">
-                                <input
-                                  type="checkbox"
-                                  id="hideFromClicks"
-                                  className="w-5 h-5 accent-red-500 rounded-lg cursor-pointer"
-                                  checked={formData.hideFromClicks || false}
-                                  onChange={(e) => setFormData({ ...formData, hideFromClicks: e.target.checked })}
-                                />
-                                <label htmlFor="hideFromClicks" className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] cursor-pointer select-none">
-                                  Ocultar de Clicks Recentes
-                                </label>
+                              <div className={cn("p-3 rounded-xl text-[11px] font-mono select-all overflow-x-auto break-all", isDarkMode ? "bg-black/40 text-gray-300" : "bg-white text-gray-700 border border-black/5")}>
+                                https://ministerioprofecia.com.br/eventos/{slugify(formData.title || "novo-registro")}
                               </div>
-                            </>
+                            </div>
                           )}
-                          <Button
-                            className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50"
-                            onClick={handleSave}
-                            disabled={isSubmitting}
-                          >
-                            <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : (activeTab === 'membros' || activeTab === 'visitantes') ? "Salvar Alterações" : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
-                          </Button>
                         </div>
                       )}
                       {!(isReadOnly && activeTab === "agenda-direcao") && (
@@ -7350,10 +8231,15 @@ const Admin = () => {
                     buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}
                     buttonIcon={activeTab === "eventos" ? Plus : Newspaper}
                     emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
-                    onNewEvent={() => {
+                    onNewEvent={(type) => {
                       setSelectedItem(null);
                       setFormData({
-                        organization: profile?.role || "Membro"
+                        organization: profile?.role || "Membro",
+                        typeEvent: type || 'evento',
+                        scope: 'interno',
+                        invitedMembers: [],
+                        guests: [],
+                        driveFolders: []
                       });
                       setIsReadOnly(false);
                       setIsEditing(true);
