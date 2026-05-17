@@ -102,6 +102,32 @@ app.get("/backend/test", (req, res) => {
   });
 });
 
+// Proxy para Google Drive - Evita NetworkError/CORS no frontend
+app.get("/api/drive-proxy", async (req, res) => {
+  try {
+    const folderId = req.query.id as string;
+    if (!folderId) return res.status(400).json({ error: "ID da pasta não fornecido" });
+
+    console.log(`[Drive Proxy] Sincronizando pasta: ${folderId}`);
+
+    const url = `https://drive.google.com/embeddedfolderview?id=${folderId}`;
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (!response.ok) throw new Error(`Google Drive retornou status ${response.status}`);
+
+    const content = await response.text();
+    res.setHeader("Content-Type", "text/html");
+    res.send(content);
+  } catch (error) {
+    console.error("[Drive Proxy Error]:", error);
+    res.status(500).json({ error: (error as Error).message });
+  }
+});
+
 // Rota de Broadcast de Notificações
 app.post("/backend/push/broadcast", async (req, res) => {
   console.log("[Push] Broadcast request received");
