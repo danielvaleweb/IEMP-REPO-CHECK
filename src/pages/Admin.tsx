@@ -5558,7 +5558,11 @@ const Admin = () => {
                                         className={cn(
                                           "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                           formData.typeEvent === t || (!formData.typeEvent && t === 'evento')
-                                            ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                            ? t === 'evento'
+                                              ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-lg shadow-[#FF0A6C]/25"
+                                              : t === 'culto'
+                                                ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-lg shadow-[#00FFFF]/20"
+                                                : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-lg shadow-[#FF2525]/25"
                                             : isDarkMode ? "bg-transparent text-white/50 hover:text-white" : "bg-transparent text-black/50 hover:text-black"
                                         )}
                                         onClick={() => setFormData({ ...formData, typeEvent: t })}
@@ -5745,7 +5749,7 @@ const Admin = () => {
                                     <div className="space-y-2">
                                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Local / Endereço da Visita</label>
                                       <div className="relative">
-                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF]" />
+                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF2525]" />
                                         <Input
                                           className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
                                           placeholder="Ex: Rua, Número, Bairro, Cidade..."
@@ -5780,8 +5784,6 @@ const Admin = () => {
                                           />
                                         </div>
                                       )}
-                                    </div>
-
                                      <div className="space-y-2">
                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações Importantes</label>
                                        <Textarea
@@ -5803,7 +5805,7 @@ const Admin = () => {
                                            className={cn(
                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                              formData.memberParticipation
-                                               ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                               ? "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
                                                : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
                                          )}
                                          onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
@@ -6016,7 +6018,7 @@ const Admin = () => {
                                     <div className="space-y-2">
                                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Local</label>
                                       <div className="relative">
-                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#BF76FF]" />
+                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF0A6C]" />
                                         <Input
                                           className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
                                           placeholder="Ex: Igreja IEMP - Sede"
@@ -6115,7 +6117,7 @@ const Admin = () => {
                                           className={cn(
                                             "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                             formData.memberParticipation
-                                              ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                              ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
                                               : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
                                           )}
                                           onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
@@ -6128,7 +6130,7 @@ const Admin = () => {
                                           className={cn(
                                             "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                             !formData.memberParticipation
-                                              ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                              ? "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
                                               : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
                                           )}
                                           onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
@@ -6141,7 +6143,7 @@ const Admin = () => {
                                     {formData.memberParticipation && (
                                       <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
                                         <div className="flex items-center justify-between">
-                                          <h4 className="text-xs font-black uppercase text-[#BF76FF] tracking-widest">Escala de Membros por Cargo</h4>
+                                          <h4 className="text-xs font-black uppercase text-[#FF2525] tracking-widest">Escala de Membros por Cargo</h4>
                                           <span className="text-[10px] font-bold text-gray-400">
                                             {formData.invitedMembers?.length || 0} membros selecionados
                                           </span>
@@ -6358,7 +6360,14 @@ const Admin = () => {
                                         driveFolders: [...current, { title: "", link: "", images: [] }]
                                       });
                                     }}
-                                    className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px] cursor-pointer"
+                                    className={cn(
+                                      "h-8 rounded-lg px-4 font-black uppercase text-[10px] cursor-pointer transition-all border-none",
+                                      (formData.typeEvent === "evento" || !formData.typeEvent)
+                                        ? "bg-[#FF0A6C]/10 text-[#FF0A6C] hover:bg-[#FF0A6C] hover:text-white"
+                                        : formData.typeEvent === "culto"
+                                          ? "bg-[#00FFFF]/10 text-[#00FFFF] hover:bg-[#00FFFF] hover:text-black"
+                                          : "bg-[#FF2525]/10 text-[#FF2525] hover:bg-[#FF2525] hover:text-white"
+                                    )}
                                   >
                                     <Plus className="w-3 h-3 mr-2" /> Nova Pasta
                                   </Button>
@@ -7798,15 +7807,39 @@ const Admin = () => {
                           <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
                             {activeTab === "eventos" && (
                               <>
-                                <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-[#BF76FF]/10 border border-[#BF76FF]/20">
+                                <div className={cn(
+                                  "flex items-center gap-3 px-4 py-2 rounded-2xl transition-all",
+                                  (formData.typeEvent === "evento" || !formData.typeEvent)
+                                    ? "bg-[#FF0A6C]/10 border border-[#FF0A6C]/20"
+                                    : formData.typeEvent === "culto"
+                                      ? "bg-[#00FFFF]/10 border border-[#00FFFF]/20"
+                                      : "bg-[#FF2525]/10 border border-[#FF2525]/20"
+                                )}>
                                   <input
                                     type="checkbox"
                                     id="notifyAllGlobal"
-                                    className="w-5 h-5 accent-[#BF76FF] rounded-lg cursor-pointer"
+                                    className={cn(
+                                      "w-5 h-5 rounded-lg cursor-pointer",
+                                      (formData.typeEvent === "evento" || !formData.typeEvent)
+                                        ? "accent-[#FF0A6C]"
+                                        : formData.typeEvent === "culto"
+                                          ? "accent-[#00FFFF]"
+                                          : "accent-[#FF2525]"
+                                    )}
                                     checked={formData.notifyAll || false}
                                     onChange={(e) => setFormData({ ...formData, notifyAll: e.target.checked })}
                                   />
-                                  <label htmlFor="notifyAllGlobal" className="text-[10px] font-black text-[#BF76FF] uppercase tracking-[0.2em] cursor-pointer select-none">
+                                  <label
+                                    htmlFor="notifyAllGlobal"
+                                    className={cn(
+                                      "text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer select-none",
+                                      (formData.typeEvent === "evento" || !formData.typeEvent)
+                                        ? "text-[#FF0A6C]"
+                                        : formData.typeEvent === "culto"
+                                          ? "text-[#00FFFF]"
+                                          : "text-[#FF2525]"
+                                    )}
+                                  >
                                     Notificar push
                                   </label>
                                 </div>
@@ -7837,7 +7870,16 @@ const Admin = () => {
                               </>
                             )}
                             <Button
-                              className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50"
+                              className={cn(
+                                "w-full sm:w-auto hover:opacity-90 rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 border-none transition-all shadow-lg",
+                                activeTab === "eventos"
+                                  ? (formData.typeEvent === "evento" || !formData.typeEvent)
+                                    ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-[#FF0A6C]/20"
+                                    : formData.typeEvent === "culto"
+                                      ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-[#00FFFF]/20"
+                                      : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-[#FF2525]/20"
+                                  : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-[#7300FF]/20"
+                              )}
                               onClick={handleSave}
                               disabled={isSubmitting}
                             >

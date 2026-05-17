@@ -39,6 +39,7 @@ import { firestoreService } from "@/services/firestoreService";
 
 export function VideosView({ isDark }: { isDark: boolean }) {
   const [videos, setVideos] = useState<any[]>([]);
+  const [activeMobileMenuId, setActiveMobileMenuId] = useState<string | null>(null);
   const [videoLimit, setVideoLimit] = useState(4);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -319,14 +320,14 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                 <div className="absolute inset-0 z-0">
                   <img 
                     src={getImageUrl(thumb)} 
-                    className={cn("w-full h-full object-cover transition-all duration-[2s] opacity-60 grayscale group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110")} 
+                    className={cn("w-full h-full object-cover transition-all duration-[2s] opacity-80 md:opacity-60 md:grayscale md:group-hover:grayscale-0 md:group-hover:opacity-100 md:group-hover:scale-110")} 
                     alt="" 
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90 transition-opacity group-hover:opacity-40" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-90 transition-opacity md:group-hover:opacity-40" />
                 </div>
 
-                {/* Action Icons - Appearing top right on hover */}
-                <div className="absolute top-4 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 text-white">
+                {/* Desktop Action Icons - Appearing top right on hover */}
+                <div className="absolute top-4 right-4 z-20 hidden md:flex gap-2 opacity-0 md:group-hover:opacity-100 transition-all duration-300 translate-y-2 md:group-hover:translate-y-0 text-white">
                   <button 
                     onClick={() => window.open(video.url, "_blank")}
                     title="Visualizar no YouTube"
@@ -349,6 +350,75 @@ export function VideosView({ isDark }: { isDark: boolean }) {
                     <Trash2 className="w-6 h-6 transition-colors" />
                   </button>
                 </div>
+
+                {/* Mobile Persistent Edit Pencil Icon */}
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMobileMenuId(activeMobileMenuId === video.id ? null : video.id);
+                  }}
+                  className={cn(
+                    "w-9 h-9 rounded-xl flex md:hidden items-center justify-center text-white bg-black/60 backdrop-blur-md transition-transform active:scale-95 absolute top-4 right-4 z-30 shadow-md",
+                    activeMobileMenuId === video.id && "scale-90"
+                  )}
+                >
+                  <Edit className="w-5 h-5" />
+                </button>
+
+                {/* Mobile Dynamic Actions Menu Popover */}
+                {activeMobileMenuId === video.id && (
+                  <>
+                    <div 
+                      className="absolute inset-0 z-40 bg-black/80 backdrop-blur-md animate-in fade-in duration-300"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMobileMenuId(null);
+                      }}
+                    />
+                    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6 gap-4 animate-in zoom-in-95 duration-200">
+                      <p className="text-white text-xs font-black uppercase tracking-[0.2em] mb-2 border-b border-white/10 pb-2 w-full text-center">Opções</p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMobileMenuId(null);
+                          window.open(video.url, "_blank");
+                        }}
+                        className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-white/10 text-white font-bold hover:bg-white/20 active:scale-[0.97] transition-all text-sm border border-white/10"
+                      >
+                        <Youtube className="w-4.5 h-4.5" /> Visualizar
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMobileMenuId(null);
+                          startEdit(video);
+                        }}
+                        className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black font-black active:scale-[0.97] transition-all text-sm border-none shadow-lg shadow-[#00FFFF]/10"
+                      >
+                        <Edit className="w-4.5 h-4.5 text-black" /> Editar
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMobileMenuId(null);
+                          setDeleteId(video.id);
+                        }}
+                        className="w-full h-12 rounded-xl flex items-center justify-center gap-2 bg-red-500/20 text-red-500 font-bold hover:bg-red-500/30 active:scale-[0.97] transition-all text-sm border border-red-500/20"
+                      >
+                        <Trash2 className="w-4.5 h-4.5" /> Excluir
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMobileMenuId(null);
+                        }}
+                        className="w-full h-10 rounded-xl flex items-center justify-center text-gray-400 font-medium hover:text-white transition-colors text-xs"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </>
+                )}
 
                 {/* Content Overlay */}
                 <div className="relative z-10 flex flex-col h-full p-8">
