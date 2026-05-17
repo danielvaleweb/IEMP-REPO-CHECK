@@ -2513,6 +2513,8 @@ const Admin = () => {
   const [showWhatsAppModal, setShowWhatsAppModal] = useState<any>(null);
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [isImportEventDialogOpen, setIsImportEventDialogOpen] = useState(false);
+  const [isLoadingImport, setIsLoadingImport] = useState(false);
+  const [collapsedScaleCategories, setCollapsedScaleCategories] = useState<Record<string, boolean>>({});
   const [importSearch, setImportSearch] = useState("");
   const [tempDate, setTempDate] = useState("");
   const [tempStartTime, setTempStartTime] = useState("");
@@ -2769,6 +2771,31 @@ const Admin = () => {
     }
   }, [activeTab, user, isAdmin, eventsLimit, newsLimit, videosLimit]);
 
+  // Load agenda-direcao or agenda if needed for importing
+  useEffect(() => {
+    if (!user || (!isAdmin && !profile?.role)) return;
+
+    if (isImportEventDialogOpen) {
+      const loadImportData = async () => {
+        setIsLoadingImport(true);
+        try {
+          if (activeTab === "agenda") {
+            const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60);
+            setAgendaDirecao(data);
+          } else if (activeTab === "agenda-direcao") {
+            const data = await firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60);
+            setAgenda(data);
+          }
+        } catch (err) {
+          console.error("Error loading data for import:", err);
+        } finally {
+          setIsLoadingImport(false);
+        }
+      };
+      loadImportData();
+    }
+  }, [isImportEventDialogOpen, activeTab, user, isAdmin]);
+
   // Radio Specific Listeners (Reverted to standard load in loadTabData)
 
 
@@ -2959,28 +2986,76 @@ const Admin = () => {
   };
 
   const groupedMembersByRole = useMemo(() => {
-    const groups: Record<string, any[]> = {};
-    const activeMembers = members.filter(m => m.status !== "pending" && m.name && m.name.trim() !== "");
-    activeMembers.forEach(member => {
-      let roles: string[] = [];
-      if (member.ministries && Array.isArray(member.ministries) && member.ministries.length > 0) {
-        roles = member.ministries.map((m: any) => typeof m === 'string' ? m : m.name);
-      } else if (member.role) {
-        roles = [member.role];
-      } else {
-        roles = ["Membro"];
+    const getPrimaryRole = (m: any) => {
+      const allMemberRoles = new Set<string>();
+      if (m.role) allMemberRoles.add(m.role.toLowerCase().trim());
+      if (m.roles && Array.isArray(m.roles)) {
+        m.roles.forEach((r: any) => allMemberRoles.add((typeof r === 'string' ? r : r.name).toLowerCase().trim()));
       }
-      const uniqueRoles = Array.from(new Set(roles));
-      uniqueRoles.forEach(r => {
-        const formatted = r === "Administradores" ? "Administrador Master" : r === "Desenvolvimento" ? "Desenvolvedor" : r;
-        if (!groups[formatted]) {
-          groups[formatted] = [];
+      if (m.ministries && Array.isArray(m.ministries)) {
+        m.ministries.forEach((min: any) => allMemberRoles.add((typeof min === 'string' ? min : min.name).toLowerCase().trim()));
+      }
+
+      const rolesArray = Array.from(allMemberRoles);
+
+      for (const role of allRoles) {
+        const targetRole = role.toLowerCase().trim();
+        if (targetRole === "diácono" || targetRole === "diaconisa") {
+          if (rolesArray.some(r => r.includes("diácono") || r.includes("diacono") || r.includes("diaconisa"))) return "Diácono";
+        } else {
+          if (rolesArray.some(r => r === targetRole || r.includes(targetRole))) return role;
         }
-        groups[formatted].push(member);
-      });
+      }
+      return m.role === "Visitante" ? "Visitante" : "Membro";
+    };
+
+    const grouped = new Map<string, any[]>();
+    const activeMembers = members.filter(m => m.status !== "pending" && m.name && m.name.trim() !== "");
+    
+    activeMembers.forEach(m => {
+      const pr = getPrimaryRole(m);
+      if (!grouped.has(pr)) {
+        grouped.set(pr, []);
+      }
+      grouped.get(pr)!.push(m);
     });
-    return groups;
-  }, [members]);
+
+    const orderedGroups: Record<string, any[]> = {};
+    const allPossibleRoles = allRoles.filter(r => !["Membro", "Visitante", "Administradores", "Diaconisa"].includes(r));
+
+    allPossibleRoles.forEach(rawRole => {
+      const isDiaconia = rawRole === "Diácono";
+      const displayRole = isDiaconia ? "Diácono/Diaconisa" : rawRole;
+
+      let roleMembers = grouped.get(rawRole) || [];
+      if (isDiaconia) {
+        roleMembers = [...roleMembers, ...(grouped.get("Diaconisa") || [])];
+      }
+
+      roleMembers.sort((a, b) => {
+        const isLeaderA = (a.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || a.role === "Administradores" || a.role === "Desenvolvedor";
+        const isLeaderB = (b.ministries || []).some((min: any) => typeof min === 'object' && (min.name === rawRole || (isDiaconia && min.name === "Diaconisa")) && min.isLeader) || b.role === "Administradores" || b.role === "Desenvolvedor";
+        if (isLeaderA && !isLeaderB) return -1;
+        if (!isLeaderA && isLeaderB) return 1;
+        return (a.name || "").localeCompare(b.name || "");
+      });
+
+      if (roleMembers.length > 0) {
+        orderedGroups[displayRole] = roleMembers;
+      }
+    });
+
+    const membersList = grouped.get("Membro") || [];
+    if (membersList.length > 0) {
+      orderedGroups["Membro"] = membersList;
+    }
+    const visitorsList = grouped.get("Visitante") || [];
+    if (visitorsList.length > 0) {
+      orderedGroups["Visitante"] = visitorsList;
+    }
+
+    return orderedGroups;
+  }, [members, allRoles]);
 
   const syncDriveFolder = async () => {
     if (!formData.driveFolderId) {
@@ -4497,6 +4572,7 @@ const Admin = () => {
                   <span className="text-[8px] font-black text-[#BF76FF]/40 uppercase tracking-widest bg-[#BF76FF]/5 px-2 py-0.5 rounded-full border border-[#BF76FF]/10">V1.0</span>
                 </div>
                 {canViewTab("visao-geral") && <SidebarItem icon={Home} active={activeTab === "visao-geral" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("visao-geral"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Início" collapsed={true} isDark={isDarkMode} mobile />}
+                {canViewTab("eventos") && <SidebarItem icon={PartyPopper} active={activeTab === "eventos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("eventos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Eventos" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("avisos") && <SidebarItem icon={Megaphone} active={activeTab === "avisos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Avisos" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("noticias") && <SidebarItem icon={Newspaper} active={activeTab === "noticias" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("noticias"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Notícias" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("videos") && <SidebarItem icon={Youtube} active={activeTab === "videos" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("videos"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Vídeos" collapsed={true} isDark={isDarkMode} mobile />}
@@ -5845,12 +5921,18 @@ const Admin = () => {
                                              
                                              return (
                                                <div key={`role-group-${roleName}`} className="space-y-2.5">
-                                                 <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl">
-                                                   <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                 <div onClick={() => setCollapsedScaleCategories(prev => ({ ...prev, [roleName]: !(collapsedScaleCategories[roleName] ?? true) }))} className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.04] transition-colors">
+                                                   <div className="flex items-center gap-2">
+                                                      {(collapsedScaleCategories[roleName] ?? true) ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+                                                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-400 font-mono">
+                                                        {roleMembers.filter(m => formData.invitedMembers?.some((im: any) => im.id === m.id)).length}/{roleMembers.length}
+                                                      </span>
+                                                    </div>
                                                    {!isReadOnly && (
                                                      <button
                                                        type="button"
-                                                       onClick={() => {
+                                                       onClick={(e) => { e.stopPropagation();
                                                          const currentInvited = formData.invitedMembers || [];
                                                          if (allSelected) {
                                                            const roleIds = new Set(roleMembers.map(rm => rm.id));
@@ -5876,7 +5958,7 @@ const Admin = () => {
                                                    )}
                                                  </div>
                                                  
-                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                                 {!(collapsedScaleCategories[roleName] ?? true) && ( <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                                    {roleMembers.map((member) => {
                                                      const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
                                                      return (
@@ -5919,6 +6001,7 @@ const Admin = () => {
                                                      );
                                                    })}
                                                  </div>
+                                                  )}
                                                </div>
                                              );
                                            })}
@@ -6154,15 +6237,27 @@ const Admin = () => {
                                             .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
                                             .map(([roleName, roleMembers]) => {
                                               const allSelected = roleMembers.every(m => formData.invitedMembers?.some((im: any) => im.id === m.id));
+                                              const isCollapsed = collapsedScaleCategories[roleName] ?? true;
+                                              const selectedCount = roleMembers.filter(m => formData.invitedMembers?.some((im: any) => im.id === m.id)).length;
                                               
                                               return (
                                                 <div key={`role-group-${roleName}`} className="space-y-2.5">
-                                                  <div className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl">
-                                                    <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                  <div 
+                                                    onClick={() => setCollapsedScaleCategories(prev => ({ ...prev, [roleName]: !isCollapsed }))}
+                                                    className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.04] transition-colors"
+                                                  >
+                                                    <div className="flex items-center gap-2">
+                                                      {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+                                                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-400 font-mono">
+                                                        {selectedCount}/{roleMembers.length}
+                                                      </span>
+                                                    </div>
                                                     {!isReadOnly && (
                                                       <button
                                                         type="button"
-                                                        onClick={() => {
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
                                                           const currentInvited = formData.invitedMembers || [];
                                                           if (allSelected) {
                                                             const roleIds = new Set(roleMembers.map(rm => rm.id));
@@ -6181,63 +6276,65 @@ const Admin = () => {
                                                             });
                                                           }
                                                         }}
-                                                        className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline"
+                                                        className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
                                                       >
-                                                        {allSelected ? "Remover Todos" : "Selecionar Todos"}
+                                                        {allSelected ? "Desmarcar Todos" : "Selecionar Todos"}
                                                       </button>
                                                     )}
                                                   </div>
                                                   
-                                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 px-1">
-                                                    {roleMembers.map((member) => {
-                                                      const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
-                                                      return (
-                                                        <div
-                                                          key={`member-select-${member.id}`}
-                                                          onClick={() => {
-                                                            if (isReadOnly) return;
-                                                            const currentInvited = formData.invitedMembers || [];
-                                                            if (isSelected) {
-                                                              setFormData({
-                                                                ...formData,
-                                                                invitedMembers: currentInvited.filter((im: any) => im.id !== member.id)
-                                                              });
-                                                            } else {
-                                                              setFormData({
-                                                                ...formData,
-                                                                invitedMembers: [...currentInvited, { id: member.id, name: member.name, photo: member.photoURL }]
-                                                              });
-                                                            }
-                                                          }}
-                                                          className={cn(
-                                                            "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
-                                                            isSelected
-                                                              ? "bg-[#BF76FF]/15 border-[#BF76FF]/35"
-                                                              : "bg-white/[0.01] border-white/5 hover:bg-white/[0.04]"
-                                                          )}
-                                                        >
-                                                          <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 shrink-0">
-                                                              {member.photoURL ? (
-                                                                <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" />
-                                                              ) : (
-                                                                <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold text-xs">
-                                                                  {member.name?.[0]}
-                                                                </div>
-                                                              )}
+                                                  {!isCollapsed && (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                      {roleMembers.map((member) => {
+                                                        const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
+                                                        return (
+                                                          <div
+                                                            key={`member-select-${member.id}`}
+                                                            onClick={() => {
+                                                              if (isReadOnly) return;
+                                                              const currentInvited = formData.invitedMembers || [];
+                                                              if (isSelected) {
+                                                                setFormData({
+                                                                  ...formData,
+                                                                  invitedMembers: currentInvited.filter((im: any) => im.id !== member.id)
+                                                                });
+                                                              } else {
+                                                                setFormData({
+                                                                  ...formData,
+                                                                  invitedMembers: [...currentInvited, { id: member.id, name: member.name, photo: member.photoURL }]
+                                                                });
+                                                              }
+                                                            }}
+                                                            className={cn(
+                                                              "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                                              isSelected
+                                                                ? "bg-[#BF76FF]/15 border-[#BF76FF]/35"
+                                                                : "bg-white/[0.01] border-white/5 hover:bg-white/[0.04]"
+                                                            )}
+                                                          >
+                                                            <div className="flex items-center gap-3">
+                                                              <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 shrink-0">
+                                                                {member.photoURL ? (
+                                                                  <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" />
+                                                                ) : (
+                                                                  <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold text-xs">
+                                                                    {member.name?.[0]}
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                              <span className="text-[11px] font-bold text-white truncate max-w-[120px]">{member.name}</span>
                                                             </div>
-                                                            <span className="text-[11px] font-bold text-white truncate max-w-[120px]">{member.name}</span>
+                                                            <div className={cn(
+                                                              "w-5 h-5 rounded-md flex items-center justify-center transition-all",
+                                                              isSelected ? "bg-[#BF76FF] text-white" : "bg-white/10 text-transparent"
+                                                            )}>
+                                                              <Check className="w-3.5 h-3.5" />
+                                                            </div>
                                                           </div>
-                                                          <div className={cn(
-                                                            "w-5 h-5 rounded-md flex items-center justify-center transition-all",
-                                                            isSelected ? "bg-[#BF76FF] text-white" : "bg-white/10 text-transparent"
-                                                          )}>
-                                                            <Check className="w-3.5 h-3.5" />
-                                                          </div>
-                                                        </div>
-                                                      );
-                                                    })}
-                                                  </div>
+                                                        );
+                                                      })}
+                                                    </div>
+                                                  )}
                                                 </div>
                                               );
                                             })}
@@ -10531,21 +10628,31 @@ const Admin = () => {
 
             <div className="flex-1 overflow-y-auto px-8 pb-8 scrollbar-thin scrollbar-thumb-[#BF76FF]/20">
               <div className="space-y-3 pt-4">
-                {eventsToImport.length > 0 ? (
+                {isLoadingImport ? (
+                  <div className="text-center py-20">
+                    <Loader2 className={cn("w-12 h-12 mx-auto mb-4 animate-spin", activeTab === 'agenda-direcao' ? "text-[#BF76FF]" : "text-green-500")} />
+                    <p className="text-sm font-bold opacity-60">Carregando eventos...</p>
+                  </div>
+                ) : eventsToImport.length > 0 ? (
                   eventsToImport.map((event) => (
                     <div
                       key={`${event.type}-${event.id}`}
                       onClick={() => handleImportEvent(event)}
                       className={cn(
                         "p-4 rounded-2xl border transition-all cursor-pointer group flex items-center justify-between",
-                        isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10 hover:border-[#BF76FF]/30" : "bg-gray-50 border-black/5 hover:bg-white hover:shadow-lg hover:border-[#BF76FF]/30"
+                        isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-gray-50 border-black/5 hover:bg-white hover:shadow-lg",
+                        activeTab === 'agenda-direcao' ? "hover:border-[#BF76FF]/30" : "hover:border-green-500/30"
                       )}
                     >
                       <div className="flex items-center gap-4">
                         {event.thumbnail ? (
                           <img src={event.thumbnail} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />
                         ) : (
-                          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", event.type === 'post' ? "bg-blue-500/10 text-blue-500" : "bg-orange-500/10 text-orange-500")}>
+                          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", 
+                            activeTab === 'agenda-direcao' 
+                              ? "bg-[#BF76FF]/10 text-[#BF76FF]" 
+                              : "bg-green-500/10 text-green-500"
+                          )}>
                             {event.type === 'post' ? <Star className="w-6 h-6" /> : <Calendar className="w-6 h-6" />}
                           </div>
                         )}
@@ -10559,7 +10666,7 @@ const Admin = () => {
                           </div>
                         </div>
                       </div>
-                      <Button variant="ghost" size="icon" className="group-hover:text-[#BF76FF] transition-colors rounded-full">
+                      <Button variant="ghost" size="icon" className={cn("transition-colors rounded-full", activeTab === 'agenda-direcao' ? "group-hover:text-[#BF76FF]" : "group-hover:text-green-500")}>
                         <Plus className="w-4 h-4" />
                       </Button>
                     </div>
