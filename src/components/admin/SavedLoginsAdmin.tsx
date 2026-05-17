@@ -85,7 +85,7 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
     }
   };
 
-  const handleUnlock = (e: React.FormEvent) => {
+  const handleUnlock = async (e: React.FormEvent) => {
     e.preventDefault();
     if (masterPasswordInput === SECURITY_PIN) {
       setUnlockedItem(masterPasswordModal);
