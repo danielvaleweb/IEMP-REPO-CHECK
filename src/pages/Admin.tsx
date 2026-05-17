@@ -99,6 +99,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { appAlert, appConfirm } from "@/lib/modalHelpers";
 
 // Lazy sub-views
 import { UploadImages } from "@/components/UploadImages";
@@ -2159,6 +2160,9 @@ const Admin = () => {
       await deleteDoc(doc(db, "members", memberToProcess.id));
       firestoreService.clearCache("members");
 
+      // Atualiza state local imediatamente
+      setMembers(prev => prev.filter(m => m.id !== memberToProcess.id));
+
       setIsMemberRejectModalOpen(false);
       setRejectionReason("");
       setMemberToProcess(null);
@@ -2284,7 +2288,7 @@ const Admin = () => {
       }
 
       if (unreadReal.length === 0) {
-        if (unreadSynthetic.length === 0) alert("Nenhuma notificação não lida!");
+        if (unreadSynthetic.length === 0) { appAlert("Nenhuma notificação não lida!", "info"); return; }
         return;
       }
 
@@ -2296,7 +2300,7 @@ const Admin = () => {
       const updatePromises = unreadReal.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }));
       await Promise.all(updatePromises);
     } catch (err: any) {
-      alert("Erro ao marcar como lido: " + err.message);
+      appAlert("Erro ao marcar como lido: " + err.message, "error");
       console.error("Error marking notifications as read:", err);
     }
   };
@@ -2322,7 +2326,7 @@ const Admin = () => {
         await Promise.all(deletePromises);
       }
     } catch (err: any) {
-      alert("Erro ao limpar notificações: " + err.message);
+      appAlert("Erro ao limpar notificações: " + err.message, "error");
       console.error("Error clearing notifications:", err);
     }
   };
@@ -2919,7 +2923,7 @@ const Admin = () => {
     try {
       const response = await fetch(`/api/drive-proxy?id=${folderId}`);
       if (!response.ok) {
-        alert("Erro ao acessar a pasta do Google Drive.");
+        appAlert("Erro ao acessar a pasta do Google Drive.", "error");
         setIsSyncing(false);
         return;
       }
@@ -2974,13 +2978,13 @@ const Admin = () => {
           ...formData,
           driveFolders: folders
         });
-        alert(`${uniqueIds.length} fotos importadas e sincronizadas com sucesso para a pasta "${folder.title || 'Galeria'}"!`);
+        appAlert(`${uniqueIds.length} fotos importadas e sincronizadas com sucesso para a pasta "${folder.title || 'Galeria'}"!`, "success", "Fototeca sincronizada");
       } else {
-        alert("Nenhuma imagem pública encontrada nesta pasta. Certifique-se de que a pasta está compartilhada como 'Qualquer pessoa com o link'.");
+        appAlert("Nenhuma imagem pública encontrada nesta pasta. Certifique-se de que a pasta está compartilhada como 'Qualquer pessoa com o link'.", "warning", "Nenhuma foto encontrada");
       }
     } catch (err) {
       console.error(err);
-      alert("Erro ao sincronizar pasta.");
+      appAlert("Erro ao sincronizar pasta.", "error");
     } finally {
       setIsSyncing(false);
     }
@@ -3060,7 +3064,7 @@ const Admin = () => {
 
   const syncDriveFolder = async () => {
     if (!formData.driveFolderId) {
-      alert("Por favor, cole os links das pastas do Google Drive primeiro.");
+      appAlert("Por favor, cole os links das pastas do Google Drive primeiro.", "warning");
       return;
     }
 
@@ -3169,13 +3173,13 @@ const Admin = () => {
           gallery: combinedUnique,
           driveFolderId: ""
         });
-        alert(`${allIds.length} fotos detectadas com sucesso nas pastas fornecidas! Foram adicionadas à galeria.`);
+        appAlert(`${allIds.length} fotos detectadas com sucesso nas pastas fornecidas! Foram adicionadas à galeria.`, "success", "Fotos sincronizadas");
       } else {
-        alert("Nenhuma foto encontrada. Certifique-se de que:\n1. Os links são de PASTAS (não fotos individuais).\n2. As pastas estão como 'Qualquer pessoa com o link pode ver'.\n3. Existem fotos (JPG/PNG) dentro das pastas.");
+        appAlert("Nenhuma foto encontrada. Certifique-se de que:\n1. Os links são de PASTAS (não fotos individuais).\n2. As pastas estão como 'Qualquer pessoa com o link pode ver'.\n3. Existem fotos (JPG/PNG) dentro das pastas.", "warning", "Nenhuma foto encontrada");
       }
     } catch (err) {
       console.error("Erro ao sincronizar pasta:", err);
-      alert("Erro ao conectar com o Google Drive. Verifique se o link está correto e se a pasta é pública.");
+      appAlert("Erro ao conectar com o Google Drive. Verifique se o link está correto e se a pasta é pública.", "error");
     } finally {
       setIsSyncing(false);
     }
@@ -3195,17 +3199,17 @@ const Admin = () => {
       // Basic validations before saving
       if (activeTab === "radio") {
         if (radioSubTab === "tracks" && (!formData.title || !formData.youtubeId)) {
-          alert("Por favor, preencha o título e cole um link válido do YouTube.");
+          appAlert("Por favor, preencha o título e cole um link válido do YouTube.", "warning");
           setIsSubmitting(false);
           return;
         }
         if (radioSubTab === "vignettes" && (!formData.title || !formData.youtubeUrl)) {
-          alert("Por favor, preencha o título e passe um link para a vinheta.");
+          appAlert("Por favor, preencha o título e passe um link para a vinheta.", "warning");
           setIsSubmitting(false);
           return;
         }
         if (radioSubTab === "artists" && !formData.name) {
-          alert("Por favor, insira o nome do artista.");
+          appAlert("Por favor, insira o nome do artista.", "warning");
           setIsSubmitting(false);
           return;
         }
@@ -3588,7 +3592,7 @@ const Admin = () => {
           origin: { y: 0.6 },
           colors: ['#BF76FF', '#7300FF', '#CC7EFF', '#ffffff']
         });
-        alert("Alterações salvas com sucesso!");
+        appAlert("Alterações salvas com sucesso!", "success", "Salvo");
       }
 
       setIsEditing(false);
@@ -3786,13 +3790,13 @@ const Admin = () => {
     }
 
     if (!organizer) {
-      alert("Organizador não encontrado na lista de membros.");
+      appAlert("Organizador não encontrado na lista de membros.", "warning");
       return;
     }
 
     const phone = organizer.phone || organizer.whatsapp;
     if (!phone) {
-      alert("Organizador não possui telefone ou WhatsApp cadastrado.");
+      appAlert("Organizador não possui telefone ou WhatsApp cadastrado.", "warning");
       return;
     }
 
@@ -8023,7 +8027,7 @@ const Admin = () => {
                                   onClick={() => {
                                     const link = `https://ministerioprofecia.com.br/eventos/${slugify(formData.title || "novo-registro")}`;
                                     navigator.clipboard.writeText(link);
-                                    alert("Link copiado para a área de transferência!");
+                                    appAlert("Link copiado para a área de transferência!", "success");
                                   }}
                                   className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
                                 >
@@ -8263,6 +8267,11 @@ const Admin = () => {
                                         onReject={(m) => {
                                           setMemberToProcess(m);
                                           setIsMemberRejectModalOpen(true);
+                                        }}
+                                        onApprove={(memberId: string) => {
+                                          setMembers((prev: any[]) => prev.map((m: any) =>
+                                            m.id === memberId ? { ...m, status: 'active' } : m
+                                          ));
                                         }}
                                         onDelete={(canDelete || member.email === user?.email) ? () => handleDelete(member, "members") : undefined}
                                         isDark={isDarkMode}
@@ -9720,7 +9729,7 @@ const Admin = () => {
                                   <Button
                                     variant="ghost"
                                     onClick={async () => {
-                                      if (window.confirm("Deseja realmente excluir este relato?")) {
+                                      if (await appConfirm("Deseja realmente excluir este relato?", "Excluir relato", "Sim, excluir")) {
                                         try {
                                           await deleteDoc(doc(db, "bug-reports", bug.id));
                                           logAction("excluir", "bug-reports", `Excluiu relato de bug: ${bug.id}`);
@@ -9933,7 +9942,7 @@ const Admin = () => {
                         setItemToReject(null);
                       } catch (error) {
                         console.error("Error rejecting request: ", error);
-                        alert("Erro ao reprovar solicitação.");
+                        appAlert("Erro ao reprovar solicitação.", "error");
                       }
                     }}
                   >
@@ -11627,12 +11636,13 @@ interface TeamMemberProps {
   onDelete?: () => void;
   onUpdateRole?: (member: any) => void;
   onReject?: (member: any) => void;
+  onApprove?: (memberId: string) => void;
   isDark?: boolean;
   isAdmin?: boolean;
   logAction?: (action: string, target: string, details: string, oldData?: any, newData?: any) => void;
 }
 
-function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, onEditProfile, onDelete, onUpdateRole, onReject, isDark, isAdmin, logAction }: TeamMemberProps) {
+function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, onEditProfile, onDelete, onUpdateRole, onReject, onApprove, isDark, isAdmin, logAction }: TeamMemberProps) {
   const [showTooltip, setShowTooltip] = useState(false);
   const name = member.name || "Membro";
   const status = member.status_online || "offline";
@@ -11766,6 +11776,9 @@ function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, o
                 }
                 await updateDoc(doc(db, "members", member.id), updateData);
                 firestoreService.clearCache("members");
+
+                // Atualiza state local imediatamente (remove do pending)
+                if (onApprove) onApprove(member.id);
 
                 // WhatsApp Logic
                 const roleName = formatRoles(member);

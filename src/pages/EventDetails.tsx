@@ -13,6 +13,7 @@ import Navbar from "@/components/layout/Navbar";
 import CreatePhotoModal from "@/components/CreatePhotoModal";
 import { firestoreService } from "@/services/firestoreService";
 import { useCachedDoc, useCachedCollection } from "@/hooks/useFirestore";
+import { appAlert } from "@/lib/modalHelpers";
 
 const playSuccessSound = () => {
   try {
@@ -275,7 +276,7 @@ export default function EventDetails() {
       });
     } catch(err) {
       console.error(err);
-      alert("Erro ao enviar feedback");
+      appAlert("Erro ao enviar feedback", "error");
     } finally {
       setSubmittingFeedback(false);
     }
@@ -294,7 +295,7 @@ export default function EventDetails() {
       }
     } else {
       navigator.clipboard.writeText(url);
-      alert("Link da imagem copiado!");
+      appAlert("Link da imagem copiado!", "success");
     }
   };
 
@@ -1084,7 +1085,7 @@ export default function EventDetails() {
                 </Button>
                 <Button 
                   variant="ghost" 
-                  onClick={() => alert("Favoritado! (funcionalidade em desenvolvimento)")}
+                  onClick={() => appAlert("Favoritado! (funcionalidade em desenvolvimento)", "info")}
                   className="bg-white/10 hover:bg-pink-500/20 text-white hover:text-pink-500 rounded-full w-12 h-12 p-0 cursor-pointer"
                 >
                   <Heart className="w-5 h-5" />

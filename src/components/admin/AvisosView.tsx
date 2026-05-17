@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { appAlert, appConfirm } from "@/lib/modalHelpers";
 
 /**
  * Componente simplificado para geração e envio de avisos via Push Notification.
@@ -17,11 +18,11 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
 
   const handleSendPush = async () => {
     if (!title || !message) {
-      alert("Por favor, preencha o título e a mensagem.");
+      await appAlert("Por favor, preencha o título e a mensagem.", "warning");
       return;
     }
 
-    if (!window.confirm("Isso enviará uma notificação para TODOS os membros. Deseja continuar?")) return;
+    if (!await appConfirm("Isso enviará uma notificação para TODOS os membros. Deseja continuar?", "Enviar para todos", "Sim, enviar")) return;
 
     setIsSendingPush(true);
     try {
@@ -50,17 +51,17 @@ export function AvisosView({ isDark }: { isDark?: boolean }) {
       const data = await res.json();
       
       if (data.success) {
-        alert("Sucesso! Notificação disparada para todos os dispositivos.");
+        await appAlert("Sucesso! Notificação disparada para todos os dispositivos.", "success", "Aviso enviado");
         // Limpa os campos após o envio
         setTitle("");
         setMessage("");
         setImageUrl("");
       } else {
-        alert("Erro ao enviar: " + (data.error || "Erro desconhecido"));
+        await appAlert("Erro ao enviar: " + (data.error || "Erro desconhecido"), "error");
       }
     } catch (error) {
       console.error("Erro ao enviar push:", error);
-      alert("Falha na conexão com o servidor de notificações.");
+      await appAlert("Falha na conexão com o servidor de notificações.", "error");
     } finally {
       setIsSendingPush(false);
     }

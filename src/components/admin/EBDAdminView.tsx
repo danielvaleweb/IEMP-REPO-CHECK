@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { appAlert } from "@/lib/modalHelpers";
 import { jsPDF } from 'jspdf';
 import { firestoreService } from "@/services/firestoreService";
 
@@ -58,7 +59,7 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
 
   const generateSupportMaterial = async (lesson: any) => {
     if (!lesson.transcript) {
-      alert("Esta aula não possui uma transcrição cadastrada para gerar o material.");
+      await appAlert("Esta aula não possui uma transcrição cadastrada para gerar o material.", "warning");
       return;
     }
 
@@ -122,7 +123,7 @@ export function EBDAdminView({ isDark }: { isDark: boolean }) {
       setTimeout(() => setPdfGenerationStatus(''), 3000);
     } catch (error) {
       console.error(error);
-      alert("Erro ao gerar PDF: " + (error as Error).message);
+      await appAlert("Erro ao gerar PDF: " + (error as Error).message, "error");
     } finally {
       setIsGeneratingPdf(false);
       setActiveLessonForGen(null);

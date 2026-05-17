@@ -17,6 +17,7 @@ import { firestoreService } from '@/services/firestoreService';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
 import { Link, useNavigate } from 'react-router-dom';
+import { appAlert } from '@/lib/modalHelpers';
 
 const getYoutubeId = (url: string) => {
   if (!url) return "";
@@ -121,7 +122,7 @@ export default function EBD() {
 
   const generateSupportMaterial = async () => {
     if (!currentLesson?.transcript) {
-      alert("Esta aula não possui uma transcrição cadastrada.");
+      await appAlert("Esta aula não possui uma transcrição cadastrada.", "warning");
       return;
     }
 
@@ -185,7 +186,7 @@ export default function EBD() {
       setTimeout(() => setPdfGenerationStatus(''), 3000);
     } catch (error) {
       console.error(error);
-      alert("Erro ao gerar PDF: " + (error as Error).message);
+      await appAlert("Erro ao gerar PDF: " + (error as Error).message, "error");
     } finally {
       setIsGeneratingPdf(false);
     }

@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
 
 import { useRadio } from '@/contexts/RadioContext';
+import { appAlert } from '@/lib/modalHelpers';
 
 export default function RadioPage() {
   const { user, profile, isAdmin } = useAuth();
@@ -226,7 +227,7 @@ export default function RadioPage() {
             )}
             <div className="flex bg-white/5 rounded-full p-1 backdrop-blur-md w-full sm:w-auto overflow-x-auto border border-white/10 scrollbar-hide">
               <TabButton active={activeTab === 'discover'} onClick={() => { setActiveTab('discover'); setCurrentPlaylist(null); }}>Descobrir</TabButton>
-              <TabButton active={activeTab === 'playlists'} onClick={() => { if (user) { setActiveTab('playlists'); setCurrentPlaylist(null); } else alert("Faça login para criar playlists.") }}>Playlists</TabButton>
+              <TabButton active={activeTab === 'playlists'} onClick={() => { if (user) { setActiveTab('playlists'); setCurrentPlaylist(null); } else appAlert("Faça login para criar playlists.", "info") }}>Playlists</TabButton>
               <TabButton active={activeTab === 'live'} onClick={() => { setActiveTab('live'); setCurrentPlaylist(null); }}>Ao Vivo</TabButton>
             </div>
           </div>
@@ -349,7 +350,7 @@ export default function RadioPage() {
                           isPlaying={isPlaying && currentTrack?.id === track.id}
                           onClick={() => handlePlay(track, filteredTracks)}
                           onAdd={() => {
-                            if (!user) return alert("Faça login para adicionar às suas playlists.");
+                            if (!user) { appAlert("Faça login para adicionar às suas playlists.", "info"); return; }
                             setSelectedTrackToAdd(track);
                             setIsAddToPlaylistOpen(true);
                           }}

@@ -5,6 +5,7 @@ import { collection, addDoc, serverTimestamp, doc, updateDoc, deleteDoc, query, 
 import { db } from '@/lib/firebase';
 import { Music, Plus, Play, Pause, Search, User, Youtube, Trash2, Edit, X, Save, Mic, Speaker, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { appAlert, appConfirm } from '@/lib/modalHelpers';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -110,7 +111,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
 
   const handleSaveSong = async () => {
     if (!formData.name || !formData.key || !targetMemberId) {
-      alert("Por favor, preencha o nome da música, o tom e selecione o vocalista.");
+      await appAlert("Por favor, preencha o nome da música, o tom e selecione o vocalista.", "warning");
       return;
     }
 
@@ -136,7 +137,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
       setIsModalOpen(false);
     } catch (error) {
       console.error("Erro ao salvar música:", error);
-      alert("Erro ao salvar música.");
+      await appAlert("Erro ao salvar música.", "error");
     }
   };
 
@@ -161,7 +162,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Deseja realmente excluir esta música?")) {
+    if (await appConfirm("Deseja realmente excluir esta música?", "Excluir música", "Sim, excluir")) {
       try {
         await deleteDoc(doc(db, "member-songs", id));
       } catch (error) {

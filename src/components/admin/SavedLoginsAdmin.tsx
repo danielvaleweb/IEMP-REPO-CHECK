@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Copy, Plus, Save, Key, User, ArrowLeft, Eye, EyeOff, Lock, Trash } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { appAlert } from "@/lib/modalHelpers";
 import { db } from '@/lib/firebase';
 import { firestoreService } from '@/services/firestoreService';
 import { collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp } from 'firebase/firestore';
@@ -59,7 +60,7 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
       fetchLogins();
     } catch (e) {
       console.error(e);
-      alert("Erro ao salvar login.");
+      await appAlert("Erro ao salvar login.", "error");
     }
   };
 
@@ -80,7 +81,7 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
         console.error(e);
       }
     } else {
-      alert("Contra-senha incorreta!");
+      await appAlert("Contra-senha incorreta!", "error", "Acesso negado");
     }
   };
 
@@ -91,7 +92,7 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
       setMasterPasswordModal(null);
       setMasterPasswordInput("");
     } else {
-      alert("Contra-senha incorreta!");
+      await appAlert("Contra-senha incorreta!", "error", "Acesso negado");
     }
   };
 

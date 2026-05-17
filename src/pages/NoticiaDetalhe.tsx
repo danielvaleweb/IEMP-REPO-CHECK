@@ -24,6 +24,7 @@ import { doc, getDoc, collection, query, orderBy, limit, getDocs, where } from "
 import { db } from "@/lib/firebase";
 import Markdown from "react-markdown";
 import { getImageUrl } from "@/lib/utils";
+import { appAlert } from "@/lib/modalHelpers";
 
 declare global {
   interface Window {
@@ -140,14 +141,14 @@ export default function NoticiaDetalhe() {
       case 'instagram':
         // Instagram doesn't have a direct share link, just copy URL
         navigator.clipboard.writeText(url);
-        alert("Link copiado para o Instagram!");
+        appAlert("Link copiado para o Instagram!", "success");
         break;
       case 'native':
         if (navigator.share) {
           navigator.share({ title: text, url });
         } else {
           navigator.clipboard.writeText(url);
-          alert("Link copiado!");
+          appAlert("Link copiado!", "success");
         }
         break;
     }

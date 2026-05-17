@@ -8,6 +8,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { RadioProvider } from "@/contexts/RadioContext";
+import { AppModalProvider } from "@/contexts/AppModalContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
@@ -124,16 +125,18 @@ function AppContent() {
 export default function App() {
   return (
     <ErrorBoundary isAdminPage={false}>
-      <AuthProvider>
-        <FavoritesProvider>
-          <RadioProvider>
-            <Router>
-              <AppContent />
-            </Router>
-            <GlobalPlayer />
-          </RadioProvider>
-        </FavoritesProvider>
-      </AuthProvider>
+      <AppModalProvider>
+        <AuthProvider>
+          <FavoritesProvider>
+            <RadioProvider>
+              <Router>
+                <AppContent />
+              </Router>
+              <GlobalPlayer />
+            </RadioProvider>
+          </FavoritesProvider>
+        </AuthProvider>
+      </AppModalProvider>
     </ErrorBoundary>
   );
 }
