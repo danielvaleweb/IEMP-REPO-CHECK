@@ -58,6 +58,7 @@ export default function EventDetails() {
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [visiblePhotosCount, setVisiblePhotosCount] = useState(4);
   const [driveVisibleCounts, setDriveVisibleCounts] = useState<Record<number, number>>({});
+  const [memberPhotos, setMemberPhotos] = useState<Record<string, string>>({});
   const [isPastEvent, setIsPastEvent] = useState(false);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
@@ -65,6 +66,26 @@ export default function EventDetails() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // Fetch member photos from Firestore (dashboard photos)
+  useEffect(() => {
+    const ids = (event?.invitedMembers || []).map((m: any) => m.id).filter(Boolean);
+    if (ids.length === 0) return;
+    const fetchPhotos = async () => {
+      const photos: Record<string, string> = {};
+      await Promise.all(ids.map(async (memberId: string) => {
+        try {
+          const snap = await getDoc(doc(db, 'members', memberId));
+          if (snap.exists()) {
+            const data = snap.data();
+            if (data.photoURL) photos[memberId] = data.photoURL;
+          }
+        } catch {}
+      }));
+      setMemberPhotos(photos);
+    };
+    fetchPhotos();
+  }, [event?.invitedMembers]);
 
   // Derived state for current event feedbacks
   useEffect(() => {
@@ -534,36 +555,51 @@ export default function EventDetails() {
           >
             <div className="flex items-center gap-4 mb-6">
               <div className="w-8 h-[2px] bg-[#BF76FF]" />
-              <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-white">Quem vai</h3>
-              <span className="text-xs font-bold text-white/40 uppercase tracking-widest">{invitedMembers.length} confirmados</span>
+              <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-white">
+                {isPastEvent ? 'Membros que foram.' : 'Membros que Vão!'}
+              </h3>
+              <span className="text-xs font-bold text-white/40 uppercase tracking-widest">{invitedMembers.length} {isPastEvent ? 'participaram' : 'confirmados'}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {invitedMembers.map((m: any, idx: number) => (
-                <motion.div
-                  key={`invited-${m.id || idx}`}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: idx * 0.03, type: 'spring', bounce: 0.4 }}
-                  title={m.name}
-                  className="relative group cursor-default"
-                >
-                  {m.photoURL ? (
-                    <img
-                      src={getImageUrl(m.photoURL)}
-                      alt={m.name}
-                      className="w-12 h-12 rounded-full object-cover border-2 border-[#BF76FF]/40 group-hover:border-[#BF76FF] group-hover:scale-110 transition-all duration-300 shadow-lg"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#BF76FF] to-pink-500 flex items-center justify-center text-white font-black text-base border-2 border-[#BF76FF]/40 group-hover:border-[#BF76FF] group-hover:scale-110 transition-all duration-300 shadow-lg">
-                      {m.name?.charAt(0)?.toUpperCase() || '?'}
+              {invitedMembers.map((m: any, idx: number) => {
+                const photo = memberPhotos[m.id] || m.photoURL;
+                return (
+                  <motion.div
+                    key={`invited-${m.id || idx}`}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: idx * 0.03, type: 'spring', bounce: 0.4 }}
+                    className="relative group cursor-default"
+                  >
+                    {/* Avatar */}
+                    {photo ? (
+                      <img
+                        src={getImageUrl(photo)}
+                        alt={m.name}
+                        className="w-12 h-12 rounded-full object-cover border-2 border-[#BF76FF]/40 group-hover:border-[#BF76FF] group-hover:scale-110 transition-all duration-300 shadow-lg"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#BF76FF] to-pink-500 flex items-center justify-center text-white font-black text-base border-2 border-[#BF76FF]/40 group-hover:border-[#BF76FF] group-hover:scale-110 transition-all duration-300 shadow-lg">
+                        {m.name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                    {/* Rich tooltip with photo + name */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-50 flex flex-col items-center gap-2">
+                      <div className="bg-black/95 backdrop-blur border border-white/10 rounded-2xl p-3 flex flex-col items-center gap-2 shadow-2xl min-w-[90px]">
+                        {photo ? (
+                          <img src={getImageUrl(photo)} alt={m.name} className="w-16 h-16 rounded-xl object-cover" />
+                        ) : (
+                          <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#BF76FF] to-pink-500 flex items-center justify-center text-white font-black text-2xl">
+                            {m.name?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                        )}
+                        <p className="text-white text-[10px] font-bold whitespace-nowrap text-center leading-tight">{m.name}</p>
+                      </div>
+                      <div className="w-2 h-2 bg-black/95 rotate-45 border-b border-r border-white/10" />
                     </div>
-                  )}
-                  {/* Tooltip on hover */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 bg-black/90 text-white text-[10px] font-bold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-50">
-                    {m.name}
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                );
+              })}
             </div>
           </motion.div>
         )}
@@ -683,7 +719,7 @@ export default function EventDetails() {
         {/* Feedbacks Display Area */}
         {isPastEvent && feedbacks.length > 0 && (
           <div className="w-full flex justify-center w-full max-w-4xl mx-auto mt-12 mb-4 px-4">
-             <div className="w-full bg-white/5 backdrop-blur-sm rounded-[2rem] p-6 max-h-[800px] overflow-y-auto border border-white/10">
+             <div className="w-full bg-white/5 backdrop-blur-sm rounded-[2rem] p-6 border border-white/10">
                 <h4 className="text-xl font-bold text-white uppercase tracking-widest text-center mb-6">O que a galera achou</h4>
                 <div className="space-y-4">
                   {feedbacks.map((f, idx) => {
@@ -836,7 +872,7 @@ export default function EventDetails() {
             {visiblePhotosCount < event.gallery.length && (
               <div className="w-full flex justify-center mt-8 relative z-20">
                 <Button
-                  onClick={() => setVisiblePhotosCount((prev) => prev + 12)}
+                  onClick={() => setVisiblePhotosCount((prev) => prev + 5)}
                   className="bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full px-8 py-3 h-auto uppercase tracking-widest text-xs font-bold transition-all hover:scale-105 cursor-pointer"
                 >
                   Exibir mais
@@ -864,7 +900,7 @@ export default function EventDetails() {
               </div>
 
               {foldersWithImages.map((folder: any, fi: number) => {
-                const folderVisible = driveVisibleCounts[fi] ?? 10;
+                const folderVisible = driveVisibleCounts[fi] ?? 4;
                 const visibleImages = folder.images.slice(0, folderVisible);
                 const hasMore = folderVisible < folder.images.length;
 
@@ -916,7 +952,8 @@ export default function EventDetails() {
                       )}
 
                       {visibleImages.map((imgId: string, index: number) => {
-                        const imgUrl = `/api/drive-image?id=${imgId}`;
+                        const thumbUrl = `/api/drive-image?id=${imgId}&thumb=1`; // ~50KB miniatura
+                        const fullUrl  = `/api/drive-image?id=${imgId}`;          // full size p/ abrir
                         let spanClasses = "col-span-1 row-span-1";
                         if (index % 7 === 0) spanClasses = "col-span-2 row-span-2";
                         else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1";
@@ -927,19 +964,28 @@ export default function EventDetails() {
                             key={`drive-img-${fi}-${imgId}-${index}`}
                             data-drive-img="true"
                             className={cn(
-                              "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500",
+                              "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
                               spanClasses,
                               !user && "filter blur-xl opacity-50 cursor-not-allowed scale-[0.98]",
                               user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 hover:scale-[1.02] border border-white/10"
                             )}
                             onClick={() => user && setSelectedPhotoIndex(folder.images.length * fi + index)}
                           >
+                            {/* Skeleton shimmer while loading */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-white/[0.07] to-white/[0.03] animate-pulse" />
                             <WatermarkOverlay title={event.title} />
                             <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
                             <img
-                              src={imgUrl}
+                              src={thumbUrl}
                               alt={`Foto ${index + 1}`}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out bg-white/5"
+                              loading="lazy"
+                              decoding="async"
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out relative z-[1]"
+                              onLoad={(e) => {
+                                // Remove shimmer once loaded
+                                const shimmer = (e.target as HTMLElement).previousElementSibling?.previousElementSibling as HTMLElement;
+                                if (shimmer) shimmer.style.display = 'none';
+                              }}
                               onError={(e) => {
                                 const parent = (e.target as HTMLElement).closest('[data-drive-img]') as HTMLElement;
                                 if (parent) parent.style.display = 'none';
@@ -949,13 +995,13 @@ export default function EventDetails() {
                               <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
                                 <Button
                                   className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
-                                  onClick={(e) => { e.stopPropagation(); window.open(imgUrl, '_blank'); }}
+                                  onClick={(e) => { e.stopPropagation(); window.open(fullUrl, '_blank'); }}
                                 >
                                   <Eye className="w-5 h-5" />
                                 </Button>
                                 <Button
                                   className="pointer-events-auto bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 cursor-pointer"
-                                  onClick={(e) => { e.stopPropagation(); sharePhoto(imgUrl); }}
+                                  onClick={(e) => { e.stopPropagation(); sharePhoto(fullUrl); }}
                                 >
                                   <Share className="w-5 h-5" />
                                 </Button>
@@ -970,7 +1016,7 @@ export default function EventDetails() {
                     {hasMore && (
                       <div className="flex justify-center mt-8">
                         <Button
-                          onClick={() => setDriveVisibleCounts(prev => ({ ...prev, [fi]: (prev[fi] ?? 10) + 10 }))}
+                          onClick={() => setDriveVisibleCounts(prev => ({ ...prev, [fi]: (prev[fi] ?? 4) + 5 }))}
                           className="bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-full px-8 py-3 h-auto uppercase tracking-widest text-xs font-bold transition-all hover:scale-105 cursor-pointer"
                         >
                           Ver mais ({folder.images.length - folderVisible} restantes)
