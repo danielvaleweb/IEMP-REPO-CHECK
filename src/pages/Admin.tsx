@@ -5760,7 +5760,7 @@ const Admin = () => {
                                       </div>
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Organizer / Contact Info */}
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Nome do Organizador / Responsável</label>
                                         <Input
@@ -5805,7 +5805,7 @@ const Admin = () => {
                                            className={cn(
                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                              formData.memberParticipation
-                                               ? "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
+                                               ? "bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20"
                                                : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
                                          )}
                                          onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
@@ -5818,7 +5818,7 @@ const Admin = () => {
                                          className={cn(
                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                            !formData.memberParticipation
-                                             ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                             ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
                                              : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
                                          )}
                                          onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
@@ -5831,13 +5831,13 @@ const Admin = () => {
                                    {formData.memberParticipation && (
                                      <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
                                        <div className="flex items-center justify-between">
-                                         <h4 className="text-xs font-black uppercase text-[#BF76FF] tracking-widest">Escala de Membros por Cargo</h4>
+                                         <h4 className="text-xs font-black uppercase text-[#10B981] tracking-widest">Escala de Membros por Cargo</h4>
                                          <span className="text-[10px] font-bold text-gray-400">
                                            {formData.invitedMembers?.length || 0} membros selecionados
                                          </span>
                                        </div>
                                        
-                                       <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
+                                       <div className="space-y-6">
                                          {Object.entries(groupedMembersByRole)
                                            .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
                                            .map(([roleName, roleMembers]) => {
@@ -6117,7 +6117,7 @@ const Admin = () => {
                                           className={cn(
                                             "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                             formData.memberParticipation
-                                              ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
+                                              ? "bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20"
                                               : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
                                           )}
                                           onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
@@ -6130,7 +6130,7 @@ const Admin = () => {
                                           className={cn(
                                             "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
                                             !formData.memberParticipation
-                                              ? "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
+                                              ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
                                               : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
                                           )}
                                           onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
@@ -6143,13 +6143,13 @@ const Admin = () => {
                                     {formData.memberParticipation && (
                                       <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
                                         <div className="flex items-center justify-between">
-                                          <h4 className="text-xs font-black uppercase text-[#FF2525] tracking-widest">Escala de Membros por Cargo</h4>
+                                          <h4 className="text-xs font-black uppercase text-[#10B981] tracking-widest">Escala de Membros por Cargo</h4>
                                           <span className="text-[10px] font-bold text-gray-400">
                                             {formData.invitedMembers?.length || 0} membros selecionados
                                           </span>
                                         </div>
                                         
-                                        <div className="space-y-6 max-h-[450px] overflow-y-auto pr-2 scrollbar-thin">
+                                        <div className="space-y-6">
                                           {Object.entries(groupedMembersByRole)
                                             .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
                                             .map(([roleName, roleMembers]) => {
@@ -6277,11 +6277,31 @@ const Admin = () => {
                                                 const g = [...formData.guests]; g[i].congregation = e.target.value; setFormData({ ...formData, guests: g });
                                               }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
                                             </div>
-                                            <div className="space-y-1">
-                                              <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Foto URL / Link</label>
-                                              <Input placeholder="Link da foto..." value={guest.image || ""} onChange={(e) => {
-                                                const g = [...formData.guests]; g[i].image = e.target.value; setFormData({ ...formData, guests: g });
-                                              }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                            <div className="space-y-2 col-span-1 md:col-span-3 border-t border-white/5 pt-4 mt-2">
+                                              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Foto do Convidado</label>
+                                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                                                <div className="space-y-1">
+                                                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção A: Upload da Foto</label>
+                                                  <UploadImages
+                                                    maxFiles={1}
+                                                    multiple={false}
+                                                    value={guest.image || ""}
+                                                    onUploadComplete={(images) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: images[0]?.secure_url || "" } : g) })}
+                                                  />
+                                                </div>
+                                                <div className="space-y-1.5 self-start">
+                                                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção B: Ou cole o Link/URL da foto</label>
+                                                  <Input 
+                                                    placeholder="Ex: https://exemplo.com/foto.jpg" 
+                                                    value={guest.image || ""} 
+                                                    onChange={(e) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: e.target.value } : g) })}
+                                                    className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} 
+                                                  />
+                                                  {guest.image && (
+                                                    <p className="text-[9px] text-[#10B981] font-bold ml-1">✓ Imagem vinculada com sucesso.</p>
+                                                  )}
+                                                </div>
+                                              </div>
                                             </div>
                                             {!isReadOnly && (
                                               <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500/10 text-red-500 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

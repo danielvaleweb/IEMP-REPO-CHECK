@@ -443,45 +443,7 @@ export default function EventDetails() {
           )}
         </div>
 
-        {/* Info & Observations Cards */}
-        {(event.additionalInfo || event.observations) && (
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.8 }}
-            className="w-full grid grid-cols-1 md:grid-cols-2 gap-6 mb-16"
-          >
-            {event.additionalInfo && (
-              <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-[32px] p-8 flex flex-col gap-4 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-[#BF76FF]/10 blur-3xl -mr-16 -mt-16 group-hover:bg-[#BF76FF]/20 transition-colors" />
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-[#BF76FF]/20 flex items-center justify-center text-[#BF76FF]">
-                    <Info className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-lg font-black uppercase tracking-tight text-white/90">Contato e Informações</h3>
-                </div>
-                <p className="text-gray-300 leading-relaxed text-sm md:text-base whitespace-pre-wrap">
-                  {event.additionalInfo}
-                </p>
-              </div>
-            )}
-            
-            {event.observations && (
-              <div className="bg-amber-500/5 backdrop-blur-md border border-amber-500/20 rounded-[32px] p-8 flex flex-col gap-4 relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-amber-500/20 transition-colors" />
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-500/20 flex items-center justify-center text-amber-500">
-                    <AlertCircle className="w-5 h-5" />
-                  </div>
-                  <h3 className="text-lg font-black uppercase tracking-tight text-white/90">Observações Importantes</h3>
-                </div>
-                <p className="text-gray-300 leading-relaxed text-sm md:text-base italic whitespace-pre-wrap">
-                  {event.observations}
-                </p>
-              </div>
-            )}
-          </motion.div>
-        )}
+
 
         {/* Content Structure */}
         <div className="w-full flex flex-col lg:flex-row gap-8 lg:gap-16 items-start justify-center mt-4">
