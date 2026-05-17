@@ -6566,13 +6566,21 @@ const Admin = () => {
                                             <span className="text-[9px] font-bold text-gray-400 animate-pulse flex items-center gap-1">
                                               <Loader2 className="w-3 h-3 animate-spin text-[#BF76FF]" /> Verificando acessibilidade no Drive...
                                             </span>
-                                          ) : isVerified ? (
+                                          ) : isVerified === true ? (
                                             <span className="text-[9px] font-bold text-green-500 flex items-center gap-1">
                                               <CheckCircle2 className="w-3 h-3 text-green-500" /> Pasta pública e acessível. Pronto para sincronizar.
                                             </span>
-                                          ) : (
+                                          ) : isVerified === false ? (
                                             <span className="text-[9px] font-bold text-amber-500 flex items-center gap-1">
                                               <AlertCircle className="w-3 h-3 text-amber-500" /> Acesso restrito ou ID inválido. Compartilhe como "Qualquer pessoa com o link".
+                                            </span>
+                                          ) : folder.images && folder.images.length > 0 ? (
+                                            <span className="text-[9px] font-bold text-green-500 flex items-center gap-1">
+                                              <CheckCircle2 className="w-3 h-3 text-green-500" /> {folder.images.length} fotos já sincronizadas.
+                                            </span>
+                                          ) : (
+                                            <span className="text-[9px] font-bold text-gray-400 flex items-center gap-1">
+                                              <HardDrive className="w-3 h-3" /> Clique em Sincronizar para importar as fotos.
                                             </span>
                                           )}
                                         </div>

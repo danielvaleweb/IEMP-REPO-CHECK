@@ -388,9 +388,11 @@ export default function EventDetails() {
   const youtubeId = getYoutubeVideoId(event.youtubeLink);
 
   const guests = event.guests || [];
-  const hasOrganizer = Boolean(event.organizer || event.organization);
-  const organizerDisplay = event.organizer || event.organization || "Organizador Local";
-  const organizerImage = event.organizerImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(organizerDisplay)}&background=BF76FF&color=fff&size=512`;
+  const invitedMembers = event.invitedMembers || [];
+  // Organizer card only shows when both name (organizer field specifically) AND image are filled
+  const hasOrganizer = Boolean(event.organizer && event.organizerImage);
+  const organizerDisplay = event.organizer || "";
+  const organizerImage = event.organizerImage || "";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#2C0037] to-[#10001D] text-white font-sans selection:bg-[#BF76FF]/40 selection:text-white relative overflow-hidden flex flex-col pb-32">
@@ -501,7 +503,7 @@ export default function EventDetails() {
              })}
           </div>
 
-          {/* Organizer Card - Right Side */}
+          {/* Organizer Card - Right Side (only when image AND name are filled) */}
           {hasOrganizer && (
             <div className="w-full lg:w-[400px] xl:w-[450px] shrink-0 mt-8 lg:mt-0 flex justify-center lg:justify-end">
                <motion.div 
@@ -520,6 +522,44 @@ export default function EventDetails() {
             </div>
           )}
         </div>
+
+        {/* Invited Members Section */}
+        {invitedMembers.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="w-full mt-16"
+          >
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-8 h-[2px] bg-[#BF76FF]" />
+              <h3 className="text-2xl md:text-3xl font-black uppercase tracking-tighter text-white">Quem vai</h3>
+            </div>
+            <div className="flex flex-wrap gap-4">
+              {invitedMembers.map((m: any, idx: number) => (
+                <motion.div
+                  key={`invited-${m.id || idx}`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 hover:bg-white/10 transition-colors"
+                >
+                  {m.photoURL ? (
+                    <img src={getImageUrl(m.photoURL)} alt={m.name} className="w-9 h-9 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#BF76FF] to-pink-500 flex items-center justify-center text-white font-black text-sm">
+                      {m.name?.charAt(0) || '?'}
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-white font-bold text-sm leading-tight">{m.name}</p>
+                    {m.role && <p className="text-gray-400 text-[10px] uppercase tracking-widest">{m.role}</p>}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
 
         {/* Info & Call to Action Bar */}
         <motion.div 
@@ -856,7 +896,8 @@ export default function EventDetails() {
                     )}
 
                     {folder.images.map((imgId: string, index: number) => {
-                      const imgUrl = `https://lh3.googleusercontent.com/d/${imgId}`;
+                      // Route through our backend proxy to avoid Google Drive CORS/hotlink restrictions
+                      const imgUrl = `/api/drive-image?id=${imgId}`;
                       let spanClasses = "col-span-1 row-span-1";
                       if (index % 7 === 0) spanClasses = "col-span-2 row-span-2";
                       else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1";
@@ -865,6 +906,7 @@ export default function EventDetails() {
                       return (
                         <div
                           key={`drive-img-${fi}-${imgId}-${index}`}
+                          data-drive-img="true"
                           className={cn(
                             "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500",
                             spanClasses,
@@ -878,8 +920,11 @@ export default function EventDetails() {
                           <img
                             src={imgUrl}
                             alt={`Foto ${index + 1}`}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out bg-white/5"
+                            onError={(e) => { 
+                              const parent = (e.target as HTMLElement).closest('[data-drive-img]') as HTMLElement;
+                              if (parent) parent.style.display = 'none';
+                            }}
                           />
                           {user && (
                             <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">

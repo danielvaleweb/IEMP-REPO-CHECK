@@ -509,6 +509,36 @@ const PORT = 3000;
     }
   });
 
+  // Proxy de imagem do Google Drive - Serve a imagem diretamente para evitar bloqueios CORS
+  app.get("/api/drive-image", async (req, res) => {
+    try {
+      const fileId = req.query.id as string;
+      if (!fileId) return res.status(400).json({ error: "ID do arquivo não fornecido" });
+
+      const url = `https://drive.google.com/uc?export=view&id=${fileId}`;
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://drive.google.com/'
+        },
+        redirect: 'follow'
+      });
+
+      if (!response.ok) throw new Error(`Google Drive retornou status ${response.status}`);
+
+      const contentType = response.headers.get('content-type') || 'image/jpeg';
+      const buffer = await response.arrayBuffer();
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(Buffer.from(buffer));
+    } catch (error) {
+      console.error("[Drive Image Proxy Error]:", error);
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+
+
   app.post("/api/admin/update-firebase-config", async (req, res) => {
     try {
       const newConfig = req.body;
