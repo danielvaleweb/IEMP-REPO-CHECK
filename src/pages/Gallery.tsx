@@ -482,6 +482,19 @@ export default function Gallery() {
     return visiblePhotos.slice(0, photosLimit);
   }, [visiblePhotos, photosLimit]);
 
+  // Split photos into chunks of 7 to build row-isolated grids
+  const photoChunks = useMemo(() => {
+    const chunks: string[][] = [];
+    for (let i = 0; i < paginatedPhotos.length; i += 7) {
+      chunks.push(paginatedPhotos.slice(i, i + 7));
+    }
+    return chunks;
+  }, [paginatedPhotos]);
+
+
+
+
+
   const renderPhotoOverlay = (photo: string, actualIdx: number) => {
     const req = getPhotoRemovalRequest(photo);
     return (
@@ -583,14 +596,14 @@ export default function Gallery() {
     );
   }
 
-  // Split photos into chunks of 7 to build row-isolated grids
-  const photoChunks = useMemo(() => {
-    const chunks: string[][] = [];
-    for (let i = 0; i < paginatedPhotos.length; i += 7) {
-      chunks.push(paginatedPhotos.slice(i, i + 7));
-    }
-    return chunks;
-  }, [paginatedPhotos]);
+
+
+
+
+
+
+
+
 
   return (
     <div className="pt-24 pb-12 min-h-screen bg-black text-white">
@@ -752,272 +765,148 @@ export default function Gallery() {
               </div>
             </div>
 
-            {isMobile ? (
-              /* Mobile Carousel Mode - Optimized with Pagination to prevent crashes */
-              <div className="space-y-6">
-                <div 
-                  ref={mobileCarouselRef}
-                  className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-4"
-                >
-                  {paginatedPhotos.map((photo, idx) => {
-                    const actualIdx = idx;
-                    const req = getPhotoRemovalRequest(photo);
-                    return (
-                      <div 
-                        key={`mobile-photo-${actualIdx}`}
-                        className="min-w-[85vw] aspect-[3/4] rounded-[2.5rem] overflow-hidden snap-center relative shadow-2xl bg-white/5 border border-white/10"
-                      >
-                        <WatermarkOverlay title={selectedAlbum.title} />
-                        <img 
-                          src={getImageUrl(photo)} 
-                          alt="" 
-                          loading="lazy"
-                          className="w-full h-full object-cover" 
-                        />
-                        
-                        {isAdmin && req && (
-                          <div className="absolute top-4 left-4 z-20 bg-amber-500 text-black px-4 py-1.5 rounded-full font-black text-[10px] uppercase flex items-center gap-2">
-                            <AlertCircle className="w-3 h-3" /> Solicitação de Remoção
+            {/* Desktop & Mobile Template-Grid Mode — idêntico ao print */}
+            <div className="space-y-3 md:space-y-6 animate-in fade-in duration-500">
+              {photoChunks.map((chunk, chunkIdx) => {
+                const baseIdx = chunkIdx * 7;
+                
+                return (
+                  <div key={`chunk-${chunkIdx}`} className="space-y-3 md:space-y-6">
+                    {/* Row 1: Photos 0 & 1 */}
+                    {chunk.length > 0 && (
+                      <div className="grid grid-cols-3 gap-3 md:gap-6">
+                        {chunk[0] && (
+                          <div
+                            onClick={() => setSelectedPhotoIndex(baseIdx + 0)}
+                            className="col-span-2 aspect-[16/10] rounded-[1.2rem] md:rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                          >
+                            <WatermarkOverlay title={selectedAlbum.title} />
+                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                            <img
+                              src={getImageUrl(chunk[0])}
+                              alt={`Foto ${baseIdx + 1}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            {renderPhotoOverlay(chunk[0], baseIdx + 0)}
                           </div>
                         )}
-
-                        {/* Corner Actions */}
-                        <div className="absolute bottom-6 right-6 flex items-center gap-2">
-                          <div className="relative">
-                            <Button 
-                              size="icon" 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSharePhoto(photo);
-                              }}
-                              className={cn(
-                                "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 shadow-xl transition-all",
-                                sharingPhotoUrl === photo ? "bg-primary text-black" : "bg-black/40 text-white"
-                              )}
-                            >
-                              <Share2 className="w-4 h-4" />
-                            </Button>
-
-                            <AnimatePresence>
-                              {sharingPhotoUrl === photo && (
-                                <motion.div
-                                  key={`share-menu-mobile-${photo}`}
-                                  ref={shareMenuRef}
-                                  initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                  className="absolute bottom-full mb-3 right-0 bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl z-50 min-w-[140px]"
-                                >
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      shareToWhatsApp(photo);
-                                    }}
-                                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                  >
-                                    <MessageCircle className="w-3.5 h-3.5 text-green-500" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      copyToClipboard(photo);
-                                    }}
-                                    className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                  >
-                                    <Copy className="w-3.5 h-3.5 text-blue-500" />
-                                    <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
-                                  </button>
-                                  <div className="absolute -bottom-1.5 right-4 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
-                                </motion.div>
-                              )}
-                            </AnimatePresence>
+                        {chunk[1] && (
+                          <div
+                            onClick={() => setSelectedPhotoIndex(baseIdx + 1)}
+                            className="col-span-1 aspect-[10/13] rounded-[1.2rem] md:rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                          >
+                            <WatermarkOverlay title={selectedAlbum.title} />
+                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                            <img
+                              src={getImageUrl(chunk[1])}
+                              alt={`Foto ${baseIdx + 2}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            {renderPhotoOverlay(chunk[1], baseIdx + 1)}
                           </div>
-                          <Button 
-                            size="icon" 
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                downloadWithWatermark(photo, selectedAlbum.title);
-                            }}
-                            className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          <Button 
-                            size="icon" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedPhotoIndex(actualIdx);
-                              setShowInfoModal(true);
-                            }}
-                            className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 text-white hover:text-red-500 hover:bg-white/20 shadow-xl transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                        
-                        <div className="absolute top-6 right-6">
-                          <Button 
-                            size="icon" 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleToggleFavorite(selectedAlbum, photo);
-                            }}
-                            className={cn(
-                              "w-12 h-12 rounded-2xl backdrop-blur-md border border-white/20 transition-all",
-                              favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : "bg-black/20 text-white"
-                            )}
-                          >
-                            <Heart className={cn("w-5 h-5", favoriteIds.includes(photo) && "fill-current")} />
-                          </Button>
-                        </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              /* Desktop Template-Grid Mode — idêntico ao print */
-              <div className="space-y-6 animate-in fade-in duration-500">
-                {photoChunks.map((chunk, chunkIdx) => {
-                  const baseIdx = chunkIdx * 7;
-                  
-                  return (
-                    <div key={`chunk-${chunkIdx}`} className="space-y-6">
-                      {/* Row 1: Photos 0 & 1 */}
-                      {chunk.length > 0 && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          {chunk[0] && (
-                            <div
-                              onClick={() => setSelectedPhotoIndex(baseIdx + 0)}
-                              className="col-span-1 md:col-span-2 aspect-[4/3] md:aspect-[16/10] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
-                            >
-                              <WatermarkOverlay title={selectedAlbum.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                              <img
-                                src={getImageUrl(chunk[0])}
-                                alt={`Foto ${baseIdx + 1}`}
-                                loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              />
-                              {renderPhotoOverlay(chunk[0], baseIdx + 0)}
-                            </div>
-                          )}
-                          {chunk[1] && (
-                            <div
-                              onClick={() => setSelectedPhotoIndex(baseIdx + 1)}
-                              className="col-span-1 aspect-[4/3] md:aspect-[10/13] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
-                            >
-                              <WatermarkOverlay title={selectedAlbum.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                              <img
-                                src={getImageUrl(chunk[1])}
-                                alt={`Foto ${baseIdx + 2}`}
-                                loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              />
-                              {renderPhotoOverlay(chunk[1], baseIdx + 1)}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                    )}
 
-                      {/* Row 2: Photos 2, 3 & 4 */}
-                      {chunk.length > 2 && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          {chunk[2] && (
-                            <div
-                              onClick={() => setSelectedPhotoIndex(baseIdx + 2)}
-                              className="col-span-1 aspect-[3/4] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
-                            >
-                              <WatermarkOverlay title={selectedAlbum.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                              <img
-                                src={getImageUrl(chunk[2])}
-                                alt={`Foto ${baseIdx + 3}`}
-                                loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              />
-                              {renderPhotoOverlay(chunk[2], baseIdx + 2)}
-                            </div>
-                          )}
-                          {chunk[3] && (
-                            <div
-                              onClick={() => setSelectedPhotoIndex(baseIdx + 3)}
-                              className="col-span-1 aspect-square rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
-                            >
-                              <WatermarkOverlay title={selectedAlbum.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                              <img
-                                src={getImageUrl(chunk[3])}
-                                alt={`Foto ${baseIdx + 4}`}
-                                loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              />
-                              {renderPhotoOverlay(chunk[3], baseIdx + 3)}
-                            </div>
-                          )}
-                          {chunk[4] && (
-                            <div
-                              onClick={() => setSelectedPhotoIndex(baseIdx + 4)}
-                              className="col-span-1 aspect-[3/4] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
-                            >
-                              <WatermarkOverlay title={selectedAlbum.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                              <img
-                                src={getImageUrl(chunk[4])}
-                                alt={`Foto ${baseIdx + 5}`}
-                                loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              />
-                              {renderPhotoOverlay(chunk[4], baseIdx + 4)}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                    {/* Row 2: Photos 2, 3 & 4 */}
+                    {chunk.length > 2 && (
+                      <div className="grid grid-cols-3 gap-3 md:gap-6">
+                        {chunk[2] && (
+                          <div
+                            onClick={() => setSelectedPhotoIndex(baseIdx + 2)}
+                            className="col-span-1 aspect-[3/4] rounded-[1.2rem] md:rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                          >
+                            <WatermarkOverlay title={selectedAlbum.title} />
+                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                            <img
+                              src={getImageUrl(chunk[2])}
+                              alt={`Foto ${baseIdx + 3}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            {renderPhotoOverlay(chunk[2], baseIdx + 2)}
+                          </div>
+                        )}
+                        {chunk[3] && (
+                          <div
+                            onClick={() => setSelectedPhotoIndex(baseIdx + 3)}
+                            className="col-span-1 aspect-square rounded-[1.2rem] md:rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                          >
+                            <WatermarkOverlay title={selectedAlbum.title} />
+                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                            <img
+                              src={getImageUrl(chunk[3])}
+                              alt={`Foto ${baseIdx + 4}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            {renderPhotoOverlay(chunk[3], baseIdx + 3)}
+                          </div>
+                        )}
+                        {chunk[4] && (
+                          <div
+                            onClick={() => setSelectedPhotoIndex(baseIdx + 4)}
+                            className="col-span-1 aspect-[3/4] rounded-[1.2rem] md:rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                          >
+                            <WatermarkOverlay title={selectedAlbum.title} />
+                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                            <img
+                              src={getImageUrl(chunk[4])}
+                              alt={`Foto ${baseIdx + 5}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            {renderPhotoOverlay(chunk[4], baseIdx + 4)}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                      {/* Row 3: Photos 5 & 6 */}
-                      {chunk.length > 5 && (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          {chunk[5] && (
-                            <div
-                              onClick={() => setSelectedPhotoIndex(baseIdx + 5)}
-                              className="col-span-1 aspect-[4/3] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
-                            >
-                              <WatermarkOverlay title={selectedAlbum.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                              <img
-                                src={getImageUrl(chunk[5])}
-                                alt={`Foto ${baseIdx + 6}`}
-                                loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              />
-                              {renderPhotoOverlay(chunk[5], baseIdx + 5)}
-                            </div>
-                          )}
-                          {chunk[6] && (
-                            <div
-                              onClick={() => setSelectedPhotoIndex(baseIdx + 6)}
-                              className="col-span-1 md:col-span-2 aspect-[4/3] md:aspect-[21/10] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
-                            >
-                              <WatermarkOverlay title={selectedAlbum.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
-                              <img
-                                src={getImageUrl(chunk[6])}
-                                alt={`Foto ${baseIdx + 7}`}
-                                loading="lazy"
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
-                              />
-                              {renderPhotoOverlay(chunk[6], baseIdx + 6)}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    {/* Row 3: Photos 5 & 6 */}
+                    {chunk.length > 5 && (
+                      <div className="grid grid-cols-3 gap-3 md:gap-6">
+                        {chunk[5] && (
+                          <div
+                            onClick={() => setSelectedPhotoIndex(baseIdx + 5)}
+                            className="col-span-1 aspect-[4/3] rounded-[1.2rem] md:rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                          >
+                            <WatermarkOverlay title={selectedAlbum.title} />
+                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                            <img
+                              src={getImageUrl(chunk[5])}
+                              alt={`Foto ${baseIdx + 6}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            {renderPhotoOverlay(chunk[5], baseIdx + 5)}
+                          </div>
+                        )}
+                        {chunk[6] && (
+                          <div
+                            onClick={() => setSelectedPhotoIndex(baseIdx + 6)}
+                            className="col-span-2 aspect-[21/10] rounded-[1.2rem] md:rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                          >
+                            <WatermarkOverlay title={selectedAlbum.title} />
+                            <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                            <img
+                              src={getImageUrl(chunk[6])}
+                              alt={`Foto ${baseIdx + 7}`}
+                              loading="lazy"
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                            />
+                            {renderPhotoOverlay(chunk[6], baseIdx + 6)}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+
 
             {/* Unified Exibir Mais Button */}
             {visiblePhotos.length > photosLimit && (
