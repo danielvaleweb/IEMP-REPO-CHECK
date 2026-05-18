@@ -149,7 +149,21 @@ export default function Gallery() {
     setShowMobileShare(false);
   }, [selectedPhotoIndex]);
 
+  const [dragDirection, setDragDirection] = useState<"left" | "right" | null>(null);
+
+  const handleDrag = (_event: any, info: any) => {
+    const dragThreshold = 15;
+    if (info.offset.x < -dragThreshold) {
+      setDragDirection("left");
+    } else if (info.offset.x > dragThreshold) {
+      setDragDirection("right");
+    } else {
+      setDragDirection(null);
+    }
+  };
+
   const handleDragEnd = (_event: any, info: any) => {
+    setDragDirection(null);
     const swipeThreshold = 50;
     if (info.offset.x < -swipeThreshold) {
       // Swipe Left -> next photo
@@ -1233,6 +1247,30 @@ export default function Gallery() {
             <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden">
               <div className="relative w-full max-h-[60vh] flex items-center justify-center">
                 <WatermarkOverlay title={selectedAlbum.title} size="normal" />
+                {(() => {
+                  const len = visiblePhotos.length;
+                  let targetIdx = selectedPhotoIndex;
+                  if (dragDirection === "left") {
+                    targetIdx = (selectedPhotoIndex + 1) % len;
+                  } else if (dragDirection === "right") {
+                    targetIdx = (selectedPhotoIndex - 1 + len) % len;
+                  }
+                  return (
+                    <>
+                      {/* Underlay target image */}
+                      {dragDirection && (
+                        <motion.img
+                          key={`mobile-lightbox-underlay-${targetIdx}`}
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 0.95, opacity: 0.5 }}
+                          exit={{ opacity: 0 }}
+                          src={getImageUrl(visiblePhotos[targetIdx])}
+                          className="absolute max-w-full max-h-[60vh] object-contain rounded-3xl border border-white/5 opacity-50 select-none pointer-events-none"
+                        />
+                      )}
+                    </>
+                  );
+                })()}
                 <motion.img
                   key={`mobile-lightbox-${selectedPhotoIndex}`}
                   initial={{ scale: 0.95, opacity: 0, x: 0 }}
@@ -1242,9 +1280,10 @@ export default function Gallery() {
                   drag="x"
                   dragConstraints={{ left: 0, right: 0 }}
                   dragElastic={0.7}
+                  onDrag={handleDrag}
                   onDragEnd={handleDragEnd}
                   src={getImageUrl(visiblePhotos[selectedPhotoIndex])}
-                  className="max-w-full max-h-[60vh] object-contain rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5"
+                  className="relative z-10 max-w-full max-h-[60vh] object-contain rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5 touch-none"
                 />
               </div>
             </div>
