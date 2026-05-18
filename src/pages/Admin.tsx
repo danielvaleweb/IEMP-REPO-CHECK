@@ -7492,16 +7492,18 @@ const Admin = () => {
                                   <Italic className="w-4 h-4" />
                                 </Button>
                                 <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
-                                      title="Emojis"
-                                    >
-                                      <Smile className="w-4 h-4" />
-                                    </Button>
+                                  <DropdownMenuTrigger
+                                    render={
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
+                                        title="Emojis"
+                                      />
+                                    }
+                                  >
+                                    <Smile className="w-4 h-4" />
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className={cn("p-2 grid grid-cols-5 gap-1 min-w-[160px] z-[100]", isDarkMode ? "bg-[#1A1A1A] border-white/10" : "bg-white border-black/10")}>
                                     {["😀", "😍", "🙏", "✨", "🔥", "❤️", "🙌", "😊", "😎", "✝️", "📖", "⛪", "🎶", "🕊️", "💎"].map(emoji => (

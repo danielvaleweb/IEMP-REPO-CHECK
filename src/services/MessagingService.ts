@@ -1,8 +1,21 @@
-import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 import { auth, db } from "@/lib/firebase";
 import { doc, updateDoc, arrayUnion } from "firebase/firestore";
 
 const VAPID_KEY = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
+
+const getSafeMessaging = async () => {
+  try {
+    if (typeof window === "undefined" || !("Notification" in window) || !("serviceWorker" in navigator)) {
+      return null;
+    }
+    const supported = await isSupported();
+    if (!supported) return null;
+    return getMessaging();
+  } catch (e) {
+    return null;
+  }
+};
 
 export const requestNotificationPermission = async () => {
   try {
@@ -29,7 +42,11 @@ export const requestNotificationPermission = async () => {
 
 export const saveMessagingToken = async () => {
   try {
-    const messaging = getMessaging();
+    const messaging = await getSafeMessaging();
+    if (!messaging) {
+      console.warn('Firebase Messaging is not supported or blocked in this browser.');
+      return;
+    }
     const currentToken = await getToken(messaging, { vapidKey: VAPID_KEY });
     
     if (currentToken) {
@@ -59,14 +76,22 @@ export const saveMessagingToken = async () => {
 };
 
 export const onMessageListener = () =>
-  new Promise((resolve) => {
-    const messaging = getMessaging();
-    onMessage(messaging, (payload) => {
-      console.log("Message received in foreground: ", payload);
-      // Opcional: mostrar um alerta customizado ou toast aqui
-      if (payload.notification) {
-        alert(`${payload.notification.title}\n\n${payload.notification.body}`);
+  new Promise(async (resolve, reject) => {
+    try {
+      const messaging = await getSafeMessaging();
+      if (!messaging) {
+        resolve(null);
+        return;
       }
-      resolve(payload);
-    });
+      onMessage(messaging, (payload) => {
+        console.log("Message received in foreground: ", payload);
+        // Opcional: mostrar um alerta customizado ou toast aqui
+        if (payload.notification) {
+          alert(`${payload.notification.title}\n\n${payload.notification.body}`);
+        }
+        resolve(payload);
+      });
+    } catch (err) {
+      reject(err);
+    }
   });
