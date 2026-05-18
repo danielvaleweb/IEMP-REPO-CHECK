@@ -1596,7 +1596,68 @@ const Admin = () => {
 
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
   const [isReadOnly, setIsReadOnly] = useState(false);
+
+  const handleFocusProfileField = (field: string) => {
+    const m = profile || members.find((x: any) => x.email === user?.email);
+    if (!m) return;
+
+    setSelectedItem(m);
+    setFormData(m);
+    setIsReadOnly(false);
+    setIsEditing(true);
+    setViewingMember(null);
+    setActiveTab("membros");
+
+    setHighlightedFields([field]);
+
+    setTimeout(() => {
+      const element = document.getElementById(`field-${field}`);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const input = element.querySelector('input, textarea') || element;
+        if (input && typeof (input as any).focus === 'function') {
+          (input as any).focus();
+        }
+      }
+    }, 300);
+  };
+
+  const handleCompleteProfileAll = () => {
+    const m = profile || members.find((x: any) => x.email === user?.email);
+    if (!m) return;
+
+    setSelectedItem(m);
+    setFormData(m);
+    setIsReadOnly(false);
+    setIsEditing(true);
+    setViewingMember(null);
+    setActiveTab("membros");
+
+    const emptyFields: string[] = [];
+    if (!m.photoURL) emptyFields.push('photoURL');
+    if (!m.instagram) emptyFields.push('instagram');
+    if (!m.churchSkills || m.churchSkills.trim().length === 0) emptyFields.push('churchSkills');
+    if (!(m.bio !== undefined ? m.bio : m.additionalInfo)) emptyFields.push('bio');
+    if (!m.professionalArea) emptyFields.push('professionalArea');
+
+    setHighlightedFields(emptyFields);
+
+    if (emptyFields.length > 0) {
+      setTimeout(() => {
+        const firstField = emptyFields[0];
+        const element = document.getElementById(`field-${firstField}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const input = element.querySelector('input, textarea') || element;
+          if (input && typeof (input as any).focus === 'function') {
+            (input as any).focus();
+          }
+        }
+      }, 300);
+    }
+  };
   const [isReportingBug, setIsReportingBug] = useState(false);
   const [bugDescription, setBugDescription] = useState("");
   const [isSavingBug, setIsSavingBug] = useState(false);
@@ -7253,14 +7314,25 @@ const Admin = () => {
                     {activeTab === "membros" && (
                       <div className="space-y-8">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
+                          <div 
+                            className={cn(
+                              "space-y-2 p-4 rounded-3xl transition-all duration-300",
+                              highlightedFields.includes('photoURL') ? "bg-red-500/10 border border-red-500 animate-pulse" : "border border-transparent"
+                            )} 
+                            id="field-photoURL"
+                            onFocus={() => setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'))}
+                            onClick={() => setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'))}
+                          >
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Perfil</label>
                             {!isReadOnly ? (
                               <UploadImages
                                 maxFiles={1}
                                 multiple={false}
                                 value={formData.photoURL}
-                                onUploadComplete={(images) => setFormData({ ...formData, photoURL: images[0]?.secure_url || "" })}
+                                onUploadComplete={(images) => {
+                                  setFormData({ ...formData, photoURL: images[0]?.secure_url || "" });
+                                  setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'));
+                                }}
                               />
                             ) : (
                               formData.photoURL && (
@@ -7341,15 +7413,22 @@ const Admin = () => {
                               readOnly={isReadOnly}
                             />
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-2" id="field-instagram">
                             <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
                               <Instagram className="w-3.5 h-3.5" /> Instagram
                             </label>
                             <Input
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                              className={cn(
+                                "border h-14 rounded-2xl px-6 transition-all",
+                                highlightedFields.includes('instagram') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
+                                isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black"
+                              )}
                               placeholder="@seu_instagram"
                               value={formData.instagram || ""}
-                              onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                              onChange={(e) => {
+                                setFormData({ ...formData, instagram: e.target.value });
+                                setHighlightedFields(prev => prev.filter(f => f !== 'instagram'));
+                              }}
                               readOnly={isReadOnly}
                             />
                           </div>
@@ -7358,13 +7437,19 @@ const Admin = () => {
                               <Wrench className="w-3.5 h-3.5" /> O que faz de melhor na igreja
                             </label>
 
-                            <div className="relative">
+                            <div className="relative" id="field-churchSkills">
                               <div
                                 className={cn(
                                   "min-h-[3.5rem] w-full border rounded-2xl p-3 flex flex-wrap gap-2 cursor-pointer transition-all",
+                                  highlightedFields.includes('churchSkills') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
                                   isDarkMode ? "bg-cinza-input border-white/5" : "bg-white border-black/5"
                                 )}
-                                onClick={() => !isReadOnly && setShowSkillsDropdownAdmin(!showSkillsDropdownAdmin)}
+                                onClick={() => {
+                                  if (!isReadOnly) {
+                                    setShowSkillsDropdownAdmin(!showSkillsDropdownAdmin);
+                                    setHighlightedFields(prev => prev.filter(f => f !== 'churchSkills'));
+                                  }
+                                }}
                               >
                                 {formData.churchSkills ? formData.churchSkills.split(",").map(skill => skill.trim()).filter(Boolean).map((skill, idx) => (
                                   <span key={idx} className="bg-[#BF76FF]/20 text-[#BF76FF] text-[10px] font-bold uppercase px-2 py-1 rounded-lg flex items-center gap-1">
@@ -7523,10 +7608,18 @@ const Admin = () => {
                           </div>
                           <Textarea
                             ref={bioRef}
-                            className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner")}
+                            id="field-bio"
+                            className={cn(
+                              "border min-h-[120px] rounded-2xl p-6 transition-all",
+                              highlightedFields.includes('bio') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
+                              isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner"
+                            )}
                             placeholder="Fale um pouco sobre você (quem é você, há quanto tempo está na igreja, etc)..."
                             value={formData.bio !== undefined ? formData.bio : (formData.additionalInfo || "")}
-                            onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                            onChange={(e) => {
+                              setFormData({ ...formData, bio: e.target.value });
+                              setHighlightedFields(prev => prev.filter(f => f !== 'bio'));
+                            }}
                             readOnly={isReadOnly}
                           />
                         </div>
@@ -7599,13 +7692,20 @@ const Admin = () => {
                           <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Estas informações aparecerão na página de /servicos</p>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2">
+                            <div className="space-y-2" id="field-professionalArea">
                               <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Área Profissional</label>
                               <Input
-                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                className={cn(
+                                  "border h-14 rounded-2xl px-6 transition-all",
+                                  highlightedFields.includes('professionalArea') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
+                                  isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black"
+                                )}
                                 placeholder="Tecnologia, Saúde, Educação..."
                                 value={formData.professionalArea || ""}
-                                onChange={(e) => setFormData({ ...formData, professionalArea: e.target.value })}
+                                onChange={(e) => {
+                                  setFormData({ ...formData, professionalArea: e.target.value });
+                                  setHighlightedFields(prev => prev.filter(f => f !== 'professionalArea'));
+                                }}
                                 readOnly={isReadOnly}
                               />
                             </div>
@@ -8857,14 +8957,7 @@ const Admin = () => {
 
                             <div className="shrink-0 w-full md:w-auto">
                               <Button
-                                onClick={() => {
-                                  setSelectedItem(profile || members.find(m => m.email === user?.email));
-                                  setFormData(profile || members.find(m => m.email === user?.email));
-                                  setIsReadOnly(false);
-                                  setIsEditing(true);
-                                  setViewingMember(null);
-                                  setActiveTab("membros");
-                                }}
+                                onClick={handleCompleteProfileAll}
                                 className="w-full md:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:from-[#6200D9] hover:to-[#B565EC] text-white rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs shadow-lg shadow-[#BF76FF]/20 hover:shadow-[#BF76FF]/45 transition-all duration-300 scale-100 hover:scale-[1.03]"
                               >
                                 <Edit className="w-4 h-4 mr-2" /> Completar Perfil
@@ -8880,14 +8973,7 @@ const Admin = () => {
                               return (
                                 <div 
                                   key={step.id} 
-                                  onClick={() => {
-                                    setSelectedItem(profile || members.find(m => m.email === user?.email));
-                                    setFormData(profile || members.find(m => m.email === user?.email));
-                                    setIsReadOnly(false);
-                                    setIsEditing(true);
-                                    setViewingMember(null);
-                                    setActiveTab("membros");
-                                  }}
+                                  onClick={() => handleFocusProfileField(step.id)}
                                   className={cn(
                                     "p-4 rounded-2xl border transition-all duration-300 flex items-start gap-3 cursor-pointer select-none",
                                     step.completed 
