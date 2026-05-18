@@ -8713,7 +8713,13 @@ const Admin = () => {
                         const roleColors = ['#BF76FF', '#FFFFFF', '#FF007F', '#FFD700', '#00FFFF', '#39FF14', '#FF4500', '#1E90FF', '#FF1493', '#00FA9A', '#9370DB', '#FF8C00'];
                         const roleCountsMap: Record<string, number> = {};
                         members.forEach(m => {
-                          if (m.role === 'Administradores' || m.role === 'Administrador Master' || m.role === 'Desenvolvedor' || m.status === 'visitor') return;
+                          if (
+                            m.role === 'Administradores' || 
+                            m.role === 'Administrador Master' || 
+                            m.role === 'Desenvolvedor' || 
+                            m.status === 'visitor' ||
+                            m.role?.toLowerCase() === 'visitante'
+                          ) return;
                           if (!m.role) return;
                           roleCountsMap[m.role] = (roleCountsMap[m.role] || 0) + 1;
                         });
