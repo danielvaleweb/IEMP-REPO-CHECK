@@ -1763,11 +1763,7 @@ const Admin = () => {
     r.name === "Secretário"
   );
 
-  const canEditProfiles = isEffectivelyAdmin || userRolesArray.some(r => {
-    const rolePerms = settings.permissions?.[r.name];
-    if (rolePerms?.editProfiles !== undefined) return rolePerms.editProfiles;
-    return r.name === "Administradores" || r.name === "Desenvolvedor";
-  });
+  const canEditProfiles = isMasterAdmin || profile?.role === "Desenvolvedor";
 
   const canDeletePhotos = isEffectivelyAdmin || userRolesArray.some(r => {
     const rolePerms = settings.permissions?.[r.name];
@@ -2129,6 +2125,14 @@ const Admin = () => {
 
   const handleUpdateMemberRole = async () => {
     if (!memberToProcess || !selectedRoleForEdit) return;
+    
+    // Safeguard: only Admins and Developers can update member roles
+    const hasRolePermission = isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor";
+    if (!hasRolePermission) {
+      appAlert("Você não tem permissão para alterar cargos.", "error");
+      return;
+    }
+
     try {
       await updateDoc(doc(db, "members", memberToProcess.id), {
         role: selectedRoleForEdit,
@@ -3325,6 +3329,24 @@ const Admin = () => {
 
       let itemDocId = selectedItem?.id;
       if (selectedItem?.id) {
+        // Safeguard: standard admins or members cannot edit other members' profiles
+        if (activeTab === "membros") {
+          const isOwner = selectedItem.id === user?.uid || selectedItem.email === user?.email;
+          const isMasterOrDev = isMasterAdmin || profile?.role === "Desenvolvedor";
+          if (!isOwner && !isMasterOrDev) {
+            appAlert("Você não tem permissão para editar o perfil de outros membros.", "error");
+            return;
+          }
+
+          // Safeguard: only Admins and Developers can update member roles / ministries
+          const hasRolePermission = isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor";
+          if (!hasRolePermission) {
+            // Revert role and ministries to original to prevent tampering
+            dataToSave.role = selectedItem?.role || "Membro";
+            dataToSave.ministries = selectedItem?.ministries || [];
+          }
+        }
+
         await setDoc(doc(db, collectionName, selectedItem.id), {
           ...dataToSave,
           updatedAt: serverTimestamp()
@@ -8740,6 +8762,165 @@ const Admin = () => {
                     </div>
                   )}
 
+                  {/* Profile Completion Progress Card */}
+                  {(() => {
+                    if (!profile) return null;
+                    
+                    const isApproved = profile.status === "approved" || profile.status === "active" || user?.email === "iempministerioprofecia@gmail.com";
+                    if (!isApproved) return null;
+
+                    const steps = [
+                      {
+                        id: 'photoURL',
+                        label: 'Foto de Perfil',
+                        completed: !!profile.photoURL,
+                        desc: 'Envie uma foto de perfil clara para identificação.'
+                      },
+                      {
+                        id: 'instagram',
+                        label: 'Instagram',
+                        completed: !!profile.instagram,
+                        desc: 'Insira o seu @ do Instagram para nos conectarmos.'
+                      },
+                      {
+                        id: 'churchSkills',
+                        label: 'Proficiência Ministerial',
+                        completed: !!profile.churchSkills,
+                        desc: 'Selecione o que você faz de melhor na igreja.'
+                      },
+                      {
+                        id: 'bio',
+                        label: 'Biografia',
+                        completed: !!(profile.bio !== undefined ? profile.bio : profile.additionalInfo),
+                        desc: 'Fale brevemente sobre você e sua jornada de fé.'
+                      },
+                      {
+                        id: 'professionalArea',
+                        label: 'Área Profissional',
+                        completed: !!profile.professionalArea,
+                        desc: 'Informe sua profissão para a aba de serviços da igreja.'
+                      }
+                    ];
+
+                    const completedCount = steps.filter(s => s.completed).length;
+                    const percentage = Math.round((completedCount / steps.length) * 100);
+                    
+                    if (percentage === 100) return null;
+
+                    return (
+                      <div className="space-y-6 md:space-y-8 mt-8 animate-in fade-in slide-in-from-top-6 duration-700">
+                        <div className="flex items-center justify-between">
+                          <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter transition-colors flex items-center gap-2", isDarkMode ? "text-white" : "text-black")}>
+                            <UserCheck className="w-6 h-6 text-[#BF76FF] animate-pulse" />
+                            Progresso do Perfil
+                          </h4>
+                        </div>
+
+                        <div className={cn(
+                          "border rounded-[32px] p-6 md:p-8 relative overflow-hidden transition-all duration-300 shadow-2xl group",
+                          isDarkMode 
+                            ? "bg-gradient-to-br from-[#BF76FF]/10 via-[#1C1C1C] to-black border-white/5" 
+                            : "bg-gradient-to-br from-[#BF76FF]/5 via-white to-gray-50 border-black/5"
+                        )}>
+                          {/* Premium Glowing Aura Background Effect */}
+                          <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-[#BF76FF]/20 blur-3xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
+                          
+                          <div className="relative z-10 flex flex-col md:flex-row gap-6 md:gap-10 items-center justify-between">
+                            <div className="flex-1 w-full space-y-4">
+                              <div>
+                                <h5 className={cn("text-lg font-black uppercase tracking-tight", isDarkMode ? "text-white" : "text-black")}>
+                                  Complete seu Cadastro!
+                                </h5>
+                                <p className={cn("text-xs font-semibold mt-1", isDarkMode ? "text-gray-400" : "text-gray-500")}>
+                                  Falta pouco para o seu perfil ficar 100% visível na fototeca, área de membros e serviços.
+                                </p>
+                              </div>
+
+                              {/* Progress bar container */}
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-gray-500">
+                                  <span>Etapas Concluídas</span>
+                                  <span className="text-[#BF76FF] font-black text-sm">{completedCount} de {steps.length} ({percentage}%)</span>
+                                </div>
+                                <div className={cn("w-full h-3 rounded-full overflow-hidden relative", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                  <div 
+                                    className="h-full rounded-full bg-gradient-to-r from-[#BF76FF] to-[#7300FF] transition-all duration-1000 ease-out relative"
+                                    style={{ width: `${percentage}%` }}
+                                  >
+                                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="shrink-0 w-full md:w-auto">
+                              <Button
+                                onClick={() => {
+                                  setSelectedItem(profile || members.find(m => m.email === user?.email));
+                                  setFormData(profile || members.find(m => m.email === user?.email));
+                                  setIsReadOnly(false);
+                                  setIsEditing(true);
+                                  setViewingMember(null);
+                                  setActiveTab("membros");
+                                }}
+                                className="w-full md:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:from-[#6200D9] hover:to-[#B565EC] text-white rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs shadow-lg shadow-[#BF76FF]/20 hover:shadow-[#BF76FF]/45 transition-all duration-300 scale-100 hover:scale-[1.03]"
+                              >
+                                <Edit className="w-4 h-4 mr-2" /> Completar Perfil
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div className={cn("h-[1px] w-full my-6", isDarkMode ? "bg-white/5" : "bg-black/5")} />
+
+                          {/* List of Steps */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {steps.map((step) => {
+                              return (
+                                <div 
+                                  key={step.id} 
+                                  onClick={() => {
+                                    setSelectedItem(profile || members.find(m => m.email === user?.email));
+                                    setFormData(profile || members.find(m => m.email === user?.email));
+                                    setIsReadOnly(false);
+                                    setIsEditing(true);
+                                    setViewingMember(null);
+                                    setActiveTab("membros");
+                                  }}
+                                  className={cn(
+                                    "p-4 rounded-2xl border transition-all duration-300 flex items-start gap-3 cursor-pointer select-none",
+                                    step.completed 
+                                      ? (isDarkMode ? "bg-green-500/5 border-green-500/10 opacity-60" : "bg-green-500/[0.02] border-green-500/10 opacity-70")
+                                      : (isDarkMode ? "bg-white/[0.02] border-white/5 hover:border-[#BF76FF]/30 hover:bg-white/[0.04]" : "bg-white border-black/5 shadow-sm hover:border-[#BF76FF]/30 hover:shadow-md")
+                                  )}
+                                >
+                                  <div className="mt-0.5 shrink-0">
+                                    {step.completed ? (
+                                      <div className="w-5 h-5 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center text-green-500">
+                                        <Check className="w-3.5 h-3.5" />
+                                      </div>
+                                    ) : (
+                                      <div className="w-5 h-5 rounded-full bg-gray-500/10 border border-gray-500/20 flex items-center justify-center text-gray-500">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#BF76FF] animate-pulse" />
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h6 className={cn("text-xs font-black uppercase tracking-tight", step.completed ? (isDarkMode ? "text-green-500" : "text-green-600") : (isDarkMode ? "text-white" : "text-black"))}>
+                                      {step.label}
+                                    </h6>
+                                    <p className={cn("text-[10px] font-semibold mt-0.5 leading-snug", isDarkMode ? "text-gray-500" : "text-gray-400")}>
+                                      {step.desc}
+                                    </p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   {/* Section: Próximos Eventos */}
                   <div className="space-y-6 md:space-y-8 mt-8">
                     <div className="flex items-center justify-between">
@@ -11731,7 +11912,7 @@ function TeamMember({ member, active, onWhatsApp, onNoWhatsApp, onViewProfile, o
                 <span className="text-[8px] font-black uppercase tracking-widest text-white bg-gradient-to-r from-[#BF76FF] to-[#7300FF] px-1.5 py-0.5 rounded-sm">Líder</span>
               )}
             </div>
-            {isPending ? (
+            {isPending && isAdmin ? (
               <button
                 onClick={() => onUpdateRole?.(member)}
                 className="text-[10px] text-[#BF76FF] font-bold hover:underline flex items-center gap-1 mt-0.5 uppercase tracking-widest text-left"
