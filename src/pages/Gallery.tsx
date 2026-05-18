@@ -1366,7 +1366,16 @@ export default function Gallery() {
                   <Heart className={cn("w-5 h-5", favoriteIds.includes(visiblePhotos[selectedPhotoIndex]) && "fill-current")} />
                 </button>
 
-                {/* 4. Close */}
+                {/* 4. Request Removal */}
+                <button
+                  onClick={() => setShowInfoModal(true)}
+                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-red-500/20 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300 hover:text-red-500"
+                  title="Pedir para remover"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+
+                {/* 5. Close */}
                 <button
                   onClick={() => setSelectedPhotoIndex(null)}
                   className="w-14 h-14 rounded-full bg-[#161616] hover:bg-red-500/20 active:bg-[#161616] text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300 hover:text-red-500"

@@ -1218,34 +1218,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Newsletter/CTA Section */}
-      <section className="py-24 px-4 md:px-12 relative overflow-hidden">
-        <div className="absolute inset-0 bg-primary/5 blur-[120px]" />
-        <div className="max-w-4xl mx-auto text-center relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-          >
-            <h2 className="text-4xl md:text-6xl font-black mb-8 tracking-tighter uppercase">
-              Fique por dentro de <span className="text-primary">Tudo</span>
-            </h2>
-            <p className="text-white/60 text-lg mb-12">
-              Receba avisos de lives, novos estudos e eventos especiais diretamente no seu e-mail.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 max-w-lg mx-auto">
-              <input 
-                type="email" 
-                placeholder="Seu melhor e-mail" 
-                className="flex-grow bg-white/5 border border-white/10 rounded-xl px-6 h-14 text-white focus:outline-none focus:border-primary/50 transition-colors"
-              />
-              <Button size="lg" className="bg-primary hover:bg-primary/90 text-white rounded-xl px-8 h-14 font-bold">
-                Inscrever
-              </Button>
-            </div>
-          </motion.div>
-        </div>
-      </section>
+
 
       {/* Similar Videos Modal */}
       <AnimatePresence>
