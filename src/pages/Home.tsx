@@ -784,7 +784,13 @@ export default function Home() {
                       item={event}
                       type="event"
                       idx={idx}
-                      onClick={() => navigate('/galeria', { state: { selectedAlbumId: event.id } })}
+                      onClick={() => {
+                        if (event.typeEvent === 'culto') {
+                          navigate('/galeria', { state: { selectedAlbumId: event.id } });
+                        } else {
+                          navigate(`/evento/${event.id}`);
+                        }
+                      }}
                       onAddToList={handleToggleMyList}
                       onFavorite={handleToggleFavorite}
                       onShowSimilar={handleShowSimilar}

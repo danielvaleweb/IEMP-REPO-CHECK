@@ -136,6 +136,12 @@ export default function Gallery() {
   const [removalRequests, setRemovalRequests] = useState<RemovalRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(stateAlbumId || null);
+
+  useEffect(() => {
+    if (stateAlbumId) {
+      setSelectedAlbumId(stateAlbumId);
+    }
+  }, [stateAlbumId]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"todos" | "favoritos">("todos");
@@ -178,17 +184,17 @@ export default function Gallery() {
     return albums.find(a => a.id === selectedAlbumId) || null;
   }, [albums, selectedAlbumId]);
   
-  // Pagination
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 12;
+  // Pagination / Load More
+  const [photosLimit, setPhotosLimit] = useState(4);
   const mobileCarouselRef = useRef<HTMLDivElement>(null);
 
-  // Reset mobile carousel scroll when page changes
+  // Reset mobile carousel scroll when selected album changes
   useEffect(() => {
+    setPhotosLimit(4);
     if (isMobile && mobileCarouselRef.current) {
       mobileCarouselRef.current.scrollTo({ left: 0, behavior: 'instant' });
     }
-  }, [currentPage, isMobile]);
+  }, [selectedAlbumId, isMobile]);
 
   // Modals
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -222,8 +228,9 @@ export default function Gallery() {
       const idx = visiblePhotos.indexOf(queryPhotoUrl);
       if (idx !== -1) {
         deepLinkProcessed.current = true;
-        const page = Math.floor(idx / itemsPerPage) + 1;
-        setCurrentPage(page);
+        if (idx >= photosLimit) {
+          setPhotosLimit(idx + 1);
+        }
         setSelectedPhotoIndex(idx);
         
         const newParams = new URLSearchParams(window.location.search);
@@ -232,7 +239,7 @@ export default function Gallery() {
         navigate({ search: newSearch ? `?${newSearch}` : "" }, { replace: true });
       }
     }
-  }, [selectedAlbum, queryPhotoUrl, visiblePhotos, navigate]);
+  }, [selectedAlbum, queryPhotoUrl, visiblePhotos, navigate, photosLimit]);
   
   // Watermark Settings (State could be moved to global if needed)
   const [watermarkConfig] = useState({
@@ -471,9 +478,102 @@ export default function Gallery() {
     );
   };
 
-  const paginatedPhotos = visiblePhotos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginatedPhotos = useMemo(() => {
+    return visiblePhotos.slice(0, photosLimit);
+  }, [visiblePhotos, photosLimit]);
 
-  const totalPages = Math.ceil(visiblePhotos.length / itemsPerPage);
+  const renderPhotoOverlay = (photo: string, actualIdx: number) => {
+    const req = getPhotoRemovalRequest(photo);
+    return (
+      <>
+        {isAdmin && req && (
+          <div className="absolute top-4 left-4 z-20 bg-amber-500 text-black px-3 py-1 rounded-full font-black text-[8px] uppercase flex items-center gap-1.5 shadow-xl">
+            <AlertCircle className="w-2.5 h-2.5" /> Remoção Pendente
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <div className="flex items-center gap-2 scale-90 group-hover:scale-100 transition-transform duration-300">
+            <div className="relative">
+              <Button
+                size="icon"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSharePhoto(photo);
+                }}
+                className={cn(
+                  "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 shadow-xl transition-all",
+                  sharingPhotoUrl === photo ? "bg-primary text-black" : "bg-black/40 text-white"
+                )}
+              >
+                <Share2 className="w-4 h-4" />
+              </Button>
+
+              <AnimatePresence>
+                {sharingPhotoUrl === photo && (
+                  <motion.div
+                    key={`share-menu-grid-${photo}`}
+                    ref={shareMenuRef}
+                    initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                    className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl z-50 min-w-[140px]"
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        shareToWhatsApp(photo);
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyToClipboard(photo);
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                    </button>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            <Button
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleFavorite(selectedAlbum!, photo);
+              }}
+              className={cn(
+                "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 transition-all",
+                favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : "bg-black/20 text-white"
+              )}
+            >
+              <Heart className={cn("w-4 h-4", favoriteIds.includes(photo) && "fill-current")} />
+            </Button>
+
+            <Button
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation();
+                downloadWithWatermark(photo, selectedAlbum!.title);
+              }}
+              className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl hover:bg-primary hover:text-black transition-all"
+            >
+              <Download className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </>
+    );
+  };
 
   if (authLoading || (!user && !authLoading)) {
     return (
@@ -482,6 +582,15 @@ export default function Gallery() {
       </div>
     );
   }
+
+  // Split photos into chunks of 7 to build row-isolated grids
+  const photoChunks = useMemo(() => {
+    const chunks: string[][] = [];
+    for (let i = 0; i < paginatedPhotos.length; i += 7) {
+      chunks.push(paginatedPhotos.slice(i, i + 7));
+    }
+    return chunks;
+  }, [paginatedPhotos]);
 
   return (
     <div className="pt-24 pb-12 min-h-screen bg-black text-white">
@@ -651,7 +760,7 @@ export default function Gallery() {
                   className="flex overflow-x-auto snap-x snap-mandatory scrollbar-hide -mx-4 px-4 gap-4 pb-4"
                 >
                   {paginatedPhotos.map((photo, idx) => {
-                    const actualIdx = (currentPage - 1) * itemsPerPage + idx;
+                    const actualIdx = idx;
                     const req = getPhotoRemovalRequest(photo);
                     return (
                       <div 
@@ -727,8 +836,8 @@ export default function Gallery() {
                           <Button 
                             size="icon" 
                             onClick={(e) => {
-                              e.stopPropagation();
-                              downloadWithWatermark(photo, selectedAlbum.title);
+                                e.stopPropagation();
+                                downloadWithWatermark(photo, selectedAlbum.title);
                             }}
                             className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl"
                           >
@@ -766,170 +875,159 @@ export default function Gallery() {
                     );
                   })}
                 </div>
-
-                {totalPages > 1 && (
-                  <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                    {Array.from({ length: totalPages }).map((_, i) => (
-                      <button
-                        key={`page-mobile-${i}`}
-                        onClick={() => setCurrentPage(i + 1)}
-                        className={cn(
-                          "w-8 h-8 rounded-lg transition-all font-black text-[10px] uppercase tracking-tighter",
-                          currentPage === i + 1 ? "bg-primary text-black" : "bg-white/5 text-gray-500"
-                        )}
-                      >
-                        {i + 1}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
             ) : (
-              /* Desktop Grid Mode */
-              <div className="space-y-12">
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {paginatedPhotos.map((photo, idx) => {
-                    const actualIdx = (currentPage - 1) * itemsPerPage + idx;
-                    const req = getPhotoRemovalRequest(photo);
-                    return (
-                      <motion.div
-                        key={`photo-${selectedAlbum.id}-${actualIdx}`}
-                        layoutId={`photo-${selectedAlbum.id}-${actualIdx}`}
-                        whileHover={{ y: -5 }}
-                        className="aspect-square rounded-[2rem] overflow-hidden cursor-pointer border border-white/5 shadow-xl group relative bg-white/5"
-                        onClick={() => setSelectedPhotoIndex(actualIdx)}
-                      >
-                        <WatermarkOverlay title={selectedAlbum.title} />
-                        <img 
-                          src={getImageUrl(photo)} 
-                          alt={`Foto ${actualIdx + 1}`} 
-                          className="w-full h-full object-cover transition-all duration-[1500ms] grayscale opacity-80 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110"
-                        />
-                        
-                        {isAdmin && req && (
-                           <div className="absolute top-4 left-4 z-20 bg-amber-500 text-black px-3 py-1 rounded-full font-black text-[8px] uppercase flex items-center gap-1.5 shadow-xl">
-                            <AlertCircle className="w-2.5 h-2.5" /> Remoção Pendente
-                          </div>
-                        )}
-
-                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <div className="flex items-center gap-2 scale-90 group-hover:scale-100 transition-transform duration-300">
-                             <div className="relative">
-                                <Button 
-                                  size="icon" 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleSharePhoto(photo);
-                                  }}
-                                  className={cn(
-                                    "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 shadow-xl transition-all",
-                                    sharingPhotoUrl === photo ? "bg-primary text-black" : "bg-black/40 text-white"
-                                  )}
-                                >
-                                  <Share2 className="w-4 h-4" />
-                                </Button>
-
-                                <AnimatePresence>
-                                  {sharingPhotoUrl === photo && (
-                                    <motion.div
-                                      key={`share-menu-grid-${photo}`}
-                                      ref={shareMenuRef}
-                                      initial={{ opacity: 0, scale: 0.9, y: -10 }}
-                                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                                      exit={{ opacity: 0, scale: 0.9, y: -10 }}
-                                      className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-[#1a1a1a] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl z-50 min-w-[140px]"
-                                    >
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          shareToWhatsApp(photo);
-                                        }}
-                                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                      >
-                                        <MessageCircle className="w-3.5 h-3.5 text-green-500" />
-                                        <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
-                                      </button>
-                                      <button
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          copyToClipboard(photo);
-                                        }}
-                                        className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 transition-colors text-left"
-                                      >
-                                        <Copy className="w-3.5 h-3.5 text-blue-500" />
-                                        <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
-                                      </button>
-                                      <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#1a1a1a]" />
-                                    </motion.div>
-                                  )}
-                                </AnimatePresence>
-                              </div>
-
-                              <Button 
-                                size="icon" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleFavorite(selectedAlbum, photo);
-                                }}
-                                className={cn(
-                                  "w-10 h-10 rounded-xl backdrop-blur-md border border-white/20 transition-all",
-                                  favoriteIds.includes(photo) ? "bg-red-500 text-white border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]" : "bg-black/20 text-white"
-                                )}
-                              >
-                                <Heart className={cn("w-4 h-4", favoriteIds.includes(photo) && "fill-current")} />
-                              </Button>
-
-                              <Button 
-                                size="icon" 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  downloadWithWatermark(photo, selectedAlbum.title);
-                                }}
-                                className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl hover:bg-primary hover:text-black transition-all"
-                              >
-                                <Download className="w-4 h-4" />
-                              </Button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-6 pt-8">
-                    <Button
-                      variant="ghost"
-                      disabled={currentPage === 1}
-                      onClick={() => setCurrentPage(prev => prev - 1)}
-                      className="text-white hover:bg-white/5 rounded-2xl h-12 px-6 flex items-center gap-2 font-bold uppercase tracking-widest text-[10px]"
-                    >
-                      <ChevronLeft className="w-4 h-4" /> Anterior
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      {Array.from({ length: totalPages }).map((_, i) => (
-                        <button
-                          key={`page-${i}`}
-                          onClick={() => setCurrentPage(i + 1)}
-                          className={cn(
-                            "w-10 h-10 rounded-xl transition-all font-black text-xs",
-                            currentPage === i + 1 ? "bg-primary text-black" : "text-gray-500 hover:text-white"
+              /* Desktop Template-Grid Mode — idêntico ao print */
+              <div className="space-y-6 animate-in fade-in duration-500">
+                {photoChunks.map((chunk, chunkIdx) => {
+                  const baseIdx = chunkIdx * 7;
+                  
+                  return (
+                    <div key={`chunk-${chunkIdx}`} className="space-y-6">
+                      {/* Row 1: Photos 0 & 1 */}
+                      {chunk.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {chunk[0] && (
+                            <div
+                              onClick={() => setSelectedPhotoIndex(baseIdx + 0)}
+                              className="col-span-1 md:col-span-2 aspect-[4/3] md:aspect-[16/10] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                            >
+                              <WatermarkOverlay title={selectedAlbum.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={getImageUrl(chunk[0])}
+                                alt={`Foto ${baseIdx + 1}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              {renderPhotoOverlay(chunk[0], baseIdx + 0)}
+                            </div>
                           )}
-                        >
-                          {i + 1}
-                        </button>
-                      ))}
+                          {chunk[1] && (
+                            <div
+                              onClick={() => setSelectedPhotoIndex(baseIdx + 1)}
+                              className="col-span-1 aspect-[4/3] md:aspect-[10/13] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                            >
+                              <WatermarkOverlay title={selectedAlbum.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={getImageUrl(chunk[1])}
+                                alt={`Foto ${baseIdx + 2}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              {renderPhotoOverlay(chunk[1], baseIdx + 1)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Row 2: Photos 2, 3 & 4 */}
+                      {chunk.length > 2 && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {chunk[2] && (
+                            <div
+                              onClick={() => setSelectedPhotoIndex(baseIdx + 2)}
+                              className="col-span-1 aspect-[3/4] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                            >
+                              <WatermarkOverlay title={selectedAlbum.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={getImageUrl(chunk[2])}
+                                alt={`Foto ${baseIdx + 3}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              {renderPhotoOverlay(chunk[2], baseIdx + 2)}
+                            </div>
+                          )}
+                          {chunk[3] && (
+                            <div
+                              onClick={() => setSelectedPhotoIndex(baseIdx + 3)}
+                              className="col-span-1 aspect-square rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                            >
+                              <WatermarkOverlay title={selectedAlbum.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={getImageUrl(chunk[3])}
+                                alt={`Foto ${baseIdx + 4}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              {renderPhotoOverlay(chunk[3], baseIdx + 3)}
+                            </div>
+                          )}
+                          {chunk[4] && (
+                            <div
+                              onClick={() => setSelectedPhotoIndex(baseIdx + 4)}
+                              className="col-span-1 aspect-[3/4] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                            >
+                              <WatermarkOverlay title={selectedAlbum.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={getImageUrl(chunk[4])}
+                                alt={`Foto ${baseIdx + 5}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              {renderPhotoOverlay(chunk[4], baseIdx + 4)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Row 3: Photos 5 & 6 */}
+                      {chunk.length > 5 && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {chunk[5] && (
+                            <div
+                              onClick={() => setSelectedPhotoIndex(baseIdx + 5)}
+                              className="col-span-1 aspect-[4/3] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                            >
+                              <WatermarkOverlay title={selectedAlbum.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={getImageUrl(chunk[5])}
+                                alt={`Foto ${baseIdx + 6}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              {renderPhotoOverlay(chunk[5], baseIdx + 5)}
+                            </div>
+                          )}
+                          {chunk[6] && (
+                            <div
+                              onClick={() => setSelectedPhotoIndex(baseIdx + 6)}
+                              className="col-span-1 md:col-span-2 aspect-[4/3] md:aspect-[21/10] rounded-[2rem] overflow-hidden border border-white/10 group relative transition-all duration-500 bg-white/[0.03] shadow-2xl hover:shadow-[0_20px_50px_rgba(191,118,255,0.25)] hover:scale-[1.01] hover:z-10 cursor-pointer"
+                            >
+                              <WatermarkOverlay title={selectedAlbum.title} />
+                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
+                              <img
+                                src={getImageUrl(chunk[6])}
+                                alt={`Foto ${baseIdx + 7}`}
+                                loading="lazy"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
+                              />
+                              {renderPhotoOverlay(chunk[6], baseIdx + 6)}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <Button
-                      variant="ghost"
-                      disabled={currentPage === totalPages}
-                      onClick={() => setCurrentPage(prev => prev + 1)}
-                      className="text-white hover:bg-white/5 rounded-2xl h-12 px-6 flex items-center gap-2 font-bold uppercase tracking-widest text-[10px]"
-                    >
-                      Próxima <ChevronRight className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Unified Exibir Mais Button */}
+            {visiblePhotos.length > photosLimit && (
+              <div className="flex justify-center pt-12 pb-6">
+                <button
+                  onClick={() => setPhotosLimit(prev => prev + 5)}
+                  className="border border-white/10 hover:border-white/20 bg-white/[0.02] hover:bg-white/[0.05] text-white px-10 py-3.5 rounded-full font-black text-[11px] uppercase tracking-widest transition-all duration-300 shadow-[0_0_30px_rgba(255,255,255,0.02)] hover:shadow-[0_0_30px_rgba(255,255,255,0.05)] hover:scale-105"
+                >
+                  Exibir Mais
+                </button>
               </div>
             )}
           </div>
