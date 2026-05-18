@@ -143,6 +143,22 @@ export default function Gallery() {
     }
   }, [stateAlbumId]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
+  const [showMobileShare, setShowMobileShare] = useState(false);
+
+  useEffect(() => {
+    setShowMobileShare(false);
+  }, [selectedPhotoIndex]);
+
+  const handleDragEnd = (_event: any, info: any) => {
+    const swipeThreshold = 50;
+    if (info.offset.x < -swipeThreshold) {
+      // Swipe Left -> next photo
+      setSelectedPhotoIndex(i => i !== null && i < (visiblePhotos.length - 1) ? i + 1 : 0);
+    } else if (info.offset.x > swipeThreshold) {
+      // Swipe Right -> previous photo
+      setSelectedPhotoIndex(i => i !== null && i > 0 ? i - 1 : (visiblePhotos.length - 1));
+    }
+  };
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<"todos" | "favoritos">("todos");
 
@@ -505,7 +521,8 @@ export default function Gallery() {
           </div>
         )}
 
-        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+        {!isMobile && (
+          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <div className="flex items-center gap-2 scale-90 group-hover:scale-100 transition-transform duration-300">
             <div className="relative">
               <Button
@@ -584,6 +601,7 @@ export default function Gallery() {
             </Button>
           </div>
         </div>
+      )}
       </>
     );
   };
@@ -1189,6 +1207,134 @@ export default function Gallery() {
                 <div className="absolute -bottom-16 left-1/2 -translate-x-1/2 px-6 py-2 rounded-full bg-white/5 border border-white/5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500">
                   {selectedPhotoIndex + 1} <span className="mx-2 opacity-30">/</span> {visiblePhotos.length} fotos
                 </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+
+      {/* Mobile Lightbox */}
+      <AnimatePresence>
+        {selectedPhotoIndex !== null && isMobile && selectedAlbum && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-between p-6 select-none"
+          >
+            {/* Top Bar with Album Info */}
+            <div className="flex flex-col items-center text-center pt-4">
+              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">{selectedAlbum.date}</span>
+              <h4 className="text-lg font-black uppercase tracking-tight mt-1 text-white">{selectedAlbum.title}</h4>
+            </div>
+
+            {/* Centered Image with Drag to Swipe Left/Right */}
+            <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden">
+              <div className="relative w-full max-h-[60vh] flex items-center justify-center">
+                <WatermarkOverlay title={selectedAlbum.title} size="normal" />
+                <motion.img
+                  key={`mobile-lightbox-${selectedPhotoIndex}`}
+                  initial={{ scale: 0.95, opacity: 0, x: 0 }}
+                  animate={{ scale: 1, opacity: 1, x: 0 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 0 }}
+                  dragElastic={0.7}
+                  onDragEnd={handleDragEnd}
+                  src={getImageUrl(visiblePhotos[selectedPhotoIndex])}
+                  className="max-w-full max-h-[60vh] object-contain rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5"
+                />
+              </div>
+            </div>
+
+            {/* Bottom Actions Row exactly matching the print */}
+            <div className="relative flex flex-col items-center pb-8 gap-4">
+              {/* Tooltip Share Menu */}
+              <AnimatePresence>
+                {showMobileShare && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 10 }}
+                    className="absolute bottom-20 bg-[#151515] border border-white/10 rounded-2xl p-1.5 flex flex-col gap-0.5 shadow-2xl z-50 min-w-[140px]"
+                  >
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        shareToWhatsApp(visiblePhotos[selectedPhotoIndex]);
+                        setShowMobileShare(false);
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 active:bg-white/5 transition-colors text-left"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-green-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">WhatsApp</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyToClipboard(visiblePhotos[selectedPhotoIndex]);
+                        setShowMobileShare(false);
+                      }}
+                      className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 active:bg-white/5 transition-colors text-left"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-blue-500" />
+                      <span className="text-[9px] font-bold uppercase tracking-wider text-white">Copiar Link</span>
+                    </button>
+                    <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-l-6 border-r-6 border-t-6 border-transparent border-t-[#151515]" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Counter */}
+              <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-2">
+                {selectedPhotoIndex + 1} <span className="mx-1.5 opacity-30">/</span> {visiblePhotos.length} fotos
+              </div>
+
+              {/* 4 Circular Buttons exactly like the screenshot */}
+              <div className="flex items-center gap-5 justify-center">
+                {/* 1. Download */}
+                <button
+                  onClick={() => downloadWithWatermark(visiblePhotos[selectedPhotoIndex], selectedAlbum.title)}
+                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300"
+                  title="Baixar Foto"
+                >
+                  <Download className="w-5 h-5" />
+                </button>
+
+                {/* 2. Share */}
+                <button
+                  onClick={() => setShowMobileShare(!showMobileShare)}
+                  className={cn(
+                    "w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300",
+                    showMobileShare && "bg-primary text-black"
+                  )}
+                  title="Compartilhar"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+
+                {/* 3. Favorite */}
+                <button
+                  onClick={() => handleToggleFavorite(selectedAlbum, visiblePhotos[selectedPhotoIndex])}
+                  className={cn(
+                    "w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300",
+                    favoriteIds.includes(visiblePhotos[selectedPhotoIndex]) && "border-red-500/30 bg-red-500/10 text-red-500"
+                  )}
+                  title="Favoritar"
+                >
+                  <Heart className={cn("w-5 h-5", favoriteIds.includes(visiblePhotos[selectedPhotoIndex]) && "fill-current")} />
+                </button>
+
+                {/* 4. Close */}
+                <button
+                  onClick={() => setSelectedPhotoIndex(null)}
+                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-red-500/20 active:bg-[#161616] text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300 hover:text-red-500"
+                  title="Fechar"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
             </div>
           </motion.div>
