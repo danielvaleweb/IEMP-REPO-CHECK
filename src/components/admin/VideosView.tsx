@@ -161,7 +161,15 @@ export function VideosView({ isDark }: { isDark: boolean }) {
   const getYoutubeId = (url: string) => {
     if (!url) return null;
     if (url.length === 11 && !url.includes('/') && !url.includes('?')) return url;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/)([^#\&\?]*).*/;
+    if (url.includes("/live/")) {
+      const liveMatch = url.match(/\/live\/([^#&?]+)/);
+      if (liveMatch && liveMatch[1]) return liveMatch[1];
+    }
+    if (url.includes("/shorts/")) {
+      const shortsMatch = url.match(/\/shorts\/([^#&?]+)/);
+      if (shortsMatch && shortsMatch[1]) return shortsMatch[1];
+    }
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
   };

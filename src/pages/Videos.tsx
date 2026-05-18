@@ -52,7 +52,15 @@ export default function Videos() {
         const getYoutubeId = (u: string) => {
           if (!u) return null;
           if (u.length === 11 && !u.includes('/') && !u.includes('?')) return u;
-          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=|live\/)([^#\&\?]*).*/;
+          if (u.includes("/live/")) {
+            const liveMatch = u.match(/\/live\/([^#&?]+)/);
+            if (liveMatch && liveMatch[1]) return liveMatch[1];
+          }
+          if (u.includes("/shorts/")) {
+            const shortsMatch = u.match(/\/shorts\/([^#&?]+)/);
+            if (shortsMatch && shortsMatch[1]) return shortsMatch[1];
+          }
+          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
           const match = u.match(regExp);
           return (match && match[2].length === 11) ? match[2] : null;
         };
@@ -172,6 +180,15 @@ export default function Videos() {
   });
 
   const getYoutubeId = (url: string) => {
+    if (!url) return null;
+    if (url.includes("/live/")) {
+      const liveMatch = url.match(/\/live\/([^#&?]+)/);
+      if (liveMatch && liveMatch[1]) return liveMatch[1];
+    }
+    if (url.includes("/shorts/")) {
+      const shortsMatch = url.match(/\/shorts\/([^#&?]+)/);
+      if (shortsMatch && shortsMatch[1]) return shortsMatch[1];
+    }
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
