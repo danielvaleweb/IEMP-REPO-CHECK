@@ -31,7 +31,7 @@ export function getImageUrl(idOrUrl: string | undefined | null) {
     return idOrUrl;
   }
 
-  if (idOrUrl.startsWith("http") || idOrUrl.startsWith("data:") || idOrUrl.startsWith("blob:")) {
+  if (idOrUrl.startsWith("http") || idOrUrl.startsWith("data:") || idOrUrl.startsWith("blob:") || idOrUrl.startsWith("/")) {
     return idOrUrl;
   }
   

@@ -55,6 +55,26 @@ export default function EventDetails() {
   const loadingEvent = (loadingPost || loadingAgenda || loadingAgendaDirecao) && !event;
   const { data: allFeedbacks } = useCachedCollection<any>("event_feedbacks", [orderBy("createdAt", "desc")], 1000 * 60 * 15);
   
+  const getLightboxPhotos = () => {
+    if (event?.gallery && Array.isArray(event.gallery) && event.gallery.length > 0) {
+      return event.gallery;
+    }
+    if (event?.driveFolders && Array.isArray(event.driveFolders)) {
+      const photos: string[] = [];
+      event.driveFolders.forEach((folder: any) => {
+        if (folder.images && Array.isArray(folder.images)) {
+          folder.images.forEach((imgId: string) => {
+            photos.push(`/api/drive-image?id=${imgId}`);
+          });
+        }
+      });
+      return photos;
+    }
+    return [];
+  };
+
+  const lightboxPhotos = getLightboxPhotos();
+
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
@@ -86,12 +106,13 @@ export default function EventDetails() {
 
   const handleDragEnd = (_event: any, info: any) => {
     setDragDirection(null);
-    if (!event || !event.gallery) return;
+    const photos = lightboxPhotos;
+    if (photos.length === 0) return;
     const swipeThreshold = 50;
     if (info.offset.x < -swipeThreshold) {
-      setSelectedPhotoIndex(i => i !== null && i < (event.gallery.length - 1) ? i + 1 : 0);
+      setSelectedPhotoIndex(i => i !== null && i < (photos.length - 1) ? i + 1 : 0);
     } else if (info.offset.x > swipeThreshold) {
-      setSelectedPhotoIndex(i => i !== null && i > 0 ? i - 1 : (event.gallery.length - 1));
+      setSelectedPhotoIndex(i => i !== null && i > 0 ? i - 1 : (photos.length - 1));
     }
   };
 
@@ -1021,7 +1042,12 @@ export default function EventDetails() {
                                 !user && "filter blur-xl opacity-50 cursor-not-allowed",
                                 user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 border border-white/10"
                               )}
-                              onClick={() => user && setSelectedPhotoIndex(folder.images.length * fi + index)}
+                              onClick={() => {
+                                if (user) {
+                                  const absIdx = lightboxPhotos.indexOf(fullUrl);
+                                  if (absIdx !== -1) setSelectedPhotoIndex(absIdx);
+                                }
+                              }}
                             >
                               {/* Skeleton shimmer */}
                               <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-white/[0.07] to-white/[0.03] animate-pulse" />
@@ -1046,7 +1072,11 @@ export default function EventDetails() {
                                 <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
                                   <Button
                                     className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
-                                    onClick={(e) => { e.stopPropagation(); window.open(fullUrl, '_blank'); }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const absIdx = lightboxPhotos.indexOf(fullUrl);
+                                      if (absIdx !== -1) setSelectedPhotoIndex(absIdx);
+                                    }}
                                   >
                                     <Eye className="w-5 h-5" />
                                   </Button>
@@ -1059,7 +1089,7 @@ export default function EventDetails() {
                                 </div>
                               )}
                             </div>
-                          );
+                          );                       );
                         })}
                       </div>
                     </div>
@@ -1108,7 +1138,7 @@ export default function EventDetails() {
 
       {/* Gallery Lightbox Modal */}
       <AnimatePresence>
-        {selectedPhotoIndex !== null && !isMobile && event.gallery && user && (
+        {selectedPhotoIndex !== null && !isMobile && lightboxPhotos.length > 0 && user && (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1118,19 +1148,19 @@ export default function EventDetails() {
             {/* Top Bar inside Modal */}
             <div className="absolute top-0 inset-x-0 p-6 flex justify-between items-center z-50 bg-gradient-to-b from-black/80 to-transparent">
               <span className="text-white/50 font-bold text-sm tracking-widest uppercase">
-                {selectedPhotoIndex + 1} / {event.gallery.length}
+                {selectedPhotoIndex + 1} / {lightboxPhotos.length}
               </span>
               <div className="flex items-center gap-3">
                 <Button 
                   variant="ghost" 
-                  onClick={() => downloadPhoto(event.gallery[selectedPhotoIndex], event.title)}
+                  onClick={() => downloadPhoto(lightboxPhotos[selectedPhotoIndex], event.title)}
                   className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
                 >
                   <Download className="w-5 h-5" />
                 </Button>
                 <Button 
                   variant="ghost" 
-                  onClick={() => sharePhoto(event.gallery[selectedPhotoIndex])}
+                  onClick={() => sharePhoto(lightboxPhotos[selectedPhotoIndex])}
                   className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
                 >
                   <Share className="w-5 h-5" />
@@ -1164,7 +1194,7 @@ export default function EventDetails() {
             )}
 
             {/* Next Button */}
-            {selectedPhotoIndex < event.gallery.length - 1 && (
+            {selectedPhotoIndex < lightboxPhotos.length - 1 && (
               <Button 
                 variant="ghost" 
                 className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 z-50 bg-white/10 hover:bg-white/20 text-white rounded-full w-14 h-14 p-0 backdrop-blur-md cursor-pointer"
@@ -1185,7 +1215,7 @@ export default function EventDetails() {
             >
               <WatermarkOverlay title={event.title} size="large" />
               <img 
-                src={getImageUrl(event.gallery[selectedPhotoIndex])} 
+                src={getImageUrl(lightboxPhotos[selectedPhotoIndex])} 
                 alt="Fullscreen Gallery Preview" 
                 className="max-w-full max-h-full object-contain rounded-xl shadow-2xl" 
                 onClick={(e) => e.stopPropagation()} // prevent close on clicking image
@@ -1197,7 +1227,7 @@ export default function EventDetails() {
 
       {/* Mobile Lightbox Modal */}
       <AnimatePresence>
-        {selectedPhotoIndex !== null && isMobile && event.gallery && user && (
+        {selectedPhotoIndex !== null && isMobile && lightboxPhotos.length > 0 && user && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -1215,7 +1245,7 @@ export default function EventDetails() {
               <div className="relative w-full max-h-[60vh] flex items-center justify-center">
                 <WatermarkOverlay title={event.title} size="normal" />
                 {(() => {
-                  const len = event.gallery.length;
+                  const len = lightboxPhotos.length;
                   let targetIdx = selectedPhotoIndex;
                   if (dragDirection === "left") {
                     targetIdx = (selectedPhotoIndex + 1) % len;
@@ -1231,7 +1261,7 @@ export default function EventDetails() {
                           initial={{ scale: 0.9, opacity: 0 }}
                           animate={{ scale: 0.95, opacity: 0.5 }}
                           exit={{ opacity: 0 }}
-                          src={getImageUrl(event.gallery[targetIdx])}
+                          src={getImageUrl(lightboxPhotos[targetIdx])}
                           className="absolute max-w-full max-h-[60vh] object-contain rounded-3xl border border-white/5 opacity-50 select-none pointer-events-none"
                         />
                       )}
@@ -1249,7 +1279,7 @@ export default function EventDetails() {
                   dragElastic={0.7}
                   onDrag={handleDrag}
                   onDragEnd={handleDragEnd}
-                  src={getImageUrl(event.gallery[selectedPhotoIndex])}
+                  src={getImageUrl(lightboxPhotos[selectedPhotoIndex])}
                   className="relative z-10 max-w-full max-h-[60vh] object-contain rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5 touch-none"
                 />
               </div>
@@ -1269,7 +1299,7 @@ export default function EventDetails() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        sharePhoto(event.gallery[selectedPhotoIndex]);
+                        sharePhoto(lightboxPhotos[selectedPhotoIndex]);
                         setShowMobileShare(false);
                       }}
                       className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-white/5 active:bg-white/5 transition-colors text-left"
@@ -1280,7 +1310,7 @@ export default function EventDetails() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigator.clipboard.writeText(getImageUrl(event.gallery[selectedPhotoIndex]));
+                        navigator.clipboard.writeText(getImageUrl(lightboxPhotos[selectedPhotoIndex]));
                         appAlert("Link copiado com sucesso!", "success");
                         setShowMobileShare(false);
                       }}
@@ -1296,14 +1326,14 @@ export default function EventDetails() {
 
               {/* Counter */}
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-500 mb-2">
-                {selectedPhotoIndex + 1} <span className="mx-1.5 opacity-30">/</span> {event.gallery.length} fotos
+                {selectedPhotoIndex + 1} <span className="mx-1.5 opacity-30">/</span> {lightboxPhotos.length} fotos
               </div>
 
               {/* 4 Circular Buttons exactly like the screenshot */}
               <div className="flex items-center gap-5 justify-center">
                 {/* 1. Download */}
                 <button
-                  onClick={() => downloadPhoto(event.gallery[selectedPhotoIndex], event.title)}
+                  onClick={() => downloadPhoto(lightboxPhotos[selectedPhotoIndex], event.title)}
                   className="w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300"
                   title="Baixar Foto"
                 >
@@ -1324,14 +1354,14 @@ export default function EventDetails() {
 
                 {/* 3. Favorite */}
                 <button
-                  onClick={() => handleToggleFavorite(event.gallery[selectedPhotoIndex])}
+                  onClick={() => handleToggleFavorite(lightboxPhotos[selectedPhotoIndex])}
                   className={cn(
                     "w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300",
-                    favoriteIds.includes(event.gallery[selectedPhotoIndex]) && "border-red-500/30 bg-red-500/10 text-red-500"
+                    favoriteIds.includes(lightboxPhotos[selectedPhotoIndex]) && "border-red-500/30 bg-red-500/10 text-red-500"
                   )}
                   title="Favoritar"
                 >
-                  <Heart className={cn("w-5 h-5", favoriteIds.includes(event.gallery[selectedPhotoIndex]) && "fill-current")} />
+                  <Heart className={cn("w-5 h-5", favoriteIds.includes(lightboxPhotos[selectedPhotoIndex]) && "fill-current")} />
                 </button>
 
                 {/* 4. Close */}
