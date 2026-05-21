@@ -120,7 +120,7 @@ export default function Navbar() {
   return (
     <>
       <nav className={cn(
-        "fixed top-0 left-0 right-0 z-[1000] w-full py-4",
+        "fixed top-[var(--dev-banner-height,0px)] left-0 right-0 z-[1000] w-full py-4 transition-[top,background-color,padding] duration-300",
         isHomePage ? "transition-all duration-700" : "",
         isScrolled ? "bg-black/90 backdrop-blur-md shadow-lg" : "bg-transparent"
       )}>

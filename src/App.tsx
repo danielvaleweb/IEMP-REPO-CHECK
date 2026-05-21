@@ -13,6 +13,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import GlobalPlayer from "@/components/GlobalPlayer";
+import DevBanner from "@/components/DevBanner";
 import { cn } from "@/lib/utils";
 import { Loader2 } from "lucide-react";
 import { doc, onSnapshot } from "firebase/firestore";
@@ -87,7 +88,7 @@ function AppContent() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary">
+    <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary pt-[var(--dev-banner-height,0px)] transition-[padding] duration-300">
       {!isAdminPage && !isGooglePage && !isEventPage && !isSolicitacaoPage && <Navbar />}
       <main className="flex-grow flex flex-col">
         <ErrorBoundary isAdminPage={isAdminPage}>
@@ -130,6 +131,7 @@ export default function App() {
           <FavoritesProvider>
             <RadioProvider>
               <Router>
+                <DevBanner />
                 <AppContent />
               </Router>
               <GlobalPlayer />
