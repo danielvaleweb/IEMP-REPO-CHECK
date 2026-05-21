@@ -334,7 +334,7 @@ export default function Home() {
             if (e.typeEvent === 'culto') return false;
             const eDate = new Date(e.fullDate);
             eDate.setHours(0,0,0,0);
-            return eDate.getTime() > nowMidnight.getTime();
+            return eDate.getTime() >= nowMidnight.getTime();
           })
           .sort((a: any, b: any) => a.fullDate.getTime() - b.fullDate.getTime());
         
@@ -342,7 +342,7 @@ export default function Home() {
           .filter((e: any) => {
             const eDate = new Date(e.fullDate);
             eDate.setHours(0,0,0,0);
-            return eDate.getTime() <= nowMidnight.getTime();
+            return eDate.getTime() < nowMidnight.getTime();
           })
           .sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 

@@ -3732,6 +3732,7 @@ const Admin = () => {
           }
         }
         return {
+          ...p,
           id: p.id,
           title: p.title,
           date: isoDate,
@@ -8568,7 +8569,8 @@ const Admin = () => {
                         scope: 'interno',
                         invitedMembers: [],
                         guests: [],
-                        driveFolders: []
+                        driveFolders: [],
+                        status: 'approved'
                       });
                       setIsReadOnly(false);
                       setIsEditing(true);
