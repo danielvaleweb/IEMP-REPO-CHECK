@@ -1929,10 +1929,13 @@ const Admin = () => {
 
   const handleLogoutAction = async () => {
     if (user) {
-      await logAction("logout", "auth", `Usuário ${user.displayName || user.email} encerrou a sessão`);
+      try {
+        await logAction("logout", "auth", `Usuário ${user.displayName || user.email} encerrou a sessão`);
+      } catch (e) {
+        console.error("Erro ao registrar ação de logout:", e);
+      }
     }
-    await auth.signOut();
-    navigate("/");
+    await logout();
   };
 
   useEffect(() => {
@@ -4087,6 +4090,7 @@ const Admin = () => {
                 disabled={isSubmitting}
                 onClick={async () => {
                   setAuthError("");
+                  clearError();
                   if (!email) {
                     setAuthError("Por favor, insira seu e-mail.");
                     return;
@@ -4094,77 +4098,100 @@ const Admin = () => {
 
                   setIsSubmitting(true);
 
+                  const normalizedEmail = email.toLowerCase().trim();
+                  const isMasterAdminEmail = normalizedEmail === "iempministerioprofecia@gmail.com";
+
                   try {
-                    await loginWithEmail(email, password);
-                    navigate("/");
-                  } catch (error: any) {
-                    // Fallback para login legado (só no Firestore)
-                    if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                    if (!isMasterAdminEmail) {
+                      // 1. Tenta buscar no Firestore (coleções customizadas) ANTES de chamar login padrão
+                      let memberDoc = null;
+                      let memberData = null;
+
                       try {
-                        // Tenta buscar no Firestore (case-sensitive padrão e fallback case-insensitive por minúscula/trim)
                         let q = query(collection(db, "members"), where("email", "==", email));
                         let querySnapshot = await getDocs(q);
 
                         if (querySnapshot.empty) {
-                          q = query(collection(db, "members"), where("email", "==", email.toLowerCase().trim()));
+                          q = query(collection(db, "members"), where("email", "==", normalizedEmail));
                           querySnapshot = await getDocs(q);
                         }
 
                         if (!querySnapshot.empty) {
-                          const memberDoc = querySnapshot.docs[0];
-                          const memberData = memberDoc.data();
+                          memberDoc = querySnapshot.docs[0];
+                          memberData = memberDoc.data();
+                        }
+                      } catch (e) {
+                        console.error("Erro ao buscar membro no Firestore:", e);
+                      }
 
-                          // Verifica senha em múltiplas localizações possíveis
-                          let dbPassword = memberData.password || memberData.signupPassword;
+                      if (memberData) {
+                        // Verifica senha em múltiplas localizações possíveis
+                        let dbPassword = memberData.password || memberData.signupPassword;
 
-                          // Se não estiver no documento do membro (ex: membros aprovados cujas senhas foram movidas para saved-logins)
-                          if (!dbPassword) {
-                            try {
-                              const savedLoginsQuery = query(
+                        // Se não estiver no documento do membro (ex: membros aprovados cujas senhas foram movidas para saved-logins)
+                        if (!dbPassword) {
+                          try {
+                            const savedLoginsQuery = query(
+                              collection(db, "saved-logins"), 
+                              where("username", "==", email)
+                            );
+                            const savedLoginsSnap = await getDocs(savedLoginsQuery);
+                            if (!savedLoginsSnap.empty) {
+                              dbPassword = savedLoginsSnap.docs[0].data().password;
+                            } else {
+                              const savedLoginsQueryLc = query(
                                 collection(db, "saved-logins"), 
-                                where("username", "==", email)
+                                where("username", "==", normalizedEmail)
                               );
-                              const savedLoginsSnap = await getDocs(savedLoginsQuery);
-                              if (!savedLoginsSnap.empty) {
-                                dbPassword = savedLoginsSnap.docs[0].data().password;
-                              } else {
-                                const savedLoginsQueryLc = query(
-                                  collection(db, "saved-logins"), 
-                                  where("username", "==", email.toLowerCase().trim())
-                                );
-                                const savedLoginsSnapLc = await getDocs(savedLoginsQueryLc);
-                                if (!savedLoginsSnapLc.empty) {
-                                  dbPassword = savedLoginsSnapLc.docs[0].data().password;
-                                }
+                              const savedLoginsSnapLc = await getDocs(savedLoginsQueryLc);
+                              if (!savedLoginsSnapLc.empty) {
+                                dbPassword = savedLoginsSnapLc.docs[0].data().password;
                               }
-                            } catch (e) {
-                              console.error("Erro ao buscar senha salva no fallback:", e);
                             }
+                          } catch (e) {
+                            console.error("Erro ao buscar senha salva no fallback:", e);
                           }
+                        }
 
-                          if (dbPassword && dbPassword === password) {
+                        // Se encontrou a senha customizada no Firestore
+                        if (dbPassword) {
+                          if (dbPassword === password) {
                             if (memberData.status === "pending") {
                               setAuthError("Seu cadastro ainda está em análise.");
+                              setIsSubmitting(false);
+                              return;
                             } else if (memberData.status === "rejected") {
                               setAuthError("Seu cadastro foi reprovado.");
+                              setIsSubmitting(false);
+                              return;
                             } else {
+                              // Login customizado bem-sucedido!
+                              clearError();
                               setCustomLogin(true, { id: memberDoc.id, ...memberData });
+                              setIsSubmitting(false);
                               navigate("/");
+                              return;
                             }
                           } else {
+                            // Senha incorreta para conta customizada existente
                             setAuthError("E-mail ou senha incorretos.");
+                            setIsSubmitting(false);
+                            return;
                           }
-                        } else {
-                          setAuthError("E-mail ou senha incorretos.");
                         }
-                      } catch (fallbackError) {
-                        console.error("Erro no login legado:", fallbackError);
-                        setAuthError("Erro ao verificar conta antiga. Tente novamente.");
                       }
-                    } else if (error.code === 'auth/invalid-email') {
+                    }
+
+                    // 2. Se não encontrou dados customizados no Firestore (ou é o Master Admin), tenta login padrão no Firebase Auth
+                    await loginWithEmail(email, password);
+                    clearError();
+                    navigate("/");
+                  } catch (error: any) {
+                    console.error("Erro na autenticação Firebase:", error);
+                    if (error.code === 'auth/invalid-email') {
                       setAuthError("E-mail inválido.");
                     } else {
-                      setAuthError(error.message || "Erro ao fazer login. Tente novamente.");
+                      setAuthError("E-mail ou senha incorretos.");
                     }
                   } finally {
                     setIsSubmitting(false);
@@ -4714,6 +4741,14 @@ const Admin = () => {
                 {canViewTab("logins") && (
                   <SidebarItem icon={Key} active={activeTab === "logins"} onClick={() => { setActiveTab("logins"); setRightSidebarView("hidden"); }} label="Logins Salvos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
                 )}
+                <SidebarItem
+                  icon={Home}
+                  active={false}
+                  onClick={() => navigate("/")}
+                  label="Voltar para o Site"
+                  collapsed={isSidebarCollapsed}
+                  isDark={isDarkMode}
+                />
               </div>
 
               {/* Mobile Bottom Bar Items */}
@@ -4880,24 +4915,36 @@ const Admin = () => {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mb-2">
+                    <div className="flex flex-col gap-2.5 mb-2 w-full">
                       <SheetClose
                         className={cn(
-                          "flex flex-col items-center justify-center gap-2 p-3 rounded-[20px] transition-all border outline-none",
-                          isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-black/5 text-black shadow-sm"
+                          "flex items-center gap-3 p-3.5 rounded-[20px] transition-all border outline-none w-full",
+                          isDarkMode ? "bg-white/5 border-white/10 text-white hover:bg-white/10" : "bg-gray-50 border-black/5 text-black hover:bg-gray-100 shadow-sm"
                         )}
-                        onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}
+                        onClick={() => navigate("/")}
                       >
-                        <User className="w-5 h-5 text-gray-400" />
-                        <span className="font-bold text-[10px] uppercase">Meu Perfil</span>
+                        <Home className="w-5 h-5 text-[#BF76FF]" />
+                        <span className="font-bold text-[11px] uppercase tracking-wider">Voltar para o Site</span>
                       </SheetClose>
-                      <button
-                        className="flex flex-col items-center justify-center gap-2 p-3 rounded-[20px] transition-all border outline-none bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20"
-                        onClick={handleLogoutAction}
-                      >
-                        <LogOut className="w-5 h-5" />
-                        <span className="font-bold text-[10px] uppercase">Encerrar Sessão</span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-3">
+                        <SheetClose
+                          className={cn(
+                            "flex flex-col items-center justify-center gap-2 p-3 rounded-[20px] transition-all border outline-none",
+                            isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-black/5 text-black shadow-sm"
+                          )}
+                          onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}
+                        >
+                          <User className="w-5 h-5 text-gray-400" />
+                          <span className="font-bold text-[10px] uppercase">Meu Perfil</span>
+                        </SheetClose>
+                        <button
+                          className="flex flex-col items-center justify-center gap-2 p-3 rounded-[20px] transition-all border outline-none bg-red-500/10 border-red-500/20 text-red-500 hover:bg-red-500/20"
+                          onClick={handleLogoutAction}
+                        >
+                          <LogOut className="w-5 h-5" />
+                          <span className="font-bold text-[10px] uppercase">Encerrar Sessão</span>
+                        </button>
+                      </div>
                     </div>
                   </SheetContent>
                 </Sheet>
@@ -5393,6 +5440,10 @@ const Admin = () => {
                   <div className={cn("h-[1px] w-full my-4", isDarkMode ? "bg-white/5" : "bg-black/5")}></div>
 
                   <DropdownMenuLabel className="text-[11px] font-black tracking-widest text-gray-500 uppercase mb-3">Conta</DropdownMenuLabel>
+                  <DropdownMenuItem className={cn("flex items-center gap-3 rounded-xl p-3 cursor-pointer mb-2", isDarkMode ? "focus:bg-white/5" : "focus:bg-black/5")} onClick={() => navigate("/")}>
+                    <Home className="w-5 h-5 text-[#BF76FF] shrink-0" />
+                    <span className={cn("font-bold", isDarkMode ? "text-gray-300" : "text-gray-700")}>Voltar para o Site</span>
+                  </DropdownMenuItem>
                   <DropdownMenuItem className={cn("flex items-center gap-3 rounded-xl p-3 cursor-pointer mb-2", isDarkMode ? "focus:bg-white/5" : "focus:bg-black/5")} onClick={() => { setActiveViewRole(null); setActiveTab("membros"); setViewingMember(profile || members.find(m => m.email === user?.email)); }}>
                     <User className="w-5 h-5 text-gray-400 shrink-0" />
                     <span className={cn("font-bold", isDarkMode ? "text-gray-300" : "text-gray-700")}>Meu Perfil</span>

@@ -42,6 +42,7 @@ const Solicitacao = lazy(() => import("@/pages/Solicitacao"));
 const Videos = lazy(() => import("@/pages/Videos"));
 const RadioPage = lazy(() => import("@/pages/Radio"));
 const Servicos = lazy(() => import("@/pages/Servicos"));
+const ResetarSenha = lazy(() => import("@/pages/ResetarSenha"));
 
 const PageLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -56,6 +57,7 @@ function AppContent() {
   const isGooglePage = location.pathname === "/google";
   const isSolicitacaoPage = location.pathname.startsWith("/solicitacao");
   const isEventPage = location.pathname.startsWith("/evento/");
+  const isResetPage = location.pathname.startsWith("/resetar-senha");
 
   const [maintenanceMode, setMaintenanceMode] = useState(false);
 
@@ -89,7 +91,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground selection:bg-primary/30 selection:text-primary pt-[var(--dev-banner-height,0px)] transition-[padding] duration-300">
-      {!isAdminPage && !isGooglePage && !isEventPage && !isSolicitacaoPage && <Navbar />}
+      {!isAdminPage && !isGooglePage && !isEventPage && !isSolicitacaoPage && !isResetPage && <Navbar />}
       <main className="flex-grow flex flex-col">
         <ErrorBoundary isAdminPage={isAdminPage}>
           <Suspense fallback={<PageLoader />}>
@@ -113,12 +115,13 @@ function AppContent() {
               <Route path="/discipulado" element={<Discipleship />} />
               <Route path="/ebd" element={<EBD />} />
               <Route path="/servicos" element={<Servicos />} />
+              <Route path="/resetar-senha" element={<ResetarSenha />} />
               <Route path="/:page" element={<StaticPages />} />
             </Routes>
           </Suspense>
         </ErrorBoundary>
       </main>
-      {!isAdminPage && !isGooglePage && !isSolicitacaoPage && <Footer />}
+      {!isAdminPage && !isGooglePage && !isSolicitacaoPage && !isResetPage && <Footer />}
     </div>
   );
 }

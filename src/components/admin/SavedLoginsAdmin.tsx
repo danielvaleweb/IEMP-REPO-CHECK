@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Copy, Plus, Save, Key, User, ArrowLeft, Eye, EyeOff, Lock, Trash } from "lucide-react";
+import { Copy, Plus, Save, Key, User, ArrowLeft, Eye, EyeOff, Lock, Trash, RefreshCw, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { appAlert } from "@/lib/modalHelpers";
 import { db } from '@/lib/firebase';
@@ -23,7 +23,21 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
   const [deletePasswordModal, setDeletePasswordModal] = useState<string | null>(null);
   const [deletePasswordInput, setDeletePasswordInput] = useState("");
 
+  const [resetLinkModal, setResetLinkModal] = useState<any>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
   const SECURITY_PIN = "15634260"; // Updated per user request
+
+  const handleResetLink = (login: any) => {
+    setResetLinkModal(login);
+    setCopiedLink(false);
+  };
+
+  const copyResetLink = (link: string) => {
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   const fetchLogins = async () => {
     try {
@@ -233,6 +247,87 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
         </div>
       )}
 
+      {resetLinkModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <Card className={cn("w-full max-w-md rounded-[30px] p-8 border", isDark ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10 shadow-2xl")}>
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-[#BF76FF]/10 flex items-center justify-center mb-4 text-[#BF76FF]">
+                <RefreshCw className="w-8 h-8 animate-spin" style={{ animationDuration: '3s' }} />
+              </div>
+              <h3 className={cn("text-2xl font-black text-center tracking-tight", isDark ? "text-white" : "text-black")}>Resetar Senha</h3>
+              <p className={cn("text-center text-sm font-medium mt-2 leading-relaxed px-4", isDark ? "text-gray-400" : "text-gray-500")}>
+                Gere um link para que o usuário possa redefinir sua senha com segurança.
+              </p>
+              
+              <div className={cn(
+                "mt-4 px-4 py-2 rounded-xl border w-full flex flex-col items-center text-xs font-semibold gap-0.5",
+                isDark ? "bg-black/40 border-white/5 text-gray-300" : "bg-gray-50 border-black/5 text-gray-700"
+              )}>
+                <span className="text-[10px] uppercase tracking-wider text-[#BF76FF] font-bold">{resetLinkModal.title}</span>
+                <span className="opacity-70 font-mono">{resetLinkModal.username || "Sem e-mail"}</span>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  readOnly 
+                  value={`${window.location.origin}/resetar-senha?id=${resetLinkModal.id}`}
+                  className={cn(
+                    "w-full h-12 px-4 pr-12 rounded-xl text-xs font-mono border text-center select-all outline-none", 
+                    isDark ? "bg-black/50 border-white/5 text-gray-300" : "bg-gray-50 border-black/5 text-gray-700"
+                  )}
+                />
+                <button 
+                  onClick={() => copyResetLink(`${window.location.origin}/resetar-senha?id=${resetLinkModal.id}`)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-2 hover:text-[#BF76FF] text-gray-400 transition-colors"
+                >
+                  {copiedLink ? (
+                    <span className="text-[#BF76FF] text-[10px] font-bold">Copiado!</span>
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <Button 
+                  onClick={() => {
+                    const link = `${window.location.origin}/resetar-senha?id=${resetLinkModal.id}`;
+                    copyResetLink(link);
+                  }}
+                  className="w-full h-12 rounded-xl bg-[#BF76FF] hover:bg-[#A05ADB] text-white font-bold flex items-center justify-center gap-2"
+                >
+                  <Copy className="w-4 h-4" />
+                  {copiedLink ? "Link Copiado!" : "Copiar Link de Reset"}
+                </Button>
+
+                <Button 
+                  onClick={() => {
+                    const link = `${window.location.origin}/resetar-senha?id=${resetLinkModal.id}`;
+                    const whatsappMsg = `Paz do Senhor! Segue o link para redefinir a sua senha no painel: ${link}`;
+                    window.open(`https://wa.me/?text=${encodeURIComponent(whatsappMsg)}`, '_blank');
+                  }}
+                  className="w-full h-12 rounded-xl bg-[#25D366] hover:bg-[#20ba59] text-white font-bold flex items-center justify-center gap-2"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Enviar via WhatsApp
+                </Button>
+
+                <Button 
+                  variant="ghost" 
+                  onClick={() => { setResetLinkModal(null); }} 
+                  className="w-full h-12 rounded-xl text-gray-500 font-bold"
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
       <Card className={cn("border rounded-3xl p-6 transition-colors shadow-2xl", isDark ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
         <div className="mb-6">
           <Input 
@@ -265,6 +360,13 @@ export function SavedLoginsAdmin({ isDark }: { isDark: boolean }) {
                       </div>
                     </div>
                     <div className="flex gap-1">
+                      <button 
+                        onClick={() => handleResetLink(login)} 
+                        className="p-2 rounded-lg hover:bg-[#BF76FF]/10 text-[#BF76FF] transition-colors"
+                        title="Resetar Senha"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                      </button>
                       <button onClick={() => handleDelete(login.id)} className="p-2 rounded-lg hover:bg-red-500/10 text-red-500 transition-colors">
                         <Trash className="w-4 h-4" />
                       </button>
