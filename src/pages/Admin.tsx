@@ -4101,14 +4101,48 @@ const Admin = () => {
                     // Fallback para login legado (só no Firestore)
                     if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
                       try {
-                        const q = query(collection(db, "members"), where("email", "==", email));
-                        const querySnapshot = await getDocs(q);
+                        // Tenta buscar no Firestore (case-sensitive padrão e fallback case-insensitive por minúscula/trim)
+                        let q = query(collection(db, "members"), where("email", "==", email));
+                        let querySnapshot = await getDocs(q);
+
+                        if (querySnapshot.empty) {
+                          q = query(collection(db, "members"), where("email", "==", email.toLowerCase().trim()));
+                          querySnapshot = await getDocs(q);
+                        }
 
                         if (!querySnapshot.empty) {
                           const memberDoc = querySnapshot.docs[0];
                           const memberData = memberDoc.data();
 
-                          if (memberData.password && memberData.password === password) {
+                          // Verifica senha em múltiplas localizações possíveis
+                          let dbPassword = memberData.password || memberData.signupPassword;
+
+                          // Se não estiver no documento do membro (ex: membros aprovados cujas senhas foram movidas para saved-logins)
+                          if (!dbPassword) {
+                            try {
+                              const savedLoginsQuery = query(
+                                collection(db, "saved-logins"), 
+                                where("username", "==", email)
+                              );
+                              const savedLoginsSnap = await getDocs(savedLoginsQuery);
+                              if (!savedLoginsSnap.empty) {
+                                dbPassword = savedLoginsSnap.docs[0].data().password;
+                              } else {
+                                const savedLoginsQueryLc = query(
+                                  collection(db, "saved-logins"), 
+                                  where("username", "==", email.toLowerCase().trim())
+                                );
+                                const savedLoginsSnapLc = await getDocs(savedLoginsQueryLc);
+                                if (!savedLoginsSnapLc.empty) {
+                                  dbPassword = savedLoginsSnapLc.docs[0].data().password;
+                                }
+                              }
+                            } catch (e) {
+                              console.error("Erro ao buscar senha salva no fallback:", e);
+                            }
+                          }
+
+                          if (dbPassword && dbPassword === password) {
                             if (memberData.status === "pending") {
                               setAuthError("Seu cadastro ainda está em análise.");
                             } else if (memberData.status === "rejected") {
