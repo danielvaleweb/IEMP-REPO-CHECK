@@ -1,6 +1,6 @@
 import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
 import { auth, db } from "@/lib/firebase";
-import { doc, updateDoc, arrayUnion } from "firebase/firestore";
+import { doc, updateDoc, setDoc, arrayUnion } from "firebase/firestore";
 
 const VAPID_KEY = (import.meta as any).env.VITE_FIREBASE_VAPID_KEY;
 
@@ -55,10 +55,10 @@ export const saveMessagingToken = async () => {
       const user = auth.currentUser;
       if (user) {
         const userRef = doc(db, "members", user.uid);
-        await updateDoc(userRef, {
+        await setDoc(userRef, {
           fcmTokens: arrayUnion(currentToken),
           lastTokenUpdate: new Date().toISOString()
-        });
+        }, { merge: true });
         
         // Also register with the server for backward compatibility or direct push
         await fetch('/backend/push/register', {

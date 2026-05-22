@@ -335,7 +335,9 @@ function CalendarView({
   deleteButtonLabel = "Excluir",
   canImportExisting = false,
   onImportExisting,
-  agendaType = 'general'
+  agendaType = 'general',
+  highlightedDate = null,
+  onClearHighlight
 }: {
   agenda: any[],
   onNewEvent: (date: Date) => void,
@@ -356,11 +358,22 @@ function CalendarView({
   deleteButtonLabel?: string,
   canImportExisting?: boolean,
   onImportExisting?: () => void,
-  agendaType?: 'general' | 'direcao'
+  agendaType?: 'general' | 'direcao',
+  highlightedDate?: Date | null,
+  onClearHighlight?: () => void
 }) {
   const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<Date | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Sincronizar o calendário com a data realçada recebida (ex: por clique em notificações)
+  useEffect(() => {
+    if (highlightedDate) {
+      setCurrentMonth(highlightedDate);
+      setSelectedDay(highlightedDate);
+    }
+  }, [highlightedDate]);
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
@@ -429,11 +442,18 @@ function CalendarView({
               return d && isSameDay(d, day);
             });
             const isCurrentMonth = isSameMonth(day, monthStart);
+            const isHighlighted = highlightedDate && isSameDay(day, highlightedDate);
 
             return (
               <div
                 key={`calendar-day-${day.toISOString()}`}
-                onClick={() => setSelectedDay(day)}
+                onClick={() => {
+                  setSelectedDay(day);
+                  setIsModalOpen(true);
+                  if (isHighlighted && onClearHighlight) {
+                    onClearHighlight();
+                  }
+                }}
                 className={cn(
                   "min-h-[50px] md:min-h-[100px] p-1 md:p-2 rounded-xl md:rounded-2xl border transition-all cursor-pointer relative group",
                   isCurrentMonth
@@ -443,6 +463,9 @@ function CalendarView({
                   isSameDay(day, new Date()) && "ring-2 ring-[#BF76FF]",
                 )}
               >
+                {isHighlighted && (
+                  <div className="absolute inset-0 pointer-events-none rounded-xl md:rounded-2xl border-2 border-dashed border-[#FACC15] animate-pulse shadow-[0_0_15px_rgba(250,204,21,0.7)] z-10" />
+                )}
                 <div className={cn(
                   "text-right text-[8px] md:text-xs font-black mb-1 md:mb-2 transition-colors",
                   agendaType === 'direcao' ? "text-green-500" : "text-[#BF76FF]"
@@ -453,12 +476,12 @@ function CalendarView({
                       key={`calendar-event-${day.toISOString()}-${j}-${event.id || 'no-id'}`}
                       className={cn(
                         "text-[7px] md:text-[10px] p-0.5 md:p-1.5 rounded-lg truncate transition-colors relative group/event font-bold",
-                        (event.originalType || event.type) === 'agenda-direcao'
-                          ? "bg-green-500/10 text-green-500"
-                          : (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post'
-                            ? "bg-[#BF76FF]/10 text-[#BF76FF]"
-                            : event.status === 'pending'
-                              ? "bg-yellow-500/20 text-yellow-500"
+                        event.status === 'pending'
+                          ? "bg-yellow-500/20 text-yellow-500 border border-yellow-500/30"
+                          : (event.originalType || event.type) === 'agenda-direcao'
+                            ? "bg-green-500/10 text-green-500"
+                            : (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post'
+                              ? "bg-[#BF76FF]/10 text-[#BF76FF]"
                               : agendaType === 'direcao'
                                 ? "bg-green-500/10 text-green-500"
                                 : "bg-[#BF76FF]/10 text-[#BF76FF]"
@@ -473,11 +496,12 @@ function CalendarView({
                       )}>
                         <div className="flex items-center gap-2 mb-2">
                           <div className={cn(
-                          "w-1.5 h-1.5 rounded-full",
-                          (event.originalType || event.type) === 'agenda-direcao' ? "bg-green-500" :
-                          (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post' ? "bg-[#BF76FF]" :
-                          agendaType === 'direcao' ? "bg-green-500" : "bg-[#BF76FF]"
-                        )} />
+                            "w-1.5 h-1.5 rounded-full",
+                            event.status === 'pending' ? "bg-yellow-500 animate-pulse" :
+                            (event.originalType || event.type) === 'agenda-direcao' ? "bg-green-500" :
+                            (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post' ? "bg-[#BF76FF]" :
+                            agendaType === 'direcao' ? "bg-green-500" : "bg-[#BF76FF]"
+                          )} />
                           <p className={cn("font-black text-sm whitespace-normal tracking-tight leading-tight", isDark ? "text-white" : "text-black")}>{event.title}</p>
                         </div>
                         <div className="space-y-1.5 pt-2 border-t border-white/5">
@@ -505,7 +529,10 @@ function CalendarView({
         </div>
       </div>
 
-      <Dialog open={selectedDay !== null} onOpenChange={(open) => !open && setSelectedDay(null)}>
+      <Dialog open={isModalOpen && selectedDay !== null} onOpenChange={(open) => {
+        setIsModalOpen(open);
+        if (!open) setSelectedDay(null);
+      }}>
         <DialogContent className={cn("border sm:max-w-md p-0 overflow-hidden max-h-[90vh] flex flex-col transition-colors rounded-[32px] border-none shadow-2xl", isDark ? "bg-[#1A1A1A] text-white" : "bg-white text-black")}>
           <div className="flex-1 overflow-y-auto scrollbar-hide p-8">
             <DialogHeader>
@@ -1558,6 +1585,7 @@ const Admin = () => {
   const [members, setMembers] = useState<any[]>([]);
   const [agenda, setAgenda] = useState<any[]>([]);
   const [agendaDirecao, setAgendaDirecao] = useState<any[]>([]);
+  const [highlightedAgendaDate, setHighlightedAgendaDate] = useState<Date | null>(null);
   const [vignettes, setVignettes] = useState<any[]>([]);
   const [radioTracks, setRadioTracks] = useState<any[]>([]);
   const [radioArtists, setRadioArtists] = useState<any[]>([]);
@@ -1980,15 +2008,60 @@ const Admin = () => {
 
       return false;
     }).map(n => {
+      let treatedTitle = n.title;
+      let treatedMessage = n.message;
+
+      // Retrocompatibilidade para notificações do tipo 'request'
+      if (n.type === 'request') {
+        if (!n.title || !n.title.startsWith("Data solicitada") || n.title.includes("...") || n.title.includes("…")) {
+          const formattedDate = (() => {
+            try {
+              if (n.eventDate) {
+                const [year, month, day] = n.eventDate.split('-');
+                return `${day}/${month}/${year}`;
+              }
+            } catch {}
+            return "";
+          })();
+          treatedTitle = formattedDate ? `Data solicitada: ${formattedDate}` : "Data solicitada";
+        }
+
+        if (treatedTitle) {
+          treatedTitle = treatedTitle.replace(/:\s*[\.\u2026]+/g, '').replace(/[\.\u2026]+$/g, '').trim();
+        }
+
+        if (n.message && (n.message.startsWith("Nova solicitação de compromisso por") || !n.message.includes("quer agendar o compromisso"))) {
+          const author = n.message.replace("Nova solicitação de compromisso por", "").trim() || "Membro";
+          let eventTitle = "compromisso";
+          if (n.eventId) {
+            const matchedEvent = agenda.find(evt => evt.id === n.eventId);
+            if (matchedEvent && matchedEvent.title) {
+              eventTitle = matchedEvent.title;
+            }
+          }
+          treatedMessage = `${author} quer agendar o compromisso ${eventTitle}`;
+        }
+
+        if (treatedMessage) {
+          treatedMessage = treatedMessage.replace(/"/g, '');
+        }
+      }
+
       // Treat global or admin notifications as synthetic to avoid updating for everyone
       if (n.userId !== user?.uid) {
         return {
           ...n,
+          title: treatedTitle,
+          message: treatedMessage,
           isSynthetic: true,
           read: n.read || syntheticReadIds.includes(n.id)
         };
       }
-      return n;
+      return {
+        ...n,
+        title: treatedTitle,
+        message: treatedMessage
+      };
     });
 
     const now = new Date();
@@ -1999,7 +2072,7 @@ const Admin = () => {
         if (birth.getDate() === now.getDate() && birth.getMonth() === now.getMonth()) {
           const synthId = `birthday-${m.id}`;
           if (!syntheticClearedIds.includes(synthId)) {
-            dsNotifs.unshift({
+            dsNotifs.push({
               id: synthId,
               type: 'birthday',
               title: `Aniversário de ${m.name}`,
@@ -2015,8 +2088,26 @@ const Admin = () => {
       } catch (e) { }
     });
 
+    // Ordenar de forma robusta por data decrescente (mais recentes por cima)
+    dsNotifs.sort((a, b) => {
+      const getTimestamp = (item: any) => {
+        if (item.createdAt?.toDate) return item.createdAt.toDate().getTime();
+        if (item.timestamp?.toDate) return item.timestamp.toDate().getTime();
+        if (item.createdAt) {
+          const parsed = new Date(item.createdAt);
+          if (!isNaN(parsed.getTime())) return parsed.getTime();
+        }
+        if (item.timestamp) {
+          const parsed = new Date(item.timestamp);
+          if (!isNaN(parsed.getTime())) return parsed.getTime();
+        }
+        return 0;
+      };
+      return getTimestamp(b) - getTimestamp(a);
+    });
+
     return dsNotifs;
-  }, [notifications, isAdminOrDev, user?.uid, members, syntheticReadIds, syntheticClearedIds]);
+  }, [notifications, isAdminOrDev, user?.uid, members, syntheticReadIds, syntheticClearedIds, agenda]);
 
   const handleNotificationClick = async (notif: any) => {
     try {
@@ -2042,6 +2133,42 @@ const Admin = () => {
     try {
       if (notif.type === "request" || notif.type === "agenda" || notif.type === "agenda_rejected") {
         setActiveTab("agenda");
+        
+        let targetDate: Date | null = null;
+
+        // Camada 1: Buscar o ID do evento na agenda já carregada localmente (mergedAgenda)
+        if (notif.eventId) {
+          const matchedEvent = mergedAgenda.find(evt => evt.id === notif.eventId);
+          if (matchedEvent && matchedEvent.date) {
+            const parsed = new Date(matchedEvent.date);
+            if (!isNaN(parsed.getTime())) {
+              targetDate = parsed;
+            }
+          }
+        }
+
+        // Camada 2: Buscar a data salva diretamente na notificação
+        if (!targetDate && notif.eventDate) {
+          const parsed = new Date(notif.eventDate);
+          if (!isNaN(parsed.getTime())) {
+            targetDate = parsed;
+          }
+        }
+
+        // Camada 3: Fallback para notificações legadas (primeira solicitação pendente na agenda)
+        if (!targetDate) {
+          const firstPending = mergedAgenda.find(evt => evt.status === "pending");
+          if (firstPending && firstPending.date) {
+            const parsed = new Date(firstPending.date);
+            if (!isNaN(parsed.getTime())) {
+              targetDate = parsed;
+            }
+          }
+        }
+
+        if (targetDate) {
+          setHighlightedAgendaDate(targetDate);
+        }
       } else if (notif.type === "registration") {
         firestoreService.clearCache("members");
         setActiveTab("membros");
@@ -2753,24 +2880,47 @@ const Admin = () => {
     };
   }, [user, isAdmin, activeTab]);
 
+  // Real-time listener for Agenda Geral (updates instantly when a request is made)
+  useEffect(() => {
+    if (!user || (!isAdmin && !profile?.role)) return;
+
+    const q = query(collection(db, "agenda"), orderBy("date", "asc"), limit(150));
+    const unsubAgenda = onSnapshot(q, (snapshot) => {
+      const agendaData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setAgenda(agendaData);
+      setPendingAgendaCount(agendaData.filter(a => a.status === "pending").length);
+    }, (error) => {
+      console.error("Erro na escuta em tempo real da agenda:", error);
+    });
+
+    return () => {
+      unsubAgenda();
+    };
+  }, [user, isAdmin, profile?.role]);
+
   // Tab-specific data loading (On-demand)
   useEffect(() => {
     if (!user || (!isAdmin && !profile?.role)) return;
 
-    // Load critical data on mount (Agenda for Home and Posts for Feed)
+    // Load critical data on mount (Posts for Feed and Members)
     const loadInitialData = async () => {
+      // 1. Carregar dados gerais críticos (Posts públicos)
       try {
-        const [agendaData, postsData, membersData] = await Promise.all([
-          firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60), // 1 hour TTL
-          firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(4)], 1000 * 60 * 60), // 1 hour TTL
-          firestoreService.getCollection<any>("members", [], 1000 * 60 * 5) // 5 min TTL
-        ]);
-
-        setAgenda(agendaData);
+        const postsData = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(4)], 1000 * 60 * 60); // 1h TTL
         setPosts(postsData);
+      } catch (err) {
+        console.error("Erro ao carregar posts no carregamento inicial:", err);
+      }
+
+      // 2. Carregar dados de membros (irá falhar silenciosamente para não-admins por falta de permissão)
+      try {
+        const membersData = await firestoreService.getCollection<any>("members", [], 1000 * 60 * 5); // 5 min TTL
         setMembers(membersData);
 
-        // Calculate counts from membersData
+        // Calcular contagens a partir dos membros
         const newRoleCounts: Record<string, number> = {};
         allRoles.forEach(role => {
           if (role === "Diácono") {
@@ -2791,13 +2941,8 @@ const Admin = () => {
 
         setRoleCounts(newRoleCounts);
         setPendingMembersCount(membersData.filter(m => ["pending", "pending_approval"].includes(m.status)).length);
-
-        // Only one specific count for pending agenda
-        const pendingAgendaCount = await firestoreService.getCount(collection(db, "agenda"), [where("status", "==", "pending")], 1000 * 60 * 60);
-        setPendingAgendaCount(pendingAgendaCount);
-
       } catch (err) {
-        console.error("Error loading initial data:", err);
+        console.log("Erro esperado ao carregar lista de membros (sem permissão de administrador):", err);
       }
     };
 
@@ -2816,7 +2961,7 @@ const Admin = () => {
           data.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
           setMembers(data);
         } else if (activeTab === "agenda-direcao") {
-          const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60); // 1 hour TTL
+          const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 10); // 10 seconds TTL
           setAgendaDirecao(data);
         } else if (activeTab === "radio") {
           const [vigs, tracks, artists] = await Promise.all([
@@ -2853,10 +2998,10 @@ const Admin = () => {
         setIsLoadingImport(true);
         try {
           if (activeTab === "agenda") {
-            const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60);
+            const data = await firestoreService.getCollection<any>("agenda-direcao", [orderBy("date", "asc"), limit(150)], 1000 * 10);
             setAgendaDirecao(data);
           } else if (activeTab === "agenda-direcao") {
-            const data = await firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 60 * 60);
+            const data = await firestoreService.getCollection<any>("agenda", [orderBy("date", "asc"), limit(150)], 1000 * 10);
             setAgenda(data);
           }
         } catch (err) {
@@ -3570,6 +3715,8 @@ const Admin = () => {
       if (collectionName === "posts") {
         localStorage.removeItem("cachedEvents_v3");
         localStorage.removeItem("cachedEventsTime_v3");
+        firestoreService.clearCache("agenda");
+        firestoreService.clearCache("agenda-direcao");
       }
 
       // Clear firestoreService cache
@@ -3747,9 +3894,22 @@ const Admin = () => {
           status: p.status || 'approved'
         };
       });
-    const fromAgenda = agenda.map(a => ({ ...a, type: 'agenda' }));
+    const fromAgenda = agenda
+      .filter(a => {
+        // Se for pendente, checar permissão
+        if (a.status === 'pending') {
+          // Administradores e Desenvolvedores veem tudo
+          if (isAdminOrDev) return true;
+          // Membros comuns veem apenas o que eles mesmos criaram
+          const currentUserId = profile?.id || user?.uid;
+          return a.authorId === currentUserId && !!currentUserId;
+        }
+        // Se não for pendente (ex: aprovado), todos veem
+        return true;
+      })
+      .map(a => ({ ...a, type: 'agenda' }));
     return [...fromAgenda, ...fromPosts].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [posts, agenda]);
+  }, [posts, agenda, isAdminOrDev, profile, user]);
 
   const eventsToImport = useMemo(() => {
     const today = new Date();
@@ -3855,6 +4015,8 @@ const Admin = () => {
       if (col === "posts") {
         localStorage.removeItem("cachedEvents_v3");
         localStorage.removeItem("cachedEventsTime_v3");
+        firestoreService.clearCache("agenda");
+        firestoreService.clearCache("agenda-direcao");
       }
 
       setSelectedItem(null);
@@ -4547,32 +4709,48 @@ const Admin = () => {
           )}
         >
           <div className="hidden md:flex flex-col w-full px-4 pt-6 mb-4">
-            <div className="flex items-center justify-between mb-8">
-              {!isSidebarCollapsed && (
-                <div className="flex flex-col items-start leading-none gap-0 pl-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className={cn("font-light text-base tracking-tight", isDarkMode ? "text-white/80" : "text-gray-600")}>Ministério</span>
-                    <span className={cn("font-black text-base tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Profecia</span>
+            <div className={cn("flex items-center mb-8", isSidebarCollapsed ? "justify-center" : "justify-between")}>
+              {!isSidebarCollapsed ? (
+                <>
+                  <div className="flex flex-col items-start leading-none gap-0 pl-1">
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn("font-light text-base tracking-tight", isDarkMode ? "text-white/80" : "text-gray-600")}>Ministério</span>
+                      <span className={cn("font-black text-base tracking-tight uppercase", isDarkMode ? "text-white" : "text-black")}>Profecia</span>
+                    </div>
+                    <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
                   </div>
-                  <span className={cn("text-[8px] font-bold uppercase tracking-[0.1em] opacity-60 mt-0.5", isDarkMode ? "text-white" : "text-black")}>área de membro</span>
-                </div>
-              )}
-              {isSidebarCollapsed && (
-                <div className="w-full flex justify-center mb-4">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#BF76FF] to-[#8E44AD] flex items-center justify-center text-white shadow-lg shadow-[#BF76FF]/20">
-                    <span className="font-black text-xs">MP</span>
+                  <button
+                    onClick={() => setIsSidebarCollapsed(true)}
+                    className={cn(
+                      "p-2 rounded-xl transition-all cursor-pointer",
+                      isDarkMode ? "hover:bg-white/5 text-gray-500 hover:text-white" : "hover:bg-black/5 text-gray-400 hover:text-black"
+                    )}
+                  >
+                    <PanelLeftClose className="w-5 h-5" />
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setIsSidebarCollapsed(false)}
+                  className={cn(
+                    "group relative w-12 h-12 flex items-center justify-center transition-all duration-300 rounded-xl cursor-pointer",
+                    isDarkMode ? "hover:bg-white/5" : "hover:bg-black/5"
+                  )}
+                >
+                  {/* Default MP design: font Helvetica Neue, no pink button background, bold M, light P */}
+                  <div 
+                    style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
+                    className="absolute inset-0 flex items-center justify-center text-xl tracking-tight transition-all duration-300 group-hover:opacity-0 group-hover:scale-75 select-none"
+                  >
+                    <span className={cn("font-bold", isDarkMode ? "text-white" : "text-gray-900")}>M</span>
+                    <span className={cn("font-light", isDarkMode ? "text-white/60" : "text-gray-500")}>P</span>
                   </div>
-                </div>
+                  {/* Hover Arrow design */}
+                  <div className="absolute inset-0 flex items-center justify-center opacity-0 scale-75 group-hover:opacity-100 group-hover:scale-100 transition-all duration-300">
+                    <PanelLeftOpen className={cn("w-5.5 h-5.5", isDarkMode ? "text-white" : "text-black")} />
+                  </div>
+                </button>
               )}
-              <button
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className={cn(
-                  "p-2 rounded-xl transition-all cursor-pointer",
-                  isDarkMode ? "hover:bg-white/5 text-gray-500 hover:text-white" : "hover:bg-black/5 text-gray-400 hover:text-black"
-                )}
-              >
-                {isSidebarCollapsed ? <PanelLeftOpen className="w-5 h-5" /> : <PanelLeftClose className="w-5 h-5" />}
-              </button>
             </div>
 
             {!isSidebarCollapsed && canViewSettings && (isMasterAdmin || profile?.role === "Desenvolvedor") && (
@@ -5026,61 +5204,84 @@ const Admin = () => {
                 <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                   <div className="p-2">
                     {displayNotifications.length > 0 ? (
-                      displayNotifications.map((n) => (
-                        <div
-                          key={n.id}
-                          onClick={() => handleNotificationClick(n)}
-                          className={cn(
-                            "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent flex flex-col group cursor-pointer",
-                            !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600")
-                          )}
-                        >
-                          <div className="flex gap-3">
-                            <div className={cn(
-                              "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                              n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' :
-                                n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' :
-                                  n.type === 'bug' ? 'bg-orange-600/20 text-orange-600' :
-                                    n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
-                                      n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
-                                        n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
-                                          'bg-green-500/20 text-green-500'
-                            )}>
-                              {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> :
-                                n.type === 'activity' ? <Zap className="w-4 h-4" /> :
-                                  n.type === 'bug' ? <Bug className="w-4 h-4" /> :
-                                    n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
-                                      n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
-                                        n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
-                                          n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
-                                            <Bell className="w-4 h-4" />
-                              }
+                      displayNotifications.map((n) => {
+                        const isExpanded = expandedNotifs.includes(n.id);
+                        return (
+                          <div
+                            key={n.id}
+                            onClick={() => handleNotificationClick(n)}
+                            className={cn(
+                              "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent cursor-pointer flex flex-col group",
+                              !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600")
+                            )}
+                          >
+                            <div className="flex gap-3">
+                              <div className={cn(
+                                "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                                n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' :
+                                  n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' :
+                                    n.type === 'bug' ? 'bg-orange-600/20 text-orange-600' :
+                                      n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
+                                        n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
+                                          n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
+                                            n.type === 'request' ? 'bg-[#FACC15]/20 text-[#FACC15]' :
+                                              'bg-green-500/20 text-green-500'
+                              )}>
+                                {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> :
+                                  n.type === 'activity' ? <Zap className="w-4 h-4" /> :
+                                    n.type === 'bug' ? <Bug className="w-4 h-4" /> :
+                                      n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
+                                        n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
+                                          n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
+                                            n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
+                                              n.type === 'request' ? <Calendar className="w-4 h-4" /> :
+                                                <Bell className="w-4 h-4" />
+                                }
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm font-bold leading-tight line-clamp-1">{n.title}</p>
+                                  <ChevronDown className={cn("w-4 h-4 shrink-0 transition-transform opacity-50 group-hover:opacity-100", isExpanded ? "rotate-180" : "")} />
+                                </div>
+                                {isExpanded && (
+                                  <p className="text-xs opacity-70 mt-1 transition-all whitespace-pre-wrap">{n.message}</p>
+                                )}
+                                <p className="text-[10px] font-medium opacity-40 mt-2">
+                                  {getRelativeTime(n.createdAt || n.timestamp)}
+                                </p>
+                              </div>
+                              {!n.read && (
+                                <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
+                              )}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold leading-tight line-clamp-2">{n.title}</p>
-                              <p className="text-xs opacity-70 mt-1 line-clamp-3">{n.message}</p>
-                              <p className="text-[10px] font-medium opacity-40 mt-1">
-                                {getRelativeTime(n.createdAt || n.timestamp)}
-                              </p>
-                            </div>
-                            {!n.read && (
-                              <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
+                            {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback" || n.type === "agenda_rejected" || n.type === "bug") && (
+                              <button
+                                onClick={(e) => handleNotificationAction(n, e)}
+                                className={cn(
+                                  "mt-3 w-full flex justify-center items-center gap-2 py-2 rounded-xl text-xs font-bold transition-colors",
+                                  n.type === "request"
+                                    ? "bg-[#FACC15]/10 text-[#FACC15] hover:bg-[#FACC15]/20"
+                                    : "bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20"
+                                )}
+                              >
+                                Acessar Detalhes
+                              </button>
+                            )}
+                            {n.type === 'birthday' && n.memberPhone && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(`https://wa.me/55${n.memberPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Parabéns ${n.memberName}! Que Deus te abençoe grandemente no seu aniversário!`)}`, '_blank');
+                                }}
+                                className="mt-3 w-full flex justify-center items-center gap-2 bg-[#25D366]/20 text-[#25D366] py-2 rounded-xl text-xs font-bold hover:bg-[#25D366]/30 transition-colors"
+                              >
+                                <Phone className="w-3 h-3" />
+                                Dar os Parabéns!
+                              </button>
                             )}
                           </div>
-                          {n.type === 'birthday' && n.memberPhone && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                window.open(`https://wa.me/55${n.memberPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Parabéns ${n.memberName}! Que Deus te abençoe grandemente no seu aniversário!`)}`, '_blank');
-                              }}
-                              className="mt-3 w-full flex justify-center items-center gap-2 bg-[#25D366]/20 text-[#25D366] py-2 rounded-xl text-xs font-bold hover:bg-[#25D366]/30 transition-colors"
-                            >
-                              <Phone className="w-3 h-3" />
-                              Dar os Parabéns!
-                            </button>
-                          )}
-                        </div>
-                      ))
+                        )
+                      })
                     ) : (
                       <div className="py-8 flex flex-col items-center justify-center text-center opacity-40">
                         <Bell className="w-8 h-8 mb-2" />
@@ -5240,7 +5441,8 @@ const Admin = () => {
                                         n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
                                           n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
                                             n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
-                                              'bg-green-500/20 text-green-500'
+                                              n.type === 'request' ? 'bg-[#FACC15]/20 text-[#FACC15]' :
+                                                'bg-green-500/20 text-green-500'
                                 )}>
                                   {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> :
                                     n.type === 'activity' ? <Zap className="w-4 h-4" /> :
@@ -5249,7 +5451,8 @@ const Admin = () => {
                                           n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
                                             n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
                                               n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
-                                                <Bell className="w-4 h-4" />
+                                                n.type === 'request' ? <Calendar className="w-4 h-4" /> :
+                                                  <Bell className="w-4 h-4" />
                                   }
                                 </div>
                                 <div className="flex-1 min-w-0">
@@ -5257,7 +5460,9 @@ const Admin = () => {
                                     <p className="text-sm font-bold leading-tight line-clamp-1">{n.title}</p>
                                     <ChevronDown className={cn("w-4 h-4 shrink-0 transition-transform opacity-50 group-hover:opacity-100", isExpanded ? "rotate-180" : "")} />
                                   </div>
-                                  <p className={cn("text-xs opacity-70 mt-1 transition-all", isExpanded ? "whitespace-pre-wrap" : "line-clamp-1")}>{n.message}</p>
+                                  {isExpanded && (
+                                    <p className="text-xs opacity-70 mt-1 transition-all whitespace-pre-wrap">{n.message}</p>
+                                  )}
                                   <p className="text-[10px] font-medium opacity-40 mt-2">
                                     {getRelativeTime(n.createdAt || n.timestamp)}
                                   </p>
@@ -5269,7 +5474,12 @@ const Admin = () => {
                               {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback" || n.type === "agenda_rejected" || n.type === "bug") && (
                                 <button
                                   onClick={(e) => handleNotificationAction(n, e)}
-                                  className="mt-3 w-full flex justify-center items-center gap-2 bg-[#BF76FF]/10 text-[#BF76FF] py-2 rounded-xl text-xs font-bold hover:bg-[#BF76FF]/20 transition-colors"
+                                  className={cn(
+                                    "mt-3 w-full flex justify-center items-center gap-2 py-2 rounded-xl text-xs font-bold transition-colors",
+                                    n.type === "request"
+                                      ? "bg-[#FACC15]/10 text-[#FACC15] hover:bg-[#FACC15]/20"
+                                      : "bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20"
+                                  )}
                                 >
                                   Acessar Detalhes
                                 </button>
@@ -8107,6 +8317,7 @@ const Admin = () => {
                                 onClick={async () => {
                                   try {
                                     await setDoc(doc(db, "agenda", selectedItem.id), { status: "approved", updatedAt: serverTimestamp() }, { merge: true });
+                                    firestoreService.clearCache("agenda");
 
                                     // Notificar criador
                                     if (selectedItem.authorId) {
@@ -8116,7 +8327,9 @@ const Admin = () => {
                                         message: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
                                         type: "agenda",
                                         read: false,
-                                        createdAt: serverTimestamp()
+                                        createdAt: serverTimestamp(),
+                                        eventId: selectedItem.id,
+                                        eventDate: selectedItem.date
                                       });
 
                                       // Send chat message
@@ -8690,6 +8903,8 @@ const Admin = () => {
                   </div>
                   <CalendarView
                     agenda={mergedAgenda}
+                    highlightedDate={highlightedAgendaDate}
+                    onClearHighlight={() => setHighlightedAgendaDate(null)}
                     isDark={isDarkMode}
                     canEdit={hasPermission('edit', 'agenda')}
                     canDelete={hasPermission('delete', 'agenda')}
@@ -10294,6 +10509,7 @@ const Admin = () => {
                       try {
                         // Delete the document instead of just marking as rejected
                         await deleteDoc(doc(db, "agenda", itemToReject.id));
+                        firestoreService.clearCache("agenda");
 
                         // Notificar criador
                         if (itemToReject.authorId) {
@@ -10384,14 +10600,14 @@ const Admin = () => {
                       const dataToSave = {
                         title: requestFormData.title,
                         date: eventDate,
-                        endTime: requestFormData.endTime, // New endTime field
+                        endTime: requestFormData.endTime,
                         location: requestFormData.location || "Igreja Local",
                         phone: requestFormData.phone || "",
                         observations: requestFormData.observations || "",
                         status: "pending",
                         menuSource: "agenda",
                         authorId: profile?.id || user?.uid || "",
-                        authorName: profile?.name || "Membro", // Keep authorName
+                        authorName: profile?.name || "Membro",
                         createdAt: serverTimestamp(),
                       };
 
@@ -10399,7 +10615,8 @@ const Admin = () => {
                         // Fechar o modal de confirmação antes de começar o processo
                         setIsConfirmRequestOpen(false);
 
-                        await addDoc(collection(db, "agenda"), dataToSave);
+                        const agendaDoc = await addDoc(collection(db, "agenda"), dataToSave);
+                        firestoreService.clearCache("agenda");
 
                         // Marcar como sucesso logue após salvar na agenda
                         setIsRequestingDate(false);
@@ -10413,35 +10630,37 @@ const Admin = () => {
                         // Processar notificações em background para não travar o feedback
                         (async () => {
                           try {
-                            const rolesCanApprove = ["Administradores", "Desenvolvedor", "Secretaria", "Secretário", "Mídia"];
-                            const usersToNotify = (members || []).filter(m =>
-                              (rolesCanApprove.includes(m.role) || (m.role === 'Mídia' && m.isLeader)) &&
-                              m.id !== (profile?.id || user?.uid)
-                            );
-
-                            for (const u of usersToNotify) {
+                            const formattedDate = (() => {
                               try {
-                                await addDoc(collection(db, "notifications"), {
-                                  userId: u.id,
-                                  title: "Nova Solicitação de Agendamento",
-                                  message: `Nova solicitação de compromisso por ${profile?.name || "Membro"}`,
-                                  type: "request",
-                                  read: false,
-                                  createdAt: serverTimestamp()
-                                });
-                              } catch (err) {
-                                console.error("Erro ao notificar admin:", u.id, err);
+                                const [year, month, day] = dataToSave.date.split('-');
+                                return `${day}/${month}/${year}`;
+                              } catch {
+                                return dataToSave.date;
                               }
-                            }
+                            })();
+
+                            // Envia uma única notificação unificada para o canal "admin"
+                            await addDoc(collection(db, "notifications"), {
+                              userId: "admin",
+                              title: `Data solicitada: ${formattedDate}`,
+                              message: `${profile?.name || "Membro"} quer agendar o compromisso ${dataToSave.title}`,
+                              type: "request",
+                              read: false,
+                              createdAt: serverTimestamp(),
+                              eventId: agendaDoc.id,
+                              eventDate: dataToSave.date
+                            });
 
                             if (profile?.id || user?.uid) {
                               await addDoc(collection(db, "notifications"), {
                                 userId: profile?.id || user?.uid,
                                 title: "Solicitação em Análise",
-                                message: "Sua solicitação foi enviada para administração, Agora é só aguardar...",
+                                message: "Sua solicitação foi enviada para administração. Agora é só aguardar...",
                                 type: "agenda",
                                 read: false,
-                                createdAt: serverTimestamp()
+                                createdAt: serverTimestamp(),
+                                eventId: agendaDoc.id,
+                                eventDate: dataToSave.date
                               });
                             }
                           } catch (notifErr) {

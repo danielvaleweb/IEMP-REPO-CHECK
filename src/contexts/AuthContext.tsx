@@ -118,6 +118,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               };
               await setDoc(userRef, newProfile);
               firestoreService.clearCache("members");
+            } else {
+              // Create a pending profile if missing for normal authenticated users (like Google users)
+              if (user.email && !user.isAnonymous) {
+                console.log("DEBUG: Perfil não encontrado para usuário autenticado, criando perfil pendente.");
+                const newProfile = {
+                  name: user.displayName || "Membro",
+                  email: user.email,
+                  role: "Membro",
+                  status: "pending",
+                  createdAt: new Date().toISOString()
+                };
+                await setDoc(userRef, newProfile);
+                
+                // Add a notification about the new Google signup
+                try {
+                  const notifRef = doc(collection(db, "notifications"));
+                  await setDoc(notifRef, {
+                    title: "Novo Cadastro (Google)",
+                    message: `${newProfile.name} solicitou acesso ao painel via Google.`,
+                    type: "registration",
+                    memberId: user.uid,
+                    read: false,
+                    userId: "admin",
+                    createdAt: new Date().toISOString()
+                  });
+                } catch (e) {
+                  console.warn("Could not write notification for Google signup:", e);
+                }
+                
+                firestoreService.clearCache("members");
+              }
             }
             setLoading(false);
           }, (err) => {

@@ -226,7 +226,10 @@ export const firestoreService = {
     if (collectionName) {
       const keys = Object.keys(localStorage);
       keys.forEach(key => {
-        if (key.startsWith(`${CACHE_PREFIX}${collectionName}`)) {
+        if (
+          key.startsWith(`${CACHE_PREFIX}${collectionName}`) ||
+          key.startsWith(`${CACHE_PREFIX}count_${collectionName}`)
+        ) {
           localStorage.removeItem(key);
         }
       });
