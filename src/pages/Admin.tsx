@@ -110,6 +110,7 @@ const VideosView = lazy(() => import("@/components/admin/VideosView").then(m => 
 const EventosView = lazy(() => import("@/components/admin/EventosView").then(m => ({ default: m.EventosView })));
 const EventFeedbacksAdmin = lazy(() => import("@/components/admin/EventFeedbacksAdmin").then(m => ({ default: m.EventFeedbacksAdmin })));
 const SavedLoginsAdmin = lazy(() => import("@/components/admin/SavedLoginsAdmin").then(m => ({ default: m.SavedLoginsAdmin })));
+const ChatInboxView = lazy(() => import("@/components/admin/ChatInboxView").then(m => ({ default: m.ChatInboxView })));
 
 const slugify = (text: string) => {
   return (text || "")
@@ -4946,8 +4947,8 @@ const Admin = () => {
                 {canViewTab("tons") && <SidebarItem icon={Music} active={activeTab === "tons" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("tons"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Tons" collapsed={true} isDark={isDarkMode} mobile />}
                 <SidebarItem
                   icon={MessageSquare}
-                  active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
-                  onClick={() => { setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list"); }}
+                  active={activeTab === "chat"}
+                  onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }}
                   label="Chat"
                   collapsed={true}
                   isDark={isDarkMode}
@@ -5172,6 +5173,17 @@ const Admin = () => {
                 </button>
               )}
 
+              <button
+                onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }}
+                className={cn("p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all relative", activeTab === "chat" ? "text-[#BF76FF]" : "text-gray-500 hover:text-[#BF76FF]")}
+                title="Mensagens"
+              >
+                <MessageSquare className="w-[24px] h-[24px]" />
+                {activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0) > 0 && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white dark:border-[#0a0a0a] shadow-md animate-pulse" />
+                )}
+              </button>
+
               <DropdownMenu>
                 <DropdownMenuTrigger className="focus:outline-none">
                   <div className="relative group p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all cursor-pointer">
@@ -5384,6 +5396,18 @@ const Admin = () => {
             </div>
 
             <div className="flex items-center gap-4">
+
+              {/* MessageSquare Chat Trigger */}
+              <button
+                onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }}
+                className={cn("p-2 rounded-xl hover:bg-white/5 transition-all relative group cursor-pointer", activeTab === "chat" ? "text-[#BF76FF]" : "text-gray-500 hover:text-white")}
+                title="Mensagens"
+              >
+                <MessageSquare className={cn("w-[26px] h-[26px] transition-colors", activeTab === "chat" ? "text-[#BF76FF]" : isDarkMode ? "text-gray-500 group-hover:text-white" : "text-gray-400 group-hover:text-black")} />
+                {activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0) > 0 && (
+                  <span className="absolute top-2 right-2 w-3 h-3 bg-orange-500 rounded-full border-2 border-[#0a0a0a] shadow-lg animate-pulse" />
+                )}
+              </button>
 
               {/* Notifications Bell */}
               <DropdownMenu>
@@ -5668,8 +5692,18 @@ const Admin = () => {
           </header>
 
           {/* Content View */}
-          <div className="flex-1 p-2 md:p-8 pb-32 md:pb-8 overflow-y-auto scroll-smooth scrollbar-hide overscroll-contain touch-pan-y">
-            <div className="max-w-6xl mx-auto w-full space-y-4 md:space-y-8">
+          <div className={cn(
+            "flex-1 scroll-smooth scrollbar-hide overscroll-contain touch-pan-y",
+            (activeTab === "chat" || activeTab === "conversas")
+              ? "p-0 pb-0 overflow-hidden h-full flex flex-col"
+              : "p-2 md:p-8 pb-32 md:pb-8 overflow-y-auto"
+          )}>
+            <div className={cn(
+              "w-full",
+              (activeTab === "chat" || activeTab === "conversas")
+                ? "max-w-none h-full flex flex-col flex-1"
+                : "max-w-6xl mx-auto space-y-4 md:space-y-8"
+            )}>
               {isEditing ? (
                 <Card className={cn(
                   "border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all",
@@ -9474,22 +9508,20 @@ const Admin = () => {
                     agendaType="direcao"
                   />
                 </div>
-              ) : activeTab === "conversas" ? (
-                <div className="p-4 md:p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                  <div className="flex justify-between items-center mb-8">
-                    <h2 className={cn("text-3xl font-black transition-colors uppercase tracking-tighter", isDarkMode ? "text-white" : "text-black")}>Conversas</h2>
-                  </div>
-                  <Card className={cn("border rounded-[32px] p-8 md:p-12 transition-colors min-h-[500px] flex flex-col items-center justify-center text-center", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                    <div className="w-20 h-20 rounded-[28px] bg-[#BF76FF]/10 flex items-center justify-center mb-6 transition-transform hover:rotate-12">
-                      <MessageSquare className="w-10 h-10 text-[#BF76FF]" />
-                    </div>
-                    <h3 className={cn("text-2xl font-black mb-3", isDarkMode ? "text-white" : "text-black")}>O Chat está chegando!</h3>
-                    <p className="text-gray-500 text-sm max-w-sm leading-relaxed">Estamos preparando um sistema de mensagens robusto para que toda a liderança e membros possam se comunicar diretamente aqui no dashboard.</p>
-                    <div className="mt-8 flex gap-3">
-                      <div className="px-4 py-2 rounded-full bg-[#BF76FF]/10 text-[#BF76FF] text-[10px] font-bold uppercase tracking-widest">Tempo Real</div>
-                      <div className="px-4 py-2 rounded-full bg-blue-500/10 text-blue-500 text-[10px] font-bold uppercase tracking-widest">Privacidade</div>
-                    </div>
-                  </Card>
+              ) : (activeTab === "chat" || activeTab === "conversas") ? (
+                <div className="flex-1 h-full min-h-0 p-4 md:p-6 animate-in fade-in duration-300 overflow-hidden flex flex-col">
+                  <Suspense fallback={<ViewLoader />}>
+                    <ChatInboxView
+                      isDark={isDarkMode}
+                      profile={profile}
+                      members={members}
+                      activeChats={activeChats}
+                      chatMessages={chatMessages}
+                      activeChatUser={activeChatUser}
+                      setActiveChatUser={setActiveChatUser}
+                      setChatMessages={setChatMessages}
+                    />
+                  </Suspense>
                 </div>
               ) : activeTab === "config" ? (
                 <div className="p-4 md:p-8">
@@ -10757,14 +10789,7 @@ const Admin = () => {
                   isDark={isDarkMode}
                 />
               )}
-              <ActionIcon
-                icon={MessageSquare}
-                active={rightSidebarView === "chat-list" || rightSidebarView === "chat-active"}
-                onClick={() => setRightSidebarView(rightSidebarView === "chat-list" ? "hidden" : "chat-list")}
-                isDark={isDarkMode}
-                hasNotification={activeChats.some(chat => chat.unreadCount?.[profile?.id || ''] > 0)}
-                notificationCount={activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0)}
-              />
+
               <ActionIcon
                 icon={Users}
                 active={rightSidebarView === "team" || (rightSidebarView === "hidden" && window.innerWidth >= 1280)}
@@ -11160,221 +11185,7 @@ const Admin = () => {
             </div>
           )}
 
-          {rightSidebarView === "chat-list" && (
-            <div className={cn("flex-1 min-h-0 flex flex-col overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
-              <div className="p-6 pt-4 pb-2">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h2 className={cn("text-2xl font-black", isDarkMode ? "text-white" : "text-black")}>Mensagens</h2>
-                  </div>
-                </div>
-              </div>
 
-              <div className="flex-1 overflow-y-auto px-4 pb-6 space-y-1 scrollbar-hide">
-                {activeChats.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50 mt-10">
-                    <MessageSquare className="w-12 h-12 mb-4 mx-auto" />
-                    <p className="text-sm font-medium">Você não tem mensagens</p>
-                  </div>
-                ) : (
-                  activeChats.map((chat, i) => {
-                    const otherUserId = chat.participants?.find((p: string) => p !== profile?.id) || "";
-                    const m = members.find(member => member.id === otherUserId);
-                    if (!m) return null;
-                    return (
-                      <div key={chat.id} onClick={() => openWhatsApp(m)} className="flex items-center gap-4 p-3 mb-1 rounded-2xl hover:bg-gray-50 dark:hover:bg-white/5 cursor-pointer transition-colors">
-                        <div className="relative shrink-0">
-                          {m.photoURL || m.photoUrl ? (
-                            <img src={getImageUrl(m.photoURL || m.photoUrl)} className="w-12 h-12 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-12 h-12 rounded-full bg-gray-200 dark:bg-[#1a1a1a] text-xl font-bold flex items-center justify-center text-[#BF76FF]">
-                              {m.name?.[0] || 'M'}
-                            </div>
-                          )}
-                          {(m.status_presence === "online" || m.status_presence === "ocupado") && (
-                            <div className={cn("absolute bottom-0 right-0 w-3.5 h-3.5 border-[3px] border-white dark:border-[#0f0f0f] rounded-full", getStatusColor(m.status_presence))} />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0 flex flex-col justify-center">
-                          <h4 className={cn("font-bold text-sm truncate mb-1", isDarkMode ? "text-white" : "text-black")}>{m.name || 'Membro'}</h4>
-                          <p className="text-xs text-gray-500 truncate font-medium flex items-center gap-1">
-                            {chat.lastSenderId && chat.lastSenderId !== profile?.id ? (
-                              <i className="font-bold">{m.name?.[0]?.toUpperCase()}: </i>
-                            ) : chat.lastSenderId === profile?.id ? (
-                              <i>Você: </i>
-                            ) : null}
-                            {stripMentions(chat.lastMessage) || "Toque para abrir a conversa"}
-                          </p>
-                        </div>
-                        {chat.unreadCount?.[profile?.id || ''] > 0 && (
-                          <div className="bg-red-500 text-white min-w-[20px] h-[20px] px-1 rounded-full flex items-center justify-center shrink-0 shadow-sm ml-2 self-center">
-                            <span className="text-[10px] font-black">
-                              {chat.unreadCount[profile?.id || ''] > 9 ? '+9' : chat.unreadCount[profile?.id || '']}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-
-          {rightSidebarView === "chat-active" && activeChatUser && (
-            <div className={cn("flex-1 min-h-0 flex flex-col relative overflow-hidden animate-in slide-in-from-right-4 duration-300", isDarkMode ? "bg-roxo-bg" : "bg-white lg:bg-gray-50")}>
-              {/* Header */}
-              <div className={cn("px-5 py-4 border-b flex items-center justify-between shadow-sm z-10 shrink-0", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setRightSidebarView("chat-list")} className="p-2 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors mr-1">
-                    <ArrowLeft className={cn("w-5 h-5", isDarkMode ? "text-gray-300" : "text-gray-600")} />
-                  </button>
-                  <div className="relative shrink-0">
-                    {activeChatUser.photoURL || activeChatUser.photoUrl ? (
-                      <img src={getImageUrl(activeChatUser.photoURL || activeChatUser.photoUrl)} className="w-10 h-10 rounded-full object-cover shadow-sm bg-gray-100" />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/5 text-lg font-bold flex items-center justify-center text-[#BF76FF]">
-                        {activeChatUser.name?.[0] || 'M'}
-                      </div>
-                    )}
-                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 border-2 border-white dark:border-[#111] rounded-full" style={{ backgroundColor: activeChatUser.status_online === 'online' ? '#22c55e' : activeChatUser.status_online === 'busy' ? '#ef4444' : activeChatUser.status_online === 'away' ? '#f59e0b' : '#6b7280' }} />
-                  </div>
-                  <div className="flex flex-col relative top-0.5">
-                    <h3 className={cn("font-extrabold text-[15px] leading-tight", isDarkMode ? "text-white" : "text-gray-900")}>{activeChatUser.name || 'Membro'}</h3>
-                    <p className={cn("text-[10px] font-bold uppercase tracking-wider", activeChatUser.status_online === 'online' ? 'text-[#22c55e]' : activeChatUser.status_online === 'busy' ? 'text-red-500' : activeChatUser.status_online === 'away' ? 'text-amber-500' : 'text-gray-500')}>
-                      {activeChatUser.status_online === 'online' ? 'Online' : activeChatUser.status_online === 'busy' ? 'Ocupado' : activeChatUser.status_online === 'away' ? 'Ausente' : 'Offline'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Messages Area */}
-              <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4 flex flex-col scrollbar-hide min-h-0">
-                {chatMessages.length === 0 ? (
-                  <div className="flex-1 flex flex-col items-center justify-center text-center opacity-50">
-                    <MessageSquare className="w-12 h-12 mb-4" />
-                    <p className="text-sm">Envie uma mensagem para iniciar a conversa.</p>
-                  </div>
-                ) : (
-                  chatMessages.map(msg => {
-                    const isMe = msg.senderId === profile?.id;
-                    return (
-                      <div
-                        key={msg.id}
-                        className={cn(
-                          "p-3 px-4 rounded-2xl w-max max-w-[85%] shadow-sm",
-                          isMe
-                            ? "bg-gradient-to-r from-[#BF76FF] to-[#A05ADB] text-white rounded-tr-sm self-end ml-auto"
-                            : isDarkMode
-                              ? "bg-[#1a1a1a] border border-white/5 text-gray-200 rounded-tl-sm self-start mr-auto"
-                              : "bg-white border border-black/5 text-gray-800 rounded-tl-sm self-start mr-auto"
-                        )}
-                      >
-                        {renderMessageWithMentions(msg.text)}
-                      </div>
-                    );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input Area */}
-              <div className={cn("p-4 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)] relative", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-t border-black/5")}>
-                {/* Mention Suggestions */}
-                {showMentionSuggestions && (
-                  <div className={cn(
-                    "absolute bottom-[calc(100%+8px)] left-4 right-4 max-h-64 overflow-y-auto rounded-2xl shadow-2xl z-[100] border p-1 animate-in fade-in slide-in-from-bottom-2 duration-200",
-                    isDarkMode ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10"
-                  )}>
-                    {members
-                      .filter(m => !!m.name && m.name.trim() !== '' && m.name.toLowerCase().includes(mentionSearch.toLowerCase()))
-                      .slice(0, 10)
-                      .map(m => (
-                        <button
-                          key={m.id}
-                          onClick={() => {
-                            const lastAtIndex = chatInput.lastIndexOf('@');
-                            const beforeAt = chatInput.substring(0, lastAtIndex);
-                            setChatInput(`${beforeAt}@{${m.name}} `);
-                            setShowMentionSuggestions(false);
-                            setMentionSearch("");
-                          }}
-                          className={cn(
-                            "w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-all group",
-                            isDarkMode ? "hover:bg-white/5" : "hover:bg-gray-50"
-                          )}
-                        >
-                          <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center shrink-0 border border-transparent group-hover:border-[#BF76FF]/30 overflow-hidden transition-all">
-                            {m.photoURL ? (
-                              <img src={m.photoURL} className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-sm font-bold text-[#BF76FF]">{m.name?.[0]}</span>
-                            )}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className={cn("text-sm font-bold truncate", isDarkMode ? "text-gray-100" : "text-gray-900")}>
-                              {m.name}
-                            </span>
-                            <span className="text-[10px] opacity-40 uppercase tracking-tighter font-black">Membro da Equipe</span>
-                          </div>
-                        </button>
-                      ))
-                    }
-                    {members.filter(m => !!m.name && m.name.trim() !== '' && m.name.toLowerCase().includes(mentionSearch.toLowerCase())).length === 0 && (
-                      <div className="p-4 text-[10px] text-center opacity-40 italic flex flex-col items-center gap-2">
-                        <Users className="w-4 h-4" />
-                        Nenhum membro encontrado
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className={cn("flex items-end gap-2 p-1.5 pl-3 rounded-3xl transition-transform focus-within:-translate-y-1", isDarkMode ? "bg-cinza-input border border-white/10 focus-within:bg-cinza-input" : "bg-gray-100 focus-within:bg-gray-200")}>
-                  <textarea
-                    rows={1}
-                    placeholder="Mensagem..."
-                    value={chatInput}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setChatInput(val);
-
-                      const lastAtIndex = val.lastIndexOf('@');
-                      if (lastAtIndex !== -1) {
-                        const textAfterAt = val.substring(lastAtIndex + 1);
-                        // Only show suggestions if '@' is in the last word or if typing a potential name
-                        if (!textAfterAt.includes('\n')) {
-                          setMentionSearch(textAfterAt);
-                          setShowMentionSuggestions(true);
-                        } else {
-                          setShowMentionSuggestions(false);
-                        }
-                      } else {
-                        setShowMentionSuggestions(false);
-                      }
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendChatMessage();
-                      }
-                    }}
-                    className={cn("flex-1 bg-transparent border-none outline-none text-sm py-3 px-1 resize-none max-h-32 scrollbar-hide", isDarkMode ? "text-white" : "text-black")}
-                    onInput={(e) => {
-                      e.currentTarget.style.height = 'auto';
-                      e.currentTarget.style.height = (e.currentTarget.scrollHeight) + 'px';
-                    }}
-                  />
-                  <button
-                    onClick={sendChatMessage}
-                    disabled={!chatInput.trim()}
-                    className="w-10 h-10 shrink-0 bg-gradient-to-tr from-[#BF76FF] to-[#8E44AD] text-white rounded-full hover:opacity-90 disabled:opacity-50 transition-opacity shadow-md flex items-center justify-center mb-0.5 cursor-pointer"
-                  >
-                    <Send className="w-4 h-4 ml-0.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </aside>
 
         {/* Delete Confirmation Dialog */}
@@ -11985,7 +11796,10 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
         )}>
           <Icon className={cn("w-6 h-6", iconClassName)} />
           {notificationCount ? (
-            <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[8px] min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center font-black shadow-md border border-white dark:border-[#0a0a0a]">
+            <span className={cn(
+              "absolute -top-1 -right-1 text-white text-[8px] min-w-[16px] h-[16px] px-1 rounded-full flex items-center justify-center font-black shadow-md border border-white dark:border-[#0a0a0a]",
+              label === "Chat" ? "bg-orange-500 animate-pulse" : "bg-red-500"
+            )}>
               {notificationCount > 99 ? '99+' : notificationCount}
             </span>
           ) : null}
@@ -12028,7 +11842,10 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
       )}>
         <Icon className="w-5 h-5" />
         {notificationCount && collapsed ? (
-          <span className="absolute -top-1.5 -right-2 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-[#0a0a0a] shadow-md font-black">
+          <span className={cn(
+            "absolute -top-1.5 -right-2 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white dark:border-[#0a0a0a] shadow-md font-black",
+            label === "Chat" ? "bg-orange-500 animate-pulse" : "bg-red-500"
+          )}>
             {notificationCount > 9 ? '9+' : notificationCount}
           </span>
         ) : null}
@@ -12038,7 +11855,10 @@ function SidebarItem({ icon: Icon, active, onClick, label, collapsed, isDark, mo
         <span className="text-sm flex-1 text-left whitespace-nowrap transition-opacity duration-300 flex justify-between items-center">
           {label}
           {notificationCount ? (
-            <span className="bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full font-black">
+            <span className={cn(
+              "text-white text-[10px] px-1.5 py-0.5 rounded-full font-black",
+              label === "Chat" ? "bg-orange-500 animate-pulse" : "bg-red-500"
+            )}>
               {notificationCount}
             </span>
           ) : null}
