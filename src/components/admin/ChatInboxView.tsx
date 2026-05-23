@@ -19,7 +19,8 @@ import {
   ChevronDown,
   CornerUpLeft,
   Pin,
-  Copy
+  Copy,
+  Lock
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { 
@@ -923,18 +924,39 @@ export function ChatInboxView({
           </>
         ) : (
           /* Empty Chat Area Placeholder */
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 opacity-45">
-            <MessageSquare className="w-16 h-16 mb-4 text-[#BF76FF] animate-pulse" />
-            <h4 className="text-xl font-bold uppercase tracking-tighter mb-2 text-white">Selecione uma conversa</h4>
-            <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
-              Inicie um chat com qualquer membro da equipe ou selecione uma das conversas ativas no Inbox lateral.
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8 select-none">
+            <div className="w-20 h-20 rounded-full bg-[#BF76FF]/10 flex items-center justify-center mb-6 text-[#BF76FF] animate-pulse">
+              <MessageSquare className="w-10 h-10" />
+            </div>
+            
+            <h4 className="text-2xl font-black uppercase tracking-tight mb-3 text-white">
+              Chat Ministério Profecia
+            </h4>
+            
+            <p className="text-sm text-gray-400 max-w-md leading-relaxed font-semibold">
+              O chat foi feito para comunicados e conversas entre membros.
             </p>
+
+            <div className="mt-8 p-4 px-5 rounded-2xl bg-white/[0.03] border border-white/5 max-w-sm flex items-center gap-3 text-left">
+              <Lock className="w-5 h-5 text-emerald-500 shrink-0" />
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Criptografado</span>
+                <span className="text-[11px] text-gray-400 font-semibold leading-relaxed">
+                  As mensagens são protegidas de ponta à ponta.
+                </span>
+              </div>
+            </div>
+
             <Button
               onClick={() => setShowNewChatModal(true)}
-              className="mt-6 bg-gradient-to-r from-[#D946EF] to-[#8B5CF6] text-white rounded-2xl font-bold text-xs uppercase tracking-widest px-6 h-12 shadow-lg hover:opacity-95"
+              className="mt-8 bg-gradient-to-r from-[#D946EF] to-[#8B5CF6] text-white rounded-2xl font-bold text-xs uppercase tracking-widest px-8 h-12 shadow-lg shadow-[#D946EF]/10 hover:opacity-95 hover:scale-105 active:scale-95 transition-all"
             >
-              Iniciar Chat
+              Iniciar Nova Conversa
             </Button>
+
+            <div className="mt-12 text-[9px] font-black uppercase tracking-widest text-gray-600">
+              © Copywriter Ministério Profecia
+            </div>
           </div>
         )}
       </div>

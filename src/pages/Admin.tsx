@@ -1183,7 +1183,7 @@ function LogFilterSelect({ label, value, onChange, options, isDarkMode }: any) {
 const Admin = () => {
   const { user, profile, setProfile, login, loginAsGuest, logout, isAdmin, isGuest, setCustomLogin, loading, loginWithEmail, signupWithEmail, error: contextAuthError, clearError } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const messageParam = searchParams.get('message');
   const reasonParam = searchParams.get('reason');
   const chatUserParam = searchParams.get('chatUser');
@@ -2175,7 +2175,17 @@ const Admin = () => {
         setActiveTab("membros");
         setShowPending(true);
       } else if (notif.type === "chat") {
-        setActiveTab("chats");
+        setActiveTab("chat");
+        if (notif.senderId) {
+          const senderMember = members.find(m => m.id === notif.senderId);
+          if (senderMember) {
+            setActiveChatUser(senderMember);
+            setRightSidebarView("hidden");
+            const params = new URLSearchParams(searchParams);
+            params.set('chatUser', notif.senderId);
+            setSearchParams(params);
+          }
+        }
       } else if (notif.type === "gallery_removal") {
         navigate(`/galeria?album=${notif.albumId}&photo=${encodeURIComponent(notif.photoUrl)}`);
       } else if (notif.type === "event_feedback") {
@@ -4948,7 +4958,14 @@ const Admin = () => {
                 <SidebarItem
                   icon={MessageSquare}
                   active={activeTab === "chat"}
-                  onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }}
+                  onClick={() => { 
+                    setActiveTab("chat"); 
+                    setRightSidebarView("hidden"); 
+                    setActiveChatUser(null);
+                    const params = new URLSearchParams(searchParams);
+                    params.delete('chatUser');
+                    setSearchParams(params);
+                  }}
                   label="Chat"
                   collapsed={true}
                   isDark={isDarkMode}
@@ -5174,7 +5191,14 @@ const Admin = () => {
               )}
 
               <button
-                onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }}
+                onClick={() => { 
+                  setActiveTab("chat"); 
+                  setRightSidebarView("hidden"); 
+                  setActiveChatUser(null);
+                  const params = new URLSearchParams(searchParams);
+                  params.delete('chatUser');
+                  setSearchParams(params);
+                }}
                 className={cn("p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all relative", activeTab === "chat" ? "text-[#BF76FF]" : "text-gray-500 hover:text-[#BF76FF]")}
                 title="Mensagens"
               >
@@ -5399,7 +5423,14 @@ const Admin = () => {
 
               {/* MessageSquare Chat Trigger */}
               <button
-                onClick={() => { setActiveTab("chat"); setRightSidebarView("hidden"); }}
+                onClick={() => { 
+                  setActiveTab("chat"); 
+                  setRightSidebarView("hidden"); 
+                  setActiveChatUser(null);
+                  const params = new URLSearchParams(searchParams);
+                  params.delete('chatUser');
+                  setSearchParams(params);
+                }}
                 className={cn("p-2 rounded-xl hover:bg-white/5 transition-all relative group cursor-pointer", activeTab === "chat" ? "text-[#BF76FF]" : "text-gray-500 hover:text-white")}
                 title="Mensagens"
               >
