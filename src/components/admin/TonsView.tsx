@@ -185,9 +185,21 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
     playTrack(track, [track]);
   };
 
-  const filteredVocalists = vocalists.filter(v =>
-    v.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredVocalists = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return vocalists;
+    return vocalists.filter(v => {
+      const nameMatches = v.name.toLowerCase().includes(query);
+      if (nameMatches) return true;
+
+      const vocalistSongs = songs.filter(s => s.memberId === v.id);
+      return vocalistSongs.some(s => 
+        s.name.toLowerCase().includes(query) || 
+        s.key.toLowerCase().includes(query) ||
+        (s.singer && s.singer.toLowerCase().includes(query))
+      );
+    });
+  }, [vocalists, songs, searchQuery]);
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -201,13 +213,13 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
 
         <div className="flex items-center gap-3">
           <div className="relative w-full md:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 opacity-40" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#BF76FF]" />
             <Input
-              placeholder="Buscar vocalista..."
+              placeholder="Buscar vocalista, música ou tom..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                "pl-10 h-11 rounded-2xl border-none transition-all",
+                "pl-10 h-11 rounded-2xl border-none transition-all focus:ring-1 focus:ring-[#BF76FF]/40",
                 isDark ? "bg-white/5 focus:bg-white/10" : "bg-black/5 focus:bg-black/10 shadow-sm"
               )}
             />

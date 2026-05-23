@@ -235,3 +235,20 @@
   filter: invert(1) brightness(1.2);
   cursor: pointer;
 }
+
+/* Premium purple neon animation for icons and text */
+@keyframes neonGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 1px #BF76FF) drop-shadow(0 0 3px #BF76FF) drop-shadow(0 0 5px #BF76FF);
+    opacity: 0.85;
+  }
+  50% {
+    filter: drop-shadow(0 0 2px #BF76FF) drop-shadow(0 0 6px #BF76FF) drop-shadow(0 0 10px #E684FF);
+    opacity: 1;
+  }
+}
+
+.animate-neon-purple {
+  animation: neonGlow 2s ease-in-out infinite;
+}
+
