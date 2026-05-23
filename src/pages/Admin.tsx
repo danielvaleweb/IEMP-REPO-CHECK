@@ -5992,21 +5992,37 @@ const Admin = () => {
                           )}
 
                           {/* Photo Gallery Preview (for Events) */}
-                          {activeTab === "eventos" && formData.gallery && Array.isArray(formData.gallery) && formData.gallery.length > 0 && (
-                            <div className="space-y-6">
-                              <div className="flex items-center gap-3">
-                                <div className="h-[2px] w-6 bg-primary" />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Galeria de Fotos</h4>
+                          {activeTab === "eventos" && (() => {
+                            const galleryPhotos = Array.isArray(formData.gallery) ? formData.gallery : [];
+                            const drivePhotos: string[] = [];
+                            if (formData.driveFolders && Array.isArray(formData.driveFolders)) {
+                              formData.driveFolders.forEach((folder: any) => {
+                                if (folder.images && Array.isArray(folder.images)) {
+                                  folder.images.forEach((imgId: string) => {
+                                    drivePhotos.push(`/api/drive-image?id=${imgId}`);
+                                  });
+                                }
+                              });
+                            }
+                            const allPhotos = [...galleryPhotos, ...drivePhotos];
+                            if (allPhotos.length === 0) return null;
+
+                            return (
+                              <div className="space-y-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-[2px] w-6 bg-primary" />
+                                  <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Galeria de Fotos</h4>
+                                </div>
+                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                  {allPhotos.map((url: string, i: number) => (
+                                    <div key={`gallery-preview-${url}-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                                      <img src={getImageUrl(url)} alt="" className="w-full h-full object-cover" />
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                {formData.gallery.map((url: string, i: number) => (
-                                  <div key={`gallery-preview-${url}-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                                    <img src={getImageUrl(url)} alt="" className="w-full h-full object-cover" />
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })()}
 
                           {/* Location Section */}
                           {formData.location && (

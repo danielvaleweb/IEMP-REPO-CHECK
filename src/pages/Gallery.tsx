@@ -182,14 +182,28 @@ export default function Gallery() {
   useEffect(() => {
     if (postsData) {
       const fetchedAlbums = postsData
-        .map(data => ({
-          id: data.id,
-          title: data.title || "",
-          date: data.date || "",
-          cover: data.image || "",
-          photos: data.gallery || [],
-          typeEvent: data.typeEvent || ""
-        }))
+        .map(data => {
+          const galleryPhotos = Array.isArray(data.gallery) ? data.gallery : [];
+          const drivePhotos: string[] = [];
+          if (data.driveFolders && Array.isArray(data.driveFolders)) {
+            data.driveFolders.forEach((folder: any) => {
+              if (folder.images && Array.isArray(folder.images)) {
+                folder.images.forEach((imgId: string) => {
+                  drivePhotos.push(`/api/drive-image?id=${imgId}`);
+                });
+              }
+            });
+          }
+
+          return {
+            id: data.id,
+            title: data.title || "",
+            date: data.date || "",
+            cover: data.image || "",
+            photos: [...galleryPhotos, ...drivePhotos],
+            typeEvent: data.typeEvent || ""
+          };
+        })
         .filter((album: any) => album.photos.length > 0 || album.typeEvent === 'culto');
       
       setAlbums(fetchedAlbums);

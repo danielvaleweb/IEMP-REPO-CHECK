@@ -176,7 +176,8 @@ export default function EventDetails() {
 
   useEffect(() => {
     if (event) {
-      if (event.typeEvent === 'culto') {
+      const isWorship = event.typeEvent === 'culto' || event.title?.toLowerCase().includes('culto') || event.title?.toLowerCase().includes('cilto');
+      if (isWorship) {
         navigate('/galeria', { state: { selectedAlbumId: event.id }, replace: true });
         return;
       }

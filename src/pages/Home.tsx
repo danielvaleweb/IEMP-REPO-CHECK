@@ -177,12 +177,13 @@ export default function Home() {
       navigate('/admin?message=precisamos que você esteja logado para favoritar conteúdos');
       return;
     }
+    const isWorship = video.typeEvent === 'culto' || video.title?.toLowerCase().includes('culto') || video.title?.toLowerCase().includes('cilto');
     await toggleFavoriteCtx({
       id: video.id,
       title: video.title,
       thumbnail: video.thumbnail || video.image,
       published: video.published || video.date,
-      link: video.link || (video.typeEvent === 'culto' ? `/galeria?album=${video.id}` : `/evento/${video.id}`),
+      link: video.link || (isWorship ? `/galeria?album=${video.id}` : `/evento/${video.id}`),
       category: video.category === "event" ? "event" : "video"
     });
   };
@@ -758,10 +759,14 @@ export default function Home() {
       {/* Clicks Recentes Section */}
       {(() => {
         const recentClicksEvents = allEvents.filter(event => {
+          const hasGallery = event.gallery && event.gallery.length > 0;
+          const hasDrivePhotos = event.driveFolders && Array.isArray(event.driveFolders) && event.driveFolders.some((f: any) => f.images && f.images.length > 0);
+          
           return !event.hideFromClicks && (
             event.typeEvent === 'culto' ||
             event.typeEvent === 'visita' ||
-            (event.gallery && event.gallery.length > 0)
+            hasGallery ||
+            hasDrivePhotos
           );
         }).sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
@@ -793,11 +798,7 @@ export default function Home() {
                       type="event"
                       idx={idx}
                       onClick={() => {
-                        if (event.typeEvent === 'culto') {
-                          navigate('/galeria', { state: { selectedAlbumId: event.id } });
-                        } else {
-                          navigate(`/evento/${event.id}`);
-                        }
+                        navigate('/galeria', { state: { selectedAlbumId: event.id } });
                       }}
                       onAddToList={handleToggleMyList}
                       onFavorite={handleToggleFavorite}
