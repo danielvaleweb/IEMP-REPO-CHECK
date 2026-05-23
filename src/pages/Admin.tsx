@@ -5162,8 +5162,12 @@ const Admin = () => {
 
         {/* Main Content Area */}
         <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-roxo-bg" : "bg-gray-50")}>
-          {/* Mobile Header */}
-          <header className={cn("md:hidden flex h-16 px-6 items-center justify-between border-b transition-colors shrink-0 z-10", isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5")}>
+          {/* Mobile Header — hidden when chat is active for full-screen experience */}
+          <header className={cn(
+            "flex h-16 px-6 items-center justify-between border-b transition-colors shrink-0 z-10",
+            isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white border-black/5",
+            (activeTab === "chat" || activeTab === "conversas") ? "hidden" : "md:hidden flex"
+          )}>
             {/* Logo */}
             <div className="flex items-center gap-2 pl-1">
               <div className="flex items-center gap-1.5 leading-none">
@@ -5200,23 +5204,6 @@ const Admin = () => {
                 </button>
               )}
 
-              <button
-                onClick={() => { 
-                  setActiveTab("chat"); 
-                  setRightSidebarView("hidden"); 
-                  setActiveChatUser(null);
-                  const params = new URLSearchParams(searchParams);
-                  params.delete('chatUser');
-                  setSearchParams(params);
-                }}
-                className={cn("p-2 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 transition-all relative", activeTab === "chat" ? "text-[#BF76FF]" : "text-gray-500 hover:text-[#BF76FF]")}
-                title="Mensagens"
-              >
-                <MessageSquare className="w-[24px] h-[24px]" />
-                {activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0) > 0 && (
-                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-orange-500 rounded-full border-2 border-white dark:border-[#0a0a0a] shadow-md animate-pulse" />
-                )}
-              </button>
 
               <DropdownMenu>
                 <DropdownMenuTrigger className="focus:outline-none">
@@ -5756,7 +5743,7 @@ const Admin = () => {
             "flex-1 scroll-smooth scrollbar-hide overscroll-contain touch-pan-y",
             (activeTab === "chat" || activeTab === "conversas")
               ? "p-0 pb-0 overflow-hidden h-full flex flex-col"
-              : "p-2 md:p-8 pb-32 md:pb-8 overflow-y-auto"
+              : "p-0 md:p-8 pb-32 md:pb-8 overflow-y-auto"
           )}>
             <div className={cn(
               "w-full",

@@ -417,7 +417,7 @@ export function ChatInboxView({
   }, [chatMessages]);
 
   return (
-    <div className="flex flex-col md:flex-row h-full w-full flex-1 min-h-0 bg-[#0c0f1d] text-white overflow-hidden rounded-[32px] border border-white/5 relative">
+    <div className="flex flex-col md:flex-row h-full w-full flex-1 min-h-0 bg-[#0c0f1d] text-white overflow-hidden md:rounded-[32px] md:border border-white/5 relative">
       
       {/* 1. CHAT LIST PANEL (Left) */}
       <div className={cn(
@@ -523,7 +523,7 @@ export function ChatInboxView({
         {activeChatUser ? (
           <>
             {/* Active chat header */}
-            <div className="px-6 py-4 bg-[#121829] border-b border-white/5 flex items-center justify-between shrink-0 shadow-md">
+            <div className="px-4 md:px-6 py-4 bg-[#121829] border-b border-white/5 flex items-center justify-between shrink-0 shadow-md">
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setActiveChatUser(null)}
@@ -818,7 +818,7 @@ export function ChatInboxView({
             </div>
 
             {/* Input area footer */}
-            <div className="p-4 bg-[#121829] border-t border-white/5 shrink-0 relative flex flex-col">
+            <div className="px-2 md:px-4 py-3 md:py-4 pb-24 md:pb-4 bg-[#121829] border-t border-white/5 shrink-0 relative flex flex-col">
               {/* Custom Emoji Picker Drawer */}
               {emojiDrawerOpen && (
                 <div className="absolute bottom-[calc(100%+8px)] left-4 right-4 bg-[#182033] border border-white/5 rounded-3xl p-4 shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200">
@@ -861,7 +861,7 @@ export function ChatInboxView({
               )}
 
               {/* Message inputs */}
-              <div className="flex items-end gap-3.5 p-2 bg-[#1c2338] border border-white/5 rounded-3xl transition-all focus-within:border-[#BF76FF]/40">
+              <div className="flex items-center gap-3.5 p-2 bg-[#1c2338] border border-white/5 rounded-3xl transition-all focus-within:border-[#BF76FF]/40">
                 {/* Emoji trigger */}
                 <button
                   type="button"
@@ -915,7 +915,7 @@ export function ChatInboxView({
                 <button
                   onClick={handleSendMessage}
                   disabled={!chatInput.trim()}
-                  className="w-11 h-11 shrink-0 bg-gradient-to-tr from-[#D946EF] to-[#8B5CF6] text-white rounded-2xl hover:opacity-90 disabled:opacity-40 transition-all shadow-md flex items-center justify-center mb-0.5 cursor-pointer"
+                  className="w-9 h-9 shrink-0 bg-gradient-to-tr from-[#D946EF] to-[#8B5CF6] text-white rounded-xl hover:opacity-90 disabled:opacity-40 transition-all shadow-md flex items-center justify-center cursor-pointer"
                 >
                   <Send className="w-4 h-4 ml-0.5" />
                 </button>
