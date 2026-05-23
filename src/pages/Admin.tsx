@@ -2835,35 +2835,30 @@ const Admin = () => {
       };
 
       try {
-        const [membersCount, agendaCount, vignettesCount, postsCount, blogCount, videosCount, unreadCount] = await Promise.all([
+        const [membersCount, agendaCount, vignettesCount, postsCount, blogCount, videosCount] = await Promise.all([
           activeTab === "visao-geral" ? safeGetCount(collection(db, "members"), "members") : Promise.resolve(counts.members),
           activeTab === "visao-geral" ? safeGetCount(collection(db, "agenda"), "agenda") : Promise.resolve(counts.agenda),
           activeTab === "visao-geral" ? safeGetCount(collection(db, "vignettes"), "vignettes") : Promise.resolve(counts.vignettes),
           activeTab === "visao-geral" ? safeGetCount(collection(db, "posts"), "posts") : Promise.resolve(counts.posts),
           activeTab === "visao-geral" ? safeGetCount(collection(db, "blog"), "blog") : Promise.resolve(counts.blog),
-          activeTab === "visao-geral" ? safeGetCount(collection(db, "videos"), "videos") : Promise.resolve(counts.videos),
-          safeGetCount(query(
-            collection(db, "notifications"),
-            where("userId", "in", isAdmin ? [user?.uid, "all", "admin"] : [user?.uid, "all"]),
-            where("read", "==", false)
-          ), "notifications")
+          activeTab === "visao-geral" ? safeGetCount(collection(db, "videos"), "videos") : Promise.resolve(counts.videos)
         ]);
 
-        setCounts({
+        setCounts(prev => ({
+          ...prev,
           members: membersCount,
           agenda: agendaCount,
           vignettes: vignettesCount,
           posts: postsCount,
           blog: blogCount,
-          videos: videosCount,
-          unreadNotifications: unreadCount
-        });
+          videos: videosCount
+        }));
       } catch (err) {
         console.error("Error fetching counts:", err);
       }
     };
 
-    if (activeTab === "visao-geral" || counts.unreadNotifications === 0) {
+    if (activeTab === "visao-geral") {
       fetchCounts();
     }
 
@@ -2894,7 +2889,15 @@ const Admin = () => {
         orderBy("createdAt", "desc"),
         limit(50)
       ), (snap) => {
-        setNotifications(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+        const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setNotifications(notifs);
+        
+        // Calculate unread count locally from the loaded notifications to save Firestore reads
+        const unreadCount = notifs.filter((n: any) => !n.read).length;
+        setCounts(prev => ({
+          ...prev,
+          unreadNotifications: unreadCount
+        }));
       });
     }
 
