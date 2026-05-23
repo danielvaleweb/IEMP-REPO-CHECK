@@ -9057,6 +9057,9 @@ const Admin = () => {
                         const parseFlexibleDate = (dateVal: any): Date | null => {
                           if (!dateVal) return null;
                           if (dateVal instanceof Date) return dateVal;
+                          if (typeof dateVal === 'object' && dateVal.toDate && typeof dateVal.toDate === 'function') {
+                            return dateVal.toDate();
+                          }
                           if (typeof dateVal === 'object' && dateVal.seconds !== undefined) {
                             return new Date(dateVal.seconds * 1000);
                           }
@@ -9080,6 +9083,23 @@ const Admin = () => {
                             return new Date(year, month, day, 12, 0, 0);
                           }
                           
+                          // Match YYYY-MM-DD pattern to prevent timezone shifting
+                          const isoMatch = dStr.match(/(\d{4})-(\d{2})-(\d{2})/);
+                          if (isoMatch) {
+                            const year = parseInt(isoMatch[1], 10);
+                            const month = parseInt(isoMatch[2], 10) - 1;
+                            const day = parseInt(isoMatch[3], 10);
+                            
+                            // Match HH:mm pattern
+                            const timeMatch = dStr.match(/[T ](\d{2}):(\d{2})/);
+                            if (timeMatch) {
+                              const hour = parseInt(timeMatch[1], 10);
+                              const minute = parseInt(timeMatch[2], 10);
+                              return new Date(year, month, day, hour, minute, 0);
+                            }
+                            return new Date(year, month, day, 12, 0, 0);
+                          }
+                          
                           const parsed = new Date(dStr);
                           if (!isNaN(parsed.getTime())) return parsed;
                           return null;
@@ -9088,27 +9108,43 @@ const Admin = () => {
                         if (chartTimeFilter === 'week') {
                           const daysStr = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
                           buckets = Array.from({length: 7}).map((_, i) => {
-                            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
+                            // Centered around today: -3 to +3 days
+                            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3 + i);
                             const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
                             const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
-                            return { label: daysStr[d.getDay()], start, end, eventos: 0, visitas: 0, cultos: 0 };
+                            return { label: daysStr[d.getDay()], start, end, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
                           });
                         } else if (chartTimeFilter === 'month') {
                           buckets = Array.from({length: 4}).map((_, i) => {
-                            const dEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (i * 7));
-                            const dStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((i + 1) * 7));
-                            return { label: `Sem. ${4 - i}`, start: dStart, end: dEnd, eventos: 0, visitas: 0, cultos: 0 };
-                          }).reverse();
+                            // Centered around this week: -14 to +14 days in blocks of 7
+                            const offset = -14 + i * 7;
+                            const dStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+                            const dEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset + 7);
+                            
+                            let label = "";
+                            if (i === 0) label = "2 Sem. Atrás";
+                            else if (i === 1) label = "Última Sem.";
+                            else if (i === 2) label = "Esta Sem.";
+                            else label = "Próx. Sem.";
+
+                            return { label, start: dStart, end: dEnd, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
+                          });
                         } else if (chartTimeFilter === 'year') {
                           const monthsStr = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
                           buckets = Array.from({length: 6}).map((_, i) => {
-                            const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
-                            return { label: monthsStr[d.getMonth()], start: new Date(d.getFullYear(), d.getMonth(), 1), end: new Date(d.getFullYear(), d.getMonth() + 1, 0), eventos: 0, visitas: 0, cultos: 0 };
+                            // Centered around this month: -3 to +2 months
+                            const d = new Date(now.getFullYear(), now.getMonth() - 3 + i, 1);
+                            const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0);
+                            const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
+                            return { label: monthsStr[d.getMonth()], start, end, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
                           });
                         } else {
                           buckets = Array.from({length: 4}).map((_, i) => {
-                            const year = now.getFullYear() - (3 - i);
-                            return { label: `${year}`, start: new Date(year, 0, 1), end: new Date(year, 11, 31, 23, 59, 59), eventos: 0, visitas: 0, cultos: 0 };
+                            // Centered around this year: -2 to +1 years
+                            const year = now.getFullYear() - 2 + i;
+                            const start = new Date(year, 0, 1, 0, 0, 0);
+                            const end = new Date(year, 11, 31, 23, 59, 59);
+                            return { label: `${year}`, start, end, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
                           });
                         }
                         
@@ -9406,6 +9442,15 @@ const Admin = () => {
                                     const pt = pts[hoveredPointIdx];
                                     const tooltipLabel = getTooltipLabel(pt.bucket);
                                     const isLeftOfCenter = pt.x < width / 2;
+                                    const bucketEventsList = pt.bucket?.eventsList || [];
+                                    const filteredEvents = bucketEventsList.filter((evt: any) => {
+                                      const t = evt.typeEvent || 'evento';
+                                      if (activeMetric === 'eventos') return t === 'evento';
+                                      if (activeMetric === 'cultos') return t === 'culto';
+                                      if (activeMetric === 'visitas') return t === 'visita';
+                                      return false;
+                                    });
+
                                     return (
                                       <div
                                         style={{
@@ -9416,7 +9461,7 @@ const Admin = () => {
                                           pointerEvents: 'none'
                                         }}
                                         className={cn(
-                                          "z-30 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl min-w-[160px] animate-in fade-in slide-in-from-left-2 duration-300",
+                                          "z-30 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl min-w-[180px] max-w-[260px] animate-in fade-in slide-in-from-left-2 duration-300",
                                           isDarkMode 
                                             ? "bg-black/85 border-[#BF76FF]/20 text-white" 
                                             : "bg-white/90 border-[#BF76FF]/10 text-black shadow-black/10"
@@ -9434,6 +9479,41 @@ const Admin = () => {
                                             {pt.value}
                                           </p>
                                         </div>
+
+                                        {filteredEvents.length > 0 && (
+                                          <div className={cn(
+                                            "mt-3 pt-2.5 border-t text-[10px] space-y-1.5",
+                                            isDarkMode ? "border-white/10" : "border-black/5"
+                                          )}>
+                                            <p className="font-extrabold uppercase tracking-widest text-[8px] text-[#BF76FF] mb-1">
+                                              Atividades no dia:
+                                            </p>
+                                            <div className="space-y-1 max-h-[120px] overflow-y-auto scrollbar-hide">
+                                              {filteredEvents.slice(0, 5).map((evt: any, idx: number) => {
+                                                let timeStr = "";
+                                                if (evt.date) {
+                                                  const d = parseFlexibleDate(evt.date);
+                                                  if (d && !isNaN(d.getTime())) {
+                                                    timeStr = ` (${format(d, "HH:mm")})`;
+                                                  }
+                                                }
+                                                return (
+                                                  <div key={idx} className="flex items-start gap-1">
+                                                    <span className="text-[#BF76FF] font-black shrink-0">•</span>
+                                                    <span className={cn("font-bold leading-tight", isDarkMode ? "text-gray-300" : "text-gray-700")} title={evt.title}>
+                                                      {evt.title}{timeStr}
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                            {filteredEvents.length > 5 && (
+                                              <p className="text-gray-500 font-black pl-2 text-[8px] uppercase tracking-wider">
+                                                + {filteredEvents.length - 5} mais
+                                              </p>
+                                            )}
+                                          </div>
+                                        )}
                                       </div>
                                     );
                                   })()}
