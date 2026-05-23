@@ -9,7 +9,8 @@ import {
   Save,
   X,
   Edit,
-  Youtube
+  Youtube,
+  ChevronDown
 } from "lucide-react";
 import { 
   Dialog, 
@@ -175,7 +176,7 @@ export function VideosView({ isDark }: { isDark: boolean }) {
   };
 
   return (
-    <div className={cn("p-8 md:p-10 rounded-[32px] md:rounded-[48px] border transition-all space-y-10", isDark ? "bg-[#1A1A1A] border-white/5" : "bg-white border-black/5 shadow-sm")}>
+    <div className="w-full space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className={cn("text-2xl font-black tracking-tight", isDark ? "text-white" : "text-black")}>Gerenciamento de Vídeos</h2>
@@ -448,13 +449,20 @@ export function VideosView({ isDark }: { isDark: boolean }) {
 
         {videos.length > 0 && videos.length >= videoLimit && (
           <div className="flex justify-center mt-12">
-            <Button 
-              variant="outline"
-              className="rounded-2xl px-10 border-[#BF76FF]/20 hover:bg-[#BF76FF]/10 text-[#BF76FF] font-black uppercase tracking-widest text-xs h-14 transition-all active:scale-95"
+            <button
               onClick={() => setVideoLimit(prev => prev + 4)}
+              className={cn(
+                "group relative flex items-center gap-3 px-8 h-12 rounded-2xl border font-black uppercase tracking-[0.2em] text-xs transition-all duration-300 active:scale-95",
+                isDark
+                  ? "bg-black/60 border-white/10 hover:border-[#BF76FF]/40 hover:bg-[#BF76FF]/5"
+                  : "bg-white border-black/10 hover:border-[#BF76FF]/40 hover:bg-[#BF76FF]/5"
+              )}
             >
-              Ver mais vídeos
-            </Button>
+              <ChevronDown className="w-4 h-4 text-[#BF76FF] group-hover:translate-y-0.5 transition-transform duration-200" />
+              <span className="bg-gradient-to-r from-[#BF76FF] to-[#7300FF] bg-clip-text text-transparent">
+                Ver Mais
+              </span>
+            </button>
           </div>
         )}
       </div>

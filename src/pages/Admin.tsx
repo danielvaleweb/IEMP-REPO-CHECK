@@ -5789,7 +5789,7 @@ const Admin = () => {
           )}>
             <div className={cn(
               "w-full",
-              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes")
+              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes" || activeTab === "videos")
                 ? "max-w-none h-full flex flex-col flex-1"
                 : "max-w-6xl mx-auto space-y-4 md:space-y-8"
             )}>
@@ -9013,9 +9013,11 @@ const Admin = () => {
                   </div>
                 </div>
               ) : activeTab === "videos" ? (
-                <Suspense fallback={<ViewLoader />}>
-                  <VideosView isDark={isDarkMode} />
-                </Suspense>
+                <div className="w-full pb-32">
+                  <Suspense fallback={<ViewLoader />}>
+                    <VideosView isDark={isDarkMode} />
+                  </Suspense>
+                </div>
               ) : activeTab === "avisos" ? (
                 <Suspense fallback={<ViewLoader />}>
                   <AvisosView isDark={isDarkMode} />
