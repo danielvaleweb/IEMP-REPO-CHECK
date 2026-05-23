@@ -5789,7 +5789,7 @@ const Admin = () => {
           )}>
             <div className={cn(
               "w-full",
-              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes" || activeTab === "videos")
+              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes" || activeTab === "videos" || activeTab === "eventos" || activeTab === "noticias")
                 ? "max-w-none h-full flex flex-col flex-1"
                 : "max-w-6xl mx-auto space-y-4 md:space-y-8"
             )}>
@@ -9027,53 +9027,55 @@ const Admin = () => {
                   <EBDAdminView isDark={isDarkMode} />
                 </Suspense>
               ) : (activeTab === "eventos" || activeTab === "noticias") && !isEditing ? (
-                <Suspense fallback={<ViewLoader />}>
-                  <EventosView
-                    events={filteredItems}
-                    isDark={isDarkMode}
-                    canEdit={canEdit}
-                    canDelete={canDelete}
-                    canCreate={canCreate}
-                    hasMore={activeTab === "eventos" ? posts.length >= eventsLimit : blog.length >= newsLimit}
-                    onLoadMore={() => {
-                      if (activeTab === "eventos") setEventsLimit(prev => prev + 5);
-                      else setNewsLimit(prev => prev + 5);
-                    }}
-                    title={activeTab === "eventos" ? "Eventos do Mês" : "Notícias"}
-                    buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}
-                    buttonIcon={activeTab === "eventos" ? Plus : Newspaper}
-                    emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
-                    onNewEvent={(type) => {
-                      setSelectedItem(null);
-                      setFormData({
-                        organization: profile?.role || "Membro",
-                        typeEvent: type || 'evento',
-                        scope: 'interno',
-                        invitedMembers: [],
-                        guests: [],
-                        driveFolders: [],
-                        status: 'approved'
-                      });
-                      setIsReadOnly(false);
-                      setIsEditing(true);
-                    }}
-                    onViewEvent={(item) => {
-                      setSelectedItem(item);
-                      setFormData(item);
-                      setIsReadOnly(true);
-                      setIsEditing(true);
-                    }}
-                    onEditEvent={(item) => {
-                      setSelectedItem(item);
-                      setFormData(item);
-                      setIsReadOnly(false);
-                      setIsEditing(true);
-                    }}
-                    onDeleteEvent={(item) => {
-                      handleDelete(item, activeTab === "noticias" ? "blog" : "posts");
-                    }}
-                  />
-                </Suspense>
+                <div className="w-full pb-32">
+                  <Suspense fallback={<ViewLoader />}>
+                    <EventosView
+                      events={filteredItems}
+                      isDark={isDarkMode}
+                      canEdit={canEdit}
+                      canDelete={canDelete}
+                      canCreate={canCreate}
+                      hasMore={activeTab === "eventos" ? posts.length >= eventsLimit : blog.length >= newsLimit}
+                      onLoadMore={() => {
+                        if (activeTab === "eventos") setEventsLimit(prev => prev + 5);
+                        else setNewsLimit(prev => prev + 5);
+                      }}
+                      title={activeTab === "eventos" ? "Eventos do Mês" : "Notícias"}
+                      buttonLabel={activeTab === "eventos" ? "Cadastrar novo evento" : "Nova matéria"}
+                      buttonIcon={activeTab === "eventos" ? Plus : Newspaper}
+                      emptyLabel={activeTab === "eventos" ? "Nenhum evento cadastrado." : "Nenhuma notícia publicada."}
+                      onNewEvent={(type) => {
+                        setSelectedItem(null);
+                        setFormData({
+                          organization: profile?.role || "Membro",
+                          typeEvent: type || 'evento',
+                          scope: 'interno',
+                          invitedMembers: [],
+                          guests: [],
+                          driveFolders: [],
+                          status: 'approved'
+                        });
+                        setIsReadOnly(false);
+                        setIsEditing(true);
+                      }}
+                      onViewEvent={(item) => {
+                        setSelectedItem(item);
+                        setFormData(item);
+                        setIsReadOnly(true);
+                        setIsEditing(true);
+                      }}
+                      onEditEvent={(item) => {
+                        setSelectedItem(item);
+                        setFormData(item);
+                        setIsReadOnly(false);
+                        setIsEditing(true);
+                      }}
+                      onDeleteEvent={(item) => {
+                        handleDelete(item, activeTab === "noticias" ? "blog" : "posts");
+                      }}
+                    />
+                  </Suspense>
+                </div>
               ) : activeTab === "logins" ? (
                 <div className="space-y-6 pb-32">
                   <Suspense fallback={<ViewLoader />}>
