@@ -3002,13 +3002,21 @@ const Admin = () => {
         } else if (activeTab === "videos") {
           const data = await firestoreService.getCollection<any>("videos", [orderBy("createdAt", "desc"), limit(videosLimit)], 1000 * 60 * 60 * 24);
           setVideos(data);
+        } else if (activeTab === "visao-geral") {
+          // Load robust data (100 items each) from posts and blog so that the chart computes accurately
+          const [postsData, blogData] = await Promise.all([
+            firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 15),
+            firestoreService.getCollection<any>("blog", [orderBy("createdAt", "desc"), limit(100)], 1000 * 60 * 15)
+          ]);
+          setPosts(postsData);
+          setBlog(blogData);
         }
       } catch (err) {
         console.error(`Error loading data for tab ${activeTab}:`, err);
       }
     };
 
-    if (activeTab !== "visao-geral" && activeTab !== "agenda") {
+    if (activeTab !== "agenda") {
       loadTabData();
     }
   }, [activeTab, user, isAdmin, eventsLimit, newsLimit, videosLimit]);
@@ -3889,7 +3897,7 @@ const Admin = () => {
     }
   };
 
-  const mergedAgenda = useMemo(() => {
+   const mergedAgenda = useMemo(() => {
     const fromPosts = posts
       .filter(p => p.date)
       .map(p => {
@@ -3918,6 +3926,35 @@ const Admin = () => {
           status: p.status || 'approved'
         };
       });
+
+    const fromBlog = blog
+      .filter(b => b.date)
+      .map(b => {
+        let isoDate = b.date;
+        // Fix legacy formats
+        if (typeof b.date === 'string' && b.date.includes('/') && b.date.includes(' - ')) {
+          const parts = b.date.split(' - ');
+          if (parts.length >= 2) {
+            const dateParts = parts[0].split('/');
+            if (dateParts.length === 3) {
+              isoDate = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}T${parts[1].trim()}`;
+            }
+          }
+        }
+        return {
+          ...b,
+          id: b.id,
+          title: b.title,
+          date: isoDate,
+          endTime: b.endTime || "",
+          originalDate: b.date,
+          location: b.location || "Ver notícia",
+          description: b.content || b.bio || "",
+          type: 'blog',
+          status: b.status || 'approved'
+        };
+      });
+
     const fromAgenda = agenda
       .filter(a => {
         // Se for pendente, checar permissão
@@ -3932,8 +3969,9 @@ const Admin = () => {
         return true;
       })
       .map(a => ({ ...a, type: 'agenda' }));
-    return [...fromAgenda, ...fromPosts].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [posts, agenda, isAdminOrDev, profile, user]);
+
+    return [...fromAgenda, ...fromPosts, ...fromBlog].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [posts, blog, agenda, isAdminOrDev, profile, user]);
 
   const eventsToImport = useMemo(() => {
     const today = new Date();
@@ -9107,9 +9145,13 @@ const Admin = () => {
                         
                         if (chartTimeFilter === 'week') {
                           const daysStr = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                          const currentDay = now.getDay();
+                          // If Sunday (0), Monday was 6 days ago. Else it was currentDay - 1 days ago.
+                          const daysSinceMonday = currentDay === 0 ? 6 : currentDay - 1;
+                          
                           buckets = Array.from({length: 7}).map((_, i) => {
-                            // Centered around today: -3 to +3 days
-                            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 3 + i);
+                            // Start from Monday of the current week (i = 0 is Monday ... i = 6 is Sunday)
+                            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday + i);
                             const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
                             const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
                             return { label: daysStr[d.getDay()], start, end, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
@@ -9151,7 +9193,29 @@ const Admin = () => {
                         // Count data from mergedAgenda to be real and function perfectly
                         mergedAgenda.forEach(p => {
                           if (!p.date) return;
-                          const type = p.typeEvent || 'evento';
+                          
+                          // Exclude items from the "agenda" collection (rehearsals, EBD, leadership meetings, etc.)
+                          // Only count real public events, cults, and visits from posts/blog collections
+                          if (p.type === 'agenda') return;
+                          
+                          // Determine typeEvent with robust fallbacks based on title keywords if not set
+                          let type = p.typeEvent || 'evento';
+                          if (!p.typeEvent && p.title) {
+                            const titleLower = p.title.toLowerCase();
+                            if (
+                              titleLower.includes('culto') || 
+                              titleLower.includes('ceia') || 
+                              titleLower.includes('libertação') || 
+                              titleLower.includes('adoração') ||
+                              titleLower.includes('oração') ||
+                              titleLower.includes('oracao')
+                            ) {
+                              type = 'culto';
+                            } else if (titleLower.includes('visita') || titleLower.includes('visitas')) {
+                              type = 'visita';
+                            }
+                          }
+                          
                           const pd = parseFlexibleDate(p.date);
                           if (!pd) return;
                           for (let b of buckets) {
@@ -9159,12 +9223,14 @@ const Admin = () => {
                               if (type === 'evento') b.eventos++;
                               if (type === 'visita') b.visitas++;
                               if (type === 'culto') b.cultos++;
+                              if (!b.eventsList) b.eventsList = [];
+                              b.eventsList.push({ ...p, typeEvent: type });
                               break;
                             }
                           }
                         });
 
-                        const maxValueLine = Math.max(1, ...buckets.map(b => b[activeMetric]));
+                        const maxValueLine = Math.max(10, ...buckets.map(b => b[activeMetric]));
                         
                         const width = 800;
                         const height = 300;
@@ -9330,7 +9396,7 @@ const Admin = () => {
                                     </defs>
 
                                     {/* Y-axis grid & labels */}
-                                    {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
+                                    {[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map((ratio, idx) => {
                                       const yVal = height - paddingY - ratio * (height - 2 * paddingY);
                                       const labelVal = Math.round(ratio * maxValueLine);
                                       return (
