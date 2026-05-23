@@ -54,6 +54,8 @@ import {
   ArrowLeft,
   PanelLeftClose,
   PanelLeftOpen,
+  PanelRightClose,
+  PanelRightOpen,
   Home,
   Sun,
   Moon,
@@ -1314,7 +1316,9 @@ const Admin = () => {
   const [collapsedTeamCategories, setCollapsedTeamCategories] = useState<Record<string, boolean>>({});
   const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
   const [settings, setSettings] = useState<any>({ enableHeaderVideos: true, videoCardsEnabled: true });
-  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden" | "profile">("hidden");
+  const [rightSidebarView, setRightSidebarView] = useState<"team" | "chat-list" | "chat-active" | "hidden" | "profile">(() => {
+    return window.innerWidth >= 1280 ? "team" : "hidden";
+  });
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
   const [activeChats, setActiveChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -1487,21 +1491,27 @@ const Admin = () => {
   };
 
   useEffect(() => {
+    let prevWidth = window.innerWidth;
     const handleResize = () => {
-      if (window.innerWidth < 1280) {
+      const width = window.innerWidth;
+      if (width < 1280 && prevWidth >= 1280) {
         setIsSidebarCollapsed(true);
-        if (rightSidebarView === "team") {
-          setRightSidebarView("hidden");
-        }
-      } else {
-        if (rightSidebarView === "hidden") {
-          setRightSidebarView("team");
-        }
+        setRightSidebarView("hidden");
+      } else if (width >= 1280 && prevWidth < 1280) {
+        setIsSidebarCollapsed(false);
+        setRightSidebarView("team");
       }
+      prevWidth = width;
     };
 
-    // Run once on mount
-    handleResize();
+    // Run once on mount to establish initial responsive layout
+    if (window.innerWidth < 1280) {
+      setIsSidebarCollapsed(true);
+      setRightSidebarView("hidden");
+    } else {
+      setIsSidebarCollapsed(false);
+      setRightSidebarView("team");
+    }
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -4925,10 +4935,10 @@ const Admin = () => {
                 </Dialog>
 
                 {canViewLogs && (
-                  <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => { setActiveTab("logs"); setRightSidebarView("hidden"); }} label="Auditoria" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
+                  <SidebarItem icon={ClipboardList} active={activeTab === "logs"} onClick={() => { setActiveTab("logs"); if (window.innerWidth < 1280) setRightSidebarView("hidden"); }} label="Auditoria" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
                 )}
                 {canViewTab("logins") && (
-                  <SidebarItem icon={Key} active={activeTab === "logins"} onClick={() => { setActiveTab("logins"); setRightSidebarView("hidden"); }} label="Logins Salvos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
+                  <SidebarItem icon={Key} active={activeTab === "logins"} onClick={() => { setActiveTab("logins"); if (window.innerWidth < 1280) setRightSidebarView("hidden"); }} label="Logins Salvos" collapsed={isSidebarCollapsed} isDark={isDarkMode} />
                 )}
                 <SidebarItem
                   icon={Home}
@@ -5425,7 +5435,7 @@ const Admin = () => {
               <button
                 onClick={() => { 
                   setActiveTab("chat"); 
-                  setRightSidebarView("hidden"); 
+                  if (window.innerWidth < 1280) setRightSidebarView("hidden"); 
                   setActiveChatUser(null);
                   const params = new URLSearchParams(searchParams);
                   params.delete('chatUser');
@@ -5719,6 +5729,25 @@ const Admin = () => {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              {/* Right Sidebar Collapse/Expand Trigger (Next to Profile Picture) */}
+              {rightSidebarView === "hidden" && (
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="hidden xl:block pl-2 border-l border-white/10"
+                >
+                  <button
+                    onClick={() => setRightSidebarView("team")}
+                    className={cn(
+                      "p-2 rounded-xl transition-all cursor-pointer relative group text-gray-500 hover:text-white hover:bg-white/5"
+                    )}
+                    title="Expandir painel lateral"
+                  >
+                    <PanelRightOpen className="w-[26px] h-[26px]" />
+                  </button>
+                </motion.div>
+              )}
             </div>
           </header>
 
@@ -10800,30 +10829,42 @@ const Admin = () => {
 
         {/* Sidebar 3: Stats & Files (Hidden on mobile/tablets, only permanent on XL) */}
         <aside className={cn(
-          "fixed top-0 bottom-0 right-0 z-[40] w-full xl:w-80 border-l flex-col overflow-hidden transition-all duration-300 xl:relative xl:flex pb-20 md:pb-0",
-          rightSidebarView !== "hidden" ? "translate-x-0 flex" : "translate-x-full xl:translate-x-0 hidden xl:flex",
+          "fixed top-0 bottom-0 right-0 z-[40] w-full border-l flex-col overflow-hidden transition-all duration-300 xl:relative pb-20 md:pb-0",
+          rightSidebarView !== "hidden" ? "translate-x-0 flex xl:w-80" : "translate-x-full xl:w-0 border-l-0 hidden",
           isDarkMode ? "bg-roxo-bg border-white/5" : "bg-white lg:bg-gray-50 border-black/5"
         )}>
 
-          <div className="flex justify-between xl:justify-end items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
+          <div className="flex justify-between items-center p-6 pb-4 shrink-0 border-b border-black/5 dark:border-white/5">
+            {/* Mobile/Tablet Close Button */}
             <div className="hidden md:block xl:hidden">
               <button onClick={() => setRightSidebarView("hidden")} className="w-10 h-10 rounded-full border border-gray-200 dark:border-white/10 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/5 text-gray-500">
                 <X className="w-5 h-5" />
               </button>
             </div>
+            {/* Desktop Symmetrical Close Button */}
+            <div className="hidden xl:block">
+              <button
+                onClick={() => setRightSidebarView("hidden")}
+                className="p-2 rounded-xl transition-all cursor-pointer text-gray-500 hover:text-white hover:bg-white/5"
+                title="Recolher painel lateral"
+              >
+                <PanelRightClose className="w-6 h-6" />
+              </button>
+            </div>
             <div className="flex gap-2">
+
               {canViewTab("avisos") && (
                 <ActionIcon
                   icon={Megaphone}
                   active={activeTab === "avisos"}
-                  onClick={() => { setActiveTab("avisos"); setRightSidebarView("hidden"); }}
+                  onClick={() => { setActiveTab("avisos"); if (window.innerWidth < 1280) setRightSidebarView("hidden"); }}
                   isDark={isDarkMode}
                 />
               )}
 
               <ActionIcon
                 icon={Users}
-                active={rightSidebarView === "team" || (rightSidebarView === "hidden" && window.innerWidth >= 1280)}
+                active={rightSidebarView === "team"}
                 onClick={() => setRightSidebarView(rightSidebarView === "team" ? "hidden" : "team")}
                 isDark={isDarkMode}
               />
