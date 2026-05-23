@@ -24,11 +24,11 @@ import {
 import { Button } from "@/components/ui/button";
 
 const isProfileComplete = (m: any) => {
-  return m.name && m.photoURL && m.profession && m.birthDate && m.joinedDate && (m.ministries?.length > 0 || m.role !== "Membro") && m.coverImage;
+  return m && m.name && m.photoURL && m.profession && m.birthDate && m.joinedDate && (m.ministries?.length > 0 || m.role !== "Membro") && m.coverImage;
 };
 
-const formatBirthday = (dateStr: string) => {
-  if (!dateStr) return "Não informado";
+const formatBirthday = (dateStr: any) => {
+  if (!dateStr || typeof dateStr !== 'string') return "Não informado";
   const parts = dateStr.split('-');
   if (parts.length !== 3) return dateStr;
   
@@ -79,8 +79,8 @@ export default function About() {
     fetchMembers();
   }, []);
 
-  const calculateMemberDuration = (createdAt: string) => {
-    if (!createdAt) return "Membro recente";
+  const calculateMemberDuration = (createdAt: any) => {
+    if (!createdAt || typeof createdAt !== 'string') return "Membro recente";
     const date = new Date(createdAt + (createdAt.length === 10 ? 'T12:00:00' : ''));
     if (isNaN(date.getTime())) return "Membro recente";
     const diffTime = Math.abs(new Date().getTime() - date.getTime());
@@ -213,7 +213,9 @@ export default function About() {
                       </div>
 
                       <div className="px-6 pb-6 flex-1 flex flex-col pt-2">
-                        <h3 className="text-[22px] font-bold text-gray-900 leading-tight mb-4">{member.name.split(' ')[0]} {member.name.split(' ')[1] || ''}</h3>
+                        <h3 className="text-[22px] font-bold text-gray-900 leading-tight mb-4">
+                          {(member.name || 'Sem Nome').split(' ')[0]} {(member.name || '').split(' ')[1] || ''}
+                        </h3>
                         <div className="grid grid-cols-1 gap-y-2.5 text-[14px] text-gray-500 mb-5">
                           <div className="flex items-center gap-3"><BriefcaseBusiness className="w-4 h-4 text-gray-400 shrink-0" /> <span className="truncate">{member.profession || "Não informada"}</span></div>
                           <div className="flex items-center gap-3"><Cake className="w-4 h-4 text-gray-400 shrink-0" /> <span>{formatBirthday(member.birthDate)}</span></div>
