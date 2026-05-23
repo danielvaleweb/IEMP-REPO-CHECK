@@ -1717,7 +1717,9 @@ const Admin = () => {
   }, [isDarkMode]);
 
   const [activeTab, setActiveTab] = useState("visao-geral");
-  const [chartTimeFilter, setChartTimeFilter] = useState<'month'|'year'|'all'>('year');
+  const [chartTimeFilter, setChartTimeFilter] = useState<'week' | 'month' | 'year' | 'all'>('month');
+  const [activeMetric, setActiveMetric] = useState<'eventos' | 'cultos' | 'visitas'>('eventos');
+  const [hoveredPointIdx, setHoveredPointIdx] = useState<number | null>(null);
   const [radioSubTab, setRadioSubTab] = useState<"vignettes" | "tracks" | "artists">("tracks");
 
   const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
@@ -5732,7 +5734,8 @@ const Admin = () => {
                     )}
                     title="Expandir painel lateral"
                   >
-                    <PanelRightOpen className="w-[26px] h-[26px]" />
+                    <Users className="w-[26px] h-[26px] block group-hover:hidden transition-all duration-300" />
+                    <PanelRightOpen className="w-[26px] h-[26px] hidden group-hover:block transition-all duration-300" />
                   </button>
                 </motion.div>
               )}
@@ -5748,7 +5751,7 @@ const Admin = () => {
           )}>
             <div className={cn(
               "w-full",
-              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config")
+              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral")
                 ? "max-w-none h-full flex flex-col flex-1"
                 : "max-w-6xl mx-auto space-y-4 md:space-y-8"
             )}>
@@ -9051,7 +9054,46 @@ const Admin = () => {
                         const now = new Date();
                         let buckets: any[] = [];
                         
-                        if (chartTimeFilter === 'month') {
+                        const parseFlexibleDate = (dateVal: any): Date | null => {
+                          if (!dateVal) return null;
+                          if (dateVal instanceof Date) return dateVal;
+                          if (typeof dateVal === 'object' && dateVal.seconds !== undefined) {
+                            return new Date(dateVal.seconds * 1000);
+                          }
+                          if (typeof dateVal !== 'string') return null;
+                          const dStr = dateVal.trim();
+                          
+                          // Match DD/MM/YYYY pattern
+                          const brMatch = dStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+                          if (brMatch) {
+                            const day = parseInt(brMatch[1], 10);
+                            const month = parseInt(brMatch[2], 10) - 1;
+                            const year = parseInt(brMatch[3], 10);
+                            
+                            // Match HH:mm pattern
+                            const timeMatch = dStr.match(/(\d{2}):(\d{2})/);
+                            if (timeMatch) {
+                              const hour = parseInt(timeMatch[1], 10);
+                              const minute = parseInt(timeMatch[2], 10);
+                              return new Date(year, month, day, hour, minute, 0);
+                            }
+                            return new Date(year, month, day, 12, 0, 0);
+                          }
+                          
+                          const parsed = new Date(dStr);
+                          if (!isNaN(parsed.getTime())) return parsed;
+                          return null;
+                        };
+                        
+                        if (chartTimeFilter === 'week') {
+                          const daysStr = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+                          buckets = Array.from({length: 7}).map((_, i) => {
+                            const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (6 - i));
+                            const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
+                            const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+                            return { label: daysStr[d.getDay()], start, end, eventos: 0, visitas: 0, cultos: 0 };
+                          });
+                        } else if (chartTimeFilter === 'month') {
                           buckets = Array.from({length: 4}).map((_, i) => {
                             const dEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (i * 7));
                             const dStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((i + 1) * 7));
@@ -9070,32 +9112,37 @@ const Admin = () => {
                           });
                         }
                         
-                        posts.forEach(p => {
-                          if (!p.date || !p.typeEvent) return;
-                          const pd = new Date(p.date.split('T')[0]);
-                          if (isNaN(pd.getTime())) return;
+                        // Count data from mergedAgenda to be real and function perfectly
+                        mergedAgenda.forEach(p => {
+                          if (!p.date) return;
+                          const type = p.typeEvent || 'evento';
+                          const pd = parseFlexibleDate(p.date);
+                          if (!pd) return;
                           for (let b of buckets) {
                             if (pd >= b.start && pd <= b.end) {
-                              if (p.typeEvent === 'evento') b.eventos++;
-                              if (p.typeEvent === 'visita') b.visitas++;
-                              if (p.typeEvent === 'culto') b.cultos++;
+                              if (type === 'evento') b.eventos++;
+                              if (type === 'visita') b.visitas++;
+                              if (type === 'culto') b.cultos++;
                               break;
                             }
                           }
                         });
 
-                        const maxValueLine = Math.max(1, ...buckets.flatMap(b => [b.eventos, b.visitas, b.cultos]));
+                        const maxValueLine = Math.max(1, ...buckets.map(b => b[activeMetric]));
                         
                         const width = 800;
                         const height = 300;
                         const paddingX = 60;
                         const paddingY = 40;
                         
-                        const getPath = (key: 'eventos'|'visitas'|'cultos') => {
+                        const getPath = () => {
                           if (buckets.length === 0) return { d: '', pts: [] };
                           const pts = buckets.map((b, i) => ({
                             x: paddingX + i * ((width - 2 * paddingX) / Math.max(1, buckets.length - 1)),
-                            y: height - paddingY - (b[key] / maxValueLine) * (height - 2 * paddingY)
+                            y: height - paddingY - (b[activeMetric] / maxValueLine) * (height - 2 * paddingY),
+                            value: b[activeMetric],
+                            label: b.label,
+                            bucket: b
                           }));
                           let d = `M ${pts[0].x},${pts[0].y} `;
                           for (let i = 0; i < pts.length - 1; i++) {
@@ -9105,9 +9152,31 @@ const Admin = () => {
                           return { d, pts };
                         };
 
-                        const evLine = getPath('eventos');
-                        const cuLine = getPath('cultos');
-                        const viLine = getPath('visitas');
+                        const activeLine = getPath();
+                        const pts = activeLine.pts;
+                        let areaD = "";
+                        if (pts.length > 0) {
+                          areaD = `${activeLine.d} L ${pts[pts.length - 1].x},${height - paddingY} L ${pts[0].x},${height - paddingY} Z`;
+                        }
+
+                        const metricColor = activeMetric === 'eventos' 
+                          ? '#BF76FF' 
+                          : activeMetric === 'cultos' 
+                            ? (isDarkMode ? '#FFFFFF' : '#333333') 
+                            : '#FF007F';
+
+                        const getTooltipLabel = (b: any) => {
+                          if (!b) return "";
+                          if (chartTimeFilter === 'week') {
+                            return format(b.start, "dd 'de' MMMM, yyyy", { locale: ptBR });
+                          } else if (chartTimeFilter === 'month') {
+                            return `${format(b.start, "dd/MM")} a ${format(b.end, "dd/MM/yyyy")}`;
+                          } else if (chartTimeFilter === 'year') {
+                            return format(b.start, "MMMM 'de' yyyy", { locale: ptBR });
+                          } else {
+                            return `Ano de ${b.label}`;
+                          }
+                        };
 
                         // ROLES DONUT CHART
                         const roleColors = ['#BF76FF', '#FFFFFF', '#FF007F', '#FFD700', '#00FFFF', '#39FF14', '#FF4500', '#1E90FF', '#FF1493', '#00FA9A', '#9370DB', '#FF8C00'];
@@ -9143,76 +9212,232 @@ const Admin = () => {
                           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                             
                             {/* MULTILINE TIME CHART */}
-                            <div className={cn("xl:col-span-2 p-6 md:p-8 rounded-[32px] border transition-all overflow-hidden relative", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                                <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter", isDarkMode ? "text-white" : "text-black")}>
-                                  Histórico de Atividades
-                                </h4>
-                                <div className={cn("flex items-center gap-1 p-1 rounded-[16px] border", isDarkMode ? "bg-black border-white/10" : "bg-gray-100 border-black/10")}>
-                                  {(['month', 'year', 'all'] as const).map(t => (
-                                    <button 
-                                      key={t}
-                                      onClick={() => setChartTimeFilter(t)}
-                                      className={cn(
-                                        "px-4 py-1.5 rounded-[12px] text-xs font-bold transition-all",
-                                        chartTimeFilter === t 
-                                          ? (isDarkMode ? "bg-white/10 text-white" : "bg-white shadow text-black") 
-                                          : (isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-500 hover:text-black")
-                                      )}
-                                    >
-                                      {t === 'month' ? '1 Mês' : t === 'year' ? '1 Ano' : 'Tudo'}
-                                    </button>
-                                  ))}
+                            <div className={cn("xl:col-span-2 p-6 md:p-8 rounded-[32px] border transition-all overflow-hidden relative group/chartcard", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                              <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
+                                <div className="space-y-4">
+                                  <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter", isDarkMode ? "text-white" : "text-black")}>
+                                    Histórico de Atividades
+                                  </h4>
+                                  
+                                  {/* Metric Capsule Selector */}
+                                  <div className={cn("flex items-center gap-1.5 p-1.5 rounded-[20px] w-fit", isDarkMode ? "bg-black/60 border border-white/5" : "bg-gray-100/80 border border-black/5")}>
+                                    {(['eventos', 'cultos', 'visitas'] as const).map(m => {
+                                      const isActive = activeMetric === m;
+                                      let activeColorClass = "";
+                                      if (isActive) {
+                                        if (m === 'eventos') activeColorClass = "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-lg shadow-[#7300FF]/25";
+                                        else if (m === 'cultos') activeColorClass = isDarkMode ? "bg-white text-black shadow-lg shadow-white/10" : "bg-gray-800 text-white shadow-lg";
+                                        else activeColorClass = "bg-gradient-to-r from-[#FF007F] to-[#FF5E97] text-white shadow-lg shadow-[#FF007F]/25";
+                                      }
+                                      return (
+                                        <button
+                                          key={m}
+                                          onClick={() => {
+                                            setActiveMetric(m);
+                                            setHoveredPointIdx(null); // Reset tooltip when metric changes
+                                          }}
+                                          className={cn(
+                                            "px-4 py-2 rounded-[16px] text-[10px] font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5",
+                                            isActive 
+                                              ? activeColorClass 
+                                              : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
+                                          )}
+                                        >
+                                          <div className={cn("w-1.5 h-1.5 rounded-full", 
+                                            isActive 
+                                              ? "bg-current" 
+                                              : m === 'eventos' ? "bg-[#BF76FF]" : m === 'cultos' ? (isDarkMode ? "bg-white" : "bg-gray-800") : "bg-[#FF007F]"
+                                          )} />
+                                          {m === 'eventos' ? 'Eventos' : m === 'cultos' ? 'Cultos' : 'Visitas'}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+
+                                {/* Time Filter */}
+                                <div className="self-end xl:self-start">
+                                  <div className={cn("flex items-center gap-1 p-1 rounded-[16px] border w-fit", isDarkMode ? "bg-black border-white/10" : "bg-gray-100 border-black/10")}>
+                                    {(['week', 'month', 'year', 'all'] as const).map(t => (
+                                      <button 
+                                        key={t}
+                                        onClick={() => {
+                                          setChartTimeFilter(t);
+                                          setHoveredPointIdx(null);
+                                        }}
+                                        className={cn(
+                                          "px-4 py-1.5 rounded-[12px] text-xs font-bold transition-all duration-300",
+                                          chartTimeFilter === t 
+                                            ? (isDarkMode ? "bg-white/10 text-white" : "bg-white shadow text-black") 
+                                            : (isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-500 hover:text-black")
+                                        )}
+                                      >
+                                        {t === 'week' ? '7 dias' : t === 'month' ? '1 Mês' : t === 'year' ? '1 Ano' : 'Tudo'}
+                                      </button>
+                                    ))}
+                                  </div>
                                 </div>
                               </div>
                               
-                              <div className="w-full overflow-x-auto scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0">
-                                <div className="min-w-[600px] w-full">
-                                  <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto drop-shadow-xl overflow-visible">
+                              <div className="w-full overflow-x-auto scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0 relative">
+                                <div className="min-w-[600px] w-full relative">
+                                  <svg 
+                                    viewBox={`0 0 ${width} ${height}`} 
+                                    className="w-full h-auto drop-shadow-xl overflow-visible"
+                                    onMouseLeave={() => setHoveredPointIdx(null)}
+                                  >
+                                    <defs>
+                                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="0%" stopColor={metricColor} stopOpacity="0.25" />
+                                        <stop offset="100%" stopColor={metricColor} stopOpacity="0.0" />
+                                      </linearGradient>
+                                    </defs>
+
                                     {/* Y-axis grid & labels */}
                                     {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => {
                                       const yVal = height - paddingY - ratio * (height - 2 * paddingY);
                                       const labelVal = Math.round(ratio * maxValueLine);
                                       return (
                                         <g key={`y-axis-${idx}`}>
-                                          <line x1="20" y1={yVal} x2={width - 20} y2={yVal} stroke={isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeWidth="1" strokeDasharray="4 4" />
-                                          <text x="15" y={yVal + 4} textAnchor="end" className={cn("text-[10px] font-bold", isDarkMode ? "fill-gray-500" : "fill-gray-400")}>{labelVal}</text>
+                                          <line x1="45" y1={yVal} x2={width - 20} y2={yVal} stroke={isDarkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"} strokeWidth="1" strokeDasharray="4 4" />
+                                          <text x="35" y={yVal + 4} textAnchor="end" className={cn("text-[10px] font-bold", isDarkMode ? "fill-gray-500" : "fill-gray-400")}>{labelVal}</text>
                                         </g>
                                       );
                                     })}
 
-                                    {/* Eventos (Roxo) */}
-                                    <path d={evLine.d} fill="none" stroke="#BF76FF" strokeWidth="4" strokeLinecap="round" />
-                                    {/* Cultos (Branco) */}
-                                    <path d={cuLine.d} fill="none" stroke={isDarkMode ? "#FFFFFF" : "#333333"} strokeWidth="4" strokeLinecap="round" />
-                                    {/* Visitas (Rosa) */}
-                                    <path d={viLine.d} fill="none" stroke="#FF007F" strokeWidth="4" strokeLinecap="round" />
-                                    
-                                    {/* Points & X-axis Labels */}
+                                    {/* Gradient Area under the line */}
+                                    {areaD && (
+                                      <path d={areaD} fill="url(#chartGradient)" className="transition-all duration-500" />
+                                    )}
+
+                                    {/* Glowing Curved Line Path */}
+                                    {activeLine.d && (
+                                      <path 
+                                        d={activeLine.d} 
+                                        fill="none" 
+                                        stroke={metricColor} 
+                                        strokeWidth="4.5" 
+                                        strokeLinecap="round" 
+                                        className="transition-all duration-500"
+                                      />
+                                    )}
+
+                                    {/* Dashed vertical indicator line on hover */}
+                                    {hoveredPointIdx !== null && pts[hoveredPointIdx] && (
+                                      <line
+                                        x1={pts[hoveredPointIdx].x}
+                                        y1={paddingY}
+                                        x2={pts[hoveredPointIdx].x}
+                                        y2={height - paddingY}
+                                        stroke={metricColor}
+                                        strokeWidth="1.5"
+                                        strokeDasharray="4 4"
+                                        className="animate-in fade-in duration-200"
+                                      />
+                                    )}
+
+                                    {/* Base dots along the line */}
+                                    {pts.map((pt, i) => (
+                                      <circle
+                                        key={`dot-${i}`}
+                                        cx={pt.x}
+                                        cy={pt.y}
+                                        r="3.5"
+                                        fill={metricColor}
+                                        className="transition-all duration-300 opacity-60"
+                                      />
+                                    ))}
+
+                                    {/* Glowing active dot on hover */}
+                                    {hoveredPointIdx !== null && pts[hoveredPointIdx] && (
+                                      <g className="animate-in fade-in zoom-in-75 duration-200">
+                                        <circle
+                                          cx={pts[hoveredPointIdx].x}
+                                          cy={pts[hoveredPointIdx].y}
+                                          r="10"
+                                          fill={metricColor}
+                                          fillOpacity="0.25"
+                                        />
+                                        <circle
+                                          cx={pts[hoveredPointIdx].x}
+                                          cy={pts[hoveredPointIdx].y}
+                                          r="5"
+                                          fill="#FFFFFF"
+                                          stroke={metricColor}
+                                          strokeWidth="3.5"
+                                        />
+                                      </g>
+                                    )}
+
+                                    {/* X-axis Labels */}
                                     {buckets.map((b, i) => {
-                                      const evPt = evLine.pts[i];
-                                      const cuPt = cuLine.pts[i];
-                                      const viPt = viLine.pts[i];
+                                      const pt = pts[i];
+                                      if (!pt) return null;
                                       return (
-                                        <g key={`point-${i}`}>
-                                          <circle cx={evPt.x} cy={evPt.y} r="4" fill="#BF76FF" className="hover:r-6 transition-all" />
-                                          <circle cx={cuPt.x} cy={cuPt.y} r="4" fill={isDarkMode ? "#FFFFFF" : "#333333"} className="hover:r-6 transition-all" />
-                                          <circle cx={viPt.x} cy={viPt.y} r="4" fill="#FF007F" className="hover:r-6 transition-all" />
-                                          
-                                          <text x={evPt.x} y={height - 10} textAnchor="middle" className={cn("text-[10px] font-bold uppercase tracking-widest", isDarkMode ? "fill-gray-400" : "fill-gray-500")}>
+                                        <g key={`x-axis-label-${i}`}>
+                                          <text x={pt.x} y={height - 10} textAnchor="middle" className={cn("text-[10px] font-bold uppercase tracking-widest", isDarkMode ? "fill-gray-400" : "fill-gray-500")}>
                                             {b.label}
                                           </text>
                                         </g>
                                       );
                                     })}
+
+                                    {/* Interactive Hover Areas */}
+                                    {pts.map((pt, i) => {
+                                      const cellWidth = (width - 2 * paddingX) / Math.max(1, buckets.length - 1);
+                                      const hoverX = pt.x - cellWidth / 2;
+                                      return (
+                                        <rect
+                                          key={`hover-area-${i}`}
+                                          x={hoverX}
+                                          y={0}
+                                          width={cellWidth}
+                                          height={height}
+                                          fill="transparent"
+                                          className="cursor-crosshair"
+                                          onMouseEnter={() => setHoveredPointIdx(i)}
+                                        />
+                                      );
+                                    })}
                                   </svg>
+
+                                  {/* Absolute Glassmorphic Tooltip */}
+                                  {hoveredPointIdx !== null && pts[hoveredPointIdx] && (() => {
+                                    const pt = pts[hoveredPointIdx];
+                                    const tooltipLabel = getTooltipLabel(pt.bucket);
+                                    const isLeftOfCenter = pt.x < width / 2;
+                                    return (
+                                      <div
+                                        style={{
+                                          position: 'absolute',
+                                          left: `${(pt.x / width) * 100}%`,
+                                          top: `${(pt.y / height) * 100 - 15}%`,
+                                          transform: `translate(${isLeftOfCenter ? '20px' : '-115%'}, -50%)`,
+                                          pointerEvents: 'none'
+                                        }}
+                                        className={cn(
+                                          "z-30 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl min-w-[160px] animate-in fade-in slide-in-from-left-2 duration-300",
+                                          isDarkMode 
+                                            ? "bg-black/85 border-[#BF76FF]/20 text-white" 
+                                            : "bg-white/90 border-[#BF76FF]/10 text-black shadow-black/10"
+                                        )}
+                                      >
+                                        <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-1">
+                                          {tooltipLabel}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1.5">
+                                          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: metricColor }} />
+                                          <p className="text-xs font-black uppercase tracking-wide">
+                                            {activeMetric === 'eventos' ? 'Eventos' : activeMetric === 'cultos' ? 'Cultos' : 'Visitas'}:
+                                          </p>
+                                          <p className="text-sm font-black" style={{ color: isDarkMode ? '#FFFFFF' : '#000000' }}>
+                                            {pt.value}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
-                              </div>
-                              
-                              <div className="flex items-center justify-center gap-6 mt-4">
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#BF76FF]"></div><span className={cn("text-[10px] font-bold uppercase", isDarkMode?"text-white":"text-black")}>Eventos</span></div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full" style={{backgroundColor: isDarkMode ? "#FFFFFF" : "#333333"}}></div><span className={cn("text-[10px] font-bold uppercase", isDarkMode?"text-white":"text-black")}>Cultos</span></div>
-                                <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#FF007F]"></div><span className={cn("text-[10px] font-bold uppercase", isDarkMode?"text-white":"text-black")}>Visitas</span></div>
                               </div>
                             </div>
 
