@@ -2296,13 +2296,14 @@ const Admin = () => {
     }
   }, [chatMessages, rightSidebarView]);
 
-  const userStatus = profile?.status_online || "online";
+  const hasUpdatedPresence = useRef(false);
 
   useEffect(() => {
-    if (user && profile && !profile.status_online) {
+    if (user && profile && !isGuest && !profile.status_online && !hasUpdatedPresence.current) {
+      hasUpdatedPresence.current = true;
       updatePresenceStatus('online');
     }
-  }, [user, profile]);
+  }, [user, profile, isGuest]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
