@@ -5789,16 +5789,23 @@ const Admin = () => {
           )}>
             <div className={cn(
               "w-full",
-              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral")
+              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes")
                 ? "max-w-none h-full flex flex-col flex-1"
                 : "max-w-6xl mx-auto space-y-4 md:space-y-8"
             )}>
               {isEditing ? (
+                <>
                 <Card className={cn(
-                  "border-white/5 rounded-3xl p-4 md:p-10 shadow-2xl transition-all",
+                  "border-white/5 rounded-3xl shadow-2xl transition-all overflow-hidden",
+                  "p-4 md:p-10",
                   isDarkMode ? "bg-roxo-bg" : "bg-white border-black/5"
                 )}>
-                  <div className="space-y-8">
+                  <div className={cn(
+                    "space-y-8",
+                    (activeTab === "membros" || activeTab === "visitantes") && !isReadOnly
+                      ? "overflow-y-auto max-h-[calc(100vh-240px)] pr-1 pb-24 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                      : ""
+                  )}>
                     {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") ? (
                       <div className="mb-2">
                         <Button
@@ -8588,22 +8595,24 @@ const Admin = () => {
                                 </div>
                               </>
                             )}
-                            <Button
-                              className={cn(
-                                "w-full sm:w-auto hover:opacity-90 rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 border-none transition-all shadow-lg",
-                                activeTab === "eventos"
-                                  ? (formData.typeEvent === "evento" || !formData.typeEvent)
-                                    ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-[#FF0A6C]/20"
-                                    : formData.typeEvent === "culto"
-                                      ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-[#00FFFF]/20"
-                                      : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-[#FF2525]/20"
-                                  : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-[#7300FF]/20"
-                              )}
-                              onClick={handleSave}
-                              disabled={isSubmitting}
-                            >
-                              <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : (activeTab === 'membros' || activeTab === 'visitantes') ? "Salvar Alterações" : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
-                            </Button>
+                            {(activeTab !== 'membros' && activeTab !== 'visitantes') && (
+                              <Button
+                                className={cn(
+                                  "w-full sm:w-auto hover:opacity-90 rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 border-none transition-all shadow-lg",
+                                  activeTab === "eventos"
+                                    ? (formData.typeEvent === "evento" || !formData.typeEvent)
+                                      ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-[#FF0A6C]/20"
+                                      : formData.typeEvent === "culto"
+                                        ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-[#00FFFF]/20"
+                                        : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-[#FF2525]/20"
+                                    : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-[#7300FF]/20"
+                                )}
+                                onClick={handleSave}
+                                disabled={isSubmitting}
+                              >
+                                <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
+                              </Button>
+                            )}
                           </div>
 
                           {/* Link de Acesso Direto - Exibido apenas se hidden estiver marcado */}
@@ -8663,6 +8672,40 @@ const Admin = () => {
                     </div>
                   </div>
                 </Card>
+
+                {/* Floating Save Button — Member/Visitor Edit */}
+                {isEditing && (activeTab === "membros" || activeTab === "visitantes") && !isReadOnly && (
+                  <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+                    <div className={cn(
+                      "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
+                      isDarkMode
+                        ? "bg-black/80 border-[#BF76FF]/30 shadow-[#BF76FF]/10"
+                        : "bg-white/80 border-[#BF76FF]/20 shadow-black/10"
+                    )}>
+                      <div className="pl-4 pr-1 hidden sm:block">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Editar Perfil</p>
+                        <p className="text-[9px] text-[#BF76FF] font-bold">Você tem alterações pendentes</p>
+                      </div>
+                      <Button
+                        disabled={isSubmitting}
+                        onClick={handleSave}
+                        className={cn(
+                          "rounded-xl h-11 px-6 font-bold text-xs transition-all duration-300 min-w-[140px]",
+                          isSubmitting
+                            ? "bg-gray-600 text-white cursor-wait"
+                            : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white shadow-lg shadow-[#7300FF]/25"
+                        )}
+                      >
+                        {isSubmitting ? (
+                          <><span className="animate-spin mr-2">⟳</span>Salvando...</>
+                        ) : (
+                          <><Save className="w-4 h-4 mr-2" />Salvar</>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                </>
               ) : activeTab === "tons" ? (
                 <div className="space-y-6 pb-32">
                   <Suspense fallback={<ViewLoader />}>
@@ -8830,7 +8873,7 @@ const Admin = () => {
                                 <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{group.members.length} {group.members.length === 1 ? "membro" : "membros"}</span>
                               </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                 {group.members.map((member, i) => (
                                   <div key={member.id || i} className="animate-in fade-in slide-in-from-bottom-4 duration-500" style={{ animationDelay: `${i * 30}ms` }}>
                                     <div className={cn("p-4 rounded-2xl border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-sm")}>
