@@ -190,7 +190,7 @@ export default function Gallery() {
           photos: data.gallery || [],
           typeEvent: data.typeEvent || ""
         }))
-        .filter((album: any) => album.photos.length > 0);
+        .filter((album: any) => album.photos.length > 0 || album.typeEvent === 'culto');
       
       setAlbums(fetchedAlbums);
       setLoading(false);
@@ -693,7 +693,6 @@ export default function Gallery() {
                       className="group cursor-pointer"
                       onClick={() => {
                         setSelectedAlbumId(album.id);
-                        setCurrentPage(1);
                       }}
                     >
                       <div className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl border border-white/5">
@@ -798,6 +797,13 @@ export default function Gallery() {
             </div>
 
             {/* Desktop & Mobile Template-Grid Mode — idêntico ao print */}
+            {visiblePhotos.length === 0 && (
+              <div className="text-center py-20 bg-white/5 rounded-[40px] border border-dashed border-white/10 animate-in fade-in duration-500">
+                <Camera className="w-12 h-12 text-white/20 mx-auto mb-4 animate-pulse" />
+                <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Nenhuma foto adicionada a este álbum ainda.</p>
+              </div>
+            )}
+
             <div className="space-y-3 md:space-y-6 animate-in fade-in duration-500">
               {photoChunks.map((chunk, chunkIdx) => {
                 const baseIdx = chunkIdx * 7;
