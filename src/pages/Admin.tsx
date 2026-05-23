@@ -2743,6 +2743,7 @@ const Admin = () => {
 
   const [localSettings, setLocalSettings] = useState<any>({});
   const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [showSavedSuccess, setShowSavedSuccess] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
   const [logSearch, setLogSearch] = useState("");
   const [logFilterAction, setLogFilterAction] = useState("todos");
@@ -5747,7 +5748,7 @@ const Admin = () => {
           )}>
             <div className={cn(
               "w-full",
-              (activeTab === "chat" || activeTab === "conversas")
+              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config")
                 ? "max-w-none h-full flex flex-col flex-1"
                 : "max-w-6xl mx-auto space-y-4 md:space-y-8"
             )}>
@@ -9587,415 +9588,490 @@ const Admin = () => {
                   </Suspense>
                 </div>
               ) : activeTab === "config" ? (
-                <div className="p-4 md:p-8">
-                  <Card className={cn("border rounded-3xl p-4 md:p-8 transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                    <div className="space-y-6">
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <h4 className={cn("text-2xl font-bold transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            onClick={() => window.location.href = '/admin/migration'}
-                            className={cn("rounded-2xl h-10 px-6 font-bold border-yellow-500/50 text-yellow-600 hover:bg-yellow-500/10", isDarkMode && "text-yellow-400")}
-                          >
-                            <Database className="w-4 h-4 mr-2" />
-                            Migrar Banco de Dados
-                          </Button>
-                          <Button
-                            disabled={isSavingSettings || Object.keys(localSettings).length === 0}
-                            onClick={async () => {
-                              setIsSavingSettings(true);
-                              try {
-                                await setDoc(doc(db, "settings", "general"), { ...localSettings }, { merge: true });
-                                logAction("atualizar", "settings", `Atualizou configurações gerais: ${Object.keys(localSettings).join(", ")}`, settings, { ...settings, ...localSettings });
-                                setLocalSettings({}); // Clear local settings so it falls back to DB settings
-                              } catch (error) {
-                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
-                              } finally {
-                                setIsSavingSettings(false);
-                              }
-                            }}
-                            className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-10 px-6 font-bold"
-                          >
-                            {isSavingSettings ? (
-                              <>Salvando...</>
-                            ) : (
-                              <><Save className="w-4 h-4 mr-2" /> Salvar</>
-                            )}
-                          </Button>
-                        </div>
-                      </div>
+                <div className="p-4 md:p-8 w-full space-y-8 animate-in fade-in duration-500">
+                  {/* Cabeçalho */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <h4 className={cn("text-3xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Configurações do Site</h4>
+                      <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">Gerencie as preferências globais do portal</p>
+                    </div>
+                  </div>
 
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-10">
-                        {/* YouTube Channel Config */}
-                        <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-red-500/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                          <div className="flex items-center gap-4 mb-8">
-                            <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 transition-transform group-hover:scale-110">
-                              <Youtube className="w-8 h-8" />
-                            </div>
-                            <div>
-                              <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>YouTube Profecia</h5>
-                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Sincronização de Vídeos & Lives</p>
-                            </div>
+                  {/* Vertical Column Stack */}
+                  <div className="flex flex-col gap-8 w-full mt-10">
+
+                    {/* 1. MODO DE MANUTENÇÃO (Modo de Manutenção no topo) */}
+                    <div className={cn("p-8 rounded-[40px] border transition-all relative overflow-hidden", isDarkMode ? "bg-red-500/5 border-red-500/20" : "bg-red-50 border-red-500/10 shadow-xl")}>
+                      <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 blur-[80px] rounded-full -mr-16 -mt-16" />
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
+                        <div className="flex items-center gap-4 text-center sm:text-left">
+                          <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500">
+                            <ShieldCheck className="w-8 h-8" />
                           </div>
-                          
-                          <div className="space-y-6">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">ID ou @ do Canal</label>
-                              <div className="relative">
-                                <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">@</span>
-                                <Input
-                                  className={cn("border-none h-16 rounded-[24px] pl-10 pr-6 text-lg font-bold transition-all", isDarkMode ? "bg-cinza-input text-white focus:bg-white/5" : "bg-gray-100 text-black focus:bg-white")}
-                                  placeholder="ministerio_profecia"
-                                  value={localSettings.youtubeHandle ?? settings.youtubeHandle ?? "ministerio_profecia"}
-                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, youtubeHandle: e.target.value }))}
-                                />
-                              </div>
-                              <p className="text-[9px] text-gray-500 italic pl-2 opacity-60">Utilizado para carregar automaticamente os últimos vídeos no site.</p>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              <div className={cn("p-4 rounded-[28px] border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
-                                <div>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Auto-Play Header</p>
-                                  <p className="text-[9px] text-gray-500">Vídeos no topo</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={localSettings.enableHeaderVideos ?? settings.enableHeaderVideos ?? true}
-                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, enableHeaderVideos: e.target.checked }))}
-                                  />
-                                  <div className="w-12 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
-                                </label>
-                              </div>
-                              <div className={cn("p-4 rounded-[28px] border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
-                                <div>
-                                  <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Efeito Hover</p>
-                                  <p className="text-[9px] text-gray-500">Zoom nos cards</p>
-                                </div>
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    className="sr-only peer"
-                                    checked={localSettings.videoCardsEnabled ?? settings.videoCardsEnabled ?? true}
-                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, videoCardsEnabled: e.target.checked }))}
-                                  />
-                                  <div className="w-12 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
-                                </label>
-                              </div>
-                            </div>
+                          <div>
+                            <h5 className="text-xl font-black text-red-500 uppercase tracking-tighter">Modo de Manutenção</h5>
+                            <p className="text-xs text-gray-500 max-w-md">Ao ativar, apenas administradores poderão acessar o site. Usuários comuns verão uma tela de manutenção.</p>
                           </div>
                         </div>
-
-                        {/* Banners Config */}
-                        <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-[#BF76FF]/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                          <div className="flex items-center gap-4 mb-8">
-                            <div className="w-14 h-14 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] transition-transform group-hover:scale-110">
-                              <ImageIcon className="w-8 h-8" />
-                            </div>
-                            <div>
-                              <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Banners Rotativos</h5>
-                              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Grade de 3 Banners (Home)</p>
-                            </div>
-                          </div>
-
-                          <div className="space-y-6">
-                            {[1, 2, 3].map(i => (
-                              <div key={`banner-config-${i}`} className={cn("p-5 rounded-[28px] border space-y-4", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
-                                <div className="flex items-center justify-between mb-2">
-                                  <span className="text-[10px] font-black uppercase text-[#BF76FF]">Banner 0{i}</span>
-                                  {localSettings[`homeBannerImage${i === 1 ? '' : i}`] && (
-                                    <div className="w-8 h-5 rounded-md overflow-hidden border border-white/10">
-                                      <img src={localSettings[`homeBannerImage${i === 1 ? '' : i}`]} className="w-full h-full object-cover" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                  <div className="space-y-1">
-                                    <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">URL da Imagem</label>
-                                    <Input
-                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
-                                      placeholder="https://..."
-                                      value={localSettings[`homeBannerImage${i === 1 ? '' : i}`] ?? settings[`homeBannerImage${i === 1 ? '' : i}`] ?? ""}
-                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerImage${i === 1 ? '' : i}`]: e.target.value }))}
-                                    />
-                                  </div>
-                                  <div className="space-y-1">
-                                    <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Link de Destino</label>
-                                    <Input
-                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
-                                      placeholder="https://..."
-                                      value={localSettings[`homeBannerLink${i === 1 ? '' : i}`] ?? settings[`homeBannerLink${i === 1 ? '' : i}`] ?? ""}
-                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerLink${i === 1 ? '' : i}`]: e.target.value }))}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Maintenance Mode Card (Footer of Section) */}
-                      <div className={cn("p-8 rounded-[40px] border mt-8 transition-all relative overflow-hidden", isDarkMode ? "bg-red-500/5 border-red-500/20" : "bg-red-50 border-red-500/10")}>
-                        <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 blur-[80px] rounded-full -mr-16 -mt-16" />
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-6 relative z-10">
-                          <div className="flex items-center gap-4 text-center sm:text-left">
-                            <div className="w-14 h-14 rounded-2xl bg-red-500/20 flex items-center justify-center text-red-500">
-                              <ShieldCheck className="w-8 h-8" />
-                            </div>
-                            <div>
-                              <h5 className="text-xl font-black text-red-500 uppercase tracking-tighter">Modo de Manutenção</h5>
-                              <p className="text-xs text-gray-500 max-w-md">Ao ativar, apenas administradores poderão acessar o site. Usuários comuns verão uma tela de manutenção.</p>
-                            </div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              className="sr-only peer"
-                              checked={localSettings.maintenanceMode ?? settings.maintenanceMode ?? false}
-                              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, maintenanceMode: e.target.checked }))}
-                            />
-                            <div className="w-16 h-8 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500 shadow-lg shadow-red-500/20"></div>
-                          </label>
-                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={localSettings.maintenanceMode ?? settings.maintenanceMode ?? false}
+                            onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, maintenanceMode: e.target.checked }))}
+                          />
+                          <div className="w-16 h-8 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500 shadow-lg shadow-red-500/20"></div>
+                        </label>
                       </div>
                     </div>
 
-
-                      <div className={cn("pt-8 border-t transition-colors", isDarkMode ? "border-white/5" : "border-black/5")}>
-                        <h4 className={cn("text-xl font-bold mb-6 transition-colors", isDarkMode ? "text-white" : "text-black")}>Configuração de Permissões</h4>
-
-                        {/* Role Selector */}
-                        <div className="flex flex-wrap gap-2 mb-8 p-2 rounded-[24px] bg-black/5 dark:bg-white/5">
-                          {allRoles.map(role => {
-                            const isSelected = selectedPermissionRole === role;
-                            return (
-                              <button
-                                key={`role-selector-${role}`}
-                                onClick={() => setSelectedPermissionRole(role)}
-                                className={cn(
-                                  "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                                  isSelected
-                                    ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
-                                    : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
-                                )}
-                              >
-                                {role}
-                              </button>
-                            );
-                          })}
+                    {/* 2. BANNERS ROTATIVOS (Logo abaixo da manutenção) */}
+                    <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-[#BF76FF]/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                      <div className="flex items-center gap-4 mb-8">
+                        <div className="w-14 h-14 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] transition-transform group-hover:scale-110">
+                          <ImageIcon className="w-8 h-8" />
                         </div>
+                        <div>
+                          <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Banners Rotativos</h5>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Grade de 3 Banners (Home)</p>
+                        </div>
+                      </div>
 
-                        {selectedPermissionRole ? (
-                          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <div className={cn("p-6 md:p-10 rounded-[40px] border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5 shadow-2xl")}>
-                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                      <div className="space-y-6">
+                        {[1, 2, 3].map(i => (
+                          <div key={`banner-config-${i}`} className={cn("p-6 md:p-8 rounded-[28px] border space-y-6", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-black uppercase text-[#BF76FF]">Banner 0{i}</span>
+                              {localSettings[`homeBannerImage${i === 1 ? '' : i}`] && (
+                                <div className="w-12 h-8 rounded-md overflow-hidden border border-white/10">
+                                  <img src={localSettings[`homeBannerImage${i === 1 ? '' : i}`]} className="w-full h-full object-cover" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Option to upload image or paste external URL */}
+                            <div className="space-y-4">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Imagem do Banner</label>
+                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-end">
+                                <div className="space-y-2">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção A: Upload do PC</span>
+                                  <UploadImages
+                                    maxFiles={1}
+                                    multiple={false}
+                                    value={localSettings[`homeBannerImage${i === 1 ? '' : i}`] ?? settings[`homeBannerImage${i === 1 ? '' : i}`] ?? ""}
+                                    onUploadComplete={(images) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerImage${i === 1 ? '' : i}`]: images[0]?.secure_url || "" }))}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção B: URL Externa da Imagem</span>
+                                  <Input
+                                    className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                    placeholder="https://..."
+                                    value={localSettings[`homeBannerImage${i === 1 ? '' : i}`] ?? settings[`homeBannerImage${i === 1 ? '' : i}`] ?? ""}
+                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerImage${i === 1 ? '' : i}`]: e.target.value }))}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-black uppercase text-gray-500 tracking-widest ml-1">Link de Destino</label>
+                                <Input
+                                  className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                  placeholder="https://..."
+                                  value={localSettings[`homeBannerLink${i === 1 ? '' : i}`] ?? settings[`homeBannerLink${i === 1 ? '' : i}`] ?? ""}
+                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerLink${i === 1 ? '' : i}`]: e.target.value }))}
+                                />
+                              </div>
+                              <div className={cn("p-3 rounded-xl border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
                                 <div>
-                                  <h5 className="text-3xl font-black text-[#BF76FF] uppercase tracking-tighter mb-2">
-                                    {selectedPermissionRole === "Administradores" ? "Administrador Master" : selectedPermissionRole}
-                                  </h5>
-                                  <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Defina o que este cargo pode acessar e realizar em cada menu.</p>
+                                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Abrir em nova guia?</p>
+                                  <p className="text-[8px] text-gray-500">Adiciona target="_blank"</p>
                                 </div>
-                                <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10">
-                                  <ShieldCheck className="w-5 h-5 text-[#BF76FF]" />
-                                  <span className="text-[10px] font-black uppercase text-[#BF76FF] tracking-widest">Gestão de Acesso</span>
-                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="sr-only peer"
+                                    checked={localSettings[`homeBannerBlank${i === 1 ? '' : i}`] ?? settings[`homeBannerBlank${i === 1 ? '' : i}`] ?? false}
+                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, [`homeBannerBlank${i === 1 ? '' : i}`]: e.target.checked }))}
+                                  />
+                                  <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                                </label>
                               </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {menuItems.map(tab => {
-                                  // Determinar valores atuais
-                                  const rolePerms = settings.permissions?.[selectedPermissionRole] || {};
-                                  const tabData = rolePerms.tabs?.[tab.id];
-                                  
-                                  const getVal = (action: string) => {
-                                    if (tabData && typeof tabData === 'object') return tabData[action] ?? true;
-                                    if (action === 'view') {
-                                      if (tabData === true || tabData === false) return tabData;
-                                      return canRoleViewTab(selectedPermissionRole, false, tab.id);
-                                    }
-                                    return rolePerms[action] ?? !["Membro", "Visitante"].includes(selectedPermissionRole);
-                                  };
+                    {/* 3. CONFIGURAÇÃO DE PERMISSÕES / CARGOS (Abaixo dos banners) */}
+                    <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-[#BF76FF]/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                      <div className="flex items-center gap-4 mb-8">
+                        <div className="w-14 h-14 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] transition-transform group-hover:scale-110">
+                          <ShieldCheck className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Configuração de Permissões</h5>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Controle de acessos por cargos</p>
+                        </div>
+                      </div>
 
-                                  const actions = [
-                                    { id: 'view', label: 'Ver', color: 'blue' },
-                                    { id: 'create', label: 'Criar', color: 'green' },
-                                    { id: 'edit', label: 'Editar', color: 'amber' },
-                                    { id: 'delete', label: 'Excluir', color: 'red' }
-                                  ];
+                      {/* Role Selector */}
+                      <div className="flex flex-wrap gap-2 mb-8 p-2 rounded-[24px] bg-black/5 dark:bg-white/5">
+                        {allRoles.map(role => {
+                          const isSelected = selectedPermissionRole === role;
+                          return (
+                            <button
+                              key={`role-selector-${role}`}
+                              onClick={() => setSelectedPermissionRole(role)}
+                              className={cn(
+                                "px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                isSelected
+                                  ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                  : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
+                              )}
+                            >
+                              {role}
+                            </button>
+                          );
+                        })}
+                      </div>
 
-                                  return (
-                                    <div 
-                                      key={`tab-perm-card-${tab.id}`} 
-                                      className={cn(
-                                        "relative group p-8 rounded-[40px] border transition-all duration-500",
-                                        isDarkMode 
-                                          ? "bg-[#1a1a1a] border-white/[0.03] hover:border-[#BF76FF]/30 hover:shadow-[0_0_40px_-15px_rgba(191,118,255,0.2)]" 
-                                          : "bg-white border-black/[0.03] shadow-xl hover:shadow-[#BF76FF]/10"
-                                      )}
-                                    >
-                                      {/* Background Glow Effect */}
-                                      <div className="absolute inset-0 bg-gradient-to-br from-[#BF76FF]/0 to-[#BF76FF]/0 group-hover:from-[#BF76FF]/5 group-hover:to-transparent rounded-[40px] transition-all duration-700" />
-                                      
-                                      <div className="relative z-10">
-                                        <div className="flex items-center justify-between mb-8">
-                                          <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#BF76FF]/20 to-[#BF76FF]/5 flex items-center justify-center text-[#BF76FF] shadow-inner">
-                                              <tab.icon className="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                              <span className={cn("font-black uppercase tracking-tighter text-base transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                                                {tab.label}
-                                              </span>
-                                              <div className="h-0.5 w-0 group-hover:w-full bg-[#BF76FF] transition-all duration-500 rounded-full" />
-                                            </div>
+                      {selectedPermissionRole ? (
+                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                          <div className={cn("p-6 md:p-10 rounded-[40px] border transition-colors", isDarkMode ? "bg-[#1a1a1a] border-white/5" : "bg-gray-50 border-black/5 shadow-2xl")}>
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
+                              <div>
+                                <h5 className="text-3xl font-black text-[#BF76FF] uppercase tracking-tighter mb-2">
+                                  {selectedPermissionRole === "Administradores" ? "Administrador Master" : selectedPermissionRole}
+                                </h5>
+                                <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Defina o que este cargo pode acessar e realizar em cada menu.</p>
+                              </div>
+                              <div className="flex items-center gap-3 p-3 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10">
+                                <ShieldCheck className="w-5 h-5 text-[#BF76FF]" />
+                                <span className="text-[10px] font-black uppercase text-[#BF76FF] tracking-widest">Gestão de Acesso</span>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                              {menuItems.map(tab => {
+                                // Determinar valores atuais
+                                const rolePerms = settings.permissions?.[selectedPermissionRole] || {};
+                                const tabData = rolePerms.tabs?.[tab.id];
+                                
+                                const getVal = (action: string) => {
+                                  if (tabData && typeof tabData === 'object') return tabData[action] ?? true;
+                                  if (action === 'view') {
+                                    if (tabData === true || tabData === false) return tabData;
+                                    return canRoleViewTab(selectedPermissionRole, false, tab.id);
+                                  }
+                                  return rolePerms[action] ?? !["Membro", "Visitante"].includes(selectedPermissionRole);
+                                };
+
+                                const actions = [
+                                  { id: 'view', label: 'Ver', color: 'blue' },
+                                  { id: 'create', label: 'Criar', color: 'green' },
+                                  { id: 'edit', label: 'Editar', color: 'amber' },
+                                  { id: 'delete', label: 'Excluir', color: 'red' }
+                                ];
+
+                                return (
+                                  <div 
+                                    key={`tab-perm-card-${tab.id}`} 
+                                    className={cn(
+                                      "relative group p-8 rounded-[40px] border transition-all duration-500",
+                                      isDarkMode 
+                                        ? "bg-[#1a1a1a] border-white/[0.03] hover:border-[#BF76FF]/30 hover:shadow-[0_0_40px_-15px_rgba(191,118,255,0.2)]" 
+                                        : "bg-white border-black/[0.03] shadow-xl hover:shadow-[#BF76FF]/10"
+                                    )}
+                                  >
+                                    {/* Background Glow Effect */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-[#BF76FF]/0 to-[#BF76FF]/0 group-hover:from-[#BF76FF]/5 group-hover:to-transparent rounded-[40px] transition-all duration-700" />
+                                    
+                                    <div className="relative z-10">
+                                      <div className="flex items-center justify-between mb-8">
+                                        <div className="flex items-center gap-4">
+                                          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#BF76FF]/20 to-[#BF76FF]/5 flex items-center justify-center text-[#BF76FF] shadow-inner">
+                                            <tab.icon className="w-6 h-6" />
                                           </div>
-                                          <div className="w-2 h-2 rounded-full bg-[#BF76FF] animate-pulse shadow-[0_0_10px_#BF76FF]" />
+                                          <div>
+                                            <span className={cn("font-black uppercase tracking-tighter text-base transition-colors", isDarkMode ? "text-white" : "text-black")}>
+                                              {tab.label}
+                                            </span>
+                                            <div className="h-0.5 w-0 group-hover:w-full bg-[#BF76FF] transition-all duration-500 rounded-full" />
+                                          </div>
                                         </div>
-
-                                        <div className="grid grid-cols-2 gap-4">
-                                          {actions.map(action => {
-                                            const isChecked = getVal(action.id);
-                                            return (
-                                              <div 
-                                                key={`${tab.id}-${action.id}`}
-                                                onClick={async () => {
-                                                  const newValue = !isChecked;
-                                                  const currentTabs = rolePerms.tabs || {};
-                                                  const currentTabData = typeof currentTabs[tab.id] === 'object' ? currentTabs[tab.id] : { 
-                                                    view: typeof currentTabs[tab.id] === 'boolean' ? currentTabs[tab.id] : canRoleViewTab(selectedPermissionRole, false, tab.id),
-                                                    create: rolePerms.create ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                    edit: rolePerms.edit ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
-                                                    delete: rolePerms.delete ?? !["Membro", "Visitante"].includes(selectedPermissionRole)
-                                                  };
-
-                                                  const newPermissions = {
-                                                    ...settings.permissions,
-                                                    [selectedPermissionRole]: {
-                                                      ...rolePerms,
-                                                      tabs: {
-                                                        ...currentTabs,
-                                                        [tab.id]: {
-                                                          ...currentTabData,
-                                                          [action.id]: newValue
-                                                        }
-                                                      }
-                                                    }
-                                                  };
-
-                                                  try {
-                                                    await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
-                                                  } catch (error) {
-                                                    handleFirestoreError(error, OperationType.WRITE, "settings/general");
-                                                  }
-                                                }}
-                                                className={cn(
-                                                  "group/btn relative flex flex-col items-center justify-center p-4 rounded-[24px] border transition-all duration-300 cursor-pointer overflow-hidden",
-                                                  isChecked 
-                                                    ? isDarkMode 
-                                                      ? "bg-[#BF76FF]/10 border-[#BF76FF]/40 shadow-[inset_0_0_20px_rgba(191,118,255,0.1)]" 
-                                                      : "bg-[#BF76FF]/5 border-[#BF76FF]/30" 
-                                                    : isDarkMode
-                                                      ? "bg-white/[0.02] border-white/[0.05] grayscale opacity-40 hover:opacity-70"
-                                                      : "bg-gray-50 border-black/[0.05] grayscale opacity-40 hover:opacity-70"
-                                                )}
-                                              >
-                                                {/* Inner Glow when active */}
-                                                {isChecked && (
-                                                  <div className="absolute inset-0 bg-gradient-to-t from-[#BF76FF]/10 to-transparent" />
-                                                )}
-                                                
-                                                <span className={cn(
-                                                  "text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors",
-                                                  isChecked ? "text-[#BF76FF]" : "text-gray-500"
-                                                )}>
-                                                  {action.label}
-                                                </span>
-
-                                                <div className={cn(
-                                                  "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-500",
-                                                  isChecked 
-                                                    ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.6)] scale-110" 
-                                                    : "bg-black/20 text-gray-600 scale-100"
-                                                )}>
-                                                  {isChecked ? (
-                                                    <Check className="w-4 h-4 stroke-[4]" />
-                                                  ) : (
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
-                                                  )}
-                                                </div>
-                                              </div>
-                                            );
-                                          })}
-                                        </div>
+                                        <div className="w-2 h-2 rounded-full bg-[#BF76FF] animate-pulse shadow-[0_0_10px_#BF76FF]" />
                                       </div>
-                                    </div>
-                                  );
 
-                                })}
-                              </div>
+                                      <div className="grid grid-cols-2 gap-4">
+                                        {actions.map(action => {
+                                          const isChecked = getVal(action.id);
+                                          return (
+                                            <div 
+                                              key={`${tab.id}-${action.id}`}
+                                              onClick={async () => {
+                                                const newValue = !isChecked;
+                                                const currentTabs = rolePerms.tabs || {};
+                                                const currentTabData = typeof currentTabs[tab.id] === 'object' ? currentTabs[tab.id] : { 
+                                                  view: typeof currentTabs[tab.id] === 'boolean' ? currentTabs[tab.id] : canRoleViewTab(selectedPermissionRole, false, tab.id),
+                                                  create: rolePerms.create ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                  edit: rolePerms.edit ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
+                                                  delete: rolePerms.delete ?? !["Membro", "Visitante"].includes(selectedPermissionRole)
+                                                };
 
-                              {/* Footer: Admin Options */}
-                              <div className={cn("mt-12 pt-10 border-t flex flex-wrap gap-6", isDarkMode ? "border-white/5" : "border-black/5")}>
-                                <div className="space-y-4 flex-1 min-w-[300px]">
-                                  <h6 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Permissões Globais / Administrativas</h6>
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {[
-                                      { label: "Gerenciar Perfis", key: "editProfiles" },
-                                      { label: "Apagar fotos da Galeria", key: "deletePhotos" }
-                                    ].map(perm => {
-                                      const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? (
-                                        perm.key === "editProfiles" 
-                                          ? (selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor")
-                                          : !["Membro", "Visitante"].includes(selectedPermissionRole)
-                                      );
-
-                                      return (
-                                        <div key={`global-perm-${perm.key}`} className={cn("flex items-center justify-between p-4 rounded-[24px] border", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-sm")}>
-                                          <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{perm.label}</span>
-                                          <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                              type="checkbox"
-                                              className="sr-only peer"
-                                              checked={isChecked}
-                                              onChange={async (e) => {
-                                                const newValue = e.target.checked;
                                                 const newPermissions = {
                                                   ...settings.permissions,
                                                   [selectedPermissionRole]: {
-                                                    ...(settings.permissions?.[selectedPermissionRole] || {}),
-                                                    [perm.key]: newValue
+                                                    ...rolePerms,
+                                                    tabs: {
+                                                      ...currentTabs,
+                                                      [tab.id]: {
+                                                        ...currentTabData,
+                                                        [action.id]: newValue
+                                                      }
+                                                    }
                                                   }
                                                 };
+
                                                 try {
                                                   await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
                                                 } catch (error) {
                                                   handleFirestoreError(error, OperationType.WRITE, "settings/general");
                                                 }
                                               }}
-                                            />
-                                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
-                                          </label>
-                                        </div>
-                                      );
-                                    })}
+                                              className={cn(
+                                                "group/btn relative flex flex-col items-center justify-center p-4 rounded-[24px] border transition-all duration-300 cursor-pointer overflow-hidden",
+                                                isChecked 
+                                                  ? isDarkMode 
+                                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/40 shadow-[inset_0_0_20px_rgba(191,118,255,0.1)]" 
+                                                    : "bg-[#BF76FF]/5 border-[#BF76FF]/30" 
+                                                  : isDarkMode
+                                                    ? "bg-white/[0.02] border-white/[0.05] grayscale opacity-40 hover:opacity-70"
+                                                    : "bg-gray-50 border-black/[0.05] grayscale opacity-40 hover:opacity-70"
+                                              )}
+                                            >
+                                              {/* Inner Glow when active */}
+                                              {isChecked && (
+                                                <div className="absolute inset-0 bg-gradient-to-t from-[#BF76FF]/10 to-transparent" />
+                                              )}
+                                              
+                                              <span className={cn(
+                                                "text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors",
+                                                isChecked ? "text-[#BF76FF]" : "text-gray-500"
+                                              )}>
+                                                {action.label}
+                                              </span>
+
+                                              <div className={cn(
+                                                "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-500",
+                                                isChecked 
+                                                  ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.6)] scale-110" 
+                                                  : "bg-black/20 text-gray-600 scale-100"
+                                              )}>
+                                                {isChecked ? (
+                                                  <Check className="w-4 h-4 stroke-[4]" />
+                                                ) : (
+                                                  <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
+                                                )}
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
                                   </div>
+                                );
+
+                              })}
+                            </div>
+
+                            {/* Footer: Admin Options */}
+                            <div className={cn("mt-12 pt-10 border-t flex flex-wrap gap-6", isDarkMode ? "border-white/5" : "border-black/5")}>
+                              <div className="space-y-4 flex-1 min-w-[300px]">
+                                <h6 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.2em] mb-4">Permissões Globais / Administrativas</h6>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  {[
+                                    { label: "Gerenciar Perfis", key: "editProfiles" },
+                                    { label: "Apagar fotos da Galeria", key: "deletePhotos" }
+                                  ].map(perm => {
+                                    const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? (
+                                      perm.key === "editProfiles" 
+                                        ? (selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor")
+                                        : !["Membro", "Visitante"].includes(selectedPermissionRole)
+                                    );
+
+                                    return (
+                                      <div key={`global-perm-${perm.key}`} className={cn("flex items-center justify-between p-4 rounded-[24px] border", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                                        <span className="text-xs font-bold uppercase tracking-widest text-gray-400">{perm.label}</span>
+                                        <label className="relative inline-flex items-center cursor-pointer">
+                                          <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={isChecked}
+                                            onChange={async (e) => {
+                                              const newValue = e.target.checked;
+                                              const newPermissions = {
+                                                ...settings.permissions,
+                                                [selectedPermissionRole]: {
+                                                  ...(settings.permissions?.[selectedPermissionRole] || {}),
+                                                  [perm.key]: newValue
+                                                }
+                                              };
+                                              try {
+                                                await setDoc(doc(db, "settings", "general"), { permissions: newPermissions }, { merge: true });
+                                              } catch (error) {
+                                                handleFirestoreError(error, OperationType.WRITE, "settings/general");
+                                              }
+                                            }}
+                                          />
+                                          <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                                        </label>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
                             </div>
                           </div>
-                        ) : (
-                          <div className={cn("p-12 rounded-[32px] border border-dashed flex flex-col items-center justify-center text-center", isDarkMode ? "border-white/10 bg-white/5" : "border-black/10 bg-black/5")}>
-                            <ShieldCheck className="w-12 h-12 text-gray-500 mb-4 opacity-20" />
-                            <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Selecione um cargo para gerenciar permissões</p>
-                          </div>
-                        )}
+                        </div>
+                      ) : (
+                        <div className={cn("p-12 rounded-[32px] border border-dashed flex flex-col items-center justify-center text-center", isDarkMode ? "border-white/10 bg-white/5" : "border-black/10 bg-black/5")}>
+                          <ShieldCheck className="w-12 h-12 text-gray-500 mb-4 opacity-20" />
+                          <p className="text-sm font-bold text-gray-500 uppercase tracking-widest">Selecione um cargo para gerenciar permissões</p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 4. YOUTUBE PROFECIA (Lá embaixo) */}
+                    <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-red-500/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                      <div className="flex items-center gap-4 mb-8">
+                        <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 transition-transform group-hover:scale-110">
+                          <Youtube className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>YouTube Profecia</h5>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Sincronização de Vídeos & Lives</p>
+                        </div>
                       </div>
-                    </Card>
+                      
+                      <div className="space-y-6">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">ID ou @ do Canal</label>
+                          <div className="relative">
+                            <span className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400 font-bold">@</span>
+                            <Input
+                              className={cn("border-none h-16 rounded-[24px] pl-10 pr-6 text-lg font-bold transition-all", isDarkMode ? "bg-cinza-input text-white focus:bg-white/5" : "bg-gray-100 text-black focus:bg-white")}
+                              placeholder="ministerio_profecia"
+                              value={localSettings.youtubeHandle ?? settings.youtubeHandle ?? "ministerio_profecia"}
+                              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, youtubeHandle: e.target.value }))}
+                            />
+                          </div>
+                          <p className="text-[9px] text-gray-500 italic pl-2 opacity-60">Utilizado para carregar automaticamente os últimos vídeos no site.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 5. PREFERÊNCIAS DO SITE (Separado do YouTube, lá embaixo) */}
+                    <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-[#BF76FF]/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                      <div className="flex items-center gap-4 mb-8">
+                        <div className="w-14 h-14 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] transition-transform group-hover:scale-110">
+                          <Settings className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Preferências do Site</h5>
+                          <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Opções de Comportamento e Interface</p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div className={cn("p-6 rounded-[28px] border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">Auto-Play Header</p>
+                            <p className="text-[9px] text-gray-500">Vídeos em reprodução automática no topo</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={localSettings.enableHeaderVideos ?? settings.enableHeaderVideos ?? true}
+                              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, enableHeaderVideos: e.target.checked }))}
+                            />
+                            <div className="w-12 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                          </label>
+                        </div>
+                        <div className={cn("p-6 rounded-[28px] border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
+                          <div>
+                            <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">Efeito Hover</p>
+                            <p className="text-[9px] text-gray-500">Zoom interativo nos cards de vídeo</p>
+                          </div>
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              className="sr-only peer"
+                              checked={localSettings.videoCardsEnabled ?? settings.videoCardsEnabled ?? true}
+                              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, videoCardsEnabled: e.target.checked }))}
+                            />
+                            <div className="w-12 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#BF76FF]"></div>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Floating Save Button */}
+                    {(Object.keys(localSettings).length > 0 || isSavingSettings || showSavedSuccess) && (
+                      <div className="fixed bottom-8 left-1/2 -translate-y-0 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+                        <div className={cn(
+                          "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
+                          isDarkMode 
+                            ? "bg-black/80 border-[#BF76FF]/30 shadow-[#BF76FF]/10" 
+                            : "bg-white/80 border-[#BF76FF]/20 shadow-black/10"
+                        )}>
+                          <div className="pl-4 pr-1 hidden sm:block">
+                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Configurações alteradas</p>
+                            <p className="text-[9px] text-[#BF76FF] font-bold">Você tem alterações pendentes</p>
+                          </div>
+                          <Button
+                            disabled={isSavingSettings || (Object.keys(localSettings).length === 0 && !showSavedSuccess)}
+                            onClick={async () => {
+                              if (showSavedSuccess) return;
+                              setIsSavingSettings(true);
+                              try {
+                                await setDoc(doc(db, "settings", "general"), { ...localSettings }, { merge: true });
+                                logAction("atualizar", "settings", `Atualizou configurações gerais: ${Object.keys(localSettings).join(", ")}`, settings, { ...settings, ...localSettings });
+                                firestoreService.clearCache("settings");
+                                setShowSavedSuccess(true);
+                                setIsSavingSettings(false);
+                                setTimeout(() => {
+                                  setShowSavedSuccess(false);
+                                  setLocalSettings({});
+                                }, 2000);
+                              } catch (error) {
+                                handleFirestoreError(error, OperationType.UPDATE, "settings/general");
+                                setIsSavingSettings(false);
+                              }
+                            }}
+                            className={cn(
+                              "rounded-xl h-11 px-6 font-bold text-xs transition-all duration-300 min-w-[140px]",
+                              showSavedSuccess 
+                                ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
+                                : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white shadow-lg shadow-[#7300FF]/25"
+                            )}
+                          >
+                            {isSavingSettings ? (
+                              <>Salvando...</>
+                            ) : showSavedSuccess ? (
+                              <><Check className="w-4 h-4 mr-2 stroke-[3]" /> Salvo! 🎉</>
+                            ) : (
+                              <><Save className="w-4 h-4 mr-2" /> Salvar Alterações</>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </div>
                 ) : activeTab === "logs" ? (
 
 

@@ -835,7 +835,12 @@ export default function Home() {
             <div className="w-full mb-16 grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
               {config.homeBannerImage && (
                 config.homeBannerLink ? (
-                  <a href={config.homeBannerLink} target="_blank" rel="noopener noreferrer" className="block w-full rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 bg-transparent aspect-[450/150] relative group">
+                  <a 
+                    href={config.homeBannerLink} 
+                    target={config.homeBannerBlank ? "_blank" : "_self"} 
+                    rel={config.homeBannerBlank ? "noopener noreferrer" : undefined} 
+                    className="block w-full rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 bg-transparent aspect-[450/150] relative group"
+                  >
                     <img src={config.homeBannerImage} alt="Promo 1" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </a>
@@ -847,7 +852,12 @@ export default function Home() {
               )}
               {config.homeBannerImage2 ? (
                 config.homeBannerLink2 ? (
-                  <a href={config.homeBannerLink2} target="_blank" rel="noopener noreferrer" className="block w-full rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 bg-transparent aspect-[450/150] relative group">
+                  <a 
+                    href={config.homeBannerLink2} 
+                    target={config.homeBannerBlank2 ? "_blank" : "_self"} 
+                    rel={config.homeBannerBlank2 ? "noopener noreferrer" : undefined} 
+                    className="block w-full rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 bg-transparent aspect-[450/150] relative group"
+                  >
                     <img src={config.homeBannerImage2} alt="Promo 2" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </a>
@@ -859,12 +869,17 @@ export default function Home() {
               ) : (
                 <div className="w-full rounded-2xl overflow-hidden shadow-inner bg-black/5 border border-dashed border-black/10 aspect-[450/150] flex flex-col items-center justify-center text-center p-4">
                   <span className="text-sm font-bold text-gray-400 mb-1">Espaço para Banner 2</span>
-                  <span className="text-xs text-gray-500">Adicione no painel Addmin (Ex: 450x150px)</span>
+                  <span className="text-xs text-gray-500">Adicione no painel Admin (Ex: 450x150px)</span>
                 </div>
               )}
               {config.homeBannerImage3 ? (
                 config.homeBannerLink3 ? (
-                  <a href={config.homeBannerLink3} target="_blank" rel="noopener noreferrer" className="block w-full rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 bg-transparent aspect-[450/150] relative group">
+                  <a 
+                    href={config.homeBannerLink3} 
+                    target={config.homeBannerBlank3 ? "_blank" : "_self"} 
+                    rel={config.homeBannerBlank3 ? "noopener noreferrer" : undefined} 
+                    className="block w-full rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 bg-transparent aspect-[450/150] relative group"
+                  >
                     <img src={config.homeBannerImage3} alt="Promo 3" className="w-full h-full object-cover" />
                     <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </a>
@@ -876,7 +891,7 @@ export default function Home() {
               ) : (
                 <div className="w-full rounded-2xl overflow-hidden shadow-inner bg-black/5 border border-dashed border-black/10 aspect-[450/150] flex flex-col items-center justify-center text-center p-4">
                   <span className="text-sm font-bold text-gray-400 mb-1">Espaço para Banner 3</span>
-                  <span className="text-xs text-gray-500">Adicione no painel Addmin (Ex: 450x150px)</span>
+                  <span className="text-xs text-gray-500">Adicione no painel Admin (Ex: 450x150px)</span>
                 </div>
               )}
             </div>
