@@ -9194,9 +9194,9 @@ const Admin = () => {
                         mergedAgenda.forEach(p => {
                           if (!p.date) return;
                           
-                          // Exclude items from the "agenda" collection (rehearsals, EBD, leadership meetings, etc.)
-                          // Only count real public events, cults, and visits from posts/blog collections
-                          if (p.type === 'agenda') return;
+                          // Exclude items from "agenda" (internal meetings) and "blog" (news) collections
+                          // Only count real public events, cults, and visits from the "posts" (Eventos) collection
+                          if (p.type === 'agenda' || p.type === 'blog') return;
                           
                           // Determine typeEvent with robust fallbacks based on title keywords if not set
                           let type = p.typeEvent || 'evento';
