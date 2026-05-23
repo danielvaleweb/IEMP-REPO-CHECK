@@ -41,6 +41,16 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
 
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedVocalists, setExpandedVocalists] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (vocalistId: string) => {
+    setExpandedVocalists(prev => {
+      const next = new Set(prev);
+      if (next.has(vocalistId)) next.delete(vocalistId);
+      else next.add(vocalistId);
+      return next;
+    });
+  };
 
   // Form states
   const [formData, setFormData] = useState({
@@ -227,114 +237,135 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
+      <div className="grid grid-cols-1 gap-2">
         {filteredVocalists.length > 0 ? (
           filteredVocalists.map((vocalist) => {
             const vocalistSongs = songs.filter(s => s.memberId === vocalist.id);
+            const isExpanded = expandedVocalists.has(vocalist.id);
             return (
               <Card
                 key={vocalist.id}
                 className={cn(
-                  "p-6 rounded-[32px] border-none shadow-xl overflow-hidden relative",
-                  isDark ? "bg-white/[0.02]" : "bg-white"
+                  "px-4 py-3 rounded-2xl border-none shadow-md overflow-hidden relative",
+                  isDark ? "bg-white/[0.03]" : "bg-white"
                 )}
               >
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-[#BF76FF]/30 shrink-0">
-                      {vocalist.photoURL ? (
-                        <img src={vocalist.photoURL} alt={vocalist.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-[#BF76FF]/10 flex items-center justify-center">
-                          <User className="w-8 h-8 text-[#BF76FF]" />
-                        </div>
-                      )}
-                    </div>
-                    <div>
-                      <h3 className={cn("text-xl font-black", isDark ? "text-white" : "text-black")}>{vocalist.name}</h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Mic className="w-3 h-3 text-[#BF76FF]" />
-                        <span className={cn("text-[10px] font-black uppercase tracking-widest opacity-60", isDark ? "text-white" : "text-black")}>Vocalista</span>
+                {/* Header row */}
+                <div className={cn("flex items-center gap-3", isExpanded && "mb-3")}>
+                  {/* Avatar */}
+                  <div className="w-11 h-11 rounded-xl overflow-hidden border-2 border-[#BF76FF]/30 shrink-0">
+                    {vocalist.photoURL ? (
+                      <img src={vocalist.photoURL} alt={vocalist.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[#BF76FF]/10 flex items-center justify-center">
+                        <User className="w-5 h-5 text-[#BF76FF]" />
                       </div>
-                    </div>
+                    )}
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <div className={cn("px-4 py-2 rounded-xl text-xs font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500")}>
+                  {/* Name + badge */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className={cn("font-black text-base truncate leading-tight", isDark ? "text-white" : "text-black")}>{vocalist.name}</h3>
+                    <div className={cn("mt-0.5 inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500")}>
                       {vocalistSongs.length} {vocalistSongs.length === 1 ? 'música' : 'músicas'}
                     </div>
                   </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {vocalistSongs.map(song => (
-                    <div
-                      key={song.id}
-                      className={cn(
-                        "group p-4 rounded-2xl border transition-all flex items-center justify-between",
-                        isDark ? "bg-white/5 border-white/5 hover:bg-white/[0.08]" : "bg-gray-50 border-black/5 hover:bg-gray-100"
-                      )}
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div
-                          className={cn(
-                            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-all",
-                            song.youtubeId ? "bg-[#BF76FF] text-white hover:scale-105 active:scale-95 shadow-lg shadow-[#BF76FF]/30" : "bg-gray-400/20 text-gray-400 cursor-default"
-                          )}
-                          onClick={() => song.youtubeId && handlePlaySong(song)}
-                        >
-                          {isPlaying && currentTrack?.id === `song-${song.id}` ? (
-                            <Speaker className="w-5 h-5 animate-pulse" />
-                          ) : (
-                            <Play className="w-5 h-5 ml-0.5 fill-current" />
-                          )}
-                        </div>
-                        <div className="truncate">
-                          <p className={cn("font-bold text-sm truncate", isDark ? "text-white" : "text-black")}>{song.name}</p>
-                          <p className={cn("text-[10px] opacity-50 truncate", isDark ? "text-gray-400" : "text-gray-500")}>Ref: {song.singer || 'N/A'}</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="text-center px-3 py-1 rounded-lg bg-[#BF76FF]/10 border border-[#BF76FF]/20">
-                          <span className="text-xs font-black text-[#BF76FF]">{song.key}</span>
-                        </div>
-
-                        <div className="flex items-center">
-                          {canEdit && canEditVocalist(vocalist.id) && (
-                            <button
-                              onClick={() => handleEdit(song)}
-                              className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )}
-                          {canDelete && canEditVocalist(vocalist.id) && (
-                            <button
-                              onClick={() => handleDelete(song.id)}
-                              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-
-                  {canCreate && canEditVocalist(vocalist.id) && (
+                  {/* Actions — far right */}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                    {canCreate && canEditVocalist(vocalist.id) && (
+                      <button
+                        onClick={() => { resetForm(); setTargetMemberId(vocalist.id); setIsModalOpen(true); }}
+                        className="w-7 h-7 rounded-xl bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white flex items-center justify-center transition-all"
+                        title="Adicionar Música"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
+                    )}
                     <button
-                      onClick={() => { resetForm(); setTargetMemberId(vocalist.id); setIsModalOpen(true); }}
+                      onClick={() => toggleExpand(vocalist.id)}
                       className={cn(
-                        "flex items-center justify-center gap-2 p-4 rounded-2xl border border-dashed transition-all hover:scale-[1.02]",
-                        isDark ? "border-white/10 text-gray-500 hover:border-[#BF76FF]/50 hover:text-[#BF76FF] hover:bg-[#BF76FF]/5" : "border-black/10 text-gray-400 hover:border-[#BF76FF]/50 hover:text-[#BF76FF] hover:bg-[#BF76FF]/5"
+                        "w-7 h-7 rounded-xl flex items-center justify-center transition-all",
+                        isDark ? "bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white" : "bg-black/5 text-gray-400 hover:bg-black/10 hover:text-black"
                       )}
+                      title={isExpanded ? "Recolher músicas" : "Expandir músicas"}
                     >
-                      <Plus className="w-4 h-4" />
-                      <span className="text-xs font-bold uppercase tracking-widest">Adicionar Música</span>
+                      <ChevronDown
+                        className={cn("w-4 h-4 transition-transform duration-300", isExpanded && "rotate-180")}
+                      />
                     </button>
-                  )}
+                  </div>
                 </div>
+
+                <AnimatePresence initial={false}>
+                  {isExpanded && (
+                    <motion.div
+                      key="songs-grid"
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.25, ease: 'easeInOut' }}
+                      className="overflow-hidden"
+                    >
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
+                        {vocalistSongs.map(song => (
+                          <div
+                            key={song.id}
+                            className={cn(
+                              "group p-4 rounded-2xl border transition-all flex items-center justify-between",
+                              isDark ? "bg-white/5 border-white/5 hover:bg-white/[0.08]" : "bg-gray-50 border-black/5 hover:bg-gray-100"
+                            )}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <div
+                                className={cn(
+                                  "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-all",
+                                  song.youtubeId ? "bg-[#BF76FF] text-white hover:scale-105 active:scale-95 shadow-lg shadow-[#BF76FF]/30" : "bg-gray-400/20 text-gray-400 cursor-default"
+                                )}
+                                onClick={() => song.youtubeId && handlePlaySong(song)}
+                              >
+                                {isPlaying && currentTrack?.id === `song-${song.id}` ? (
+                                  <Speaker className="w-5 h-5 animate-pulse" />
+                                ) : (
+                                  <Play className="w-5 h-5 ml-0.5 fill-current" />
+                                )}
+                              </div>
+                              <div className="truncate">
+                                <p className={cn("font-bold text-sm truncate", isDark ? "text-white" : "text-black")}>{song.name}</p>
+                                <p className={cn("text-[10px] opacity-50 truncate", isDark ? "text-gray-400" : "text-gray-500")}>Ref: {song.singer || 'N/A'}</p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0">
+                              <div className="text-center px-3 py-1 rounded-lg bg-[#BF76FF]/10 border border-[#BF76FF]/20">
+                                <span className="text-xs font-black text-[#BF76FF]">{song.key}</span>
+                              </div>
+
+                              <div className="flex items-center">
+                                {canEdit && canEditVocalist(vocalist.id) && (
+                                  <button
+                                    onClick={() => handleEdit(song)}
+                                    className="p-2 text-gray-400 hover:text-[#BF76FF] transition-colors"
+                                  >
+                                    <Edit className="w-4 h-4" />
+                                  </button>
+                                )}
+                                {canDelete && canEditVocalist(vocalist.id) && (
+                                  <button
+                                    onClick={() => handleDelete(song.id)}
+                                    className="p-2 text-gray-400 hover:text-red-500 transition-colors"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </Card>
             );
           })
