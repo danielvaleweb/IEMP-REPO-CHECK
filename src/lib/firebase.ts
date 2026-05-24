@@ -13,7 +13,7 @@ export const auth = getAuth(app);
 // Force long polling to avoid issues in some network environments
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
+}, (firebaseConfig as any).firestoreDatabaseId);
 
 // Error Handling Types
 export enum OperationType {

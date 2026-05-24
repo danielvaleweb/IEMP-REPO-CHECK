@@ -2917,7 +2917,7 @@ const Admin = () => {
       const agendaData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      }));
+      })) as any[];
       setAgenda(agendaData);
       setPendingAgendaCount(agendaData.filter(a => a.status === "pending").length);
     }, (error) => {
@@ -7560,7 +7560,10 @@ const Admin = () => {
                                     </div>
                                   </div>
                                 </div>
-                                {(activeTab === "agenda" || activeTab === "agenda-direcao") && (
+                              </div>
+                            )}
+
+                            {(activeTab === "agenda" || activeTab === "agenda-direcao") && (
                                   <div className="space-y-4">
                                     <div className="space-y-2">
                                       <label className={cn("text-xs font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>
@@ -7749,8 +7752,6 @@ const Admin = () => {
                                   </div>
                                 </div>
                               </>
-                            )}
-                              </div>
                             )}
                           </div>
                         </>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { handleFirestoreError, OperationType } from '@/lib/firebase';
 
-export function EventFeedbacksAdmin({ eventId, isDark }: { eventId: string; isDark: boolean }) {
+export function EventFeedbacksAdmin({ eventId, isDark }: { eventId?: string; isDark: boolean }) {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

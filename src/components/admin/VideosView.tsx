@@ -175,6 +175,164 @@ export function VideosView({ isDark }: { isDark: boolean }) {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+  if (isAdding) {
+    return (
+      <div className="w-full space-y-10 pb-32 md:pb-36 animate-in fade-in duration-300">
+        <div>
+          <h2 className={cn("text-2xl font-black tracking-tight", isDark ? "text-white" : "text-black")}>
+            {editingVideo ? "Editar Vídeo" : "Novo Vídeo"}
+          </h2>
+          <p className={cn("text-sm", isDark ? "text-white/40" : "text-gray-500")}>
+            Preencha as informações do vídeo abaixo.
+          </p>
+        </div>
+
+        <Card className={cn("p-8 rounded-[32px] border shadow-2xl", isDark ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Título do Vídeo</label>
+              <Input 
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+                placeholder="Mensagem de Domingo - Fé inabalável"
+                className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>URL do YouTube</label>
+              <Input 
+                value={formData.url}
+                onChange={(e) => setFormData({...formData, url: e.target.value})}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4 md:col-span-2">
+                <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>TAGS / CATEGORIAS (Selecione ou digite + Enter)</label>
+                <div className="flex flex-wrap gap-2 mb-2 px-1">
+                   {predefinedTags.map(tag => (
+                     <button
+                       key={`preset-tag-${tag}`}
+                       onClick={() => toggleTag(tag)}
+                       className={cn("px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all uppercase tracking-wider", formData.tags.includes(tag) ? "bg-[#BF76FF] border-[#BF76FF] text-white shadow-md shadow-[#BF76FF]/20" : "border-gray-500/30 text-gray-400 hover:border-gray-400")}
+                       type="button"
+                     >
+                       {tag}
+                     </button>
+                   ))}
+                </div>
+                <div className={cn("flex flex-wrap gap-2 p-2 min-h-[56px] rounded-2xl border transition-all shadow-none items-center", isDark ? "bg-black/60 border-white/5" : "bg-white border-black/5")}>
+                  {formData.tags.filter(t => !predefinedTags.includes(t)).map(tag => (
+                    <span key={`custom-tag-${tag}`} className="px-3 py-1 bg-[#BF76FF]/20 text-[#BF76FF] text-[11px] font-bold rounded-lg flex items-center gap-1.5 uppercase tracking-wider border border-[#BF76FF]/30">
+                      {tag}
+                      <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                    </span>
+                  ))}
+                  <input 
+                    type="text"
+                    placeholder="Adicionar nova tag personalizada..."
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ',') {
+                        e.preventDefault();
+                        const newTag = e.currentTarget.value.trim().toUpperCase();
+                        if (newTag && !formData.tags.includes(newTag)) {
+                          setFormData({...formData, tags: [...formData.tags, newTag]});
+                          e.currentTarget.value = '';
+                        }
+                      }
+                    }}
+                    className={cn("flex-1 bg-transparent border-none outline-none text-sm px-2 min-w-[200px] h-full", isDark ? "text-white placeholder:text-gray-600" : "text-black placeholder:text-gray-400")}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Thumbnail Personalizada (Opcional)</label>
+                <UploadImages
+                  maxFiles={1}
+                  multiple={false}
+                  value={formData.thumbnail}
+                  onUploadComplete={(images) => setFormData({...formData, thumbnail: images[0]?.secure_url || ""})}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Data (DD/MM/AAAA)</label>
+                <Input 
+                  value={formData.publishedAt}
+                  onChange={(e) => setFormData({...formData, publishedAt: e.target.value})}
+                  placeholder="Ex: 01/12/2023"
+                  className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Organizador (Opcional)</label>
+                <Input 
+                  value={formData.organizer}
+                  onChange={(e) => setFormData({...formData, organizer: e.target.value})}
+                  placeholder="Nome do preletor/organizador"
+                  className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Descrição (Opcional)</label>
+              <textarea 
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                placeholder="Uma breve descrição sobre o vídeo..."
+                className={cn("w-full h-32 rounded-2xl border transition-all shadow-none p-4 resize-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black hover:border-[#BF76FF]/50 focus:border-[#BF76FF]")}
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Bottom Floating Save/Cancel Capsule — Video Edit/Add */}
+        <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+          <div className={cn(
+            "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
+            isDark
+              ? "bg-black/80 border-[#BF76FF]/30 shadow-[#BF76FF]/10"
+              : "bg-white/80 border-[#BF76FF]/20 shadow-black/10"
+          )}>
+            <div className="pl-4 pr-1 hidden sm:block">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                {editingVideo ? "Editar Vídeo" : "Novo Vídeo"}
+              </p>
+              <p className="text-[9px] text-[#BF76FF] font-bold">Você tem alterações pendentes</p>
+            </div>
+            
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setIsAdding(false);
+                setEditingVideo(null);
+              }}
+              className={cn(
+                "rounded-xl h-11 px-5 font-bold text-xs transition-colors",
+                isDark ? "text-white hover:bg-white/5 border border-white/10" : "text-black hover:bg-black/5 border border-black/10"
+              )}
+            >
+              Cancelar
+            </Button>
+            
+            <Button
+              onClick={handleSaveVideo}
+              className={cn(
+                "rounded-xl h-11 px-6 font-bold text-xs transition-all duration-300 min-w-[140px]",
+                "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white shadow-lg shadow-[#7300FF]/25"
+              )}
+            >
+              <Save className="w-4 h-4 mr-2" /> Salvar
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full space-y-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -200,123 +358,6 @@ export function VideosView({ isDark }: { isDark: boolean }) {
             className={cn("h-14 pl-12 rounded-2xl border transition-all shadow-none", isDark ? "bg-black border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
           />
         </div>
-
-        {isAdding && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => { setIsAdding(false); setEditingVideo(null); }}>
-            <Card className={cn("relative w-full max-w-3xl max-h-[90vh] overflow-y-auto p-8 rounded-[32px] border-none shadow-2xl animate-in zoom-in-95 duration-300", isDark ? "bg-[#1A1A1A] text-white" : "bg-white text-black")} onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="font-black text-2xl uppercase tracking-tight">{editingVideo ? "Editar" : "Cadastrar Novo"} Vídeo</h3>
-                <button onClick={() => { setIsAdding(false); setEditingVideo(null); }} className={cn("p-2 rounded-full transition-colors", isDark ? "hover:bg-white/5" : "hover:bg-black/5")}>
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Título do Vídeo</label>
-                <Input 
-                  value={formData.title}
-                  onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="Mensagem de Domingo - Fé inabalável"
-                  className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>URL do YouTube</label>
-                <Input 
-                  value={formData.url}
-                  onChange={(e) => setFormData({...formData, url: e.target.value})}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4 md:col-span-2">
-                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>TAGS / CATEGORIAS (Selecione ou digite + Enter)</label>
-                  <div className="flex flex-wrap gap-2 mb-2 px-1">
-                     {predefinedTags.map(tag => (
-                       <button
-                         key={`preset-tag-${tag}`}
-                         onClick={() => toggleTag(tag)}
-                         className={cn("px-3 py-1.5 text-[11px] font-bold rounded-lg border transition-all uppercase tracking-wider", formData.tags.includes(tag) ? "bg-[#BF76FF] border-[#BF76FF] text-white shadow-md shadow-[#BF76FF]/20" : "border-gray-500/30 text-gray-400 hover:border-gray-400")}
-                         type="button"
-                       >
-                         {tag}
-                       </button>
-                     ))}
-                  </div>
-                  <div className={cn("flex flex-wrap gap-2 p-2 min-h-[56px] rounded-2xl border transition-all shadow-none items-center", isDark ? "bg-black/60 border-white/5" : "bg-white border-black/5")}>
-                    {formData.tags.filter(t => !predefinedTags.includes(t)).map(tag => (
-                      <span key={`custom-tag-${tag}`} className="px-3 py-1 bg-[#BF76FF]/20 text-[#BF76FF] text-[11px] font-bold rounded-lg flex items-center gap-1.5 uppercase tracking-wider border border-[#BF76FF]/30">
-                        {tag}
-                        <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
-                      </span>
-                    ))}
-                    <input 
-                      type="text"
-                      placeholder="Adicionar nova tag personalizada..."
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault();
-                          const newTag = e.currentTarget.value.trim().toUpperCase();
-                          if (newTag && !formData.tags.includes(newTag)) {
-                            setFormData({...formData, tags: [...formData.tags, newTag]});
-                            e.currentTarget.value = '';
-                          }
-                        }
-                      }}
-                      className={cn("flex-1 bg-transparent border-none outline-none text-sm px-2 min-w-[200px] h-full", isDark ? "text-white placeholder:text-gray-600" : "text-black placeholder:text-gray-400")}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2 md:col-span-2">
-                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Thumbnail Personalizada (Opcional)</label>
-                  <UploadImages
-                    maxFiles={1}
-                    multiple={false}
-                    value={formData.thumbnail}
-                    onUploadComplete={(images) => setFormData({...formData, thumbnail: images[0]?.secure_url || ""})}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Data (DD/MM/AAAA)</label>
-                  <Input 
-                    value={formData.publishedAt}
-                    onChange={(e) => setFormData({...formData, publishedAt: e.target.value})}
-                    placeholder="Ex: 01/12/2023"
-                    className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Organizador (Opcional)</label>
-                  <Input 
-                    value={formData.organizer}
-                    onChange={(e) => setFormData({...formData, organizer: e.target.value})}
-                    placeholder="Nome do preletor/organizador"
-                    className={cn("h-14 rounded-2xl border transition-all shadow-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black")}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDark ? "text-white/40" : "text-gray-500")}>Descrição (Opcional)</label>
-                <textarea 
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  placeholder="Uma breve descrição sobre o vídeo..."
-                  className={cn("w-full h-32 rounded-2xl border transition-all shadow-none p-4 resize-none", isDark ? "bg-black/60 border-white/5 text-white placeholder:text-gray-500" : "bg-white border-black/5 text-black hover:border-[#BF76FF]/50 focus:border-[#BF76FF]")}
-                />
-              </div>
-              <Button 
-                onClick={handleSaveVideo}
-                className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white font-black uppercase tracking-widest shadow-xl shadow-[#7300FF]/20 mt-4 transition-all active:scale-[0.98]"
-              >
-                <Save className="w-5 h-5 mr-2" /> {editingVideo ? "Salvar Alterações" : "Salvar Vídeo"}
-              </Button>
-            </div>
-            </Card>
-          </div>
-        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {filteredVideos.map((video) => {
