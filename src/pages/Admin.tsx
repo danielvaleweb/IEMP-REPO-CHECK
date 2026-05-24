@@ -89,7 +89,8 @@ import {
   Bold,
   Italic,
   Smile,
-  Info
+  Info,
+  UserMinus
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -8673,16 +8674,16 @@ const Admin = () => {
                           )}
                         </div>
                       )}
-                      {!(isReadOnly && activeTab === "agenda-direcao") && (
+                      {isReadOnly && !(isReadOnly && activeTab === "agenda-direcao") && (
                         <Button
                           variant="ghost"
                           className={cn(
                             "w-full sm:w-auto rounded-2xl h-12 px-8 text-gray-400 cursor-pointer order-2 sm:order-3",
-                            isReadOnly && "sm:ml-auto"
+                            "sm:ml-auto"
                           )}
                           onClick={() => setIsEditing(false)}
                         >
-                          {isReadOnly ? "Voltar" : "Cancelar"}
+                          Voltar
                         </Button>
                       )}
                       {selectedItem && !isReadOnly && (canDelete || selectedItem.authorId === user?.uid) && (
@@ -8700,7 +8701,18 @@ const Admin = () => {
                             handleDelete(selectedItem, col);
                           }}
                         >
-                          <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                          {(activeTab === "membros" || activeTab === "visitantes") ? (
+                            <>
+                              <span className="relative mr-2 flex items-center">
+                                <UserMinus className="w-4 h-4" />
+                              </span>
+                              Excluir Membro
+                            </>
+                          ) : (
+                            <>
+                              <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                            </>
+                          )}
                         </Button>
                       )}
                     </div>
