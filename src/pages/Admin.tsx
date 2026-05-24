@@ -8615,22 +8615,37 @@ const Admin = () => {
                               </>
                             )}
                             {(activeTab !== 'membros' && activeTab !== 'visitantes') && (
-                              <Button
-                                className={cn(
-                                  "w-full sm:w-auto hover:opacity-90 rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 border-none transition-all shadow-lg",
-                                  activeTab === "eventos"
-                                    ? (formData.typeEvent === "evento" || !formData.typeEvent)
-                                      ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-[#FF0A6C]/20"
-                                      : formData.typeEvent === "culto"
-                                        ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-[#00FFFF]/20"
-                                        : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-[#FF2525]/20"
-                                    : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-[#7300FF]/20"
-                                )}
-                                onClick={handleSave}
-                                disabled={isSubmitting}
-                              >
-                                <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
-                              </Button>
+                              <div className="flex items-center gap-3 w-full sm:w-auto">
+                                <Button
+                                  variant="ghost"
+                                  disabled={isSubmitting}
+                                  onClick={() => { setIsEditing(false); setSelectedItem(null); }}
+                                  className={cn(
+                                    "w-full sm:w-auto rounded-2xl h-12 px-6 font-bold cursor-pointer border transition-all",
+                                    isDarkMode
+                                      ? "text-white hover:bg-white/5 border-white/10"
+                                      : "text-black hover:bg-black/5 border-black/10"
+                                  )}
+                                >
+                                  Cancelar
+                                </Button>
+                                <Button
+                                  className={cn(
+                                    "w-full sm:w-auto hover:opacity-90 rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 border-none transition-all shadow-lg",
+                                    activeTab === "eventos"
+                                      ? (formData.typeEvent === "evento" || !formData.typeEvent)
+                                        ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-[#FF0A6C]/20"
+                                        : formData.typeEvent === "culto"
+                                          ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-[#00FFFF]/20"
+                                          : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-[#FF2525]/20"
+                                      : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-[#7300FF]/20"
+                                  )}
+                                  onClick={handleSave}
+                                  disabled={isSubmitting}
+                                >
+                                  <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
+                                </Button>
+                              </div>
                             )}
                           </div>
 
@@ -8705,6 +8720,17 @@ const Admin = () => {
                         <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Editar Perfil</p>
                         <p className="text-[9px] text-[#BF76FF] font-bold">Você tem alterações pendentes</p>
                       </div>
+                      <Button
+                        variant="ghost"
+                        disabled={isSubmitting}
+                        onClick={() => { setIsEditing(false); setSelectedItem(null); }}
+                        className={cn(
+                          "rounded-xl h-11 px-5 font-bold text-xs transition-colors",
+                          isDarkMode ? "text-white hover:bg-white/5 border border-white/10" : "text-black hover:bg-black/5 border border-black/10"
+                        )}
+                      >
+                        Cancelar
+                      </Button>
                       <Button
                         disabled={isSubmitting}
                         onClick={handleSave}
