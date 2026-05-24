@@ -206,32 +206,24 @@ export default function Migration() {
   };
 
   const updateSystemConfig = async () => {
-    addLog(`🔄 Atualizando configurações do sistema (firebase-applet-config.json)...`);
+    addLog(`🔄 As credenciais da API devem agora ser configuradas através de variáveis de ambiente.`);
     
     try {
-      const payload = {
-        projectId: newProjectId,
-        appId: newAppId,
-        apiKey: newApiKey,
-        authDomain: `${newProjectId}.firebaseapp.com`,
-        storageBucket: `${newProjectId}.firebasestorage.app`
-      };
+      addLog(`⚠️ ATENÇÃO: Agora que a migração terminou, atualize o seu arquivo .env com as novas credenciais do banco de dados (o banco que você migrou).`);
+      addLog(`Você deve definir as seguintes variáveis de ambiente:`);
+      addLog(`VITE_FIREBASE_PROJECT_ID=${newProjectId}`);
+      addLog(`VITE_FIREBASE_APP_ID=${newAppId}`);
+      addLog(`VITE_FIREBASE_API_KEY=${newApiKey}`);
+      addLog(`VITE_FIREBASE_AUTH_DOMAIN=${newProjectId}.firebaseapp.com`);
+      addLog(`VITE_FIREBASE_STORAGE_BUCKET=${newProjectId}.firebasestorage.app`);
 
-      const response = await fetch('/api/admin/update-firebase-config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) throw new Error("Falha na API de atualização");
-
-      addLog(`✅ Sistema atualizado com sucesso! Reiniciando a plataforma...`);
+      addLog(`✅ Após atualizar o arquivo .env, reinicie o servidor e acesse o site novamente.`);
       setTimeout(() => {
-        window.location.reload();
+        // window.location.reload();
       }, 5000);
       
     } catch (err: any) {
-      addLog(`⚠️ Não foi possível alterar o arquivo local automaticamente pelo navegador: ${err.message}`);
+      addLog(`⚠️ Ocorreu um erro ao finalizar o processo de notificação da configuração: ${err.message}`);
     }
   };
 

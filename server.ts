@@ -25,18 +25,30 @@ import {
 } from "firebase/firestore";
 import fs from "fs";
 import { fileURLToPath } from 'url';
+import dotenv from "dotenv";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize Firebase Config
-let firebaseConfig: any = {};
-const firebaseConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
-if (fs.existsSync(firebaseConfigPath)) {
-  firebaseConfig = JSON.parse(fs.readFileSync(firebaseConfigPath, "utf-8"));
-} else {
-  console.warn("[Firebase] Config file not found at", firebaseConfigPath);
-  // Fallback para variáveis de ambiente se necessário
+// Load Environment Variables
+dotenv.config({ path: path.resolve(__dirname, '.env') });
+if (process.env.NODE_ENV === 'development') {
+  dotenv.config({ path: path.resolve(__dirname, '.env.development'), override: true });
+}
+
+// Initialize Firebase Config from ENV variables
+const firebaseConfig = {
+  apiKey: process.env.VITE_FIREBASE_API_KEY,
+  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.VITE_FIREBASE_APP_ID,
+  firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || undefined
+};
+
+if (!firebaseConfig.projectId) {
+  console.warn("[Firebase] Missing VITE_FIREBASE_PROJECT_ID in environment variables.");
 }
 
 // Initialize Firebase Admin
@@ -79,7 +91,7 @@ let clientDb: any;
 
 if (firebaseConfig.apiKey) {
   try {
-    clientApp = initializeClientApp(firebaseConfig, "server-client");
+    clientApp = initializeClientApp(firebaseConfig as any, "server-client");
     clientDb = getClientFirestore(clientApp, firebaseConfig.firestoreDatabaseId);
     console.log("[Firebase] Client SDK initialized successfully");
   } catch (e) {
@@ -127,8 +139,7 @@ const PORT = 3000;
   });
 
   app.get("/backend/test", (req, res) => {
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    const configExists = fs.existsSync(configPath);
+    const configExists = !!process.env.VITE_FIREBASE_PROJECT_ID || !!process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     res.json({ 
       status: "ok", 
       env: process.env.NODE_ENV, 
@@ -538,39 +549,6 @@ const PORT = 3000;
       res.send(Buffer.from(buffer));
     } catch (error) {
       console.error("[Drive Image Proxy Error]:", error);
-      res.status(500).json({ error: (error as Error).message });
-    }
-  });
-
-
-
-  app.post("/api/admin/update-firebase-config", async (req, res) => {
-    try {
-      const newConfig = req.body;
-      if (!newConfig.projectId || !newConfig.appId || !newConfig.apiKey) {
-        return res.status(400).json({ error: "Missing required config fields" });
-      }
-
-      // Read current config
-      const currentConfigPath = path.join(process.cwd(), "firebase-applet-config.json");
-      const currentConfig = JSON.parse(fs.readFileSync(currentConfigPath, "utf-8"));
-      
-      // Merge with new params
-      const updatedConfig = {
-        ...currentConfig,
-        projectId: newConfig.projectId,
-        appId: newConfig.appId,
-        apiKey: newConfig.apiKey,
-        authDomain: newConfig.authDomain,
-        storageBucket: newConfig.storageBucket,
-      };
-
-      fs.writeFileSync(currentConfigPath, JSON.stringify(updatedConfig, null, 2), "utf-8");
-      console.log("[Admin] Firebase Config has been updated via Migration UI.");
-      
-      res.json({ success: true, message: "Firebase config updated successfully" });
-    } catch (error) {
-      console.error("Erro ao atualizar firebase-applet-config.json:", error);
       res.status(500).json({ error: (error as Error).message });
     }
   });

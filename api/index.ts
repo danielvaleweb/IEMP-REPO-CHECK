@@ -30,29 +30,27 @@ let clientDb: any = null;
 function getFirebase() {
   if (firebaseAdminApp) return { adminDb, clientDb, firebaseAdminApp };
 
-  let firebaseConfig: any = {};
-  try {
-    // No Vercel, o process.cwd() é a raiz do projeto
-    const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-    if (fs.existsSync(configPath)) {
-      firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      console.log("[Firebase] Config file found and loaded.");
-    } else {
-      console.warn("[Firebase] Config file NOT found at", configPath);
-    }
-  } catch (e) {
-    console.error("[Firebase] Error loading config file:", e);
+  let firebaseConfig = {
+    apiKey: process.env.VITE_FIREBASE_API_KEY,
+    authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.VITE_FIREBASE_APP_ID,
+    firestoreDatabaseId: process.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || undefined
+  };
+
+  if (!firebaseConfig.projectId) {
+    console.warn("[Firebase] Project ID not found in environment variables.");
   }
 
   // Admin SDK
   try {
     const apps = getApps();
     if (apps.length === 0) {
-      if (firebaseConfig.projectId && (process.env.FIREBASE_SERVICE_ACCOUNT || firebaseConfig.client_email)) {
+      if (firebaseConfig.projectId && process.env.FIREBASE_SERVICE_ACCOUNT) {
         // Se temos credenciais completas
-        const cert = process.env.FIREBASE_SERVICE_ACCOUNT 
-          ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT) 
-          : firebaseConfig;
+        const cert = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         firebaseAdminApp = initializeApp({
           credential: admin.credential.cert(cert),
           projectId: firebaseConfig.projectId
@@ -78,7 +76,7 @@ function getFirebase() {
   // Client SDK
   if (firebaseConfig.apiKey) {
     try {
-      firebaseClientApp = initializeClientApp(firebaseConfig, "server-client");
+      firebaseClientApp = initializeClientApp(firebaseConfig as any, "server-client");
       clientDb = getClientFirestore(firebaseClientApp, firebaseConfig.firestoreDatabaseId);
     } catch (e) {
       console.error("[Firebase Client] Initialization failed:", e);
@@ -90,12 +88,11 @@ function getFirebase() {
 
 // Rota de Teste Simplificada
 app.get("/backend/test", (req, res) => {
-  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
-  const exists = fs.existsSync(configPath);
+  const configExists = !!process.env.VITE_FIREBASE_PROJECT_ID;
   res.json({
     status: "ok",
     message: "Backend is running on Vercel",
-    configExists: exists,
+    configExists: configExists,
     cwd: process.cwd(),
     env: process.env.NODE_ENV,
     time: new Date().toISOString()

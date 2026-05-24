@@ -1,12 +1,20 @@
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.7.1/firebase-messaging-compat.js');
 
-// This will be replaced by the build process or we can fetch it
-fetch('/firebase-applet-config.json')
-  .then(response => response.json())
-  .then(config => {
-    firebase.initializeApp(config);
-    const messaging = firebase.messaging();
+// Get configuration from URL query params
+const params = new URLSearchParams(location.search);
+const config = {
+  apiKey: params.get('apiKey'),
+  authDomain: params.get('authDomain'),
+  projectId: params.get('projectId'),
+  storageBucket: params.get('storageBucket'),
+  messagingSenderId: params.get('messagingSenderId'),
+  appId: params.get('appId')
+};
+
+if (config.projectId) {
+  firebase.initializeApp(config);
+  const messaging = firebase.messaging();
 
     messaging.onBackgroundMessage((payload) => {
       console.log('[firebase-messaging-sw.js] Received background message ', payload);
@@ -22,7 +30,7 @@ fetch('/firebase-applet-config.json')
 
       self.registration.showNotification(notificationTitle, notificationOptions);
     });
-  });
+}
 
 // Dummy fetch listener to satisfy PWA installability requirements
 // The user explicitly stated they don't want offline caching, just the installability.
