@@ -8679,7 +8679,7 @@ const Admin = () => {
 
                 {/* Floating Save Button — Member/Visitor Edit */}
                 {isEditing && (activeTab === "membros" || activeTab === "visitantes") && !isReadOnly && (
-                  <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+                  <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
                     <div className={cn(
                       "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
                       isDarkMode
@@ -10443,7 +10443,7 @@ const Admin = () => {
 
                     {/* Floating Save Button */}
                     {(Object.keys(localSettings).length > 0 || isSavingSettings || showSavedSuccess) && (
-                      <div className="fixed bottom-8 left-1/2 -translate-y-0 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+                      <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-y-0 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
                         <div className={cn(
                           "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
                           isDarkMode 
