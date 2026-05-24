@@ -2908,6 +2908,18 @@ const Admin = () => {
     };
   }, [user, isAdmin, activeTab]);
 
+  // Scroll to top when entering edit mode
+  useEffect(() => {
+    if (isEditing && !isReadOnly) {
+      const scrollContainer = document.querySelector('.overflow-y-auto');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [isEditing, isReadOnly, selectedItem?.id]);
+
   // Real-time listener for Agenda Geral (updates instantly when a request is made)
   useEffect(() => {
     if (!user || (!isAdmin && !profile?.role)) return;
@@ -5793,9 +5805,13 @@ const Admin = () => {
           )}>
             <div className={cn(
               "w-full",
-              (activeTab === "chat" || activeTab === "conversas" || activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes" || activeTab === "videos" || activeTab === "eventos" || activeTab === "noticias")
+              (activeTab === "chat" || activeTab === "conversas")
                 ? "max-w-none h-full flex flex-col flex-1"
-                : "max-w-6xl mx-auto space-y-4 md:space-y-8"
+                : (activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes" || activeTab === "videos" || activeTab === "eventos" || activeTab === "noticias")
+                  ? isEditing
+                    ? "max-w-6xl mx-auto space-y-4 md:space-y-8"
+                    : "max-w-none"
+                  : "max-w-6xl mx-auto space-y-4 md:space-y-8"
             )}>
               {isEditing ? (
                 <>
@@ -5806,9 +5822,7 @@ const Admin = () => {
                 )}>
                   <div className={cn(
                     "space-y-8",
-                    (activeTab === "membros" || activeTab === "visitantes") && !isReadOnly
-                      ? "overflow-y-auto max-h-[calc(100vh-240px)] pr-1 pb-24 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-                      : ""
+                    !isReadOnly ? "pb-32 md:pb-36" : ""
                   )}>
                     {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") ? (
                       <div className="mb-2">

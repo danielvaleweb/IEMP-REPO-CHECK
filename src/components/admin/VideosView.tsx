@@ -97,6 +97,18 @@ export function VideosView({ isDark }: { isDark: boolean }) {
     loadVideos();
   }, [videoLimit]);
 
+  // Scroll to top when entering edit/add mode
+  useEffect(() => {
+    if (isAdding) {
+      const scrollContainer = document.querySelector('.overflow-y-auto');
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: 0, behavior: 'smooth' });
+      } else {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [isAdding]);
+
   const handleSaveVideo = async () => {
     if (!formData.title || !formData.url) return;
     
@@ -177,7 +189,7 @@ export function VideosView({ isDark }: { isDark: boolean }) {
 
   if (isAdding) {
     return (
-      <div className="w-full space-y-10 pb-32 md:pb-36 animate-in fade-in duration-300">
+      <div className="w-full max-w-3xl mx-auto space-y-10 pb-32 md:pb-36 animate-in fade-in duration-300">
         <div>
           <h2 className={cn("text-2xl font-black tracking-tight", isDark ? "text-white" : "text-black")}>
             {editingVideo ? "Editar Vídeo" : "Novo Vídeo"}
