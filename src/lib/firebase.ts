@@ -1,10 +1,25 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
-import prodConfig from "@/../firebase-applet-config.json";
-import devConfig from "@/../firebase-applet-config.dev.json";
 
-const firebaseConfig = import.meta.env.DEV ? devConfig : prodConfig;
+// Construir configuração do Firebase a partir das variáveis de ambiente
+const firebaseConfig = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || import.meta.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || import.meta.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || import.meta.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+  console.error("Firebase configuration is incomplete. Please check your environment variables.");
+  console.error("Missing variables:", {
+    apiKey: !firebaseConfig.apiKey ? "NEXT_PUBLIC_FIREBASE_API_KEY" : undefined,
+    projectId: !firebaseConfig.projectId ? "NEXT_PUBLIC_FIREBASE_PROJECT_ID" : undefined,
+  });
+}
+
 console.log("Initializing Firebase with config:", firebaseConfig.projectId);
 
 const app = initializeApp(firebaseConfig);
