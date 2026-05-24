@@ -6,6 +6,3 @@ coverage/
 .env*
 !.env.example
 dist/
-firebase-applet-config.json
-firebase-applet-config.dev.json
-firebase-applet-config.*.json
