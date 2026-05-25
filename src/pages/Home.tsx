@@ -1044,7 +1044,7 @@ export default function Home() {
           </div>
 
           {/* Vem aí Section */}
-          {upcomingEvents.filter(e => e.typeEvent !== 'culto').length > 0 && (
+          {upcomingEvents.filter(e => e.typeEvent !== 'culto' && e.typeEvent !== 'visita').length > 0 && (
             <div className="mb-20">
               <div className="flex items-center gap-3 mb-10">
                 <div className="w-1 h-8 bg-primary rounded-full" />
@@ -1054,7 +1054,7 @@ export default function Home() {
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 overflow-visible">
-                {upcomingEvents.filter(e => e.typeEvent !== 'culto').slice(0, 4).map((event, idx) => (
+                {upcomingEvents.filter(e => e.typeEvent !== 'culto' && e.typeEvent !== 'visita').slice(0, 4).map((event, idx) => (
                   <MovieCard 
                     key={`upcoming-event-${event.id}-${idx}`}
                     item={event}
