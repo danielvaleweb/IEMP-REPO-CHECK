@@ -389,7 +389,7 @@ const PORT = 3000;
   // Legacy live-status removed as requested.
 
   // YouTube API Integration
-  const YT_API_KEY = "AIzaSyA_nzF9lNrNZnE67_lum2D9HsO5OBrwx8o";
+  const YT_API_KEY = process.env.YOUTUBE_API_KEY || "";
   const YT_REFERER = "https://ministerioprofecia.com.br/";
 
   // Cache em memória no servidor para economizar cota global (reseta se o servidor reiniciar)
