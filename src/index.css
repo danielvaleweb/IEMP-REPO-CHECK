@@ -231,8 +231,9 @@
 
 /* Fix native calendar and clock picker indicators visibility in dark mode */
 .dark input[type="date"]::-webkit-calendar-picker-indicator,
-.dark input[type="time"]::-webkit-calendar-picker-indicator {
-  filter: invert(1) brightness(1.2);
+.dark input[type="time"]::-webkit-calendar-picker-indicator,
+input[class*="color-scheme:dark"]::-webkit-calendar-picker-indicator {
+  filter: invert(1) brightness(1.2) !important;
   cursor: pointer;
 }
 
