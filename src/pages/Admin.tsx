@@ -11029,7 +11029,7 @@ const Admin = () => {
 
           {/* Modal de Solicitação de Data */}
           <Dialog open={isRequestingDate} onOpenChange={setIsRequestingDate}>
-            <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-6 transition-colors shadow-2xl", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+            <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-6 transition-colors shadow-2xl max-h-[90vh] overflow-y-auto", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black uppercase tracking-tight">Solicitar Agendamento</DialogTitle>
               </DialogHeader>
@@ -11124,7 +11124,7 @@ const Admin = () => {
 
           {/* Modal de Motivo da Recusa */}
           <Dialog open={isRejectModalOpen} onOpenChange={setIsRejectModalOpen}>
-            <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-6 transition-colors shadow-2xl", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+            <DialogContent className={cn("border rounded-[32px] sm:max-w-md p-6 transition-colors shadow-2xl max-h-[90vh] overflow-y-auto", isDarkMode ? "bg-[#1A1A1A] border-white/5 text-white" : "bg-white border-black/5 text-black")}>
               <DialogHeader>
                 <DialogTitle className="text-2xl font-black uppercase tracking-tight">Motivo da Recusa</DialogTitle>
               </DialogHeader>

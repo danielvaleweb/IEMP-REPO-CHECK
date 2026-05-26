@@ -38,6 +38,7 @@ import Maintenance from "@/pages/Maintenance";
 const Migration = lazy(() => import("@/pages/Migration"));
 const EventDetails = lazy(() => import("@/pages/EventDetails"));
 const NoticiaDetalhe = lazy(() => import("@/pages/NoticiaDetalhe"));
+const Noticias = lazy(() => import("@/pages/Noticias"));
 const Solicitacao = lazy(() => import("@/pages/Solicitacao"));
 const Videos = lazy(() => import("@/pages/Videos"));
 const RadioPage = lazy(() => import("@/pages/Radio"));
@@ -109,6 +110,7 @@ function AppContent() {
               <Route path="/solicitacao" element={<Solicitacao />} />
               <Route path="/evento/:id" element={<EventDetails />} />
               <Route path="/noticia/:id" element={<NoticiaDetalhe />} />
+              <Route path="/noticias" element={<Noticias />} />
               <Route path="/quem-somos" element={<About />} />
               <Route path="/biblia" element={<Bible />} />
               <Route path="/departamentos/:dept" element={<Departments />} />
