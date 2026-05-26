@@ -106,6 +106,7 @@ import { appAlert, appConfirm } from "@/lib/modalHelpers";
 
 // Lazy sub-views
 import { UploadImages } from "@/components/UploadImages";
+import { VirtualAssistant } from "@/components/admin/VirtualAssistant";
 const TonsView = lazy(() => import("@/components/admin/TonsView").then(m => ({ default: m.TonsView })));
 const AvisosView = lazy(() => import("@/components/admin/AvisosView").then(m => ({ default: m.AvisosView })));
 const EBDAdminView = lazy(() => import("@/components/admin/EBDAdminView").then(m => ({ default: m.EBDAdminView })));
@@ -1322,6 +1323,7 @@ const Admin = () => {
   });
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
   const [activeChats, setActiveChats] = useState<any[]>([]);
+  const [supportChats, setSupportChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatListSubTab, setChatListSubTab] = useState<"chats" | "contacts">("chats");
@@ -3073,23 +3075,46 @@ const Admin = () => {
       query(collection(db, "chats"), where("participants", "array-contains", profile.id)),
       (snap) => {
         let chats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // In-memory sort to avoid requiring composite indexes
-        chats.sort((a: any, b: any) => {
-          const hasUnreadA = a.unreadCount?.[profile.id] > 0 ? 1 : 0;
-          const hasUnreadB = b.unreadCount?.[profile.id] > 0 ? 1 : 0;
-          if (hasUnreadA !== hasUnreadB) return hasUnreadB - hasUnreadA;
-
-          const timeA = a.lastMessageTime?.toMillis?.() || 0;
-          const timeB = b.lastMessageTime?.toMillis?.() || 0;
-          return timeB - timeA;
-        });
         setActiveChats(chats);
       },
       (err) => console.error("Error loading chats", err)
     );
 
-    return () => unsubChats();
-  }, [profile?.id]);
+    let unsubSupportChats = () => {};
+    const hasSupportAccess = profile?.role === 'Administrador Master' || profile?.role === 'Desenvolvedor' || profile?.role === 'Administrador';
+    
+    if (hasSupportAccess) {
+      unsubSupportChats = onSnapshot(
+        query(collection(db, "chats"), where("isSupport", "==", true)),
+        (snap) => {
+          let sChats = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setSupportChats(sChats);
+        },
+        (err) => console.error("Error loading support chats", err)
+      );
+    }
+
+    return () => {
+      unsubChats();
+      unsubSupportChats();
+    };
+  }, [profile?.id, profile?.role]);
+
+  const combinedChats = useMemo(() => {
+    const map = new Map();
+    [...activeChats, ...supportChats].forEach(c => map.set(c.id, c));
+    const merged = Array.from(map.values());
+    merged.sort((a: any, b: any) => {
+      const hasUnreadA = a.unreadCount?.[profile?.id] > 0 ? 1 : 0;
+      const hasUnreadB = b.unreadCount?.[profile?.id] > 0 ? 1 : 0;
+      if (hasUnreadA !== hasUnreadB) return hasUnreadB - hasUnreadA;
+
+      const timeA = a.lastMessageTime?.toMillis?.() || 0;
+      const timeB = b.lastMessageTime?.toMillis?.() || 0;
+      return timeB - timeA;
+    });
+    return merged;
+  }, [activeChats, supportChats, profile?.id]);
 
   // Search Logic
   const filteredItems = useMemo(() => {
@@ -5490,9 +5515,14 @@ const Admin = () => {
                 title="Mensagens"
               >
                 <MessageSquare className={cn("w-[26px] h-[26px] transition-colors", activeTab === "chat" ? "text-[#BF76FF]" : isDarkMode ? "text-gray-500 group-hover:text-white" : "text-gray-400 group-hover:text-black")} />
-                {activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0) > 0 && (
-                  <span className="absolute top-2 right-2 w-3 h-3 bg-orange-500 rounded-full border-2 border-[#0a0a0a] shadow-lg animate-pulse" />
-                )}
+                {(() => {
+                  const hasSupportAccess = profile?.role === 'Administrador Master' || profile?.role === 'Desenvolvedor' || profile?.role === 'Administrador';
+                  const hasUnreadStandard = activeChats.reduce((acc, chat) => acc + (chat.unreadCount?.[profile?.id || ''] || 0), 0) > 0;
+                  const hasOpenSupport = hasSupportAccess && supportChats.some(chat => chat.status === 'open');
+                  return (hasUnreadStandard || hasOpenSupport) && (
+                    <span className="absolute top-2 right-2 w-3 h-3 bg-orange-500 rounded-full border-2 border-[#0a0a0a] shadow-lg animate-pulse" />
+                  );
+                })()}
               </button>
 
               {/* Notifications Bell */}
@@ -10054,7 +10084,7 @@ const Admin = () => {
                       isDark={isDarkMode}
                       profile={profile}
                       members={members}
-                      activeChats={activeChats}
+                      activeChats={combinedChats}
                       chatMessages={chatMessages}
                       activeChatUser={activeChatUser}
                       setActiveChatUser={setActiveChatUser}
@@ -12368,6 +12398,7 @@ const Admin = () => {
           </motion.div>
         )}
       </AnimatePresence>
+      <VirtualAssistant isDarkMode={isDarkMode} />
     </div>
   );
 }

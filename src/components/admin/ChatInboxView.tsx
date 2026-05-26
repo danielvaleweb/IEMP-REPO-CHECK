@@ -67,6 +67,11 @@ interface Chat {
   pinnedMessageId?: string | null;
   pinnedMessageText?: string | null;
   pinnedMessageSenderName?: string | null;
+  isSupport?: boolean;
+  status?: string;
+  requesterId?: string;
+  requesterName?: string;
+  assignedAdminId?: string;
 }
 
 interface ChatInboxViewProps {
@@ -110,6 +115,7 @@ export function ChatInboxView({
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
+  const [inboxTab, setInboxTab] = useState<'mensagens' | 'suporte'>('mensagens');
 
   // Close context menus on click anywhere
   useEffect(() => {
@@ -340,15 +346,72 @@ export function ChatInboxView({
     }
   };
 
+
+
+  const handleAssumeSupport = async (chatId: string) => {
+    if (!profile?.id) return;
+    try {
+      const chat = activeChats.find(c => c.id === chatId);
+      const greeting = `Olá, aqui é ${profile.name.split(" ")[0]}, especialista de suporte da Iemp. Como posso ajudá-lo(a)?`;
+
+      await updateDoc(doc(db, "chats", chatId), {
+        status: "in_progress",
+        assignedAdminId: profile.id,
+        assignedAdminName: profile.name,
+        assignedAdminPhoto: profile.photoURL || null,
+        participants: [chat?.requesterId, profile.id],
+        lastMessage: greeting,
+        lastMessageTime: serverTimestamp()
+      });
+
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        text: greeting,
+        senderId: profile.id,
+        timestamp: serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Error assuming support", err);
+    }
+  };
+
+  const handleCloseSupport = async (chatId: string) => {
+    if (!profile?.id) return;
+    try {
+      await updateDoc(doc(db, "chats", chatId), {
+        status: "closed"
+      });
+      setActiveChatUser(null);
+    } catch (err) {
+      console.error("Error closing support", err);
+    }
+  };
+
   // Filter Active Chats list
   const filteredChats = useMemo(() => {
     return activeChats.filter(chat => {
-      const otherUserId = chat.participants?.find(p => p !== profile?.id) || "";
-      const otherUser = members.find(m => m.id === otherUserId);
-      if (!otherUser) return false;
-      return otherUser.name?.toLowerCase().includes(chatSearch.toLowerCase());
+      if (inboxTab === 'suporte') {
+        if (!chat.isSupport) return false;
+        if (chat.status === 'closed') return false;
+      } else {
+        if (chat.isSupport) return false;
+      }
+
+      const otherUserId = chat.isSupport 
+        ? (chat.requesterId === profile?.id ? chat.assignedAdminId : chat.requesterId)
+        : chat.participants?.find((p: string) => p !== profile?.id) || "";
+
+      // Se for um suporte aberto e não assumido, e eu não sou o requester, mostramos
+      const otherUser = members.find(m => m.id === otherUserId) || { 
+        id: chat.requesterId, 
+        name: chat.requesterName || "Usuário", 
+        photoURL: null, 
+        status_online: 'offline' 
+      };
+
+      if (!otherUser.name) return false;
+      return otherUser.name.toLowerCase().includes(chatSearch.toLowerCase());
     });
-  }, [activeChats, chatSearch, members, profile?.id]);
+  }, [activeChats, chatSearch, members, profile?.id, inboxTab]);
 
   // Filter Contacts for starting a new chat
   const filteredContacts = useMemo(() => {
@@ -362,13 +425,17 @@ export function ChatInboxView({
       .filter(m => m.id !== profile?.id && m.status !== "pending")
       .filter(m => m.name?.toLowerCase().includes(forwardSearch.toLowerCase()));
   }, [members, profile?.id, forwardSearch]);
-
   const currentChat = useMemo(() => {
     if (!profile?.id || !activeChatUser?.id) return null;
-    const chatId = [profile.id, activeChatUser.id].sort().join('_');
-    return activeChats.find(c => c.id === chatId) || null;
+    
+    // O ID do chat padrão é a combinação dos IDs
+    const standardChatId = [profile.id, activeChatUser.id].sort().join('_');
+    
+    // Procuramos primeiro um chat de suporte que bate com o otherUser
+    const supportChat = activeChats.find(c => c.isSupport && (c.requesterId === activeChatUser.id || c.assignedAdminId === activeChatUser.id));
+    
+    return supportChat || activeChats.find(c => c.id === standardChatId) || null;
   }, [activeChats, profile?.id, activeChatUser?.id]);
-
   const handleReactToMessage = async (messageId: string, emoji: string) => {
     if (!profile?.id || !activeChatUser?.id) return;
     const chatId = [profile.id, activeChatUser.id].sort().join('_');
@@ -446,6 +513,24 @@ export function ChatInboxView({
               className="w-full h-12 bg-white/5 border border-white/5 focus:border-[#BF76FF]/30 text-white rounded-2xl pl-12 pr-4 text-xs font-semibold placeholder:text-gray-600 outline-none transition-all"
             />
           </div>
+
+          {/* Abas Mensagens / Suporte */}
+          <div className="flex bg-[#182033]/50 rounded-2xl p-1 shadow-inner border border-white/5 mt-4">
+            <button
+              onClick={() => setInboxTab('mensagens')}
+              className={cn("flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2", inboxTab === 'mensagens' ? "bg-gradient-to-r from-[#D946EF] to-[#8B5CF6] text-white shadow-md" : "text-gray-500 hover:text-white")}
+            >
+              <span className={cn("w-1.5 h-1.5 rounded-full", inboxTab === 'mensagens' ? "bg-white" : "bg-gray-600")} />
+              Mensagens
+            </button>
+            <button
+              onClick={() => setInboxTab('suporte')}
+              className={cn("flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2", inboxTab === 'suporte' ? "bg-[#BF76FF] text-white shadow-md" : "text-gray-500 hover:text-white")}
+            >
+              <span className={cn("w-1.5 h-1.5 rounded-full", inboxTab === 'suporte' ? "bg-white" : "bg-gray-600")} />
+              Suporte
+            </button>
+          </div>
         </div>
 
         {/* Chats scroll area */}
@@ -463,8 +548,17 @@ export function ChatInboxView({
             </div>
           ) : (
             filteredChats.map((chat) => {
-              const otherUserId = chat.participants?.find(p => p !== profile?.id) || "";
-              const m = members.find(member => member.id === otherUserId);
+              const otherUserId = chat.isSupport 
+                ? (chat.requesterId === profile?.id ? chat.assignedAdminId : chat.requesterId)
+                : chat.participants?.find((p: string) => p !== profile?.id) || "";
+              
+              const m = members.find(member => member.id === otherUserId) || {
+                id: chat.requesterId,
+                name: chat.requesterName || "Suporte",
+                photoURL: null,
+                status_online: 'online'
+              };
+
               if (!m) return null;
               
               const isSelected = activeChatUser?.id === m.id;
@@ -493,7 +587,9 @@ export function ChatInboxView({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
-                      <h4 className={cn("font-bold text-sm truncate", isSelected ? "text-white" : "text-gray-100")}>{m.name}</h4>
+                      <h4 className={cn("font-bold text-sm truncate", isSelected ? "text-white" : "text-gray-100")}>
+                        {m.name} {chat.isSupport && <span className="text-[9px] bg-orange-500/20 text-orange-500 px-1.5 py-0.5 rounded-md ml-1 uppercase">Suporte</span>}
+                      </h4>
                       <span className={cn("text-[9px] font-bold opacity-50 uppercase tabular-nums", isSelected ? "text-white/80" : "text-gray-400")}>
                         {chat.lastMessageTime && formatTime(chat.lastMessageTime)}
                       </span>
@@ -553,6 +649,26 @@ export function ChatInboxView({
                     </p>
                   </div>
                 </div>
+                {/* Botões de Suporte */}
+                {currentChat?.isSupport && (
+                  <div className="flex items-center gap-2">
+                    {currentChat.status === 'open' ? (
+                      <Button 
+                        onClick={() => handleAssumeSupport(currentChat.id)}
+                        className="h-8 text-[10px] font-black uppercase tracking-widest bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md"
+                      >
+                        Assumir
+                      </Button>
+                    ) : currentChat.status === 'in_progress' && (
+                      <Button 
+                        onClick={() => handleCloseSupport(currentChat.id)}
+                        className="h-8 text-[10px] font-black uppercase tracking-widest bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-md"
+                      >
+                        Encerrar
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
