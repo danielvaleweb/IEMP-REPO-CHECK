@@ -1010,6 +1010,38 @@ export default function Home() {
               </div>
             </div>
 
+          {/* Vem aí Section */}
+          {upcomingEvents.filter(e => e.typeEvent !== 'culto' && e.typeEvent !== 'visita').length > 0 && (
+            <div className="mb-20">
+              <div className="flex items-center gap-3 mb-10">
+                <div className="w-1 h-8 bg-primary rounded-full" />
+                <h2 className="text-2xl md:text-3xl tracking-tighter text-gray-900 font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">
+                  <span className="font-light">Vem</span> <span className="font-bold">aí!</span>
+                </h2>
+              </div>
+              
+              <div className="flex overflow-x-auto md:grid md:grid-cols-4 gap-4 relative z-10 pb-4 snap-x snap-mandatory scrollbar-hide md:overflow-visible items-stretch">
+                {upcomingEvents.filter(e => e.typeEvent !== 'culto' && e.typeEvent !== 'visita').slice(0, 4).map((event, idx) => (
+                  <div key={`upcoming-event-wrap-${event.id}-${idx}`} className="w-[85vw] sm:w-[45vw] md:w-auto shrink-0 snap-center md:snap-align-none">
+                    <MovieCard 
+                      key={`upcoming-event-${event.id}-${idx}`}
+                      item={event}
+                      type="event"
+                      idx={idx}
+                      onClick={() => navigate(`/evento/${event.id}`)}
+                      onAddToList={handleToggleMyList}
+                      onFavorite={handleToggleFavorite}
+                      onShowSimilar={handleShowSimilar}
+                      isInList={myList.includes(event.id)}
+                      isFavorited={isFavorite(event.id)}
+                      hideTitleOnMobile={true}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Past Events Grid */}
           <div className="mb-20">
             <div className="flex items-center justify-between mb-10">
@@ -1024,39 +1056,11 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 overflow-visible">
+            <div className="flex overflow-x-auto md:grid md:grid-cols-4 gap-4 relative z-10 pb-4 snap-x snap-mandatory scrollbar-hide md:overflow-visible items-stretch">
               {(pastEvents.length > 0 ? pastEvents : []).filter(e => e.typeEvent !== 'culto').slice(0, 4).map((event, idx) => (
-                <MovieCard 
-                  key={`past-event-${event.id}-${idx}`}
-                  item={event}
-                  type="event"
-                  idx={idx}
-                  onClick={() => navigate(`/evento/${event.id}`)}
-                  onAddToList={handleToggleMyList}
-                  onFavorite={handleToggleFavorite}
-                  onShowSimilar={handleShowSimilar}
-                  isInList={myList.includes(event.id)}
-                  isFavorited={isFavorite(event.id)}
-                  hideTitleOnMobile={true}
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* Vem aí Section */}
-          {upcomingEvents.filter(e => e.typeEvent !== 'culto' && e.typeEvent !== 'visita').length > 0 && (
-            <div className="mb-20">
-              <div className="flex items-center gap-3 mb-10">
-                <div className="w-1 h-8 bg-primary rounded-full" />
-                <h2 className="text-2xl md:text-3xl tracking-tighter text-gray-900 font-['Helvetica_Neue',_Helvetica,_Arial,_sans-serif]">
-                  <span className="font-light">Vem</span> <span className="font-bold">aí!</span>
-                </h2>
-              </div>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 relative z-10 overflow-visible">
-                {upcomingEvents.filter(e => e.typeEvent !== 'culto' && e.typeEvent !== 'visita').slice(0, 4).map((event, idx) => (
+                <div key={`past-event-wrap-${event.id}-${idx}`} className="w-[85vw] sm:w-[45vw] md:w-auto shrink-0 snap-center md:snap-align-none">
                   <MovieCard 
-                    key={`upcoming-event-${event.id}-${idx}`}
+                    key={`past-event-${event.id}-${idx}`}
                     item={event}
                     type="event"
                     idx={idx}
@@ -1068,10 +1072,10 @@ export default function Home() {
                     isFavorited={isFavorite(event.id)}
                     hideTitleOnMobile={true}
                   />
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
 
         </div>
       </section>
