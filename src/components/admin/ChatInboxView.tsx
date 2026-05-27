@@ -34,7 +34,9 @@ import {
   increment,
   query,
   orderBy,
-  onSnapshot
+  onSnapshot,
+  deleteDoc,
+  getDocs
 } from 'firebase/firestore';
 import { cn, getImageUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -93,6 +95,24 @@ const POPULAR_EMOJIS = [
   '👍', '🙌', '👏', '🙏', '❤️', '💖', '🔥', '✨', '🌟', '🎉',
   '😢', '😭', '😡', '😱', '🤔', '🤫', '😴', '🚀', '👑', '💯'
 ];
+
+const getSupportStatusTag = (chat: any) => {
+  if (!chat.isSupport) return null;
+  if (chat.status === 'open') return { label: 'Bot atendendo', className: 'bg-blue-500 text-white border-transparent shadow-sm' };
+  if (chat.status === 'closed') return { label: 'Encerrado', className: 'bg-gray-500 text-white border-transparent shadow-sm' };
+  if (chat.status === 'solved') return { label: 'Solucionado', className: 'bg-green-500 text-white border-transparent shadow-sm' };
+  if (chat.status === 'in_progress') {
+    if (chat.lastSenderId === chat.requesterId) {
+      return { label: 'Aguardando suporte', className: 'bg-orange-500 text-white border-transparent shadow-sm' };
+    } else if (chat.lastSenderId === chat.assignedAdminId) {
+      return { label: 'Aguardando membro', className: 'bg-yellow-500 text-white border-transparent shadow-sm' };
+    } else {
+      const adminName = chat.assignedAdminName ? chat.assignedAdminName.split(' ')[0] : 'Admin';
+      return { label: `${adminName} atendendo`, className: 'bg-purple-500 text-white border-transparent shadow-sm' };
+    }
+  }
+  return { label: 'Suporte', className: 'bg-orange-500 text-white border-transparent shadow-sm' };
+};
 
 export function ChatInboxView({
   isDark,
@@ -371,7 +391,8 @@ export function ChatInboxView({
         assignedAdminPhoto: profile.photoURL || null,
         participants: [chat?.requesterId, profile.id],
         lastMessage: greeting,
-        lastMessageTime: serverTimestamp()
+        lastMessageTime: serverTimestamp(),
+        lastSenderId: profile.id
       });
 
       // System message
@@ -392,25 +413,53 @@ export function ChatInboxView({
     }
   };
 
-  const handleCloseSupport = async (chatId: string) => {
+  const handleSolveSupport = async (chatId: string) => {
     if (!profile?.id) return;
     try {
       const adminName = profile.name || profile.displayName || "Especialista";
+      const message = "O seu atendimento foi marcado como solucionado! Por favor, avalie o nosso suporte e se precisar de algo mais, basta iniciar um novo chat.";
+      
       await updateDoc(doc(db, "chats", chatId), {
-        status: "closed"
+        status: "solved",
+        lastMessage: message,
+        lastMessageTime: serverTimestamp(),
+        lastSenderId: profile.id
       });
 
       // System message
       await addDoc(collection(db, "chats", chatId, "messages"), {
-        text: `ATENDIMENTO ENCERRADO POR ${adminName.toUpperCase()}.`,
+        text: `ATENDIMENTO SOLUCIONADO POR ${adminName.toUpperCase()}.`,
         isSystem: true,
         timestamp: serverTimestamp()
       });
 
+      // Avaliation request message
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        text: message,
+        senderId: profile.id,
+        timestamp: serverTimestamp()
+      });
+    } catch (err) {
+      console.error("Error solving support", err);
+    }
+  };
+
+  const handleCloseSupport = async (chatId: string) => {
+    if (!profile?.id) return;
+    try {
+      // Deletar as mensagens primeiro
+      const messagesRef = collection(db, "chats", chatId, "messages");
+      const msgsSnapshot = await getDocs(messagesRef);
+      const deletePromises = msgsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      // Deletar o chat principal
+      await deleteDoc(doc(db, "chats", chatId));
+
       setActiveChatUser(null);
       setActiveChatId?.(null);
     } catch (err) {
-      console.error("Error closing support", err);
+      console.error("Error closing/deleting support", err);
     }
   };
 
@@ -630,9 +679,9 @@ export function ChatInboxView({
                       <h4 className={cn("font-bold text-sm truncate", isSelected ? "text-white" : "text-gray-100")}>
                         {m.name} 
                         {chat.isSupport && (
-                          chat.status === 'closed' 
-                            ? <span className="text-[9px] bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded-md ml-1 uppercase border border-gray-500/30">Encerrado</span>
-                            : <span className="text-[9px] bg-orange-500/20 text-orange-500 px-1.5 py-0.5 rounded-md ml-1 uppercase">Suporte</span>
+                          <span className={cn("text-[9px] px-1.5 py-0.5 rounded-md ml-1 uppercase border", getSupportStatusTag(chat)?.className)}>
+                            {getSupportStatusTag(chat)?.label}
+                          </span>
                         )}
                       </h4>
                       <span className={cn("text-[9px] font-bold opacity-50 uppercase tabular-nums", isSelected ? "text-white/80" : "text-gray-400")}>
@@ -701,14 +750,23 @@ export function ChatInboxView({
                 {/* Botões de Suporte no canto direito */}
                 {currentChat?.isSupport && (
                   <div className="flex items-center gap-2">
-                    {currentChat.status === 'open' ? (
+                    {currentChat.status === 'open' && (
                       <Button 
                         onClick={() => handleAssumeSupport(currentChat.id)}
                         className="h-8 text-[10px] font-black uppercase tracking-widest bg-orange-500 hover:bg-orange-600 text-white rounded-lg shadow-md"
                       >
                         Assumir
                       </Button>
-                    ) : currentChat.status === 'in_progress' && (
+                    )}
+                    {currentChat.status === 'in_progress' && (
+                      <Button 
+                        onClick={() => handleSolveSupport(currentChat.id)}
+                        className="h-8 text-[10px] font-black uppercase tracking-widest bg-green-500 hover:bg-green-600 text-white rounded-lg shadow-md"
+                      >
+                        Solucionado
+                      </Button>
+                    )}
+                    {(currentChat.status === 'solved' || currentChat.status === 'closed') && (
                       <Button 
                         onClick={() => handleCloseSupport(currentChat.id)}
                         className="h-8 text-[10px] font-black uppercase tracking-widest bg-red-500 hover:bg-red-600 text-white rounded-lg shadow-md"
@@ -884,7 +942,18 @@ export function ChatInboxView({
                                           </a>
                                         );
                                       }
-                                      return <span key={i}>{part}</span>;
+                                      const boldRegex = /\*\*(.*?)\*\*/g;
+                                      const textParts = part.split(boldRegex);
+                                      return (
+                                        <span key={i}>
+                                          {textParts.map((str, idx) => {
+                                            if (idx % 2 === 1) {
+                                              return <strong key={idx} className="font-extrabold">{str}</strong>;
+                                            }
+                                            return <span key={idx}>{str}</span>;
+                                          })}
+                                        </span>
+                                      );
                                     });
                                   })()}
                                 </p>
@@ -1118,7 +1187,8 @@ export function ChatInboxView({
                 {/* Text input area */}
                 <textarea
                   rows={1}
-                  placeholder="Digite uma mensagem..."
+                  placeholder={currentChat?.status === 'solved' ? "O atendimento foi solucionado." : currentChat?.status === 'closed' ? "O atendimento foi encerrado." : "Digite uma mensagem..."}
+                  disabled={currentChat?.status === 'solved' || currentChat?.status === 'closed'}
                   value={chatInput}
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => {
@@ -1137,7 +1207,7 @@ export function ChatInboxView({
                 {/* Send action */}
                 <button
                   onClick={handleSendMessage}
-                  disabled={!chatInput.trim()}
+                  disabled={!chatInput.trim() || currentChat?.status === 'solved' || currentChat?.status === 'closed'}
                   className="w-9 h-9 shrink-0 bg-gradient-to-tr from-[#D946EF] to-[#8B5CF6] text-white rounded-xl hover:opacity-90 disabled:opacity-40 transition-all shadow-md flex items-center justify-center cursor-pointer"
                 >
                   <Send className="w-4 h-4 ml-0.5" />

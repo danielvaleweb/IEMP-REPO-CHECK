@@ -14,8 +14,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { AlertCircle, Info, ChevronLeft, Video, X, MessageCircle, Send, Star, Link as LinkIcon, Key } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
 import { collection, addDoc, query, where, onSnapshot, serverTimestamp, orderBy, updateDoc, doc } from "firebase/firestore";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { GoogleGenAI } from "@google/genai";
 
 const STATIC_AVATAR_URL = "https://res.cloudinary.com/dslmdkfoh/image/upload/v1779374398/broker_profiles/6ec53d62-d8f3-4a9f-9d63-ffce3fd00e6b_nwzigm.png";
@@ -194,13 +195,15 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
           participants: [effectiveUserId],
           lastMessage: text,
           lastMessageTime: serverTimestamp(),
+          lastSenderId: effectiveUserId,
           createdAt: serverTimestamp(),
         });
         currentChatId = chatRef.id;
       } else {
         await updateDoc(doc(db, "chats", currentChatId), {
           lastMessage: text,
-          lastMessageTime: serverTimestamp()
+          lastMessageTime: serverTimestamp(),
+          lastSenderId: effectiveUserId
         });
       }
 
@@ -234,7 +237,12 @@ Nome do usuário: ${effectiveUserName}
 [REGRAS COMPORTAMENTAIS ESTRITAS]
 1. NUNCA repita a mesma saudação ou frase de efeito (ex: "Com alegria vou te ajudar", "Deus abençoe") em toda mensagem. Use no MÁXIMO uma vez por conversa. Seja natural e direto nas respostas seguintes.
 2. Se o usuário pedir explicitamente para falar com um atendente, humano, suporte real, ou se quiser algo fora do seu escopo, responda EXATAMENTE com a palavra-chave: TRANSFER_HUMAN
-3. Se o usuário for Visitante e informar o seu nome pela primeira vez, responda sua mensagem normalmente, mas INCLUA EXATAMENTE a seguinte tag no final da sua resposta (escondida do usuário): [RENAME_USER: NomeDoUsuario]`;
+3. Se o usuário for Visitante e informar o seu nome pela primeira vez, responda sua mensagem normalmente, mas INCLUA EXATAMENTE a seguinte tag no final da sua resposta (escondida do usuário): [RENAME_USER: NomeDoUsuario]
+4. Se o usuário disser que esqueceu a senha, quer recuperar a senha ou redefinir a senha:
+   - Primeiro, peça qual é o e-mail cadastrado dele.
+   - Quando ele informar o e-mail, INCLUA EXATAMENTE a seguinte tag no final da sua resposta, substituindo pelo e-mail real fornecido: [RESET_PASSWORD: email_digitado_aqui]
+   - Na mesma resposta (após colocar a tag), avise que o link de recuperação de senha foi enviado para o e-mail informado e avise que pode cair na caixa de spam ou lixo eletrônico.
+   - Forneça também este link para atendimento direto pelo WhatsApp: https://wa.me/5532999194640 (Diga: "Se preferir, solicite direto no nosso WhatsApp clicando no link abaixo")`;
 
             const chatHistory = supportMessages
               .filter((msg: any) => !msg.isSystem)
@@ -268,6 +276,19 @@ Nome do usuário: ${effectiveUserName}
               await updateDoc(doc(db, "chats", currentChatId), {
                 requesterName: newName
               });
+            }
+
+            // Extract RESET_PASSWORD tag
+            const resetMatch = botReplyText.match(/\[RESET_PASSWORD:\s*([^\]]+)\]/i);
+            if (resetMatch && resetMatch[1]) {
+              const emailToReset = resetMatch[1].replace(/['"]/g, '').trim();
+              botReplyText = botReplyText.replace(/\[RESET_PASSWORD:\s*([^\]]+)\]/i, "").trim();
+              
+              try {
+                await sendPasswordResetEmail(auth, emailToReset);
+              } catch (e) {
+                console.error("Error sending reset email from bot:", e);
+              }
             }
           } else {
             botReplyText = "TRANSFER_HUMAN";
@@ -702,7 +723,18 @@ Nome do usuário: ${effectiveUserName}
                                         </a>
                                       );
                                     }
-                                    return <span key={i}>{part}</span>;
+                                    const boldRegex = /\*\*(.*?)\*\*/g;
+                                    const textParts = part.split(boldRegex);
+                                    return (
+                                      <span key={i}>
+                                        {textParts.map((str, idx) => {
+                                          if (idx % 2 === 1) {
+                                            return <strong key={idx} className="font-extrabold">{str}</strong>;
+                                          }
+                                          return <span key={idx}>{str}</span>;
+                                        })}
+                                      </span>
+                                    );
                                   });
                                 })()}
                               </div>
