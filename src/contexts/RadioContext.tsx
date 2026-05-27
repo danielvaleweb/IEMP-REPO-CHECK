@@ -21,8 +21,12 @@ interface RadioContextProps {
   isMuted: boolean;
   isPlayerOpen: boolean;
   isPlayerMinimized: boolean;
+  isShuffle: boolean;
+  isRepeat: boolean;
   setIsPlaying: (v: boolean) => void;
   setIsPlayerMinimized: (v: boolean) => void;
+  setIsShuffle: (v: boolean) => void;
+  setIsRepeat: (v: boolean) => void;
   playTrack: (track: any, sourceQueue: any[]) => void;
   playLive: () => void;
   togglePlay: () => void;
@@ -68,6 +72,9 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
   const [isMuted, setIsMuted] = useState(false);
   const [isPlayerOpen, setIsPlayerOpen] = useState(false);
   const [isPlayerMinimized, setIsPlayerMinimized] = useState(false);
+  const [isShuffle, setIsShuffle] = useState(false);
+  const [isRepeat, setIsRepeat] = useState(false);
+  const isSkippingRef = useRef(false);
 
   const [tracksSinceLastVignette, setTracksSinceLastVignette] = useState(0);
 
@@ -125,6 +132,8 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     const idx = sourceQueue.findIndex(t => t.id === track.id);
     setCurrentIndex(idx >= 0 ? idx : 0);
     setCurrentTrack(track);
+    setProgress(0);
+    setDuration(0);
     setIsPlaying(true);
     setIsPlayerOpen(true);
     setIsPlayerMinimized(false);
@@ -135,6 +144,8 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     setIsLiveMode(true);
     setCurrentTrack(null);
     setQueue([]);
+    setProgress(0);
+    setDuration(0);
     setIsPlaying(true);
     setIsPlayerOpen(true);
     setIsPlayerMinimized(false);
@@ -157,6 +168,10 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
 
   const playNext = () => {
     if (isLiveMode || queue.length === 0) return;
+    if (isSkippingRef.current) return;
+
+    isSkippingRef.current = true;
+    setTimeout(() => { isSkippingRef.current = false; }, 2000);
 
     // Se temos vinhetas e já tocaram 3 músicas, tocar uma vinheta
     if (!currentTrack?.isVignette && vignettes.length > 0 && tracksSinceLastVignette >= 3) {
@@ -168,9 +183,24 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const nextIdx = (currentIndex + 1) % queue.length;
+    let nextIdx;
+    if (isRepeat && currentTrack && !currentTrack.isVignette) {
+      if (playerRef.current && typeof playerRef.current.seekTo === 'function') {
+        playerRef.current.seekTo(0, 'seconds');
+        setIsPlaying(true);
+        return;
+      }
+      nextIdx = currentIndex;
+    } else if (isShuffle) {
+      nextIdx = Math.floor(Math.random() * queue.length);
+    } else {
+      nextIdx = (currentIndex + 1) % queue.length;
+    }
+
     setCurrentIndex(nextIdx);
     setCurrentTrack(queue[nextIdx]);
+    setProgress(0);
+    setDuration(0);
     if (!currentTrack?.isVignette) {
       setTracksSinceLastVignette(prev => prev + 1);
     }
@@ -183,19 +213,46 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
     const prevIdx = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
     setCurrentIndex(prevIdx);
     setCurrentTrack(queue[prevIdx]);
+    setProgress(0);
+    setDuration(0);
     setIsPlaying(true);
     setIsPlayerMinimized(false);
   };
 
   const handleProgress = (e: any) => {
     if (!isPlaying) return;
-    if (e?.target?.currentTime !== undefined) {
-      setProgress(e.target.currentTime);
+    
+    let currentPos = -1;
+    let currentDur = -1;
+
+    if (e?.playedSeconds !== undefined) {
+      currentPos = e.playedSeconds;
+      if (playerRef.current && typeof playerRef.current.getDuration === 'function') {
+        currentDur = playerRef.current.getDuration();
+      }
+    } else if (e?.target?.currentTime !== undefined) {
+      currentPos = e.target.currentTime;
+      currentDur = e.target.duration;
+    }
+
+    if (currentPos !== -1 && !isNaN(currentPos)) {
+      setProgress(currentPos);
+    }
+
+    if (currentDur !== -1 && currentDur !== undefined && !isNaN(currentDur) && currentDur > 0) {
+      setDuration((prev: number) => (prev === 0 || isNaN(prev)) ? currentDur : prev);
+      
+      // Fallback for background throttling: if we are within 1 second of the end, force next track
+      if (currentPos >= currentDur - 1 && !isSkippingRef.current) {
+        playNext();
+      }
     }
   };
 
   const handleDurationChange = (e: any) => {
-    if (e?.target?.duration !== undefined) {
+    if (typeof e === 'number' && e > 0 && !isNaN(e)) {
+      setDuration(e);
+    } else if (e?.target?.duration !== undefined && !isNaN(e.target.duration) && e.target.duration > 0) {
       setDuration(e.target.duration);
     }
   };
@@ -263,12 +320,13 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       tracks, radioArtists, playlists, vignettes, settings,
       isLiveMode, queue, currentIndex, currentTrack, isPlaying, setIsPlaying,
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
+      isShuffle, isRepeat, setIsShuffle, setIsRepeat,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
       handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess
     } as any}>
       {children}
-      {/* Hidden Global Player */}
-      <div className="hidden">
+      {/* Hidden Global Player - using fixed off-screen but within viewport bounds to prevent aggressive background throttling by Chromium */}
+      <div className="fixed bottom-0 right-0 w-[200px] h-[200px] opacity-[0.01] pointer-events-none z-[-1]">
         {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
           <ReactPlayer
             ref={playerRef}
@@ -276,8 +334,12 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
             playing={isPlaying}
             volume={volume}
             muted={isMuted}
-            onTimeUpdate={handleProgress}
-            onDurationChange={handleDurationChange}
+            {...({
+              onTimeUpdate: handleProgress,
+              onDurationChange: handleDurationChange,
+              onProgress: handleProgress,
+              onDuration: handleDurationChange
+            } as any)}
             onEnded={playNext}
             playsInline={true}
             config={{
@@ -305,7 +367,6 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
           autoPlay={isPlaying}
           muted={false}
           playsInline
-          style={{ display: 'none' }}
           ref={(audio) => {
             if (audio) {
               if (isPlaying) {

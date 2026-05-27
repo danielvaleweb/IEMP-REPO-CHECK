@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRadio } from '@/contexts/RadioContext';
-import { Play, Pause, SkipForward, SkipBack, Volume2, X, Music2, Radio as RadioIcon, ChevronUp, ChevronDown } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, Volume2, X, Music2, Radio as RadioIcon, ChevronUp, ChevronDown, Shuffle, Repeat } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -8,7 +8,8 @@ export default function GlobalPlayer() {
   const {
     isPlayerOpen, isPlayerMinimized, setIsPlayerMinimized,
     isLiveMode, currentTrack, isPlaying, togglePlay, playNext, playPrev,
-    queue, progress, duration, handleSeek, volume, setVolume, isMuted, setIsMuted, settings, hasAccess
+    queue, progress, duration, handleSeek, volume, setVolume, isMuted, setIsMuted, settings, hasAccess,
+    isShuffle, isRepeat, setIsShuffle, setIsRepeat
   } = useRadio();
 
   if (!hasAccess || (!isPlayerOpen && !isPlayerMinimized)) return null;
@@ -88,7 +89,13 @@ export default function GlobalPlayer() {
 
         {/* Center: Controls */}
         <div className="flex flex-col items-center justify-center w-1/3">
-           <div className="flex items-center justify-center gap-6 h-12">
+           <div className="flex items-center justify-center gap-4 sm:gap-6 h-12">
+              {!isLiveMode && (
+                <button onClick={() => setIsShuffle(!isShuffle)} className={`hidden sm:block p-2 transition-colors ${isShuffle ? 'text-[#BF76FF]' : 'text-white/40 hover:text-white'}`}>
+                  <Shuffle className="w-4 h-4" />
+                </button>
+              )}
+
               {!isLiveMode && (
                 <button onClick={playPrev} className="text-white/50 hover:text-white transition-colors disabled:opacity-30 p-2" disabled={queue.length <= 1}>
                   <SkipBack className="w-5 h-5 fill-current" />
@@ -105,6 +112,12 @@ export default function GlobalPlayer() {
               {!isLiveMode && (
                 <button onClick={playNext} className="text-white/50 hover:text-white transition-colors disabled:opacity-30 p-2" disabled={queue.length <= 1}>
                   <SkipForward className="w-5 h-5 fill-current" />
+                </button>
+              )}
+
+              {!isLiveMode && (
+                <button onClick={() => setIsRepeat(!isRepeat)} className={`hidden sm:block p-2 transition-colors ${isRepeat ? 'text-[#BF76FF]' : 'text-white/40 hover:text-white'}`}>
+                  <Repeat className="w-4 h-4" />
                 </button>
               )}
            </div>
