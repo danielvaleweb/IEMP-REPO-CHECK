@@ -325,8 +325,8 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess
     } as any}>
       {children}
-      {/* Hidden Global Player - using fixed off-screen but within viewport bounds to prevent aggressive background throttling by Chromium */}
-      <div className="fixed bottom-0 right-0 w-[200px] h-[200px] opacity-[0.01] pointer-events-none z-[-1]">
+      {/* Hidden Global Player - using fixed on-screen foreground to prevent aggressive background/minimize throttling by Chromium's occlusion tracker */}
+      <div className="fixed top-0 left-0 w-[10px] h-[10px] opacity-[0.01] pointer-events-none z-[9999]">
         {getUrlToPlay() && (!isLiveMode || !settings?.radioYoutubeLiveUrl) && (
           <ReactPlayer
             ref={playerRef}
