@@ -90,7 +90,8 @@ import {
   Italic,
   Smile,
   Info,
-  UserMinus
+  UserMinus,
+  Bot
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -1322,6 +1323,7 @@ const Admin = () => {
     return window.innerWidth >= 1280 ? "team" : "hidden";
   });
   const [activeChatUser, setActiveChatUser] = useState<any>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChats, setActiveChats] = useState<any[]>([]);
   const [supportChats, setSupportChats] = useState<any[]>([]);
   const [chatMessages, setChatMessages] = useState<any[]>([]);
@@ -1520,13 +1522,12 @@ const Admin = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Real-time Chat Fetching
+  // Chat Messages Listener
   useEffect(() => {
     if (!profile?.id || !activeChatUser?.id) return;
-
-    // Create unique chat ID sorting by ID alphabetical order
-    const chatId = [profile.id, activeChatUser.id].sort().join('_');
-
+    
+    const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
+    
     const q = query(
       collection(db, "chats", chatId, "messages"),
       orderBy("timestamp", "asc")
@@ -1615,6 +1616,7 @@ const Admin = () => {
       const userToChat = members.find(m => m.id === chatUserParam);
       if (userToChat) {
         setActiveChatUser(userToChat);
+        setActiveChatId(null);
         setRightSidebarView("chat-active");
       }
     }
@@ -2195,6 +2197,7 @@ const Admin = () => {
           const senderMember = members.find(m => m.id === notif.senderId);
           if (senderMember) {
             setActiveChatUser(senderMember);
+            setActiveChatId(null);
             setRightSidebarView("hidden");
             const params = new URLSearchParams(searchParams);
             params.set('chatUser', notif.senderId);
@@ -4152,6 +4155,7 @@ const Admin = () => {
   const openWhatsApp = (member: any) => {
     // Centralizando conversa no menu lateral direito
     setActiveChatUser(member);
+    setActiveChatId(null);
     setRightSidebarView("chat-active");
   };
 
@@ -4250,15 +4254,7 @@ const Admin = () => {
                 <>Área de <span className="text-[#BF76FF]">Membros</span></>
               )}
             </h1>
-            {/* Support button always visible in header */}
-            <button
-              onClick={() => window.open('https://wa.me/5532998288650?text=Ol%C3%A1%20estou%20tendo%20dificuldades%20para%20acessar%20ou%20cadastrar%20no%20site%2C%20poderia%20me%20ajudar%3F', '_blank')}
-              className="flex items-center justify-center h-10 px-4 rounded-full bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366] hover:text-white transition-all cursor-pointer font-bold text-[10px] gap-2 uppercase tracking-widest"
-              title="Ajuda via WhatsApp"
-            >
-              <MessageCircle className="w-5 h-5 text-current" />
-              Suporte
-            </button>
+            <VirtualAssistant isDarkMode={isDarkMode} loginMode={true} />
           </div>
 
           {authError && (
@@ -5055,6 +5051,7 @@ const Admin = () => {
                     setActiveTab("chat"); 
                     setRightSidebarView("hidden"); 
                     setActiveChatUser(null);
+                    setActiveChatId(null);
                     const params = new URLSearchParams(searchParams);
                     params.delete('chatUser');
                     setSearchParams(params);
@@ -5507,6 +5504,7 @@ const Admin = () => {
                   setActiveTab("chat"); 
                   if (window.innerWidth < 1280) setRightSidebarView("hidden"); 
                   setActiveChatUser(null);
+                  setActiveChatId(null);
                   const params = new URLSearchParams(searchParams);
                   params.delete('chatUser');
                   setSearchParams(params);
@@ -10088,6 +10086,8 @@ const Admin = () => {
                       chatMessages={chatMessages}
                       activeChatUser={activeChatUser}
                       setActiveChatUser={setActiveChatUser}
+                      activeChatId={activeChatId}
+                      setActiveChatId={setActiveChatId}
                       setChatMessages={setChatMessages}
                     />
                   </Suspense>
@@ -10210,7 +10210,154 @@ const Admin = () => {
                       </div>
                     </div>
 
-                    {/* 3. CONFIGURAÇÃO DE PERMISSÕES / CARGOS (Abaixo dos banners) */}
+                    {/* CONFIGURAÇÃO DO ASSISTENTE VIRTUAL */}
+                    <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-[#BF76FF]/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+                        <div className="flex items-center gap-4">
+                          <div className="w-14 h-14 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] transition-transform group-hover:scale-110">
+                            <Bot className="w-8 h-8" />
+                          </div>
+                          <div>
+                            <h5 className={cn("text-xl font-black uppercase tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>Assistente Virtual</h5>
+                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Controle o bot de suporte da plataforma</p>
+                          </div>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                          <input
+                            type="checkbox"
+                            className="sr-only peer"
+                            checked={localSettings.botEnabled ?? settings.botEnabled ?? true}
+                            onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botEnabled: e.target.checked }))}
+                          />
+                          <div className="w-16 h-8 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#BF76FF] shadow-lg shadow-[#BF76FF]/20"></div>
+                        </label>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="space-y-8">
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Nome do Assistente</label>
+                              <Input
+                                className={cn("w-full md:w-1/2 h-12 px-4 rounded-xl border-none text-sm font-bold transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                placeholder="Ex: Assistente da IEMP"
+                                value={localSettings.botName ?? settings.botName ?? "Assistente da IEMP"}
+                                onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botName: e.target.value }))}
+                              />
+                            </div>
+                            
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                              {/* Avatar Normal */}
+                              <div className="space-y-4 p-5 rounded-3xl border border-white/5 bg-white/5">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Avatar Padrão (Imagem do Chat)</label>
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção A: Upload do PC</span>
+                                    <UploadImages
+                                      maxFiles={1}
+                                      multiple={false}
+                                      value={localSettings.botImage ?? settings.botImage ?? ""}
+                                      onUploadComplete={(images) => setLocalSettings((prev: any) => ({ ...prev, botImage: images[0]?.secure_url || "" }))}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção B: URL Externa</span>
+                                    <Input
+                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                      placeholder="https://..."
+                                      value={localSettings.botImage ?? settings.botImage ?? ""}
+                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botImage: e.target.value }))}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* GIF Animado */}
+                              <div className="space-y-4 p-5 rounded-3xl border border-white/5 bg-white/5">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Avatar Animado (Balão Flutuante)</label>
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção A: Upload do PC (GIF/Imagem)</span>
+                                    <UploadImages
+                                      maxFiles={1}
+                                      multiple={false}
+                                      value={localSettings.botGif ?? settings.botGif ?? ""}
+                                      onUploadComplete={(images) => setLocalSettings((prev: any) => ({ ...prev, botGif: images[0]?.secure_url || "" }))}
+                                    />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção B: URL Externa</span>
+                                    <Input
+                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                      placeholder="https://..."
+                                      value={localSettings.botGif ?? settings.botGif ?? ""}
+                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botGif: e.target.value }))}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-4">
+                            <div>
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Mensagens Flutuantes (Balão Animado)</label>
+                              <p className="text-xs text-gray-400 mb-2">Configure frases diferentes dependendo de qual tela o usuário está (uma por linha).</p>
+                            </div>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na tela de Login</label>
+                                <textarea
+                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                  placeholder="Dúvidas ao fazer login?\nPrecisa de ajuda?"
+                                  value={localSettings.botMessagesLogin ?? settings.botMessagesLogin ?? "Dúvidas ao fazer login?\nPrecisa de ajuda?"}
+                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesLogin: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na tela Visão Geral (Home)</label>
+                                <textarea
+                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                  placeholder="Bem-vindo de volta!\nComo posso ajudar hoje?"
+                                  value={localSettings.botMessagesDashboard ?? settings.botMessagesDashboard ?? "Bem-vindo de volta!\nComo posso ajudar hoje?"}
+                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesDashboard: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na Agenda</label>
+                                <textarea
+                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                  placeholder="Dúvidas na agenda?\nQuer agendar algo?"
+                                  value={localSettings.botMessagesAgenda ?? settings.botMessagesAgenda ?? "Dúvidas na agenda?\nQuer agendar algo?"}
+                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesAgenda: e.target.value }))}
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Padrão (Outras telas)</label>
+                                <textarea
+                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                  placeholder="Precisa de ajuda?\nFale comigo!"
+                                  value={localSettings.botMessagesDefault ?? settings.botMessagesDefault ?? "Precisa de ajuda?\nFale comigo!\nEu sou o Assistente da IEMP\nConsigo te ajudar!"}
+                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesDefault: e.target.value }))}
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Instruções (Prompt do Gemini)</label>
+                            <p className="text-xs text-gray-400 mb-2">Defina a personalidade e as regras de resposta do bot. Para desativar a IA ou forçar atendimento humano, instrua-o a responder com "TRANSFER_HUMAN".</p>
+                          <textarea
+                            className={cn("w-full h-32 p-4 rounded-2xl border-none text-sm transition-all resize-none", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                            placeholder='Ex: Você é o Assistente Virtual de suporte da IEMP. Seja educado e responda de forma concisa...'
+                            value={localSettings.botPrompt ?? settings.botPrompt ?? `Você é o Assistente Virtual de suporte da IEMP.\nResponda de forma concisa (1 ou 2 parágrafos). Seja educado e acolhedor.\nAjude com dúvidas do sistema.\nSe for algo fora de seu conhecimento ou complexo, responda EXATAMENTE com "TRANSFER_HUMAN".`}
+                            onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botPrompt: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CONFIGURAÇÃO DE PERMISSÕES / CARGOS (Abaixo do assistente) */}
                     <div className={cn("p-8 rounded-[40px] border transition-all hover:shadow-2xl hover:shadow-[#BF76FF]/5 group", isDarkMode ? "bg-white/5 border-white/5" : "bg-white border-black/5 shadow-xl")}>
                       <div className="flex items-center gap-4 mb-8">
                         <div className="w-14 h-14 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF] transition-transform group-hover:scale-110">
@@ -12398,7 +12545,7 @@ const Admin = () => {
           </motion.div>
         )}
       </AnimatePresence>
-      <VirtualAssistant isDarkMode={isDarkMode} />
+      <VirtualAssistant isDarkMode={isDarkMode} activeTab={activeTab} />
     </div>
   );
 }

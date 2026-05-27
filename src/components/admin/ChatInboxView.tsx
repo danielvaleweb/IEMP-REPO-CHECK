@@ -20,7 +20,8 @@ import {
   CornerUpLeft,
   Pin,
   Copy,
-  Lock
+  Lock,
+  Link as LinkIcon
 } from 'lucide-react';
 import { db } from '@/lib/firebase';
 import { 
@@ -82,6 +83,8 @@ interface ChatInboxViewProps {
   chatMessages: Message[];
   activeChatUser: any;
   setActiveChatUser: (user: any) => void;
+  activeChatId?: string | null;
+  setActiveChatId?: (id: string | null) => void;
   setChatMessages: (msgs: Message[]) => void;
 }
 
@@ -99,6 +102,8 @@ export function ChatInboxView({
   chatMessages,
   activeChatUser,
   setActiveChatUser,
+  activeChatId,
+  setActiveChatId,
   setChatMessages
 }: ChatInboxViewProps) {
   const [chatSearch, setChatSearch] = useState('');
@@ -111,7 +116,10 @@ export function ChatInboxView({
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null);
   const [forwardImageUrl, setForwardImageUrl] = useState<string | null>(null);
   const [selectedForwardMembers, setSelectedForwardMembers] = useState<string[]>([]);
-  const [forwardSearch, setForwardSearch] = useState('');
+  const [forwardSearch, setForwardSearch] = useState("");
+
+  const hasSupportAccess = profile?.role === 'Administrador Master' || profile?.role === 'Desenvolvedor' || profile?.role === 'Administrador';
+
   const [activeMenuMessageId, setActiveMenuMessageId] = useState<string | null>(null);
   const [replyingToMessage, setReplyingToMessage] = useState<Message | null>(null);
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
@@ -145,7 +153,7 @@ export function ChatInboxView({
   // Handle Mark Messages as Read
   useEffect(() => {
     if (!profile?.id || !activeChatUser?.id) return;
-    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+    const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
     
     // Find unread messages received from the other user
     const unreadMsgs = chatMessages.filter(m => m.senderId !== profile.id && !m.read);
@@ -179,7 +187,7 @@ export function ChatInboxView({
     }
 
     setUploading(true);
-    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+    const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
 
     try {
       const formData = new FormData();
@@ -235,7 +243,7 @@ export function ChatInboxView({
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !profile?.id || !activeChatUser?.id) return;
 
-    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+    const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
     const msgText = chatInput.trim();
     setChatInput(""); // Clear field instantly
     setEmojiDrawerOpen(false);
@@ -352,18 +360,28 @@ export function ChatInboxView({
     if (!profile?.id) return;
     try {
       const chat = activeChats.find(c => c.id === chatId);
-      const greeting = `Olá, aqui é ${profile.name.split(" ")[0]}, especialista de suporte da Iemp. Como posso ajudá-lo(a)?`;
+      const adminName = profile.name || profile.displayName || "Especialista";
+      const firstName = adminName.split(" ")[0];
+      const greeting = `Olá, aqui é o(a) ${firstName}, especialista de suporte da Iemp. Como posso ajudá-lo(a)?`;
 
       await updateDoc(doc(db, "chats", chatId), {
         status: "in_progress",
         assignedAdminId: profile.id,
-        assignedAdminName: profile.name,
+        assignedAdminName: adminName,
         assignedAdminPhoto: profile.photoURL || null,
         participants: [chat?.requesterId, profile.id],
         lastMessage: greeting,
         lastMessageTime: serverTimestamp()
       });
 
+      // System message
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        text: `${adminName.toUpperCase()} ASSUMIU O ATENDIMENTO.`,
+        isSystem: true,
+        timestamp: serverTimestamp()
+      });
+
+      // Greeting
       await addDoc(collection(db, "chats", chatId, "messages"), {
         text: greeting,
         senderId: profile.id,
@@ -377,10 +395,20 @@ export function ChatInboxView({
   const handleCloseSupport = async (chatId: string) => {
     if (!profile?.id) return;
     try {
+      const adminName = profile.name || profile.displayName || "Especialista";
       await updateDoc(doc(db, "chats", chatId), {
         status: "closed"
       });
+
+      // System message
+      await addDoc(collection(db, "chats", chatId, "messages"), {
+        text: `ATENDIMENTO ENCERRADO POR ${adminName.toUpperCase()}.`,
+        isSystem: true,
+        timestamp: serverTimestamp()
+      });
+
       setActiveChatUser(null);
+      setActiveChatId?.(null);
     } catch (err) {
       console.error("Error closing support", err);
     }
@@ -391,7 +419,7 @@ export function ChatInboxView({
     return activeChats.filter(chat => {
       if (inboxTab === 'suporte') {
         if (!chat.isSupport) return false;
-        if (chat.status === 'closed') return false;
+        // Removido: if (chat.status === 'closed') return false; para exibir encerrados
       } else {
         if (chat.isSupport) return false;
       }
@@ -428,6 +456,10 @@ export function ChatInboxView({
   const currentChat = useMemo(() => {
     if (!profile?.id || !activeChatUser?.id) return null;
     
+    if (activeChatId) {
+      return activeChats.find(c => c.id === activeChatId) || null;
+    }
+
     // O ID do chat padrão é a combinação dos IDs
     const standardChatId = [profile.id, activeChatUser.id].sort().join('_');
     
@@ -435,10 +467,10 @@ export function ChatInboxView({
     const supportChat = activeChats.find(c => c.isSupport && (c.requesterId === activeChatUser.id || c.assignedAdminId === activeChatUser.id));
     
     return supportChat || activeChats.find(c => c.id === standardChatId) || null;
-  }, [activeChats, profile?.id, activeChatUser?.id]);
+  }, [activeChats, profile?.id, activeChatUser?.id, activeChatId]);
   const handleReactToMessage = async (messageId: string, emoji: string) => {
     if (!profile?.id || !activeChatUser?.id) return;
-    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+    const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
     try {
       await updateDoc(doc(db, "chats", chatId, "messages", messageId), {
         [`reactions.${profile.id}`]: emoji
@@ -450,7 +482,7 @@ export function ChatInboxView({
 
   const handlePinMessage = async (msg: Message) => {
     if (!profile?.id || !activeChatUser?.id) return;
-    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+    const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
     try {
       await updateDoc(doc(db, "chats", chatId), {
         pinnedMessageId: msg.id,
@@ -503,35 +535,40 @@ export function ChatInboxView({
               <Plus className="w-5 h-5" />
             </button>
           </div>
-          <div className="relative">
-            <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input
-              type="text"
-              placeholder="Buscar conversa..."
-              value={chatSearch}
-              onChange={(e) => setChatSearch(e.target.value)}
-              className="w-full h-12 bg-white/5 border border-white/5 focus:border-[#BF76FF]/30 text-white rounded-2xl pl-12 pr-4 text-xs font-semibold placeholder:text-gray-600 outline-none transition-all"
-            />
-          </div>
+                         <div className="relative mb-3">
+              <Search className={cn("w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2", isDark ? "text-gray-500" : "text-gray-400")} />
+              <input 
+                type="text" 
+                placeholder="Buscar conversa..." 
+                value={chatSearch}
+                onChange={(e) => setChatSearch(e.target.value)}
+                className={cn("w-full pl-9 pr-4 py-2.5 rounded-xl text-xs font-semibold outline-none transition-colors", isDark ? "bg-white/5 hover:bg-white/10 text-white placeholder:text-gray-500 focus:bg-white/10" : "bg-gray-100 hover:bg-gray-200 text-black placeholder:text-gray-400 focus:bg-gray-200")}
+              />
+            </div>
 
-          {/* Abas Mensagens / Suporte */}
-          <div className="flex bg-[#182033]/50 rounded-2xl p-1 shadow-inner border border-white/5 mt-4">
-            <button
-              onClick={() => setInboxTab('mensagens')}
-              className={cn("flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2", inboxTab === 'mensagens' ? "bg-gradient-to-r from-[#D946EF] to-[#8B5CF6] text-white shadow-md" : "text-gray-500 hover:text-white")}
-            >
-              <span className={cn("w-1.5 h-1.5 rounded-full", inboxTab === 'mensagens' ? "bg-white" : "bg-gray-600")} />
-              Mensagens
-            </button>
-            <button
-              onClick={() => setInboxTab('suporte')}
-              className={cn("flex-1 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2", inboxTab === 'suporte' ? "bg-[#BF76FF] text-white shadow-md" : "text-gray-500 hover:text-white")}
-            >
-              <span className={cn("w-1.5 h-1.5 rounded-full", inboxTab === 'suporte' ? "bg-white" : "bg-gray-600")} />
-              Suporte
-            </button>
+            {hasSupportAccess && (
+              <div className="flex bg-[#232323] p-1 rounded-2xl w-full">
+                <button 
+                  onClick={() => setInboxTab('mensagens')}
+                  className={cn("flex-1 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl transition-all duration-300", inboxTab === 'mensagens' ? "bg-[#BF76FF] text-white shadow-md scale-105" : "text-gray-400 hover:text-white")}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <div className={cn("w-1.5 h-1.5 rounded-full", inboxTab === 'mensagens' ? "bg-white" : "bg-transparent")} />
+                    Mensagens
+                  </div>
+                </button>
+                <button 
+                  onClick={() => setInboxTab('suporte')}
+                  className={cn("flex-1 text-[10px] font-black uppercase tracking-widest py-2 rounded-xl transition-all duration-300", inboxTab === 'suporte' ? "bg-[#BF76FF] text-white shadow-md scale-105" : "text-gray-400 hover:text-white")}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <div className={cn("w-1.5 h-1.5 rounded-full", inboxTab === 'suporte' ? "bg-white" : "bg-transparent")} />
+                    Suporte
+                  </div>
+                </button>
+              </div>
+            )}
           </div>
-        </div>
 
         {/* Chats scroll area */}
         <div className="flex-1 overflow-y-auto p-4 space-y-1 scrollbar-hide">
@@ -561,13 +598,16 @@ export function ChatInboxView({
 
               if (!m) return null;
               
-              const isSelected = activeChatUser?.id === m.id;
+              const isSelected = activeChatUser?.id === m.id && activeChatId === chat.id;
               const hasUnread = (chat.unreadCount?.[profile?.id] || 0) > 0;
 
               return (
                 <div
                   key={chat.id}
-                  onClick={() => setActiveChatUser(m)}
+                  onClick={() => {
+                    setActiveChatUser(m);
+                    setActiveChatId?.(chat.id);
+                  }}
                   className={cn(
                     "flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all duration-300",
                     isSelected 
@@ -588,7 +628,12 @@ export function ChatInboxView({
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center mb-1">
                       <h4 className={cn("font-bold text-sm truncate", isSelected ? "text-white" : "text-gray-100")}>
-                        {m.name} {chat.isSupport && <span className="text-[9px] bg-orange-500/20 text-orange-500 px-1.5 py-0.5 rounded-md ml-1 uppercase">Suporte</span>}
+                        {m.name} 
+                        {chat.isSupport && (
+                          chat.status === 'closed' 
+                            ? <span className="text-[9px] bg-gray-500/20 text-gray-400 px-1.5 py-0.5 rounded-md ml-1 uppercase border border-gray-500/30">Encerrado</span>
+                            : <span className="text-[9px] bg-orange-500/20 text-orange-500 px-1.5 py-0.5 rounded-md ml-1 uppercase">Suporte</span>
+                        )}
                       </h4>
                       <span className={cn("text-[9px] font-bold opacity-50 uppercase tabular-nums", isSelected ? "text-white/80" : "text-gray-400")}>
                         {chat.lastMessageTime && formatTime(chat.lastMessageTime)}
@@ -622,7 +667,10 @@ export function ChatInboxView({
             <div className="px-4 md:px-6 py-4 bg-[#121829] border-b border-white/5 flex items-center justify-between shrink-0 shadow-md">
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => setActiveChatUser(null)}
+                  onClick={() => {
+                    setActiveChatUser(null);
+                    setActiveChatId?.(null);
+                  }}
                   className="p-2 hover:bg-white/5 rounded-xl transition-colors md:hidden text-gray-400 hover:text-white"
                 >
                   <ArrowLeft className="w-5 h-5" />
@@ -648,8 +696,9 @@ export function ChatInboxView({
                       {activeChatUser.status_online === 'online' ? 'Online agora' : activeChatUser.status_online === 'busy' ? 'Ocupado' : activeChatUser.status_online === 'away' ? 'Ausente' : 'Offline'}
                     </p>
                   </div>
+                  </div>
                 </div>
-                {/* Botões de Suporte */}
+                {/* Botões de Suporte no canto direito */}
                 {currentChat?.isSupport && (
                   <div className="flex items-center gap-2">
                     {currentChat.status === 'open' ? (
@@ -669,7 +718,6 @@ export function ChatInboxView({
                     )}
                   </div>
                 )}
-              </div>
             </div>
 
             {/* Pinned Message Banner */}
@@ -682,7 +730,7 @@ export function ChatInboxView({
                 </div>
                 <button
                   onClick={async () => {
-                    const chatId = [profile.id, activeChatUser.id].sort().join('_');
+                    const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
                     await updateDoc(doc(db, "chats", chatId), {
                       pinnedMessageId: null,
                       pinnedMessageText: null,
@@ -708,6 +756,18 @@ export function ChatInboxView({
                   </div>
 
                   {group.msgs.map((msg) => {
+                    if (msg.isSystem) {
+                      return (
+                        <div key={msg.id} className="flex justify-center my-2 w-full">
+                          <div className="px-4 py-2 bg-orange-500/10 border border-orange-500/20 rounded-2xl shadow-sm text-center max-w-sm w-full mx-4">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
+                              {msg.text}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     const isMe = msg.senderId === profile?.id;
                     return (
                       <div
@@ -757,15 +817,22 @@ export function ChatInboxView({
                             )}
 
                             {/* Message Bubble */}
-                            <div
-                              className={cn(
-                                "shadow-md leading-relaxed break-words relative",
-                                msg.imageUrl && !msg.text ? "p-0 overflow-hidden rounded-2xl" : "p-3.5 px-4 rounded-2xl",
-                                isMe 
-                                  ? "bg-gradient-to-r from-[#D946EF] to-[#8B5CF6] text-white rounded-tr-sm" 
-                                  : "bg-gradient-to-r from-[#F97316] to-[#EF4444] text-white rounded-tl-sm"
-                              )}
-                            >
+                            {(() => {
+                              const isOnlyUrl = msg.text && msg.text.trim().match(/^(https?:\/\/[^\s]+)$/);
+                              return (
+                              <div
+                                className={cn(
+                                  "shadow-md leading-relaxed break-words relative",
+                                  msg.imageUrl && !msg.text ? "p-0 overflow-hidden rounded-2xl" : 
+                                  (isOnlyUrl && !msg.replyToText && !msg.imageUrl) ? "p-0 bg-transparent shadow-none" :
+                                  "p-3.5 px-4 rounded-2xl",
+                                  (isOnlyUrl && !msg.replyToText && !msg.imageUrl) 
+                                    ? "" 
+                                    : isMe 
+                                      ? "bg-gradient-to-r from-[#D946EF] to-[#8B5CF6] text-white rounded-tr-sm" 
+                                      : "bg-gradient-to-r from-[#F97316] to-[#EF4444] text-white rounded-tl-sm"
+                                )}
+                              >
                               {/* Replied Message Quote Box */}
                               {msg.replyToText && (
                                 <div className="mb-2 p-2 px-3 bg-black/20 rounded-xl border-l-2 border-[#BF76FF] text-left select-none text-[11px] leading-relaxed flex flex-col gap-0.5 max-w-xs">
@@ -790,9 +857,41 @@ export function ChatInboxView({
                               
                               {/* Text content */}
                               {msg.text && (
-                                <p className="text-sm font-semibold whitespace-pre-wrap pr-4">{msg.text}</p>
+                                <p className={cn("text-sm font-semibold whitespace-pre-wrap", (msg.text && msg.text.trim().match(/^(https?:\/\/[^\s]+)$/) && !msg.replyToText && !msg.imageUrl) ? "" : "pr-4")}>
+                                  {(() => {
+                                    if (!msg.text) return null;
+                                    const isOnlyUrl = msg.text.trim().match(/^(https?:\/\/[^\s]+)$/) && !msg.replyToText && !msg.imageUrl;
+                                    const urlRegex = /(https?:\/\/[^\s]+)/g;
+                                    const parts = msg.text.split(urlRegex);
+                                    return parts.map((part: string, i: number) => {
+                                      if (part.match(urlRegex)) {
+                                        return (
+                                          <a 
+                                            key={i} 
+                                            href={part} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className={cn(
+                                              "inline-flex items-center gap-2 transition-all font-black text-[12px] shadow-sm no-underline align-middle cursor-pointer",
+                                              isOnlyUrl
+                                                ? cn("px-5 py-3 rounded-2xl", isMe ? "bg-gradient-to-r from-[#D946EF] to-[#8B5CF6] text-white rounded-tr-sm hover:brightness-110" : "bg-gradient-to-r from-[#F97316] to-[#EF4444] text-white rounded-tl-sm hover:brightness-110")
+                                                : "px-2.5 py-1 rounded-md bg-black/10 hover:bg-black/20 dark:bg-white/10 dark:hover:bg-white/20 mx-1"
+                                            )}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <LinkIcon className={cn(isOnlyUrl ? "w-4 h-4" : "w-3.5 h-3.5")} />
+                                            Acessar Link
+                                          </a>
+                                        );
+                                      }
+                                      return <span key={i}>{part}</span>;
+                                    });
+                                  })()}
+                                </p>
                               )}
                             </div>
+                            );
+                            })()}
 
                             {/* Context Action Menu Dropdown */}
                             {activeMenuMessageId === msg.id && (
@@ -935,8 +1034,16 @@ export function ChatInboxView({
 
             {/* Input area footer */}
             <div className="px-2 md:px-4 py-3 md:py-4 pb-24 md:pb-4 bg-[#121829] border-t border-white/5 shrink-0 relative flex flex-col">
-              {/* Custom Emoji Picker Drawer */}
-              {emojiDrawerOpen && (
+              {currentChat?.isSupport && currentChat.status !== 'in_progress' ? (
+                <div className="flex items-center justify-center p-4 bg-[#1c2338] border border-white/5 rounded-3xl mb-4 md:mb-0">
+                  <p className="text-gray-400 font-semibold text-xs text-center uppercase tracking-widest">
+                    {currentChat.status === 'closed' ? "Este ticket de suporte foi encerrado. O histórico é apenas para leitura." : "Assuma o ticket no cabeçalho para liberar o envio de mensagens."}
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* Custom Emoji Picker Drawer */}
+                  {emojiDrawerOpen && (
                 <div className="absolute bottom-[calc(100%+8px)] left-4 right-4 bg-[#182033] border border-white/5 rounded-3xl p-4 shadow-2xl z-[100] animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
                     <span className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]">Inserir Emojis</span>
@@ -1036,6 +1143,8 @@ export function ChatInboxView({
                   <Send className="w-4 h-4 ml-0.5" />
                 </button>
               </div>
+              </>
+            )}
             </div>
           </>
         ) : (
@@ -1179,6 +1288,7 @@ export function ChatInboxView({
                     key={member.id}
                     onClick={() => {
                       setActiveChatUser(member);
+                      setActiveChatId?.(null);
                       setShowNewChatModal(false);
                       setNewChatSearch('');
                     }}
