@@ -91,7 +91,8 @@ import {
   Smile,
   Info,
   UserMinus,
-  Bot
+  Bot,
+  CalendarPlus
 } from "lucide-react";
 import confetti from 'canvas-confetti';
 import { Button } from "@/components/ui/button";
@@ -1342,7 +1343,7 @@ const Admin = () => {
     { id: 'videos', label: 'Vídeos', icon: Youtube },
     { id: 'tons', label: 'Tons', icon: Music },
     { id: 'membros', label: 'Membros', icon: Users },
-    { id: 'agenda', label: 'Agenda', icon: Clock },
+    { id: 'agenda', label: 'Agenda', icon: CalendarPlus },
     { id: 'agenda-direcao', label: 'Agen. Direção', icon: CalendarDays },
     { id: 'radio', label: 'Rádio & Música', icon: Radio },
     { id: 'ebd', label: 'EBD', icon: GraduationCap },

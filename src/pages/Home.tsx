@@ -476,7 +476,31 @@ export default function Home() {
       {/* Hero Section - Netflix Style */}
       <section id="hero" className="relative min-h-[80vh] md:h-screen w-full bg-black text-white overflow-visible"> {/** Removido overflow-hidden para permitir scroll mais natural */}
         <AnimatePresence mode="wait">
-          {videos[currentIndex] && (
+          {videos.length === 0 ? (
+            <motion.div
+              key="hero-skeleton"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 w-full h-full bg-black"
+            >
+              <div className="absolute inset-0 w-full h-full bg-white/5 animate-pulse" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/20" />
+              <div className="relative z-10 h-full flex flex-col justify-end items-start text-left px-6 md:px-16 pb-24 md:pb-32">
+                <div className="max-w-3xl w-full space-y-4">
+                  <div className="w-24 h-6 bg-white/10 rounded-sm animate-pulse" />
+                  <div className="space-y-2 mb-6">
+                    <div className="w-3/4 h-12 md:h-16 bg-white/10 rounded-md animate-pulse" />
+                    <div className="w-1/2 h-12 md:h-16 bg-white/10 rounded-md animate-pulse" />
+                  </div>
+                  <div className="flex items-center gap-4 mt-6">
+                    <div className="w-32 h-12 bg-white/10 rounded-md animate-pulse" />
+                    <div className="w-48 h-12 bg-white/10 rounded-md animate-pulse" />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ) : videos[currentIndex] ? (
             <motion.div
               key={`main-video-${videos[currentIndex].id}-${currentIndex}`}
               initial={{ opacity: 0 }}
@@ -593,7 +617,7 @@ export default function Home() {
                 </motion.div>
               </div>
             </motion.div>
-          )}
+          ) : null}
         </AnimatePresence>
 
         {/* Full Screen Watch Mode */}
