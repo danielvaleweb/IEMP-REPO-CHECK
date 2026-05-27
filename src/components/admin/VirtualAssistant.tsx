@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { AlertCircle, Info, ChevronLeft, Video, X, MessageCircle, Send, Star, Link as LinkIcon } from "lucide-react";
+import { AlertCircle, Info, ChevronLeft, Video, X, MessageCircle, Send, Star, Link as LinkIcon, Key } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { db } from "@/lib/firebase";
 import { collection, addDoc, query, where, onSnapshot, serverTimestamp, orderBy, updateDoc, doc } from "firebase/firestore";
@@ -47,8 +47,9 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
   const [showMessage, setShowMessage] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   
-  // Views: "menu", "chat", "bug", "tutorials"
-  const [view, setView] = useState<"menu" | "chat" | "bug" | "tutorials">("menu");
+  // Views: "menu", "chat", "faq", "forgotPassword"
+  const [view, setView] = useState<"menu" | "chat" | "faq" | "forgotPassword">("menu");
+  const [forgotEmail, setForgotEmail] = useState("");
 
   const [chatInput, setChatInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -394,8 +395,7 @@ Nome do usuário: ${effectiveUserName}
   const TEXT_PRIMARY = isDarkMode ? "text-white" : "text-gray-900";
   const TEXT_SECONDARY = isDarkMode ? "text-gray-400" : "text-gray-500";
   const BORDER_COLOR = isDarkMode ? "border-white/10" : "border-black/5";
-  const AVATAR_URL = "https://res.cloudinary.com/dslmdkfoh/image/upload/q_auto/f_auto/v1779481561/ezgif.com-video-to-gif-converter_nrzbrt.gif";
-  const effectiveBotGif = botSettings.botGif || AVATAR_URL;
+  const effectiveBotGif = botSettings.botGif || effectiveBotImage;
 
   if (botSettings.botEnabled === false) return null;
 
@@ -476,9 +476,14 @@ Nome do usuário: ${effectiveUserName}
         animate={dragControls}
         onDragEnd={handleDragEnd}
         className={cn(
-          "fixed bottom-24 md:bottom-6 z-[100] flex flex-col pointer-events-none",
-          isLeftAligned ? "left-6 items-start" : "right-6 items-end",
-          loginMode ? "hidden" : "flex"
+          "z-[100] flex flex-col pointer-events-none",
+          loginMode 
+            ? "absolute top-14 right-0"
+            : cn(
+                "fixed bottom-24 md:bottom-6",
+                isLeftAligned ? "left-6 items-start" : "right-6 items-end"
+              ),
+          (loginMode && !isOpen) ? "hidden" : "flex"
         )}
         style={{ touchAction: 'none' }}
       >  <AnimatePresence>
@@ -522,6 +527,21 @@ Nome do usuário: ${effectiveUserName}
                   <div className="p-6 space-y-4">
                     <p className={cn("text-[14px] font-bold mb-2", TEXT_SECONDARY)}>Como podemos te ajudar hoje?</p>
                     
+                    {loginMode && (
+                      <button 
+                        onClick={() => setView("forgotPassword")}
+                        className={cn("w-full border shadow-sm p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all text-left", isDarkMode ? "bg-white/5 border-white/5 hover:bg-blue-500/10" : "bg-white border-gray-100 hover:bg-blue-50/50")}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center shrink-0">
+                          <Key className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div>
+                          <h4 className={cn("font-bold text-sm uppercase tracking-tight", TEXT_PRIMARY)}>Esqueci minha senha</h4>
+                          <p className={cn("text-[11px] font-medium mt-0.5 leading-tight", TEXT_SECONDARY)}>Recupere seu acesso pelo WhatsApp</p>
+                        </div>
+                      </button>
+                    )}
+
                     <button 
                       onClick={() => setView("chat")}
                       className={cn("w-full border shadow-sm p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all text-left", isDarkMode ? "bg-white/5 border-white/5 hover:bg-white/10" : "bg-white border-gray-100 hover:bg-gray-50")}
@@ -536,7 +556,11 @@ Nome do usuário: ${effectiveUserName}
                     </button>
 
                     <button 
-                      onClick={() => setView("bug")}
+                      onClick={() => {
+                        setView("menu");
+                        setIsOpen(false);
+                        window.dispatchEvent(new CustomEvent('open-bug-report'));
+                      }}
                       className={cn("w-full border shadow-sm p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all text-left", isDarkMode ? "bg-white/5 border-white/5 hover:bg-red-500/10" : "bg-white border-gray-100 hover:bg-red-50/50")}
                     >
                       <div className="w-10 h-10 rounded-full bg-red-500/10 flex items-center justify-center shrink-0">
@@ -544,20 +568,20 @@ Nome do usuário: ${effectiveUserName}
                       </div>
                       <div>
                         <h4 className={cn("font-bold text-sm uppercase tracking-tight", TEXT_PRIMARY)}>Reportar um Problema</h4>
-                        <p className={cn("text-[11px] font-medium mt-0.5 leading-tight", TEXT_SECONDARY)}>Descreva falhas com abertura de logs</p>
+                        <p className={cn("text-[11px] font-medium mt-0.5 leading-tight", TEXT_SECONDARY)}>Descreva falhas para nossa equipe</p>
                       </div>
                     </button>
 
                     <button 
-                      onClick={() => setView("tutorials")}
+                      onClick={() => setView("faq")}
                       className={cn("w-full border shadow-sm p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all text-left", isDarkMode ? "bg-white/5 border-white/5 hover:bg-amber-500/10" : "bg-white border-gray-100 hover:bg-amber-50/50")}
                     >
                       <div className="w-10 h-10 rounded-full bg-amber-500/10 flex items-center justify-center shrink-0">
-                        <Video className="w-5 h-5 text-amber-500" />
+                        <Info className="w-5 h-5 text-amber-500" />
                       </div>
                       <div>
-                        <h4 className={cn("font-bold text-sm uppercase tracking-tight", TEXT_PRIMARY)}>Tutoriais em Vídeo</h4>
-                        <p className={cn("text-[11px] font-medium mt-0.5 leading-tight", TEXT_SECONDARY)}>Dúvidas operacionais passo a passo</p>
+                        <h4 className={cn("font-bold text-sm uppercase tracking-tight", TEXT_PRIMARY)}>Dúvidas Frequentes</h4>
+                        <p className={cn("text-[11px] font-medium mt-0.5 leading-tight", TEXT_SECONDARY)}>Encontre respostas rápidas aqui</p>
                       </div>
                     </button>
                   </div>
@@ -768,46 +792,89 @@ Nome do usuário: ${effectiveUserName}
                 </div>
               )}
 
-              {/* === BUG VIEW / TUTORIALS VIEW === */}
-              {(view === "bug" || view === "tutorials") && (
+              {/* === FAQ VIEW === */}
+              {view === "faq" && (
                 <div className={cn("flex flex-col h-full min-h-[400px]", BG_PANEL)}>
                   <div className={cn("px-4 py-4 flex items-center gap-3 border-b", BORDER_COLOR)}>
                     <button onClick={() => setView("menu")} className={cn("p-2 rounded-full transition-colors", isDarkMode ? "hover:bg-white/10 text-gray-300" : "hover:bg-gray-100 text-gray-600")}>
                       <ChevronLeft className="w-5 h-5" />
                     </button>
                     <h3 className={cn("font-black text-sm uppercase tracking-widest", TEXT_PRIMARY)}>
-                      {view === "bug" ? "Reportar Problema" : "Tutoriais em Vídeo"}
+                      Dúvidas Frequentes
                     </h3>
                   </div>
                   <div className="p-6 flex-1 overflow-y-auto">
-                    {view === "bug" ? (
-                      <div className="space-y-4">
-                        <p className={cn("text-xs font-medium mb-4", TEXT_SECONDARY)}>Encontrou algo que não está funcionando certo? Descreva abaixo para a equipe consertar.</p>
-                        <Input placeholder="Título do problema..." className={cn("h-12 rounded-xl", isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-gray-50")} />
-                        <Textarea placeholder="Explique o que aconteceu..." className={cn("min-h-[120px] rounded-xl resize-none", isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-gray-50")} />
-                        <Button className="w-full h-12 rounded-xl mt-4 text-white font-black uppercase tracking-widest shadow-md" style={{ backgroundColor: THEME_COLOR }}>
-                          Enviar Relatório
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                         <div className={cn("rounded-[20px] p-5 border transition-all", isDarkMode ? "bg-white/5 border-white/5 hover:border-[#BF76FF]/50" : "border-gray-100 bg-gray-50 hover:border-[#BF76FF]/30")}>
-                            <h4 className={cn("font-bold text-sm flex items-center gap-2 mb-2", TEXT_PRIMARY)}>
-                              <span className="w-2 h-2 rounded-full bg-[#BF76FF]" />
-                              Solicitar agendamento
-                            </h4>
-                            <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">Aprenda como solicitar uma nova data para o seu evento ou culto diretamente pela agenda do sistema.</p>
-                            <div className="rounded-xl overflow-hidden bg-black aspect-video relative flex items-center justify-center group cursor-pointer border border-gray-200 shadow-sm">
-                              <div className="absolute inset-0 bg-black/20 flex items-center justify-center group-hover:bg-black/40 transition-all">
-                                <div className="w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center text-white shadow-lg">
-                                  <Video className="w-5 h-5 ml-0.5" />
-                                </div>
-                              </div>
-                              <img src="https://picsum.photos/seed/tut1/400/225" className="w-full h-full object-cover opacity-80" alt="Thumbnail" />
-                            </div>
-                         </div>
-                      </div>
-                    )}
+                    <div className="space-y-4">
+                       <div className={cn("rounded-[20px] p-5 border transition-all", isDarkMode ? "bg-white/5 border-white/5" : "border-gray-100 bg-gray-50")}>
+                          <h4 className={cn("font-bold text-sm flex items-center gap-2 mb-2", TEXT_PRIMARY)}>
+                            <span className="w-2 h-2 rounded-full bg-[#BF76FF]" />
+                            Como aprovar um novo membro?
+                          </h4>
+                          <p className="text-[11px] text-gray-500 leading-relaxed">
+                            Acesse a aba de "Cadastros" no menu lateral. Lá você encontrará todas as solicitações pendentes e poderá aprovar ou reprovar os novos membros.
+                          </p>
+                       </div>
+                       
+                       <div className={cn("rounded-[20px] p-5 border transition-all", isDarkMode ? "bg-white/5 border-white/5" : "border-gray-100 bg-gray-50")}>
+                          <h4 className={cn("font-bold text-sm flex items-center gap-2 mb-2", TEXT_PRIMARY)}>
+                            <span className="w-2 h-2 rounded-full bg-[#BF76FF]" />
+                            Como criar um evento?
+                          </h4>
+                          <p className="text-[11px] text-gray-500 leading-relaxed">
+                            Vá em "Agenda da Igreja", clique em "Novo Evento" no canto superior direito e preencha os detalhes como título, horário, local e descrição.
+                          </p>
+                       </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* === FORGOT PASSWORD VIEW === */}
+              {view === "forgotPassword" && (
+                <div className={cn("flex flex-col h-full min-h-[400px]", BG_PANEL)}>
+                  <div className={cn("px-4 py-4 flex items-center gap-3 border-b", BORDER_COLOR)}>
+                    <button onClick={() => setView("menu")} className={cn("p-2 rounded-full transition-colors", isDarkMode ? "hover:bg-white/10 text-gray-300" : "hover:bg-gray-100 text-gray-600")}>
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <h3 className={cn("font-black text-sm uppercase tracking-widest", TEXT_PRIMARY)}>
+                      Recuperar Senha
+                    </h3>
+                  </div>
+                  <div className="p-6 flex-1 overflow-y-auto flex flex-col gap-6">
+                    <div>
+                      <p className={cn("text-xs font-medium mb-4", TEXT_SECONDARY)}>Para recuperar sua senha, precisamos do seu e-mail cadastrado no sistema.</p>
+                      <Input 
+                        placeholder="Seu e-mail cadastrado..." 
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className={cn("h-12 rounded-xl mb-4", isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-gray-50")} 
+                      />
+                      <Button 
+                        disabled={!forgotEmail.trim()}
+                        onClick={() => {
+                          const msg = `esqueci minha senha meu email é ${forgotEmail.trim()}`;
+                          window.open(`https://wa.me/5532999194640?text=${encodeURIComponent(msg)}`, '_blank');
+                        }}
+                        className="w-full h-12 rounded-xl text-white font-black uppercase tracking-widest shadow-md" 
+                        style={{ backgroundColor: THEME_COLOR }}
+                      >
+                        Continuar no WhatsApp
+                      </Button>
+                    </div>
+
+                    <div className={cn("pt-6 border-t", BORDER_COLOR)}>
+                      <p className={cn("text-xs font-medium mb-4 text-center", TEXT_SECONDARY)}>Não lembra o e-mail cadastrado?</p>
+                      <Button 
+                        variant="outline"
+                        onClick={() => {
+                          const msg = "Esqueci meu Email e senha preciso de ajuda.";
+                          window.open(`https://wa.me/5532999194640?text=${encodeURIComponent(msg)}`, '_blank');
+                        }}
+                        className={cn("w-full h-12 rounded-xl font-bold uppercase tracking-widest border-2 bg-transparent", isDarkMode ? "border-white/10 hover:bg-white/5 text-white" : "border-gray-200 hover:bg-gray-50 text-gray-900")} 
+                      >
+                        Falar com Suporte
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -839,8 +906,12 @@ Nome do usuário: ${effectiveUserName}
         {!loginMode && (
           <div className="pointer-events-auto relative mt-2">
             <button 
-              className="w-[60px] h-[60px] rounded-full overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-transform hover:scale-105 active:scale-95 flex items-center justify-center z-[110] border-[3px] border-white"
-              style={{ backgroundColor: isOpen ? THEME_COLOR : "white" }}
+              className={cn(
+                "w-[60px] h-[60px] rounded-full overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center z-[110]",
+                isOpen 
+                  ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 border border-red-500/30 shadow-[0_4px_20px_rgba(239,68,68,0.4)]"
+                  : "bg-white border-[3px] border-white shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+              )}
               onClick={toggleOpen}
             >
               {isOpen ? (
@@ -862,7 +933,7 @@ Nome do usuário: ${effectiveUserName}
       </motion.div>
 
       {loginMode && (
-        <div className="relative flex flex-col items-end z-[50]">
+        <div className="relative flex flex-col items-end z-[50] mr-2">
           {/* Animated Message Balloon inline absolute */}
           <AnimatePresence>
             {showMessage && !isOpen && (
@@ -883,17 +954,24 @@ Nome do usuário: ${effectiveUserName}
           </AnimatePresence>
 
           <button 
-            className="w-[50px] h-[50px] rounded-full overflow-hidden shadow-[0_4px_20px_rgba(0,0,0,0.15)] transition-transform hover:scale-105 active:scale-95 flex items-center justify-center z-[110] border-[3px] border-white pointer-events-auto shrink-0"
-            style={{ backgroundColor: isOpen ? THEME_COLOR : "white" }}
+            className={cn(
+              "w-[60px] h-[60px] rounded-full overflow-hidden pointer-events-auto shrink-0 transition-all duration-300 hover:scale-105 active:scale-95 flex items-center justify-center z-[110]",
+              isOpen 
+                ? "bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 border border-red-500/30 shadow-[0_4px_20px_rgba(239,68,68,0.4)]"
+                : "bg-white border-[3px] border-white shadow-[0_4px_20px_rgba(0,0,0,0.15)]"
+            )}
             onClick={toggleOpen}
           >
             {isOpen ? (
-              <X className="w-6 h-6 text-white" />
+              <X className="w-7 h-7 text-white" />
             ) : (
-              <img 
-                src={AVATAR_URL}
-                alt="Bot"
-                className="w-full h-full object-cover"
+              <img
+                src={effectiveBotGif}
+                alt="Bot Avatar"
+                className={cn("w-full h-full object-cover rounded-full", isDarkMode ? "opacity-90" : "")}
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = effectiveBotImage;
+                }}
               />
             )}
           </button>

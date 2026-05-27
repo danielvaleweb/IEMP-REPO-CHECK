@@ -1703,6 +1703,13 @@ const Admin = () => {
     }
   };
   const [isReportingBug, setIsReportingBug] = useState(false);
+  
+  useEffect(() => {
+    const handleOpenBug = () => setIsReportingBug(true);
+    window.addEventListener('open-bug-report', handleOpenBug);
+    return () => window.removeEventListener('open-bug-report', handleOpenBug);
+  }, []);
+
   const [bugDescription, setBugDescription] = useState("");
   const [isSavingBug, setIsSavingBug] = useState(false);
   const [showBugSuccess, setShowBugSuccess] = useState(false);
@@ -4246,7 +4253,7 @@ const Admin = () => {
         </div>
 
         <div className="max-w-md w-full mx-auto flex-1 flex flex-col justify-center pb-20">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-6 relative z-50">
             <h1 className="text-4xl font-bold">
               {isSignUpMode ? (
                 <>Solicitar <span className="text-[#BF76FF]">Acesso</span></>
@@ -4339,10 +4346,15 @@ const Admin = () => {
 
                 <div className="flex justify-end pt-1">
                   <button
-                    onClick={() => window.open('https://wa.me/5532998288650?text=Esqueci%20minha%20senha,%20preciso%20de%20ajuda!', '_blank')}
+                    onClick={() => {
+                      const msg = email.trim() 
+                        ? `esqueci minha senha meu email é ${email.trim()}`
+                        : "Esqueci meu Email e senha preciso de ajuda.";
+                      window.open(`https://wa.me/5532999194640?text=${encodeURIComponent(msg)}`, '_blank');
+                    }}
                     className="text-[#BF76FF] hover:underline transition-colors cursor-pointer text-sm font-bold uppercase"
                   >
-                    LEMBRAR SENHA
+                    ESQUECI MINHA SENHA
                   </button>
                 </div>
               </div>

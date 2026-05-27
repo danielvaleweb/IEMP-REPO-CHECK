@@ -1127,7 +1127,7 @@ export default function EventDetails() {
              <div className="w-8 h-[2px] bg-[#BF76FF]" />
            </div>
            <div className="flex flex-col sm:flex-row items-center justify-end gap-4 w-full sm:w-auto">
-             <Button onClick={() => window.open('https://api.whatsapp.com/send?phone=5532998288650', '_blank')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-green-500 hover:to-green-500 hover:text-white hover:shadow-green-500/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
+             <Button onClick={() => window.open('https://api.whatsapp.com/send?phone=5532999194640', '_blank')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-green-500 hover:to-green-500 hover:text-white hover:shadow-green-500/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
                <MessageCircle className="w-4 h-4" /> WhatsApp
              </Button>
              <Button onClick={() => window.open('mailto:contato@ministerioprofecia.com.br')} className="bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:from-white hover:to-white hover:text-black hover:shadow-white/30 active:scale-95 text-white border-none rounded-xl h-12 px-8 font-bold flex items-center gap-2 cursor-pointer w-full sm:w-auto shadow-lg shadow-purple-500/20 transition-all group">
