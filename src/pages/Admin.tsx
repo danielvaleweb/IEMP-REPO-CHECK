@@ -4310,35 +4310,52 @@ const Admin = () => {
               <div className="space-y-4 mb-8">
                 {/* Email Input */}
                 <div className="relative group">
-                  <Input
+                  <input
+                    id="email"
                     type="email"
-                    placeholder="membro@ministerioprofecia.com.br"
-                    className={cn("h-16 border rounded-2xl px-6 text-lg transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                    placeholder=" "
+                    className={cn(
+                      "peer w-full h-16 border rounded-2xl px-6 pt-5 pb-1 text-lg transition-all outline-none", 
+                      isDarkMode ? "bg-cinza-input border-white/5 text-gray-200 focus:border-[#BF76FF]" : "bg-white border-black/5 text-gray-800 focus:border-[#BF76FF]"
+                    )}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
-                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[#BF76FF]">
+                  <label 
+                    htmlFor="email"
+                    className="absolute text-sm duration-300 transform -translate-y-3 scale-75 top-[18px] z-10 origin-[0] left-6 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-[18px] peer-focus:scale-75 peer-focus:-translate-y-3 text-gray-500 peer-focus:text-[#BF76FF] pointer-events-none"
+                  >
+                    Email
+                  </label>
+                  <div className="absolute right-6 top-1/2 -translate-y-1/2 text-[#BF76FF] pointer-events-none z-20">
                     <CheckCircle2 className="w-5 h-5" />
                   </div>
                 </div>
 
                 {/* Password Input */}
                 <div className="relative group">
-                  <Input
+                  <input
+                    id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    placeholder=" "
                     className={cn(
-                      "h-16 border rounded-2xl px-6 text-lg transition-all outline-none",
-                      isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black",
+                      "peer w-full h-16 border rounded-2xl px-6 pt-5 pb-1 text-lg transition-all outline-none",
+                      isDarkMode ? "bg-cinza-input border-white/5 text-gray-200 focus:border-[#BF76FF]" : "bg-white border-black/5 text-gray-800 focus:border-[#BF76FF]",
                       authError ? "border-[#BF76FF] shadow-[0_0_15px_-3px_rgba(191,118,255,0.6)] focus:border-[#BF76FF]" : ""
                     )}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
+                  <label 
+                    htmlFor="password"
+                    className="absolute text-sm duration-300 transform -translate-y-3 scale-75 top-[18px] z-10 origin-[0] left-6 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-[18px] peer-focus:scale-75 peer-focus:-translate-y-3 text-gray-500 peer-focus:text-[#BF76FF] pointer-events-none"
+                  >
+                    Senha
+                  </label>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+                    className="absolute right-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-[#BF76FF] transition-colors cursor-pointer z-20"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
