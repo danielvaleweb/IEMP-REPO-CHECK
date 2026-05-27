@@ -5257,6 +5257,7 @@ const Admin = () => {
             </div>
 
             <div className="flex items-center gap-0.5">
+              <div id="bot-portal-target" />
               {/* Search Icon */}
               <button
                 onClick={() => setIsMobileSearchOpen(true)}

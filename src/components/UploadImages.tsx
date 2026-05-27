@@ -69,6 +69,7 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
   }, [value]);
 
   const compressImage = async (file: File) => {
+    if (file.type === 'image/gif') return file; // Pula a compressão para manter a animação do GIF
     const options = {
       maxSizeMB: 1,
       maxWidthOrHeight: 1920,
@@ -130,13 +131,13 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
     
     // Validations
     const validFiles = fileList.filter(file => {
-      const isValidType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type);
+      const isValidType = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type);
       const isValidSize = file.size <= 3 * 1024 * 1024; // 3MB
       return isValidType && isValidSize;
     });
 
     if (validFiles.length !== fileList.length) {
-      setError('Alguns arquivos foram ignorados (apenas JPG, PNG, WEBP até 3MB)');
+      setError('Alguns arquivos foram ignorados (apenas JPG, PNG, WEBP, GIF até 3MB)');
     } else {
       setError(null);
     }
@@ -234,7 +235,7 @@ export const UploadImages: React.FC<UploadImagesProps> = ({
         type="file"
         ref={fileInputRef}
         className="hidden"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/gif"
         multiple={multiple}
         disabled={uploading}
         onChange={(e) => e.target.files && handleFiles(e.target.files)}

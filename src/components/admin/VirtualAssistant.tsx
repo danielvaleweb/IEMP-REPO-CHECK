@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { createPortal } from "react-dom";
+import { motion, AnimatePresence, useAnimation } from "motion/react";
 import {
   Dialog,
   DialogContent,
@@ -61,6 +62,61 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
   const [showRating, setShowRating] = useState(false);
   const [ratingAdminId, setRatingAdminId] = useState<string | null>(null);
   const [hoverRating, setHoverRating] = useState(0);
+
+  const dragControls = useAnimation();
+  const [isLeftAligned, setIsLeftAligned] = useState(false);
+  const [isHidden, setIsHidden] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const hasShownHiddenTooltip = useRef(false);
+  const [showHiddenTooltip, setShowHiddenTooltip] = useState(false);
+
+  useEffect(() => {
+    if (isHidden && !hasShownHiddenTooltip.current) {
+      hasShownHiddenTooltip.current = true;
+      setShowHiddenTooltip(true);
+      const t = setTimeout(() => setShowHiddenTooltip(false), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [isHidden]);
+
+  const handleDragEnd = async (e: any, info: any) => {
+    setIsDragging(false);
+    
+    // Check if dropped in the bottom center area (the X zone)
+    const dropX = info.point.x;
+    const dropY = info.point.y;
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    
+    if (dropY > screenHeight - 150 && dropX > screenWidth / 2 - 80 && dropX < screenWidth / 2 + 80) {
+      setIsHidden(true);
+      dragControls.set({ x: 0, y: 0 });
+      setIsOpen(false);
+      return;
+    }
+
+    const isLeft = info.point.x < window.innerWidth / 2;
+    
+    // Calculate target X relative to the current anchored side
+    const buttonWidth = 85; // rough width + padding
+    
+    let targetX = 0;
+    if (isLeft && !isLeftAligned) {
+      targetX = -(screenWidth - buttonWidth);
+    } else if (!isLeft && isLeftAligned) {
+      targetX = screenWidth - buttonWidth;
+    }
+    
+    // Animate to the snapped position
+    await dragControls.start({
+      x: targetX,
+      transition: { type: "spring", stiffness: 300, damping: 25 }
+    });
+
+    // Reset the drag transform and update the CSS anchor to keep it snapped without translation
+    dragControls.set({ x: 0 });
+    setIsLeftAligned(isLeft);
+  };
 
   const [botSettings, setBotSettings] = useState<{ botEnabled?: boolean, botPrompt?: string, botName?: string, botImage?: string, botGif?: string, botMessagesLogin?: string, botMessagesDashboard?: string, botMessagesAgenda?: string, botMessagesDefault?: string }>({});
 
@@ -343,12 +399,89 @@ Nome do usuário: ${effectiveUserName}
 
   if (botSettings.botEnabled === false) return null;
 
+  if (isHidden) {
+    const portalTarget = document.getElementById("bot-portal-target");
+    if (portalTarget) {
+      return createPortal(
+        <div className="relative flex items-center justify-center">
+          {/* Overlay de Foco */}
+          <AnimatePresence>
+            {showHiddenTooltip && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/70 z-[90]"
+                style={{ width: '100vw', height: '100vh', top: 0, left: 0 }}
+              />
+            )}
+          </AnimatePresence>
+
+          <motion.button
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            onClick={() => setShowHiddenTooltip(false) || setIsHidden(false)}
+            className={cn(
+              "rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all w-8 h-8 border-2 border-[#BF76FF] overflow-hidden flex items-center justify-center shrink-0 cursor-pointer shadow-[0_0_15px_rgba(191,118,255,0.4)] relative z-[100]",
+              !isDarkMode && "bg-white"
+            )}
+            title="Mostrar Assistente"
+          >
+            <img src={effectiveBotImage} alt="Bot" className="w-full h-full object-cover" />
+          </motion.button>
+
+          {/* Tooltip */}
+          <AnimatePresence>
+            {showHiddenTooltip && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.9 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="absolute top-full mt-3 left-1/2 -translate-x-1/2 w-max max-w-[200px] z-[100]"
+              >
+                <div className="bg-[#BF76FF] text-white text-[8px] uppercase tracking-widest font-black px-3 py-1.5 rounded-lg shadow-lg relative whitespace-nowrap">
+                  Estou aqui encima, caso precise!
+                  {/* Seta para cima */}
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-[#BF76FF] rotate-45" />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>,
+        portalTarget
+      );
+    }
+    return null;
+  }
+
   return (
     <>
-      <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end gap-4 pointer-events-none">
-        
-        {/* Main Floating Window */}
-        <AnimatePresence>
+      <AnimatePresence>
+        {isDragging && !isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.5 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.5 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[90] w-16 h-16 rounded-full bg-red-500/20 border-2 border-red-500 flex items-center justify-center pointer-events-none shadow-[0_0_20px_rgba(239,68,68,0.3)] backdrop-blur-sm"
+          >
+            <X className="w-8 h-8 text-red-500" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <motion.div 
+        drag={!isOpen}
+        dragMomentum={false}
+        onDragStart={() => setIsDragging(true)}
+        animate={dragControls}
+        onDragEnd={handleDragEnd}
+        className={cn(
+          "fixed bottom-24 md:bottom-6 z-[100] flex flex-col pointer-events-none",
+          isLeftAligned ? "left-6 items-start" : "right-6 items-end",
+          loginMode ? "hidden" : "flex"
+        )}
+        style={{ touchAction: 'none' }}
+      >  <AnimatePresence>
           {isOpen && (
             <motion.div
               drag
@@ -373,10 +506,15 @@ Nome do usuário: ${effectiveUserName}
                       <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-400 border-2 border-[#1A1A1A] rounded-full" />
                     </div>
                     <div>
-                      <h3 className="font-black text-lg tracking-tight uppercase flex items-center gap-1">
-                        Assistente <span className="text-[#BF76FF]">da</span> IEMP
+                      <h3 className="font-black text-lg tracking-tight uppercase bg-gradient-to-r from-[#BF76FF] to-[#FF76B8] bg-clip-text text-transparent mb-1">
+                        {effectiveBotName}
                       </h3>
-                      <p className="text-sm font-medium opacity-90 text-gray-400">Assistente Virtual</p>
+                      <p 
+                        className="text-[9px] tracking-wide text-gray-400 opacity-60"
+                        style={{ fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif", fontWeight: 300 }}
+                      >
+                        ® Todos direitos reservados - <a href="https://danielvaleweb.com.br" target="_blank" rel="noopener noreferrer" className="hover:underline hover:text-white transition-colors" style={{ fontWeight: 500 }}>danielvaleweb</a>
+                      </p>
                     </div>
                   </div>
 
@@ -685,12 +823,12 @@ Nome do usuário: ${effectiveUserName}
               initial={{ opacity: 0, y: 10, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.9 }}
-              className="px-5 py-3 rounded-[16px] shadow-lg relative pointer-events-auto max-w-[200px] mb-2 mr-2"
-              style={{ backgroundColor: THEME_COLOR, color: "white", borderBottomRightRadius: '4px' }}
+              className={cn("px-5 py-3 rounded-[16px] shadow-lg relative pointer-events-auto max-w-[200px] mb-2", isLeftAligned ? "ml-2" : "mr-2")}
+              style={{ backgroundColor: THEME_COLOR, color: "white", ...(isLeftAligned ? { borderBottomLeftRadius: '4px' } : { borderBottomRightRadius: '4px' }) }}
             >
               <p className="text-[13px] font-bold tracking-tight text-center leading-snug">{currentMessage}</p>
               <div 
-                className="absolute -bottom-1.5 right-6 w-3 h-3 rotate-45"
+                className={cn("absolute -bottom-1.5 w-3 h-3 rotate-45", isLeftAligned ? "left-6" : "right-6")}
                 style={{ backgroundColor: THEME_COLOR }}
               />
             </motion.div>
@@ -721,7 +859,7 @@ Nome do usuário: ${effectiveUserName}
           </div>
         )}
         
-      </div>
+      </motion.div>
 
       {loginMode && (
         <div className="relative flex flex-col items-end z-[50]">
