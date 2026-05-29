@@ -16,7 +16,6 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/geist": "^5.2.8",
-    "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.0.0",
     "@vitejs/plugin-react": "^4.3.0",
     "browser-image-compression": "^2.0.2",

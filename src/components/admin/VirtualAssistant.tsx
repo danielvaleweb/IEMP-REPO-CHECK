@@ -17,7 +17,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { auth, db } from "@/lib/firebase";
 import { collection, addDoc, query, where, onSnapshot, serverTimestamp, orderBy, updateDoc, doc } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { GoogleGenAI } from "@google/genai";
 
 const STATIC_AVATAR_URL = "https://res.cloudinary.com/dslmdkfoh/image/upload/v1779374398/broker_profiles/6ec53d62-d8f3-4a9f-9d63-ffce3fd00e6b_nwzigm.png";
 
@@ -220,79 +219,7 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
         try {
           let botReplyText = "";
           
-          if (import.meta.env.VITE_GEMINI_API_KEY) {
-            const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
-            
-            const defaultPrompt = `Você é o Assistente Virtual de suporte da IEMP.
-Responda de forma concisa (1 ou 2 parágrafos). Seja educado e acolhedor.
-Ajude com dúvidas do sistema.
-Se for algo fora de seu conhecimento ou complexo, responda EXATAMENTE com "TRANSFER_HUMAN".`;
-            
-            const basePrompt = botSettings.botPrompt?.trim() || defaultPrompt;
-            
-            const systemContext = `\n\n[CONTEXTO DO SISTEMA INVISÍVEL AO USUÁRIO]
-Status do usuário: ${effectiveUserId.startsWith('visitor') ? 'NÃO LOGADO (Visitante)' : `LOGADO (Membro)`}
-Nome do usuário: ${effectiveUserName}
-
-[REGRAS COMPORTAMENTAIS ESTRITAS]
-1. NUNCA repita a mesma saudação ou frase de efeito (ex: "Com alegria vou te ajudar", "Deus abençoe") em toda mensagem. Use no MÁXIMO uma vez por conversa. Seja natural e direto nas respostas seguintes.
-2. Se o usuário pedir explicitamente para falar com um atendente, humano, suporte real, ou se quiser algo fora do seu escopo, responda EXATAMENTE com a palavra-chave: TRANSFER_HUMAN
-3. Se o usuário for Visitante e informar o seu nome pela primeira vez, responda sua mensagem normalmente, mas INCLUA EXATAMENTE a seguinte tag no final da sua resposta (escondida do usuário): [RENAME_USER: NomeDoUsuario]
-4. Se o usuário disser que esqueceu a senha, quer recuperar a senha ou redefinir a senha:
-   - Primeiro, peça qual é o e-mail cadastrado dele.
-   - Quando ele informar o e-mail, INCLUA EXATAMENTE a seguinte tag no final da sua resposta, substituindo pelo e-mail real fornecido: [RESET_PASSWORD: email_digitado_aqui]
-   - Na mesma resposta (após colocar a tag), avise que o link de recuperação de senha foi enviado para o e-mail informado e avise que pode cair na caixa de spam ou lixo eletrônico.
-   - Forneça também este link para atendimento direto pelo WhatsApp: https://wa.me/5532999194640 (Diga: "Se preferir, solicite direto no nosso WhatsApp clicando no link abaixo")`;
-
-            const chatHistory = supportMessages
-              .filter((msg: any) => !msg.isSystem)
-              .map((msg: any) => ({
-                role: msg.senderId === "bot" ? "model" : "user",
-                parts: [{ text: msg.text }]
-              }))
-              .slice(-20); // Keep last 20 messages to maintain context
-              
-            const contents = [...chatHistory, { role: "user", parts: [{ text }] }];
-
-            const response = await ai.models.generateContent({
-              model: 'gemini-2.5-flash',
-              contents: contents,
-              config: {
-                systemInstruction: basePrompt + systemContext
-              }
-            });
-            
-            botReplyText = response.text || "";
-            
-            // Extract RENAME_USER tag
-            const renameMatch = botReplyText.match(/\[RENAME_USER:\s*(.+?)\]/i);
-            if (renameMatch && renameMatch[1]) {
-              const newName = renameMatch[1].trim();
-              botReplyText = botReplyText.replace(/\[RENAME_USER:\s*(.+?)\]/i, "").trim();
-              
-              setVisitorName(newName);
-              localStorage.setItem('virtual_assistant_visitor_name', newName);
-              
-              await updateDoc(doc(db, "chats", currentChatId), {
-                requesterName: newName
-              });
-            }
-
-            // Extract RESET_PASSWORD tag
-            const resetMatch = botReplyText.match(/\[RESET_PASSWORD:\s*([^\]]+)\]/i);
-            if (resetMatch && resetMatch[1]) {
-              const emailToReset = resetMatch[1].replace(/['"]/g, '').trim();
-              botReplyText = botReplyText.replace(/\[RESET_PASSWORD:\s*([^\]]+)\]/i, "").trim();
-              
-              try {
-                await sendPasswordResetEmail(auth, emailToReset);
-              } catch (e) {
-                console.error("Error sending reset email from bot:", e);
-              }
-            }
-          } else {
-            botReplyText = "TRANSFER_HUMAN";
-          }
+          botReplyText = "TRANSFER_HUMAN";
           
           if (botReplyText.includes("TRANSFER_HUMAN")) {
             botReplyText = "Entendido! Vou transferir você agora mesmo para um de nossos atendentes humanos. Por favor, aguarde um instante.";
