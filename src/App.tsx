@@ -35,7 +35,6 @@ const Favorites = lazy(() => import("@/pages/Favorites"));
 const Formulario = lazy(() => import("@/pages/Formulario"));
 const StaticPages = lazy(() => import("@/pages/StaticPages"));
 import Maintenance from "@/pages/Maintenance";
-const Migration = lazy(() => import("@/pages/Migration"));
 const EventDetails = lazy(() => import("@/pages/EventDetails"));
 const NoticiaDetalhe = lazy(() => import("@/pages/NoticiaDetalhe"));
 const Noticias = lazy(() => import("@/pages/Noticias"));
@@ -104,7 +103,6 @@ function AppContent() {
               <Route path="/galeria" element={<Gallery />} />
               <Route path="/favoritos" element={<Favorites />} />
               <Route path="/admin" element={<Admin />} />
-              <Route path="/admin/migration" element={<Migration />} />
               <Route path="/formulario" element={<Formulario />} />
               <Route path="/google" element={<Google />} />
               <Route path="/solicitacao" element={<Solicitacao />} />
