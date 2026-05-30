@@ -199,7 +199,8 @@ import {
   increment,
   getCountFromServer,
   limit,
-  deleteField
+  deleteField,
+  writeBatch
 } from "firebase/firestore";
 import {
   differenceInMonths,
@@ -2530,8 +2531,13 @@ const Admin = () => {
         unreadReal.some(un => un.id === n.id) ? { ...n, read: true } : n
       ));
 
-      const updatePromises = unreadReal.map(n => updateDoc(doc(db, "notifications", n.id), { read: true }));
-      await Promise.all(updatePromises);
+      if (unreadReal.length > 0) {
+        const batch = writeBatch(db);
+        unreadReal.forEach(n => {
+          batch.update(doc(db, "notifications", n.id), { read: true });
+        });
+        await batch.commit();
+      }
     } catch (err: any) {
       appAlert("Erro ao marcar como lido: " + err.message, "error");
       console.error("Error marking notifications as read:", err);
@@ -2577,22 +2583,30 @@ const Admin = () => {
         return hasOldRoleInRole || hasOldRoleInMinistries;
       });
 
-      for (const member of toUpdate) {
+      if (toUpdate.length === 0) return;
+
+      const batch = writeBatch(db);
+      // Limitar a 500 operações por lote
+      const toUpdateBatch = toUpdate.slice(0, 500);
+
+      for (const member of toUpdateBatch) {
         const newMinistries = (member.ministries || []).map((m: any) => {
           if (typeof m === 'string') return m === "Desenvolvimento" ? "Desenvolvedor" : m;
           return { ...m, name: m.name === "Desenvolvimento" ? "Desenvolvedor" : m.name };
         });
         const newRole = member.role === "Desenvolvimento" ? "Desenvolvedor" : member.role;
 
-        try {
-          await updateDoc(doc(db, "members", member.id), {
-            role: newRole,
-            ministries: newMinistries
-          });
-          console.log(`Migrated role for ${member.name}`);
-        } catch (err) {
-          console.error("Migration error:", err);
-        }
+        batch.update(doc(db, "members", member.id), {
+          role: newRole,
+          ministries: newMinistries
+        });
+      }
+
+      try {
+        await batch.commit();
+        console.log(`Migrated roles for ${toUpdateBatch.length} members using batch.`);
+      } catch (err) {
+        console.error("Migration error:", err);
       }
     };
     migrateRoles();

@@ -36,7 +36,8 @@ import {
   orderBy,
   onSnapshot,
   deleteDoc,
-  getDocs
+  getDocs,
+  writeBatch
 } from 'firebase/firestore';
 import { cn, getImageUrl } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -178,10 +179,13 @@ export function ChatInboxView({
     // Find unread messages received from the other user
     const unreadMsgs = chatMessages.filter(m => m.senderId !== profile.id && !m.read);
     
-    unreadMsgs.forEach(msg => {
-      updateDoc(doc(db, "chats", chatId, "messages", msg.id), { read: true })
-        .catch(err => console.error("Error setting read status:", err));
-    });
+    if (unreadMsgs.length > 0) {
+      const batch = writeBatch(db);
+      unreadMsgs.forEach(msg => {
+        batch.update(doc(db, "chats", chatId, "messages", msg.id), { read: true });
+      });
+      batch.commit().catch(err => console.error("Error setting read status:", err));
+    }
 
     // Reset unread count for current user in Chat index
     const chat = activeChats.find(c => c.id === chatId);

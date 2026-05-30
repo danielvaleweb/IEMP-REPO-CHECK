@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { 
-  onAuthStateChanged, 
-  User, 
-  GoogleAuthProvider, 
-  signInWithPopup, 
-  signInWithRedirect, 
-  getRedirectResult, 
+import {
+  onAuthStateChanged,
+  User,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   setPersistence,
   browserLocalPersistence,
@@ -74,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const authUnsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log("DEBUG: onAuthStateChanged disparado, user:", user?.email);
       setFirebaseUser(user);
-      
+
       // Clean up previous profile listener if any
       if (profileUnsubscribe) {
         profileUnsubscribe();
@@ -84,9 +84,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (user) {
         try {
           console.log("DEBUG: Iniciando listener de tempo real para perfil:", user.uid);
-          
+
           const userRef = doc(db, "members", user.uid);
-          
+
           profileUnsubscribe = onSnapshot(userRef, async (snapshot) => {
             if (snapshot.exists()) {
               let profileData = { id: snapshot.id, ...snapshot.data() } as any;
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
               console.log("DEBUG: Perfil atualizado em tempo real:", profileData.name);
               setProfile(profileData);
-              
+
               // Invalidate cache for members whenever the current profile changes
               // to ensure consistency across the app
               firestoreService.clearCache("members");
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   createdAt: new Date().toISOString()
                 };
                 await setDoc(userRef, newProfile);
-                
+
                 // Add a notification about the new Google signup
                 try {
                   const notifRef = doc(collection(db, "notifications"));
@@ -146,7 +146,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 } catch (e) {
                   console.warn("Could not write notification for Google signup:", e);
                 }
-                
+
                 firestoreService.clearCache("members");
               }
             }
@@ -179,11 +179,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       provider.setCustomParameters({
         prompt: 'select_account'
       });
-      
+
       // Determine if it's mobile to prefer redirect
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const isWebview = navigator.userAgent.includes('wv') || (navigator.userAgent.includes('iPhone') && !navigator.userAgent.includes('Safari'));
-      
+
       if (isMobile || isWebview) {
         console.log("DEBUG: Dispositivo móvel/webview detectado. Usando redirecionamento para evitar tela branca.");
         await signInWithRedirect(auth, provider);
@@ -196,12 +196,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("DEBUG: signInWithPopup concluído com sucesso para:", result.user.email);
       } catch (popupError: any) {
         console.warn("DEBUG: Erro no popup (code):", popupError.code);
-        
+
         // If popup is blocked, cancelled by system, or other issues, try redirect
         const shouldRedirect = [
           'auth/popup-blocked',
           'auth/cancelled-popup-request',
-          'auth/popup-closed-by-user', 
+          'auth/popup-closed-by-user',
           'auth/internal-error',
           'auth/network-request-failed'
         ].includes(popupError.code);
@@ -231,9 +231,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error("DEBUG: Erro fatal no login por email:", error);
       let msg = error.message || "Erro desconhecido no login";
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-         msg = "E-mail ou senha incorretos. Se você usava a versão antiga, pode ser necessário solicitar acesso novamente.";
+        msg = "E-mail ou senha incorretos!";
       } else if (error.code === 'auth/invalid-email') {
-         msg = "E-mail inválido.";
+        msg = "E-mail inválido.";
       }
       setError(msg);
       throw error;
@@ -263,7 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const uid = userCred.user.uid;
       const userRef = doc(db, "members", uid);
       await setDoc(userRef, newProfile);
-      
+
       const notifRef = doc(collection(db, "notifications"));
       await setDoc(notifRef, {
         title: "Novo Cadastro (Email)",
@@ -274,7 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         userId: "admin",
         createdAt: new Date().toISOString()
       });
-      
+
       return userCred.user;
     } catch (error: any) {
       console.error("Erro no cadastro Auth:", error);
@@ -300,17 +300,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // 0. Sign in anonymously FIRST to have a valid session
       const userCred = await signInAnonymously(auth);
       const uid = userCred.user.uid;
-      
+
       // 1. Check if a member with this phone already exists
       const visitorRef = doc(db, "members", visitorId);
       const visitorSnap = await getDoc(visitorRef);
-      
+
       let existingProfile = null;
       if (visitorSnap.exists()) {
         existingProfile = { id: visitorSnap.id, ...visitorSnap.data() };
         console.log("Visitor identified by phone ID:", visitorId, existingProfile);
       }
-      
+
       const lastVisit = new Date().toISOString();
       const canonicalProfile = {
         name: name || (existingProfile as any)?.name || "Visitante",
@@ -326,7 +326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         // Save the canonical visitor document (unique by phone)
         await setDoc(visitorRef, canonicalProfile, { merge: true });
-        
+
         // Save the session link (unique by anonymous UID)
         const sessionRef = doc(db, "members", uid);
         await setDoc(sessionRef, {
@@ -335,7 +335,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           status: "visitor_session", // This keeps it out of the main dashboard list
           lastVisit: lastVisit
         }, { merge: true });
-        
+
         // Only send notification if it's truly a new visitor (first time with this phone)
         if (!existingProfile) {
           const notifRef = doc(collection(db, "notifications"));
@@ -352,7 +352,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {
         console.warn("Could not write to members or notifications:", e);
       }
-      
+
       setProfile({ id: visitorId, ...canonicalProfile, uid: uid });
       return userCred.user;
     } catch (error: any) {
@@ -394,15 +394,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const isAdmin = (firebaseUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") || 
-                  (auth.currentUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") ||
-                  profile?.role === "Administradores" || 
-                  profile?.role === "admin" || 
-                  profile?.role === "Direção" ||
-                  profile?.role === "Desenvolvedor" ||
-                  customUserData?.role === "admin" || 
-                  customUserData?.role === "Administradores" ||
-                  (isCustomLoggedIn && !customUserData);
+  const isAdmin = (firebaseUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") ||
+    (auth.currentUser?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") ||
+    profile?.role === "Administradores" ||
+    profile?.role === "admin" ||
+    profile?.role === "Direção" ||
+    profile?.role === "Desenvolvedor" ||
+    customUserData?.role === "admin" ||
+    customUserData?.role === "Administradores" ||
+    (isCustomLoggedIn && !customUserData);
 
   const isGuest = profile?.role === "Visitante" || profile?.status === "visitor" || firebaseUser?.isAnonymous === true;
 
