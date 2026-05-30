@@ -9236,7 +9236,11 @@ const Admin = () => {
                     }}
                     onNewEvent={(date) => {
                       setSelectedItem(null);
-                      setFormData({ date: format(date, "yyyy-MM-dd'T'19:00") });
+                      setFormData({ 
+                        date: format(date, "yyyy-MM-dd'T'19:00"),
+                        organization: profile?.name || user?.displayName || "",
+                        organizerId: profile?.id || user?.uid || null
+                      });
                       setIsReadOnly(false);
                       setIsEditing(true);
                     }}
@@ -10098,7 +10102,13 @@ const Admin = () => {
                     deleteButtonLabel="Remover da Agenda"
                     onNewEvent={(date) => {
                       setSelectedItem(null);
-                      setFormData({ date: format(date, "yyyy-MM-dd"), inviteChurch: false, invitedMembers: [] });
+                      setFormData({ 
+                        date: format(date, "yyyy-MM-dd"), 
+                        inviteChurch: false, 
+                        invitedMembers: [],
+                        organization: profile?.name || user?.displayName || "",
+                        organizerId: profile?.id || user?.uid || null
+                      });
                       setIsReadOnly(false);
                       setIsEditing(true);
                     }}
