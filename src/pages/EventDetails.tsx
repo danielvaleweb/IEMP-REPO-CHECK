@@ -64,7 +64,7 @@ export default function EventDetails() {
       event.driveFolders.forEach((folder: any) => {
         if (folder.images && Array.isArray(folder.images)) {
           folder.images.forEach((imgId: string) => {
-            photos.push(`/api/drive-image?id=${imgId}`);
+            photos.push(`https://drive.google.com/thumbnail?id=${imgId}&sz=w1000`);
           });
         }
       });
@@ -1031,8 +1031,8 @@ export default function EventDetails() {
                         className="[column-count:2] md:[column-count:3] lg:[column-count:4] [column-gap:12px]"
                       >
                         {visibleImages.map((imgId: string, index: number) => {
-                          const thumbUrl = `/api/drive-image?id=${imgId}&thumb=1`;
-                          const fullUrl  = `/api/drive-image?id=${imgId}`;
+                          const thumbUrl = `https://drive.google.com/thumbnail?id=${imgId}&sz=w500`;
+                          const fullUrl  = `https://drive.google.com/thumbnail?id=${imgId}&sz=w2000`;
 
                           return (
                             <div

@@ -10,6 +10,9 @@ export function getImageUrl(idOrUrl: string | undefined | null) {
   
   // Handle direct Google Drive URLs
   if (idOrUrl.includes("drive.google.com")) {
+    if (idOrUrl.includes("thumbnail")) {
+      return idOrUrl; // Keep thumbnail URLs as they are to bypass Vercel bandwidth limits
+    }
     // Try to match the /d/ID pattern
     const matchD = idOrUrl.match(/d\/([^/]+)/);
     if (matchD && matchD[1]) {

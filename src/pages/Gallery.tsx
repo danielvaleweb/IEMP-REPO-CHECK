@@ -189,7 +189,7 @@ export default function Gallery() {
             data.driveFolders.forEach((folder: any) => {
               if (folder.images && Array.isArray(folder.images)) {
                 folder.images.forEach((imgId: string) => {
-                  drivePhotos.push(`/api/drive-image?id=${imgId}`);
+                  drivePhotos.push(`https://drive.google.com/thumbnail?id=${imgId}&sz=w1000`);
                 });
               }
             });
