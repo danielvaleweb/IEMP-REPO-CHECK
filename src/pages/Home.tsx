@@ -313,6 +313,7 @@ export default function Home() {
             neighborhood: data.neighborhood || "",
             rating: "5.0",
             gallery: data.gallery || [],
+            driveFolders: data.driveFolders || [],
             typeEvent: data.typeEvent || "evento",
             hideFromClicks: data.hideFromClicks || false,
             menuSource: data.menuSource,
@@ -821,9 +822,7 @@ export default function Home() {
                       item={event}
                       type="event"
                       idx={idx}
-                      onClick={() => {
-                        navigate('/galeria', { state: { selectedAlbumId: event.id } });
-                      }}
+                      onClick={() => navigate(`/evento/${event.id}`)}
                       onAddToList={handleToggleMyList}
                       onFavorite={handleToggleFavorite}
                       onShowSimilar={handleShowSimilar}
