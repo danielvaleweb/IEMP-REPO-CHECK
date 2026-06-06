@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset, Star, User, Info, AlertCircle, Share2, Copy } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset, Star, User, Info, AlertCircle, Share2, Copy, Trash2, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getImageUrl } from "@/lib/utils";
 import { handleFirestoreError, OperationType } from "@/lib/firebase";
@@ -137,8 +137,41 @@ export default function EventDetails() {
   const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(5);
-  const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+
+  // Removal request states
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showRemovedFeedback, setShowRemovedFeedback] = useState(false);
+
+  const handleRequestRemoval = async (photoUrl: string) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, "photo_removals"), {
+        photoUrl,
+        albumId: id,
+        requestedBy: user.uid,
+        requestedByName: profile?.name || "Visitante",
+        status: 'pending',
+        createdAt: serverTimestamp()
+      });
+
+      await addDoc(collection(db, "notifications"), {
+        userId: "admin",
+        title: "Solicitação de Remoção de Foto",
+        message: `${profile?.name || "Um usuário"} solicitou a remoção de uma foto no evento "${event?.title}".`,
+        type: "gallery_removal",
+        photoUrl,
+        albumId: id,
+        read: false,
+        createdAt: serverTimestamp()
+      });
+
+      setShowInfoModal(false);
+      setShowRemovedFeedback(true);
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   // Fetch member photos from Firestore (dashboard photos)
   useEffect(() => {
@@ -909,35 +942,11 @@ export default function EventDetails() {
                     onClick={() => user && setSelectedPhotoIndex(index)}
                   >
                     <WatermarkOverlay title={event.title} />
-                    <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
                     <img 
                       src={getImageUrl(url)} 
                       alt={`Galeria ${index + 1}`} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                      className="w-full h-full object-cover transition-transform duration-700 ease-out"
                     />
-                    
-                    {user && !isMobile && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
-                        <Button 
-                          className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedPhotoIndex(index);
-                          }}
-                        >
-                          <Eye className="w-5 h-5" />
-                        </Button>
-                        <Button 
-                          className="pointer-events-auto bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            sharePhoto(url);
-                          }}
-                        >
-                          <Share className="w-5 h-5" />
-                        </Button>
-                      </div>
-                    )}
                   </div>
                 );
               })}
@@ -1053,13 +1062,12 @@ export default function EventDetails() {
                               {/* Skeleton shimmer */}
                               <div className="absolute inset-0 bg-gradient-to-r from-white/[0.03] via-white/[0.07] to-white/[0.03] animate-pulse" />
                               <WatermarkOverlay title={event.title} />
-                              <div className="absolute inset-0 bg-[#BF76FF]/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 mix-blend-overlay pointer-events-none" />
                               <img
                                 src={thumbUrl}
                                 alt={`Foto ${index + 1}`}
                                 loading="lazy"
                                 decoding="async"
-                                className="w-full h-auto block group-hover:scale-105 transition-transform duration-700 ease-out relative z-[1]"
+                                className="w-full h-auto block transition-transform duration-700 ease-out relative z-[1]"
                                 onLoad={(e) => {
                                   const shimmer = (e.target as HTMLElement).previousElementSibling?.previousElementSibling as HTMLElement;
                                   if (shimmer) shimmer.style.display = 'none';
@@ -1069,26 +1077,6 @@ export default function EventDetails() {
                                   if (parent) parent.style.display = 'none';
                                 }}
                               />
-                              {user && !isMobile && (
-                                <div className="absolute inset-0 z-20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none gap-3">
-                                  <Button
-                                    className="pointer-events-auto bg-white backdrop-blur-md hover:bg-gray-200 text-black border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-75 cursor-pointer"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      const absIdx = lightboxPhotos.indexOf(fullUrl);
-                                      if (absIdx !== -1) setSelectedPhotoIndex(absIdx);
-                                    }}
-                                  >
-                                    <Eye className="w-5 h-5" />
-                                  </Button>
-                                  <Button
-                                    className="pointer-events-auto bg-gradient-to-r from-[#BF76FF] to-pink-500 hover:opacity-90 text-white border-none rounded-full w-12 h-12 p-0 shadow-2xl flex items-center justify-center transform translate-y-4 group-hover:translate-y-0 transition-all duration-500 delay-100 cursor-pointer"
-                                    onClick={(e) => { e.stopPropagation(); sharePhoto(fullUrl); }}
-                                  >
-                                    <Share className="w-5 h-5" />
-                                  </Button>
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -1156,6 +1144,7 @@ export default function EventDetails() {
                   variant="ghost" 
                   onClick={() => downloadPhoto(lightboxPhotos[selectedPhotoIndex], event.title)}
                   className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
+                  title="Download"
                 >
                   <Download className="w-5 h-5" />
                 </Button>
@@ -1163,20 +1152,32 @@ export default function EventDetails() {
                   variant="ghost" 
                   onClick={() => sharePhoto(lightboxPhotos[selectedPhotoIndex])}
                   className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
+                  title="Compartilhar"
                 >
-                  <Share className="w-5 h-5" />
+                  <Share2 className="w-5 h-5" />
                 </Button>
                 <Button 
                   variant="ghost" 
-                  onClick={() => appAlert("Favoritado! (funcionalidade em desenvolvimento)", "info")}
-                  className="bg-white/10 hover:bg-pink-500/20 text-white hover:text-pink-500 rounded-full w-12 h-12 p-0 cursor-pointer"
+                  onClick={() => handleToggleFavorite(lightboxPhotos[selectedPhotoIndex])}
+                  className="bg-white/10 hover:bg-pink-500/20 text-white hover:text-pink-500 rounded-full w-12 h-12 p-0 cursor-pointer transition-colors"
+                  title="Favoritar"
                 >
-                  <Heart className="w-5 h-5" />
+                  <Heart className={cn("w-5 h-5", favoriteIds.includes(lightboxPhotos[selectedPhotoIndex]) && "fill-current text-pink-500")} />
                 </Button>
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowInfoModal(true)}
+                  className="bg-white/10 hover:bg-red-500/20 text-white hover:text-red-500 rounded-full w-12 h-12 p-0 cursor-pointer transition-colors"
+                  title="Pedir para remover"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </Button>
+                <div className="w-[1px] h-8 bg-white/10 mx-1" />
                 <Button 
                   variant="ghost" 
                   onClick={() => setSelectedPhotoIndex(null)}
-                  className="bg-white/10 hover:bg-red-500/80 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
+                  className="bg-white/10 hover:bg-red-500/80 text-white rounded-full w-12 h-12 p-0 cursor-pointer shadow-xl"
+                  title="Fechar"
                 >
                   <X className="w-5 h-5" />
                 </Button>
@@ -1365,7 +1366,16 @@ export default function EventDetails() {
                   <Heart className={cn("w-5 h-5", favoriteIds.includes(lightboxPhotos[selectedPhotoIndex]) && "fill-current")} />
                 </button>
 
-                {/* 4. Close */}
+                {/* 4. Request Removal */}
+                <button
+                  onClick={() => setShowInfoModal(true)}
+                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-red-500/20 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300 hover:text-red-500"
+                  title="Pedir para remover"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+
+                {/* 5. Close */}
                 <button
                   onClick={() => setSelectedPhotoIndex(null)}
                   className="w-14 h-14 rounded-full bg-[#161616] hover:bg-red-500/20 active:bg-[#161616] text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300 hover:text-red-500"
@@ -1437,6 +1447,114 @@ export default function EventDetails() {
                   {submittingFeedback ? "Enviando..." : "Enviar Avaliação"}
                 </Button>
              </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {showInfoModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[10000] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6"
+            onClick={() => setShowInfoModal(false)}
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              className="bg-[#121212] border border-white/10 rounded-[3rem] p-10 max-w-2xl w-full shadow-2xl relative overflow-hidden"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] -z-10" />
+              
+              <div className="flex items-center gap-4 mb-8">
+                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+                  <ShieldCheck className="w-7 h-7 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Termos do Site</h3>
+                  <p className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Direitos de Imagem e Autorização</p>
+                </div>
+              </div>
+
+              <div className="space-y-6 text-gray-300">
+                <div className="p-6 rounded-3xl bg-white/5 border border-white/5 shadow-inner max-h-[40vh] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10">
+                  <div className="space-y-4">
+                    <p className="text-sm leading-relaxed">
+                      Todas as fotografias exibidas nesta galeria são de propriedade exclusiva do <span className="text-white font-bold">Ministério Profecia</span>. O download é permitido apenas para uso pessoal em redes sociais pelo proprietário, devendo ser mantida a marca d'água oficial.
+                    </p>
+                    <p className="text-sm leading-relaxed text-red-400 font-medium">
+                      O uso de imagem de terceiros sem a devida permissão pode configurar violação de direitos de personalidade, conforme o Artigo 20 do Código Civil Brasileiro, sujeitando o infrator às sanções legais.
+                    </p>
+                    <p className="text-sm leading-relaxed">
+                      Ao utilizar este serviço, você reconhece que a igreja possui autorização implícita para o registro fotográfico dos cultos e eventos públicos.
+                    </p>
+                    
+                    <div className="h-[1px] bg-white/10 my-4" />
+                    
+                    <h4 className="font-bold text-white uppercase text-xs tracking-widest flex items-center gap-2">
+                       Termo de autorização da igreja
+                    </h4>
+                    
+                    <p className="text-[13px] leading-relaxed opacity-70">
+                      Informamos que, ao participar das programações e eventos, poderão ser realizadas captação de imagens e vídeos para divulgação institucional e evangelística em nossos meios de comunicação. Ao permanecer no local, o participante autoriza o uso de sua imagem e voz nos termos descritos, conforme a <span className="text-white font-bold">LGPD (Lei nº 13.709/2018)</span>.
+                    </p>
+                    <p className="text-[13px] leading-relaxed font-black text-white">
+                      Mesmo assim você pode pedir para que retiraremos sua foto!
+                    </p>
+                    <p className="text-[11px] leading-relaxed font-light italic opacity-50">
+                      A solicitação de remoção de fotos ou vídeos poderá ser realizada exclusivamente pela própria pessoa que aparece na imagem. Pedidos feitos por terceiros não serão atendidos.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-4">
+                  {selectedPhotoIndex !== null && (
+                    <Button 
+                      className="w-full bg-red-500 hover:bg-red-600 text-white h-14 rounded-2xl font-black uppercase tracking-wider text-[10px] md:text-xs flex items-center justify-center gap-2 md:gap-3 px-4 group"
+                      onClick={() => handleRequestRemoval(lightboxPhotos[selectedPhotoIndex])}
+                    >
+                      <Trash2 className="w-4 h-4 md:w-5 md:h-5 shrink-0 group-hover:animate-pulse" /> Pedir para remover minha imagem
+                    </Button>
+                  )}
+                  <Button 
+                    variant="ghost"
+                    onClick={() => setShowInfoModal(false)}
+                    className="w-full h-14 rounded-2xl font-black uppercase tracking-widest text-[10px] text-gray-500 hover:text-white"
+                  >
+                    Entendi e concordo
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showRemovedFeedback && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[11000] bg-black/90 backdrop-blur-2xl flex items-center justify-center p-6 text-center"
+            onClick={() => setShowRemovedFeedback(false)}
+          >
+            <div className="space-y-6">
+              <div className="w-24 h-24 rounded-full bg-red-500/20 border border-red-500/40 flex items-center justify-center mx-auto animate-bounce">
+                <Trash2 className="w-10 h-10 text-red-500" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-3xl font-black uppercase tracking-tighter text-white">Sua solicitação foi enviada!</h3>
+                <p className="text-gray-400 font-medium max-w-md">Sua solicitação de remoção foi enviada para os administradores. Ela será avaliada o mais rápido possível.</p>
+              </div>
+              <Button 
+                onClick={() => setShowRemovedFeedback(false)}
+                className="bg-red-500 hover:bg-red-600 text-white h-14 w-full rounded-2xl font-black uppercase tracking-widest text-xs"
+              >
+                Entendi
+              </Button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
