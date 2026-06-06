@@ -465,12 +465,18 @@ export default function Gallery() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Delay revoke to ensure iOS Safari has time to process the download
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
       // Fallback simple download
-      window.open(getImageUrl(photoUrl), "_blank");
+      const targetUrl = getImageUrl(photoUrl);
+      const newWindow = window.open(targetUrl, "_blank");
+      // If Safari/iOS blocked the popup due to async context, fallback to navigating current tab
+      if (!newWindow || newWindow.closed || typeof newWindow.closed === "undefined") {
+        window.location.href = targetUrl;
+      }
     }
   };
 
