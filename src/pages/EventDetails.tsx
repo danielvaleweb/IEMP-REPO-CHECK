@@ -44,7 +44,7 @@ const playSuccessSound = () => {
 export default function EventDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, isAdmin } = useAuth();
   const { favoriteIds, toggleFavorite: toggleFavoriteCtx } = useFavorites();
   
   // Use Cached Hooks
@@ -55,6 +55,8 @@ export default function EventDetails() {
   const loadingEvent = (loadingPost || loadingAgenda || loadingAgendaDirecao) && !event;
   const { data: allFeedbacks } = useCachedCollection<any>("event_feedbacks", [orderBy("createdAt", "desc")], 1000 * 60 * 15);
   
+  const [removedPhotoUrls, setRemovedPhotoUrls] = useState<string[]>([]);
+
   const getLightboxPhotos = () => {
     const photos: string[] = [];
     if (event?.gallery && Array.isArray(event.gallery)) {
@@ -69,7 +71,7 @@ export default function EventDetails() {
         }
       });
     }
-    return photos;
+    return photos.filter(url => !removedPhotoUrls.includes(url));
   };
 
   const lightboxPhotos = getLightboxPhotos();
@@ -145,28 +147,59 @@ export default function EventDetails() {
   const handleRequestRemoval = async (photoUrl: string) => {
     if (!user) return;
     try {
-      await addDoc(collection(db, "photo_removals"), {
-        photoUrl,
-        albumId: id,
-        requestedBy: user.uid,
-        requestedByName: profile?.name || "Visitante",
-        status: 'pending',
-        createdAt: serverTimestamp()
-      });
+      if (isAdmin) {
+        const collectionName = eventPost ? "posts" : (eventAgenda ? "agenda" : "agenda-direcao");
+        const docRef = doc(db, collectionName, id!);
+        
+        let newGallery = event.gallery ? [...event.gallery] : [];
+        let newDriveFolders = event.driveFolders ? JSON.parse(JSON.stringify(event.driveFolders)) : [];
+        
+        if (newGallery.includes(photoUrl)) {
+          newGallery = newGallery.filter((url: string) => url !== photoUrl);
+        } else {
+          try {
+            const urlObj = new URL(photoUrl);
+            const imgId = urlObj.searchParams.get("id");
+            if (imgId) {
+              newDriveFolders = newDriveFolders.map((folder: any) => ({
+                ...folder,
+                images: folder.images ? folder.images.filter((id: string) => id !== imgId) : []
+              }));
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        
+        await setDoc(docRef, { gallery: newGallery, driveFolders: newDriveFolders }, { merge: true });
+        setRemovedPhotoUrls(prev => [...prev, photoUrl]);
+        setShowInfoModal(false);
+        appAlert("Aviso", "A foto foi excluída permanentemente da galeria.");
+      } else {
+        await addDoc(collection(db, "photo_removals"), {
+          photoUrl,
+          albumId: id,
+          requestedBy: user.uid,
+          requestedByName: profile?.name || "Visitante",
+          status: 'pending',
+          createdAt: serverTimestamp()
+        });
 
-      await addDoc(collection(db, "notifications"), {
-        userId: "admin",
-        title: "Solicitação de Remoção de Foto",
-        message: `${profile?.name || "Um usuário"} solicitou a remoção de uma foto no evento "${event?.title}".`,
-        type: "gallery_removal",
-        photoUrl,
-        albumId: id,
-        read: false,
-        createdAt: serverTimestamp()
-      });
+        await addDoc(collection(db, "notifications"), {
+          userId: "admin",
+          title: "Solicitação de Remoção de Foto",
+          message: `${profile?.name || "Um usuário"} solicitou a remoção de uma foto no evento "${event?.title}".`,
+          type: "gallery_removal",
+          photoUrl,
+          albumId: id,
+          read: false,
+          createdAt: serverTimestamp()
+        });
 
-      setShowInfoModal(false);
-      setShowRemovedFeedback(true);
+        setRemovedPhotoUrls(prev => [...prev, photoUrl]);
+        setShowInfoModal(false);
+        setShowRemovedFeedback(true);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -923,7 +956,7 @@ export default function EventDetails() {
                 </motion.div>
               )}
 
-              {event.gallery.slice(0, visiblePhotosCount).map((url: string, index: number) => {
+              {event.gallery.filter((url: string) => !removedPhotoUrls.includes(url)).slice(0, visiblePhotosCount).map((url: string, index: number) => {
                 let spanClasses = "col-span-1 row-span-1";
                 if (index % 7 === 0) spanClasses = "col-span-2 row-span-2"; // Big Focus
                 else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1"; // Wide
@@ -951,7 +984,7 @@ export default function EventDetails() {
               })}
             </div>
 
-            {visiblePhotosCount < event.gallery.length && (
+            {visiblePhotosCount < event.gallery.filter((url: string) => !removedPhotoUrls.includes(url)).length && (
               <div className="w-full flex justify-center mt-8 relative z-20">
                 <Button
                   onClick={() => setVisiblePhotosCount((prev) => prev + 5)}
@@ -982,9 +1015,11 @@ export default function EventDetails() {
               </div>
 
               {foldersWithImages.map((folder: any, fi: number) => {
+                const folderImagesFiltered = folder.images.filter((imgId: string) => !removedPhotoUrls.includes(`https://drive.google.com/thumbnail?id=${imgId}&sz=w2000`));
+                if (folderImagesFiltered.length === 0) return null;
                 const folderVisible = driveVisibleCounts[fi] ?? 4;
-                const visibleImages = folder.images.slice(0, folderVisible);
-                const hasMore = folderVisible < folder.images.length;
+                const visibleImages = folderImagesFiltered.slice(0, folderVisible);
+                const hasMore = folderVisible < folderImagesFiltered.length;
 
                 return (
                   <div key={`drive-folder-${fi}`}>
@@ -997,7 +1032,7 @@ export default function EventDetails() {
                         {folder.title || `Pasta ${fi + 1}`}
                       </h4>
                       <span className="text-xs font-bold text-white/30 uppercase tracking-widest">
-                        {folder.images.length} fotos
+                        {folderImagesFiltered.length} fotos
                       </span>
                     </div>
 
@@ -1094,7 +1129,7 @@ export default function EventDetails() {
                           className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-[#BF76FF]/40 uppercase tracking-widest text-xs font-bold transition-all duration-300 hover:shadow-[0_0_30px_rgba(191,118,255,0.15)] cursor-pointer"
                         >
                           <span>Ver mais</span>
-                          <span className="text-white/40 font-normal">({folder.images.length - folderVisible} restantes)</span>
+                          <span className="text-white/40 font-normal">({folderImagesFiltered.length - folderVisible} restantes)</span>
                         </button>
                       </div>
                     )}
