@@ -1034,20 +1034,24 @@ export default function EventDetails() {
                         </motion.div>
                       )}
 
-                      {/* Masonry via CSS columns — sem furos */}
-                      <div
-                        className="[column-count:2] md:[column-count:3] lg:[column-count:4] [column-gap:12px]"
-                      >
+                      {/* Grid Sequencial idêntico ao da galeria nativa */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 auto-rows-[150px] md:auto-rows-[240px] gap-3 md:gap-4">
                         {visibleImages.map((imgId: string, index: number) => {
                           const thumbUrl = `https://drive.google.com/thumbnail?id=${imgId}&sz=w500`;
                           const fullUrl  = `https://drive.google.com/thumbnail?id=${imgId}&sz=w2000`;
+
+                          let spanClasses = "col-span-1 row-span-1";
+                          if (index % 7 === 0) spanClasses = "col-span-2 row-span-2"; // Big Focus
+                          else if (index % 7 === 3) spanClasses = "col-span-2 row-span-1"; // Wide
+                          else if (index % 7 === 5) spanClasses = "col-span-1 row-span-2"; // Tall
 
                           return (
                             <div
                               key={`drive-img-${fi}-${imgId}-${index}`}
                               data-drive-img="true"
                               className={cn(
-                                "mb-3 break-inside-avoid rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
+                                "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
+                                spanClasses,
                                 !user && "filter blur-xl opacity-50 cursor-not-allowed",
                                 user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 border border-white/10"
                               )}
@@ -1066,7 +1070,7 @@ export default function EventDetails() {
                                 alt={`Foto ${index + 1}`}
                                 loading="lazy"
                                 decoding="async"
-                                className="w-full h-auto block transition-transform duration-700 ease-out relative z-[1]"
+                                className="w-full h-full object-cover block transition-transform duration-700 ease-out relative z-[1]"
                                 onLoad={(e) => {
                                   const shimmer = (e.target as HTMLElement).previousElementSibling?.previousElementSibling as HTMLElement;
                                   if (shimmer) shimmer.style.display = 'none';
