@@ -56,21 +56,20 @@ export default function EventDetails() {
   const { data: allFeedbacks } = useCachedCollection<any>("event_feedbacks", [orderBy("createdAt", "desc")], 1000 * 60 * 15);
   
   const getLightboxPhotos = () => {
-    if (event?.gallery && Array.isArray(event.gallery) && event.gallery.length > 0) {
-      return event.gallery;
+    const photos: string[] = [];
+    if (event?.gallery && Array.isArray(event.gallery)) {
+      photos.push(...event.gallery);
     }
     if (event?.driveFolders && Array.isArray(event.driveFolders)) {
-      const photos: string[] = [];
       event.driveFolders.forEach((folder: any) => {
         if (folder.images && Array.isArray(folder.images)) {
           folder.images.forEach((imgId: string) => {
-            photos.push(`https://drive.google.com/thumbnail?id=${imgId}&sz=w1000`);
+            photos.push(`https://drive.google.com/thumbnail?id=${imgId}&sz=w2000`);
           });
         }
       });
-      return photos;
     }
-    return [];
+    return photos;
   };
 
   const lightboxPhotos = getLightboxPhotos();
