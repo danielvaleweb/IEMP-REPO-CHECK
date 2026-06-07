@@ -411,10 +411,25 @@ export default function Gallery() {
   };
 
   const downloadWithWatermark = async (photoUrl: string, albumTitle: string) => {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const targetUrl = getImageUrl(photoUrl);
+
+    // Se for URL do Google Drive, o CORS falha. Baixamos direto sem marca d'água, de forma síncrona para evitar bloqueio de pop-up no Safari.
+    if (targetUrl.includes('drive.google.com') || targetUrl.includes('googleusercontent.com')) {
+      const a = document.createElement('a');
+      a.href = targetUrl;
+      a.target = '_blank';
+      a.download = `profecia-${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return;
+    }
+
     try {
       const img = new Image();
       img.crossOrigin = "anonymous";
-      img.src = getImageUrl(photoUrl);
+      img.src = targetUrl;
       
       await new Promise((resolve, reject) => {
         img.onload = resolve;
@@ -458,22 +473,40 @@ export default function Gallery() {
 
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/jpeg", 0.9));
       if (blob) {
+        const filename = `profecia-${albumTitle.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+        
+        // iOS nativo - usar o Share Sheet que tem o botão de "Salvar Imagem"
+        if (isIOS && navigator.share && navigator.canShare) {
+          const file = new File([blob], filename, { type: 'image/jpeg' });
+          if (navigator.canShare({ files: [file] })) {
+            try {
+              await navigator.share({
+                files: [file],
+                title: albumTitle,
+              });
+              return; // Sucesso com share nativo
+            } catch (shareError) {
+              if ((shareError as Error).name === 'AbortError') return; // Cancelado pelo usuário
+              console.error("Share nativo falhou, tentando método padrão:", shareError);
+            }
+          }
+        }
+
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `profecia-${albumTitle.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        // Delay revoke to ensure iOS Safari tem tempo de processar o download
-        setTimeout(() => URL.revokeObjectURL(url), 1500);
+        // Delay revoke to ensure iOS Safari has time to process the download
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
-      // Fallback simple download se houver erro (ex: CORS)
-      const targetUrl = getImageUrl(photoUrl);
+      // Fallback simple download
       const fallbackWindow = window.open(targetUrl, "_blank");
-      // Se Safari/iOS bloqueou o popup devido ao contexto assíncrono, navega na mesma aba
+      // If Safari/iOS blocked the popup due to async context, fallback to navigating current tab
       if (!fallbackWindow || fallbackWindow.closed || typeof fallbackWindow.closed === "undefined") {
         window.location.href = targetUrl;
       }
