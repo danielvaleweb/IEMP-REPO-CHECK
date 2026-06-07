@@ -406,9 +406,13 @@ export default function EventDetails() {
 
   const downloadPhoto = async (photoUrl: string, eventTitle: string) => {
     try {
+      const response = await fetch(getImageUrl(photoUrl));
+      if (!response.ok) throw new Error("Failed to fetch image");
+      const imageBlob = await response.blob();
+      const localUrl = URL.createObjectURL(imageBlob);
+
       const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = getImageUrl(photoUrl);
+      img.src = localUrl;
       
       await new Promise((resolve, reject) => {
         img.onload = resolve;
@@ -459,6 +463,7 @@ export default function EventDetails() {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        URL.revokeObjectURL(localUrl);
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);

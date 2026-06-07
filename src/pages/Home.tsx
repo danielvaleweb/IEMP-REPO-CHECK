@@ -8,6 +8,7 @@ import {
   ChevronLeft, 
   ChevronRight, 
   ArrowRight,
+  ArrowLeft,
   Calendar,
   Clock,
   MapPin,
@@ -402,15 +403,7 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [nextVideo, videos.length]);
 
-  // Auto-play event carousel every 10 seconds
-  useEffect(() => {
-    const totalEvents = upcomingEvents.length + pastEvents.length;
-    if (totalEvents <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentEventIndex((prev) => (prev + 1) % totalEvents);
-    }, 10000);
-    return () => clearInterval(timer);
-  }, [upcomingEvents.length, pastEvents.length]);
+  // Auto-play event carousel has been removed as requested
 
   // Show video after 3 seconds of slide change
   useEffect(() => {
@@ -930,107 +923,103 @@ export default function Home() {
               </h2>
             </div>
             
-            <div className="relative h-[450px] md:h-[550px] w-full rounded-[2.5rem] overflow-hidden shadow-2xl bg-gray-100">
-              <AnimatePresence mode="wait">
+            <div className="relative w-full flex flex-col items-center justify-center mt-8">
+              <div 
+                className="relative h-[450px] md:h-[500px] lg:h-[550px] w-full flex items-center justify-center overflow-hidden py-4"
+                style={{ 
+                  maskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)', 
+                  WebkitMaskImage: 'linear-gradient(to right, transparent, black 15%, black 85%, transparent)' 
+                }}
+              >
                 {(() => {
                   const filteredPastEvents = pastEvents.filter(e => e.typeEvent !== 'culto');
                   const filteredUpcomingEvents = upcomingEvents.filter(e => e.typeEvent !== 'culto');
                   const allEventsSorted = [...filteredUpcomingEvents, ...filteredPastEvents];
-                  const currentEvent = allEventsSorted[currentEventIndex % allEventsSorted.length];
-                  if (!currentEvent) return null;
-                  const isPast = currentEvent.fullDate < new Date().setHours(0,0,0,0);
+                  if (allEventsSorted.length === 0) return null;
+                  
+                  // Extend events to ensure a smooth infinite loop without popping
+                  let extendedEvents = [...allEventsSorted];
+                  let copyCount = 1;
+                  while (extendedEvents.length < 7) {
+                    extendedEvents = [...extendedEvents, ...allEventsSorted.map(e => ({...e, _copyId: copyCount}))];
+                    copyCount++;
+                  }
+                  
+                  const len = extendedEvents.length;
+
+                  return extendedEvents.map((event, index) => {
+                    // Calculate absolute index using cycle math to ensure strict sliding
+                    const cycle = Math.round((currentEventIndex - index) / len);
+                    const absoluteIndex = index + cycle * len;
+                    const diff = absoluteIndex - currentEventIndex;
+
+                    // Only render items within a safe visible range to improve performance
+                    if (Math.abs(diff) > 3) return null;
+
+                    const isActive = diff === 0;
+                    const scale = isActive ? 1 : 0.9;
+                    const absDiff = Math.abs(diff);
+                    const sign = Math.sign(diff);
+                    let x = 0;
+                    if (absDiff > 0) {
+                      x = sign * (105 + (absDiff - 1) * 100); // 10% gap between all items precisely
+                    }
+                    
+                    const key = `carousel-${event.id}-${event._copyId || 0}-${cycle}`;
 
                     return (
                       <motion.div
-                        key={`hero-event-${currentEvent.id}`}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 1 }}
-                        className="absolute inset-0 cursor-pointer group"
-                        onClick={() => navigate(`/evento/${currentEvent.id}`)}
+                        key={key}
+                        initial={false}
+                        animate={{
+                          x: `${x}%`,
+                          scale: scale,
+                          zIndex: 10 - Math.abs(diff)
+                        }}
+                        transition={{ duration: 0.6, ease: "easeInOut" }}
+                        drag={isActive ? "x" : false}
+                        dragConstraints={{ left: 0, right: 0 }}
+                        dragElastic={0.1}
+                        onDragEnd={(e, { offset, velocity }) => {
+                          const swipe = Math.abs(offset.x) * velocity.x;
+                          if (swipe < -1000 || offset.x < -50) {
+                            setCurrentEventIndex(prev => prev + 1);
+                          } else if (swipe > 1000 || offset.x > 50) {
+                            setCurrentEventIndex(prev => prev - 1);
+                          }
+                        }}
+                        className={cn(
+                          "absolute aspect-[3/4] h-full rounded-[2rem] overflow-hidden shadow-lg cursor-pointer bg-gray-100 shrink-0",
+                          !isActive && "pointer-events-none"
+                        )}
+                        onClick={() => isActive && Math.abs(x) < 5 && navigate(`/evento/${event.id}`)}
                       >
                         <img 
-                          src={getImageUrl(currentEvent.image)} 
-                          alt={currentEvent.title}
-                          className="w-full h-full object-cover opacity-100 transition-transform duration-[10s] ease-linear group-hover:scale-110"
+                          src={getImageUrl(event.image)} 
+                          alt={event.title}
+                          className="w-full h-full object-cover transition-transform duration-[10s] ease-linear hover:scale-105 pointer-events-none"
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent" />
-                        
-                        <div className="absolute top-8 left-8 flex flex-wrap gap-3">
-                          <span className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest border border-white/20">
-                            {currentEvent.category}
-                          </span>
-                        </div>
-                        
-                        {currentEvent.neighborhood && (
-                          <div className="absolute top-8 right-8 bg-black/20 backdrop-blur-md px-4 py-2 rounded-full flex items-center gap-2 border border-white/10 transition-all hover:bg-black/30 group/pin">
-                            <MapPin className="w-3 h-3 text-white/60 group-hover/pin:text-primary transition-colors" />
-                            <span className="text-[9px] font-black text-white/70 uppercase tracking-[0.2em]">{currentEvent.neighborhood}</span>
-                          </div>
-                        )}
-
-                        <div className="absolute bottom-12 left-12 right-12 max-w-2xl">
-                          <motion.div
-                            initial={{ y: 20, opacity: 0 }}
-                            animate={{ y: 0, opacity: 1 }}
-                            transition={{ delay: 0.3 }}
-                          >
-                            <h3 className="text-4xl md:text-6xl font-black text-white mb-4 tracking-tighter uppercase leading-tight drop-shadow-lg">
-                              {currentEvent.title}
-                            </h3>
-                            
-                            <div className="flex items-center gap-4 flex-wrap">
-                              <Button 
-                                className="bg-white text-black hover:bg-gray-100 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 group shadow-xl"
-                              >
-                                <Play className="w-4 h-4 fill-current" /> Ver Detalhes
-                              </Button>
-
-                              {isPast && (
-                                <Button 
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    setIsFlashing(true);
-                                    // Flash effect before navigating
-                                    setTimeout(() => {
-                                      setIsFlashing(false);
-                                      navigate('/galeria', { state: { selectedAlbumId: currentEvent.id } });
-                                    }, 300);
-                                  }}
-                                  className="bg-black text-white hover:bg-neutral-900 rounded-2xl h-14 px-8 font-black uppercase tracking-widest text-xs flex items-center gap-2 shadow-xl border border-white/10"
-                                >
-                                  <Camera className="w-4 h-4 animate-bounce" /> Ver galeria de fotos
-                                </Button>
-                              )}
-
-                              <button 
-                                className={cn(
-                                  "w-14 h-14 rounded-2xl backdrop-blur-md border border-white/20 flex items-center justify-center transition-all",
-                                  isFavorite(currentEvent.id) ? "bg-red-500 text-white border-red-500" : "bg-white/10 text-white hover:bg-white/20"
-                                )}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleToggleFavorite(e, {
-                                    id: currentEvent.id,
-                                    title: currentEvent.title,
-                                    thumbnail: currentEvent.image,
-                                    published: currentEvent.date,
-                                    link: `/evento/${currentEvent.id}`,
-                                    category: "event"
-                                  });
-                                }}
-                              >
-                                <Heart className={cn("w-5 h-5", isFavorite(currentEvent.id) && "fill-current")} />
-                              </button>
-                            </div>
-                          </motion.div>
-                        </div>
                       </motion.div>
                     );
-                  })()}
-                </AnimatePresence>
+                  });
+                })()}
+              </div>
+
+              {/* Navigation Arrows Below */}
+              <div className="flex items-center gap-6 mt-8">
+                <button 
+                  onClick={() => setCurrentEventIndex(prev => prev - 1)}
+                  className="w-[88px] h-[48px] rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors bg-white shadow-sm"
+                >
+                  <ArrowLeft className="w-5 h-5 text-black" strokeWidth={1.5} />
+                </button>
+                <button 
+                  onClick={() => setCurrentEventIndex(prev => prev + 1)}
+                  className="w-[88px] h-[48px] rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors bg-white shadow-sm"
+                >
+                  <ArrowRight className="w-5 h-5 text-black" strokeWidth={1.5} />
+                </button>
+              </div>
               </div>
             </div>
 
