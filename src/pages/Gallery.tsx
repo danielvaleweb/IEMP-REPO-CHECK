@@ -470,12 +470,35 @@ export default function Gallery() {
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
-      // Fallback simple download se houver erro (ex: CORS)
-      const targetUrl = getImageUrl(photoUrl);
-      const fallbackWindow = window.open(targetUrl, "_blank");
-      // Se Safari/iOS bloqueou o popup devido ao contexto assíncrono, navega na mesma aba
-      if (!fallbackWindow || fallbackWindow.closed || typeof fallbackWindow.closed === "undefined") {
-        window.location.href = targetUrl;
+      
+      const isApple = /Mac|iPod|iPhone|iPad/.test(navigator.platform) || /Mac|iPod|iPhone|iPad/.test(navigator.userAgent);
+      if (isApple) {
+        alert("Aviso: Para usuários Apple, se houver problemas com o download ou a imagem abrir em uma nova guia, recomendamos usar o Google Chrome.");
+      }
+
+      try {
+        const targetUrl = getImageUrl(photoUrl);
+        const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(targetUrl);
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error("Proxy falhou");
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `profecia-${albumTitle.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1500);
+      } catch (fallbackError) {
+        const targetUrl = getImageUrl(photoUrl);
+        const a = document.createElement("a");
+        a.href = targetUrl;
+        a.download = `profecia-${albumTitle.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.jpg`;
+        a.target = "_self";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       }
     }
   };
