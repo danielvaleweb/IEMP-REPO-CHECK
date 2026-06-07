@@ -1016,7 +1016,7 @@ export default function EventDetails() {
               </div>
 
               {foldersWithImages.map((folder: any, fi: number) => {
-                const folderVisible = driveVisibleCounts[fi] ?? 8;
+                const folderVisible = driveVisibleCounts[fi] ?? (isMobile ? 1 : 8);
                 const visibleImages = folder.images.slice(0, folderVisible);
                 const hasMore = folderVisible < folder.images.length;
 
@@ -1079,7 +1079,8 @@ export default function EventDetails() {
                               key={`drive-img-${fi}-${imgId}-${index}`}
                               data-drive-img="true"
                               className={cn(
-                                "aspect-[4/3] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
+                                "rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
+                                index === 0 ? "col-span-2 md:col-span-1 aspect-[4/3]" : "col-span-1 aspect-[4/3]",
                                 !user && "filter blur-xl opacity-50 cursor-not-allowed",
                                 user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 border border-white/10"
                               )}
@@ -1118,7 +1119,7 @@ export default function EventDetails() {
                     {hasMore && (
                       <div className="flex justify-center mt-8">
                         <button
-                          onClick={() => setDriveVisibleCounts(prev => ({ ...prev, [fi]: (prev[fi] ?? 8) + 8 }))}
+                          onClick={() => setDriveVisibleCounts(prev => ({ ...prev, [fi]: (prev[fi] ?? (isMobile ? 1 : 8)) + 8 }))}
                           className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-[#BF76FF]/40 uppercase tracking-widest text-xs font-bold transition-all duration-300 hover:shadow-[0_0_30px_rgba(191,118,255,0.15)] cursor-pointer"
                         >
                           <span>Ver mais</span>
