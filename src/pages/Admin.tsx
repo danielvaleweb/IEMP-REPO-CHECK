@@ -12485,12 +12485,12 @@ const Admin = () => {
             <Heart className="w-3.5 h-3.5 text-red-500 fill-red-500 shrink-0" />
             <span>por</span>
             <a
-              href="https://danielvaleweb.com.br"
+              href="https://anima-system.vercel.app/"
               target="_blank"
               rel="noopener noreferrer"
               className="text-[#BF76FF] hover:underline font-extrabold"
             >
-              Daniel Vale
+              AnimaSystem
             </a>
           </div>
           <div className="h-6 w-[1px] bg-white/5 mx-2" />
