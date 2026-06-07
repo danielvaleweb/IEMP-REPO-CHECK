@@ -1299,17 +1299,17 @@ export default function Gallery() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-between p-6 select-none"
+            className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-between py-6 select-none"
           >
             {/* Top Bar with Album Info */}
-            <div className="flex flex-col items-center text-center pt-4">
+            <div className="flex flex-col items-center text-center pt-4 px-6">
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">{selectedAlbum.date}</span>
               <h4 className="text-lg font-black uppercase tracking-tight mt-1 text-white">{selectedAlbum.title}</h4>
             </div>
 
             {/* Centered Image with Drag to Swipe Left/Right */}
-            <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden">
-              <div className="relative w-full max-h-[60vh] flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden my-4">
+              <div className="relative w-full h-[75vh] flex items-center justify-center px-0">
                 <WatermarkOverlay title={selectedAlbum.title} size="normal" />
                 {(() => {
                   const len = visiblePhotos.length;
@@ -1329,7 +1329,7 @@ export default function Gallery() {
                           animate={{ scale: 0.95, opacity: 0.5 }}
                           exit={{ opacity: 0 }}
                           src={getImageUrl(visiblePhotos[targetIdx])}
-                          className="absolute max-w-full max-h-[60vh] object-contain rounded-3xl border border-white/5 opacity-50 select-none pointer-events-none"
+                          className="absolute w-full h-full object-contain rounded-[2rem] border border-white/5 opacity-50 select-none pointer-events-none"
                         />
                       )}
                     </>
@@ -1347,13 +1347,13 @@ export default function Gallery() {
                   onDrag={handleDrag}
                   onDragEnd={handleDragEnd}
                   src={getImageUrl(visiblePhotos[selectedPhotoIndex])}
-                  className="relative z-10 max-w-full max-h-[60vh] object-contain rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5 touch-none"
+                  className="relative z-10 w-full h-full object-contain rounded-[2rem] shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5 touch-none"
                 />
               </div>
             </div>
 
             {/* Bottom Actions Row exactly matching the print */}
-            <div className="relative flex flex-col items-center pb-8 gap-4">
+            <div className="relative flex flex-col items-center pb-8 gap-4 px-6">
               {/* Tooltip Share Menu */}
               <AnimatePresence>
                 {showMobileShare && (

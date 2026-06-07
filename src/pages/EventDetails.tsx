@@ -238,13 +238,23 @@ export default function EventDetails() {
             }
           }
           if (!isNaN(day) && !isNaN(month)) {
-            eventDate = new Date(year, month, day);
+            let hours = 0;
+            let minutes = 0;
+            if (event.time) {
+              const timeParts = event.time.toString().split(':');
+              if (timeParts.length >= 2) {
+                hours = parseInt(timeParts[0]);
+                minutes = parseInt(timeParts[1]);
+              }
+            }
+            eventDate = new Date(year, month, day, hours, minutes);
           }
         }
       }
       const now = new Date();
-      now.setHours(0,0,0,0);
-      setIsPastEvent(eventDate < now);
+      // Add a 2-hour buffer so it changes to "Eu fui" 2 hours after the event start time
+      const eventEndTime = new Date(eventDate.getTime() + 2 * 60 * 60 * 1000);
+      setIsPastEvent(eventEndTime < now);
     }
   }, [event, navigate]);
 
@@ -841,19 +851,18 @@ export default function EventDetails() {
              </span>
            </Button>
 
-           <Button 
-             onClick={() => setIsPhotoModalOpen(true)}
-             disabled={isPastEvent}
-             className={cn(
-               "w-full md:w-auto h-16 px-10 rounded-2xl font-black text-lg transition-all duration-300 uppercase tracking-tight shadow-[0_10px_40px_rgba(255,255,255,0.2)] cursor-pointer",
-               isPastEvent ? "bg-gray-600/50 text-gray-400 cursor-not-allowed shadow-none border border-white/5" : "bg-white hover:bg-gray-100 text-[#10001D]"
-             )}
-           >
-             <span className="relative z-10 flex items-center gap-3">
-               <Eye className="w-6 h-6" />
-               Criar minha foto
-             </span>
-           </Button>
+           {event?.moldura && (
+             <Button 
+               onClick={() => setIsPhotoModalOpen(true)}
+               disabled={isPastEvent}
+               className={cn(
+                 "w-full md:w-auto h-16 px-10 rounded-2xl font-black text-lg transition-all duration-300 uppercase tracking-tight shadow-[0_10px_40px_rgba(255,255,255,0.2)] cursor-pointer",
+                 isPastEvent ? "bg-gray-600/50 text-gray-400 cursor-not-allowed shadow-none border border-white/5" : "bg-white hover:bg-gray-100 text-[#10001D]"
+               )}
+             >
+               <Eye className="w-5 h-5 mr-3" /> Criar Minha Foto
+             </Button>
+           )}
         </motion.div>
 
         {/* Feedbacks Display Area */}
@@ -1277,17 +1286,17 @@ export default function EventDetails() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-between p-6 select-none"
+            className="fixed inset-0 z-[9999] bg-black/95 flex flex-col justify-between py-6 select-none"
           >
             {/* Top Bar with Album Info */}
-            <div className="flex flex-col items-center text-center pt-4">
+            <div className="flex flex-col items-center text-center pt-4 px-6">
               <span className="text-[9px] font-black uppercase tracking-[0.2em] text-primary">{event.date || "EVENTO"}</span>
               <h4 className="text-lg font-black uppercase tracking-tight mt-1 text-white">{event.title}</h4>
             </div>
 
             {/* Centered Image with Drag to Swipe Left/Right */}
-            <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden">
-              <div className="relative w-full max-h-[60vh] flex items-center justify-center">
+            <div className="flex-1 flex items-center justify-center relative w-full overflow-hidden my-4">
+              <div className="relative w-full h-[75vh] flex items-center justify-center px-0">
                 <WatermarkOverlay title={event.title} size="normal" />
                 {(() => {
                   const len = lightboxPhotos.length;
@@ -1307,7 +1316,7 @@ export default function EventDetails() {
                           animate={{ scale: 0.95, opacity: 0.5 }}
                           exit={{ opacity: 0 }}
                           src={getImageUrl(lightboxPhotos[targetIdx])}
-                          className="absolute max-w-full max-h-[60vh] object-contain rounded-3xl border border-white/5 opacity-50 select-none pointer-events-none"
+                          className="absolute w-full h-full object-contain rounded-[2rem] border border-white/5 opacity-50 select-none pointer-events-none"
                         />
                       )}
                     </>
@@ -1325,13 +1334,13 @@ export default function EventDetails() {
                   onDrag={handleDrag}
                   onDragEnd={handleDragEnd}
                   src={getImageUrl(lightboxPhotos[selectedPhotoIndex])}
-                  className="relative z-10 max-w-full max-h-[60vh] object-contain rounded-3xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5 touch-none"
+                  className="relative z-10 w-full h-full object-contain rounded-[2rem] shadow-[0_30px_60px_rgba(0,0,0,0.8)] border border-white/5 touch-none"
                 />
               </div>
             </div>
 
             {/* Bottom Actions Row exactly matching the print */}
-            <div className="relative flex flex-col items-center pb-8 gap-4">
+            <div className="relative flex flex-col items-center pb-8 gap-4 px-6">
               {/* Tooltip Share Menu */}
               <AnimatePresence>
                 {showMobileShare && (
