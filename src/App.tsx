@@ -59,7 +59,8 @@ function AppContent() {
   const isEventPage = location.pathname.startsWith("/evento/");
   const isResetPage = location.pathname.startsWith("/resetar-senha");
 
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+  const isDeveloper = profile?.role === 'desenvolvedor';
 
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
@@ -89,7 +90,7 @@ function AppContent() {
     checkMaintenance();
   }, []);
 
-  if (maintenanceMode && !isAdminPage && !isAdmin) {
+  if (maintenanceMode && !isAdminPage && !isDeveloper) {
     return <Maintenance message={maintenanceMessage} />;
   }
 

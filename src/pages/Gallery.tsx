@@ -144,6 +144,7 @@ export default function Gallery() {
   }, [stateAlbumId]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [showMobileShare, setShowMobileShare] = useState(false);
+  const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setShowMobileShare(false);
@@ -411,6 +412,7 @@ export default function Gallery() {
   };
 
   const downloadWithWatermark = async (photoUrl: string, albumTitle: string) => {
+    setDownloadingUrl(photoUrl);
     try {
       const realUrl = getImageUrl(photoUrl);
       const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(realUrl)}&output=jpeg&cors=1`;
@@ -490,6 +492,8 @@ export default function Gallery() {
         a.click();
         document.body.removeChild(a);
       }
+    } finally {
+      setDownloadingUrl(null);
     }
   };
 
@@ -642,9 +646,20 @@ export default function Gallery() {
                 e.stopPropagation();
                 downloadWithWatermark(photo, selectedAlbum!.title);
               }}
-              className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl hover:bg-primary hover:text-black transition-all"
+              disabled={downloadingUrl === photo}
+              className="w-10 h-10 rounded-xl bg-black/40 backdrop-blur-md border border-white/20 text-white shadow-xl hover:bg-primary hover:text-black transition-all disabled:opacity-50 relative"
             >
-              <Download className="w-4 h-4" />
+              {downloadingUrl === photo ? (
+                <div className="w-4 h-4 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {downloadingUrl === photo && (
+                <div className="absolute bottom-full mb-3 left-1/2 -translate-x-1/2 bg-black border border-white/20 rounded-xl px-4 py-2 whitespace-nowrap z-50 shadow-2xl animate-in fade-in zoom-in duration-200">
+                  <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 border-l-4 border-r-4 border-t-4 border-transparent border-t-black" />
+                  <span className="text-[10px] font-black text-white uppercase tracking-wider">Baixando imagem, aguarde...</span>
+                </div>
+              )}
             </Button>
           </div>
         </div>
@@ -1375,10 +1390,21 @@ export default function Gallery() {
                 {/* 1. Download */}
                 <button
                   onClick={() => downloadWithWatermark(visiblePhotos[selectedPhotoIndex], selectedAlbum.title)}
-                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300"
+                  disabled={downloadingUrl === visiblePhotos[selectedPhotoIndex]}
+                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300 disabled:opacity-50 relative"
                   title="Baixar Foto"
                 >
-                  <Download className="w-5 h-5" />
+                  {downloadingUrl === visiblePhotos[selectedPhotoIndex] ? (
+                    <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                  {downloadingUrl === visiblePhotos[selectedPhotoIndex] && (
+                    <div className="absolute bottom-full mb-3 left-0 bg-black border border-white/20 rounded-xl px-4 py-2 whitespace-nowrap z-[9999] shadow-2xl animate-in fade-in zoom-in duration-200 cursor-default">
+                      <div className="absolute -bottom-1.5 left-5 border-l-4 border-r-4 border-t-4 border-transparent border-t-black" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Baixando imagem, aguarde...</span>
+                    </div>
+                  )}
                 </button>
 
                 {/* 2. Share */}

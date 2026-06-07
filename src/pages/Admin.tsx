@@ -7766,78 +7766,7 @@ const Admin = () => {
                                     </div>
                                   )}
 
-                                  {/* Galeria de Imagens */}
-                                  <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Galeria de Fotos</label>
-                                      {!isReadOnly && (
-                                        <div className="flex gap-2">
-                                          <UploadImages
-                                            maxFiles={10}
-                                            value={Array.isArray(formData.gallery) ? formData.gallery : []}
-                                            onUploadComplete={(images) => {
-                                              const newUrls = images.map(img => img.secure_url);
-                                              setFormData({
-                                                ...formData,
-                                                gallery: [...(Array.isArray(formData.gallery) ? formData.gallery : []), ...newUrls]
-                                              });
-                                            }}
-                                          />
-                                          <Button
-                                            type="button"
-                                            className="h-8 rounded-xl bg-red-600 text-white hover:bg-[#450a0a] hover:text-red-500 font-bold text-[9px] uppercase tracking-widest transition-colors shadow-lg"
-                                            onClick={() => setShowClearGalleryDialog(true)}
-                                          >
-                                            <Trash2 className="w-3 h-3 mr-1" /> Limpar Galeria
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
 
-                                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                      {(Array.isArray(formData.gallery) ? formData.gallery : []).map((url: string, i: number) => (
-                                        <div key={`gallery-form-shared-${i}`} className="relative group aspect-square rounded-xl overflow-hidden border border-white/5 bg-white/5">
-                                          <img src={url.startsWith('http') ? url : `https://lh3.googleusercontent.com/d/${url}=s300`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                          {!isReadOnly && (
-                                            <>
-                                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                              <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, gallery: formData.gallery.filter((_: any, idx: number) => idx !== i) })}
-                                                className="absolute top-1 right-1 w-6 h-6 rounded-lg bg-red-500 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-xl z-20"
-                                              >
-                                                <X className="w-3 h-3" />
-                                              </button>
-                                              <button
-                                                type="button"
-                                                onClick={() => setFormData({ ...formData, image: url })}
-                                                className={cn(
-                                                  "absolute bottom-1 left-1 right-1 py-1 rounded-lg flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-all z-20 text-[8px] font-black uppercase tracking-widest border border-white/20 backdrop-blur-md",
-                                                  formData.image === url ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.5)]" : "bg-black/60 text-white hover:bg-black/80"
-                                                )}
-                                              >
-                                                {formData.image === url ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
-                                                {formData.image === url ? "Capa Selecionada" : "Definir como Capa"}
-                                              </button>
-                                            </>
-                                          )}
-                                        </div>
-                                      ))}
-                                      {!isReadOnly && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const url = prompt("URL da nova foto:");
-                                            if (url) setFormData({ ...formData, gallery: [...(Array.isArray(formData.gallery) ? formData.gallery : []), url] });
-                                          }}
-                                          className="aspect-square rounded-xl border-2 border-dashed border-white/10 bg-white/5 flex flex-col items-center justify-center gap-2 text-gray-500 hover:border-[#BF76FF]/50 hover:bg-[#BF76FF]/5 transition-all"
-                                        >
-                                          <ImageIcon className="w-6 h-6 opacity-20" />
-                                          <span className="text-[8px] font-black uppercase text-center px-2">Nova Foto</span>
-                                        </button>
-                                      )}
-                                    </div>
-                                  </div>
                                 </div>
                               </>
                             )}

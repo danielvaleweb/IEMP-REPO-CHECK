@@ -137,6 +137,7 @@ export default function EventDetails() {
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
+  const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
 
   // Removal request states
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -405,6 +406,7 @@ export default function EventDetails() {
   };
 
   const downloadPhoto = async (photoUrl: string, eventTitle: string) => {
+    setDownloadingUrl(photoUrl);
     try {
       const realUrl = getImageUrl(photoUrl);
       const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(realUrl)}&output=jpeg&cors=1`;
@@ -484,6 +486,8 @@ export default function EventDetails() {
         a.click();
         document.body.removeChild(a);
       }
+    } finally {
+      setDownloadingUrl(null);
     }
   };
 
@@ -1002,7 +1006,7 @@ export default function EventDetails() {
               </div>
 
               {foldersWithImages.map((folder: any, fi: number) => {
-                const folderVisible = driveVisibleCounts[fi] ?? 4;
+                const folderVisible = driveVisibleCounts[fi] ?? 8;
                 const visibleImages = folder.images.slice(0, folderVisible);
                 const hasMore = folderVisible < folder.images.length;
 
@@ -1054,10 +1058,8 @@ export default function EventDetails() {
                         </motion.div>
                       )}
 
-                      {/* Masonry via CSS columns — sem furos */}
-                      <div
-                        className="[column-count:2] md:[column-count:3] lg:[column-count:4] [column-gap:12px]"
-                      >
+                      {/* Grid layout for sequential loading */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         {visibleImages.map((imgId: string, index: number) => {
                           const thumbUrl = `https://drive.google.com/thumbnail?id=${imgId}&sz=w500`;
                           const fullUrl  = `https://drive.google.com/thumbnail?id=${imgId}&sz=w2000`;
@@ -1067,7 +1069,7 @@ export default function EventDetails() {
                               key={`drive-img-${fi}-${imgId}-${index}`}
                               data-drive-img="true"
                               className={cn(
-                                "mb-3 break-inside-avoid rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
+                                "aspect-[4/3] rounded-[1.5rem] md:rounded-[2rem] overflow-hidden border border-white/5 group relative transition-all duration-500 bg-white/[0.03]",
                                 !user && "filter blur-xl opacity-50 cursor-not-allowed",
                                 user && "hover:shadow-[0_20px_50px_rgba(191,118,255,0.2)] cursor-pointer hover:z-10 border border-white/10"
                               )}
@@ -1086,7 +1088,7 @@ export default function EventDetails() {
                                 alt={`Foto ${index + 1}`}
                                 loading="lazy"
                                 decoding="async"
-                                className="w-full h-auto block transition-transform duration-700 ease-out relative z-[1]"
+                                className="w-full h-full object-cover block transition-transform duration-700 ease-out relative z-[1]"
                                 onLoad={(e) => {
                                   const shimmer = (e.target as HTMLElement).previousElementSibling?.previousElementSibling as HTMLElement;
                                   if (shimmer) shimmer.style.display = 'none';
@@ -1106,7 +1108,7 @@ export default function EventDetails() {
                     {hasMore && (
                       <div className="flex justify-center mt-8">
                         <button
-                          onClick={() => setDriveVisibleCounts(prev => ({ ...prev, [fi]: (prev[fi] ?? 4) + 5 }))}
+                          onClick={() => setDriveVisibleCounts(prev => ({ ...prev, [fi]: (prev[fi] ?? 8) + 8 }))}
                           className="group flex items-center gap-2 px-8 py-3.5 rounded-2xl bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-[#BF76FF]/40 uppercase tracking-widest text-xs font-bold transition-all duration-300 hover:shadow-[0_0_30px_rgba(191,118,255,0.15)] cursor-pointer"
                         >
                           <span>Ver mais</span>
@@ -1162,13 +1164,24 @@ export default function EventDetails() {
                 <Button 
                   variant="ghost" 
                   onClick={() => downloadPhoto(lightboxPhotos[selectedPhotoIndex], event.title)}
-                  className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
+                  disabled={downloadingUrl === lightboxPhotos[selectedPhotoIndex]}
+                  className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer disabled:opacity-50 relative group"
                   title="Download"
                 >
-                  <Download className="w-5 h-5" />
+                  {downloadingUrl === lightboxPhotos[selectedPhotoIndex] ? (
+                    <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                  {downloadingUrl === lightboxPhotos[selectedPhotoIndex] && (
+                    <div className="absolute bottom-full mb-3 right-0 bg-black border border-white/20 rounded-xl px-4 py-2 whitespace-nowrap z-50 shadow-2xl animate-in fade-in zoom-in duration-200">
+                      <div className="absolute -bottom-1.5 right-4 border-l-4 border-r-4 border-t-4 border-transparent border-t-black" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Baixando imagem, aguarde...</span>
+                    </div>
+                  )}
                 </Button>
                 <Button 
-                  variant="ghost" 
+                  variant="ghost"  
                   onClick={() => sharePhoto(lightboxPhotos[selectedPhotoIndex])}
                   className="bg-white/10 hover:bg-white/20 text-white rounded-full w-12 h-12 p-0 cursor-pointer"
                   title="Compartilhar"
@@ -1352,13 +1365,23 @@ export default function EventDetails() {
 
               {/* 4 Circular Buttons exactly like the screenshot */}
               <div className="flex items-center gap-5 justify-center">
-                {/* 1. Download */}
                 <button
                   onClick={() => downloadPhoto(lightboxPhotos[selectedPhotoIndex], event.title)}
-                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300"
+                  disabled={downloadingUrl === lightboxPhotos[selectedPhotoIndex]}
+                  className="w-14 h-14 rounded-full bg-[#161616] hover:bg-white/10 active:bg-white/10 text-white flex items-center justify-center border border-white/5 shadow-xl transition-all duration-300 disabled:opacity-50 relative"
                   title="Baixar Foto"
                 >
-                  <Download className="w-5 h-5" />
+                  {downloadingUrl === lightboxPhotos[selectedPhotoIndex] ? (
+                    <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                  {downloadingUrl === lightboxPhotos[selectedPhotoIndex] && (
+                    <div className="absolute bottom-full mb-3 left-0 bg-black border border-white/20 rounded-xl px-4 py-2 whitespace-nowrap z-[9999] shadow-2xl animate-in fade-in zoom-in duration-200 cursor-default">
+                      <div className="absolute -bottom-1.5 left-5 border-l-4 border-r-4 border-t-4 border-transparent border-t-black" />
+                      <span className="text-[10px] font-black text-white uppercase tracking-wider">Baixando imagem, aguarde...</span>
+                    </div>
+                  )}
                 </button>
 
                 {/* 2. Share */}
