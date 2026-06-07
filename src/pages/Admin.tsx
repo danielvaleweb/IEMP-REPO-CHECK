@@ -7235,8 +7235,52 @@ const Admin = () => {
                                       )}
 
                                       {folder.images && folder.images.length > 0 && (
-                                        <div className="text-[9px] font-medium text-gray-400 mt-2 ml-1">
-                                          ✓ {folder.images.length} fotos importadas nesta pasta.
+                                        <div className="mt-4">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                                              Selecione a foto de destaque (Aparecerá grande no celular)
+                                            </label>
+                                            <span className="text-[9px] font-medium text-gray-400">
+                                              ✓ {folder.images.length} fotos importadas
+                                            </span>
+                                          </div>
+                                          <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+                                            {folder.images.slice(0, 50).map((imgId: string, imgIdx: number) => (
+                                              <div 
+                                                key={`thumb-${imgId}-${imgIdx}`} 
+                                                onClick={() => {
+                                                  if (isReadOnly) return;
+                                                  const current = [...formData.driveFolders];
+                                                  const imgs = [...current[i].images];
+                                                  // Remove from current pos and put at index 0
+                                                  const selected = imgs.splice(imgIdx, 1)[0];
+                                                  imgs.unshift(selected);
+                                                  current[i].images = imgs;
+                                                  setFormData({ ...formData, driveFolders: current });
+                                                }}
+                                                className={cn(
+                                                  "relative w-20 h-20 shrink-0 rounded-xl overflow-hidden cursor-pointer border-2 transition-all",
+                                                  imgIdx === 0 ? "border-[#BF76FF] shadow-[0_0_15px_rgba(191,118,255,0.3)] scale-105 z-10" : "border-transparent opacity-60 hover:opacity-100 bg-black/10"
+                                                )}
+                                              >
+                                                <img 
+                                                  src={`https://drive.google.com/thumbnail?id=${imgId}&sz=w200`} 
+                                                  className="w-full h-full object-cover" 
+                                                  loading="lazy"
+                                                />
+                                                {imgIdx === 0 && (
+                                                  <div className="absolute inset-x-0 bottom-0 bg-[#BF76FF] text-white text-[8px] font-black uppercase tracking-widest text-center py-1">
+                                                    Destaque
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                            {folder.images.length > 50 && (
+                                              <div className="w-20 h-20 shrink-0 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-[9px] font-black text-gray-500 uppercase tracking-widest text-center px-2">
+                                                +{folder.images.length - 50} fotos
+                                              </div>
+                                            )}
+                                          </div>
                                         </div>
                                       )}
                                     </div>
