@@ -59,8 +59,8 @@ function AppContent() {
   const isEventPage = location.pathname.startsWith("/evento/");
   const isResetPage = location.pathname.startsWith("/resetar-senha");
 
-  const { isAdmin, profile } = useAuth();
-  const isDeveloper = profile?.role === 'desenvolvedor';
+  const { isAdmin, profile, user } = useAuth();
+  const isDeveloper = profile?.role?.toLowerCase() === 'desenvolvedor' || user?.email?.toLowerCase().trim() === 'iempministerioprofecia@gmail.com';
 
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
