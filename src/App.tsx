@@ -5,7 +5,7 @@
 
 import { lazy, Suspense, useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
 import { RadioProvider } from "@/contexts/RadioContext";
 import { AppModalProvider } from "@/contexts/AppModalContext";
@@ -59,6 +59,8 @@ function AppContent() {
   const isEventPage = location.pathname.startsWith("/evento/");
   const isResetPage = location.pathname.startsWith("/resetar-senha");
 
+  const { isAdmin } = useAuth();
+
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
 
@@ -87,7 +89,7 @@ function AppContent() {
     checkMaintenance();
   }, []);
 
-  if (maintenanceMode && !isAdminPage) {
+  if (maintenanceMode && !isAdminPage && !isAdmin) {
     return <Maintenance message={maintenanceMessage} />;
   }
 
