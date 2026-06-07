@@ -412,8 +412,11 @@ export default function Gallery() {
 
   const downloadWithWatermark = async (photoUrl: string, albumTitle: string) => {
     try {
-      const response = await fetch(getImageUrl(photoUrl));
-      if (!response.ok) throw new Error("Failed to fetch image");
+      const realUrl = getImageUrl(photoUrl);
+      const cacheBustUrl = realUrl + (realUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+      
+      const response = await fetch(cacheBustUrl, { mode: 'cors' });
+      if (!response.ok) throw new Error("Failed to fetch image with CORS");
       const imageBlob = await response.blob();
       const localUrl = URL.createObjectURL(imageBlob);
 

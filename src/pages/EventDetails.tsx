@@ -406,8 +406,13 @@ export default function EventDetails() {
 
   const downloadPhoto = async (photoUrl: string, eventTitle: string) => {
     try {
-      const response = await fetch(getImageUrl(photoUrl));
-      if (!response.ok) throw new Error("Failed to fetch image");
+      const realUrl = getImageUrl(photoUrl);
+      // Append a timestamp to bypass the browser's disk cache.
+      // Cached images don't have CORS headers, which taints the canvas and causes the download to fail.
+      const cacheBustUrl = realUrl + (realUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+      
+      const response = await fetch(cacheBustUrl, { mode: 'cors' });
+      if (!response.ok) throw new Error("Failed to fetch image with CORS");
       const imageBlob = await response.blob();
       const localUrl = URL.createObjectURL(imageBlob);
 
