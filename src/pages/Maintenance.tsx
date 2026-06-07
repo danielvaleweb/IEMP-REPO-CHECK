@@ -1,7 +1,7 @@
 import React from "react";
 import { MessageCircle, ShieldCheck } from "lucide-react";
 
-export default function Maintenance() {
+export default function Maintenance({ message }: { message?: string }) {
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex flex-col items-center justify-center p-6 text-center">
       <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-xl max-w-lg w-full border border-black/5">
@@ -10,10 +10,8 @@ export default function Maintenance() {
         </div>
 
         <h1 className="text-3xl font-black text-gray-900 mb-4 tracking-tight">Processo de Migração</h1>
-        <p className="text-gray-600 mb-8 text-lg">
-          Estamos aumentando a segurança do nosso site e voltaremos hoje, 13/05/2026, às 20 horas.
-          <br /><br />
-          Agradecemos a compreensão de todos!
+        <p className="text-gray-600 mb-8 text-lg whitespace-pre-wrap">
+          {message || "Estamos aumentando a segurança do nosso site e voltaremos hoje, 13/05/2026, às 20 horas.\n\nAgradecemos a compreensão de todos!"}
         </p>
 
         <div className="bg-green-500/10 rounded-2xl p-6 border border-green-500/20">

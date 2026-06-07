@@ -10183,6 +10183,17 @@ const Admin = () => {
                           <div className="w-16 h-8 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-red-500 shadow-lg shadow-red-500/20"></div>
                         </label>
                       </div>
+                      {(localSettings.maintenanceMode ?? settings.maintenanceMode ?? false) && (
+                        <div className="mt-6 relative z-10 animate-in fade-in duration-300">
+                          <label className={cn("block text-xs font-bold uppercase tracking-widest mb-2", isDarkMode ? "text-red-400" : "text-red-500")}>Mensagem de Manutenção</label>
+                          <Textarea
+                            className={cn("w-full rounded-2xl min-h-[100px] border-red-500/20 focus-visible:ring-red-500", isDarkMode ? "bg-black/20 text-white placeholder:text-gray-600" : "bg-white text-black")}
+                            placeholder="Estamos aumentando a segurança do nosso site e voltaremos em breve..."
+                            value={localSettings.maintenanceMessage ?? settings.maintenanceMessage ?? ""}
+                            onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, maintenanceMessage: e.target.value }))}
+                          />
+                        </div>
+                      )}
                     </div>
 
                     {/* 2. BANNERS ROTATIVOS (Logo abaixo da manutenção) */}

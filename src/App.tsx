@@ -60,6 +60,7 @@ function AppContent() {
   const isResetPage = location.pathname.startsWith("/resetar-senha");
 
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [maintenanceMessage, setMaintenanceMessage] = useState("");
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -71,6 +72,7 @@ function AppContent() {
         const data = await firestoreService.getDoc<any>("settings", "general", 1000 * 60 * 60); // 1 hour TTL
         if (data && data.maintenanceMode) {
           setMaintenanceMode(true);
+          setMaintenanceMessage(data.maintenanceMessage || "");
         } else {
           setMaintenanceMode(false);
         }
@@ -86,7 +88,7 @@ function AppContent() {
   }, []);
 
   if (maintenanceMode && !isAdminPage) {
-    return <Maintenance />;
+    return <Maintenance message={maintenanceMessage} />;
   }
 
   return (
