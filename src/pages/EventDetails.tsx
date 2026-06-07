@@ -407,12 +407,10 @@ export default function EventDetails() {
   const downloadPhoto = async (photoUrl: string, eventTitle: string) => {
     try {
       const realUrl = getImageUrl(photoUrl);
-      // Append a timestamp to bypass the browser's disk cache.
-      // Cached images don't have CORS headers, which taints the canvas and causes the download to fail.
-      const cacheBustUrl = realUrl + (realUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+      const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(realUrl)}&output=jpeg&cors=1`;
       
-      const response = await fetch(cacheBustUrl, { mode: 'cors' });
-      if (!response.ok) throw new Error("Failed to fetch image with CORS");
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error("Proxy failed");
       const imageBlob = await response.blob();
       const localUrl = URL.createObjectURL(imageBlob);
 
@@ -472,8 +470,20 @@ export default function EventDetails() {
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
-      // Fallback simple download
-      window.open(getImageUrl(photoUrl), "_blank");
+      const realUrl = getImageUrl(photoUrl);
+      const match = realUrl.match(/[?&]id=([^&]+)/) || realUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        // Redireciona diretamente para o link de download nativo do Drive, que obriga o celular a baixar o arquivo
+        window.location.href = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      } else {
+        const a = document.createElement("a");
+        a.href = realUrl;
+        a.download = `foto-${Date.now()}.jpg`;
+        a.target = "_top";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     }
   };
 

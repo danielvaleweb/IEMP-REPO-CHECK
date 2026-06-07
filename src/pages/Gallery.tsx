@@ -413,10 +413,10 @@ export default function Gallery() {
   const downloadWithWatermark = async (photoUrl: string, albumTitle: string) => {
     try {
       const realUrl = getImageUrl(photoUrl);
-      const cacheBustUrl = realUrl + (realUrl.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+      const proxyUrl = `https://wsrv.nl/?url=${encodeURIComponent(realUrl)}&output=jpeg&cors=1`;
       
-      const response = await fetch(cacheBustUrl, { mode: 'cors' });
-      if (!response.ok) throw new Error("Failed to fetch image with CORS");
+      const response = await fetch(proxyUrl);
+      if (!response.ok) throw new Error("Proxy failed");
       const imageBlob = await response.blob();
       const localUrl = URL.createObjectURL(imageBlob);
 
@@ -477,8 +477,19 @@ export default function Gallery() {
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
-      // Fallback simple download
-      window.open(getImageUrl(photoUrl), "_blank");
+      const realUrl = getImageUrl(photoUrl);
+      const match = realUrl.match(/[?&]id=([^&]+)/) || realUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        window.location.href = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      } else {
+        const a = document.createElement("a");
+        a.href = realUrl;
+        a.download = `foto-${Date.now()}.jpg`;
+        a.target = "_top";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     }
   };
 
