@@ -8,6 +8,7 @@ export type FavoriteCategory = "music" | "event" | "video" | "photo";
 
 export interface FavoriteItem {
   id: string;
+  originalId?: string;
   title: string;
   thumbnail: string;
   published: string;
@@ -47,8 +48,12 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         );
         
         if (isMounted) {
-          setFavorites(items);
-          setFavoriteIds(items.map(item => item.id));
+          const restoredItems = items.map(item => ({
+            ...item,
+            id: item.originalId || item.id
+          }));
+          setFavorites(restoredItems);
+          setFavoriteIds(restoredItems.map(item => item.id));
         }
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, `users/${user.uid}/favorites`);
@@ -57,12 +62,14 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
 
     fetchFavorites();
     return () => { isMounted = false; };
-  }, [user]);
+  }, [user?.uid]);
 
   const toggleFavorite = async (item: FavoriteItem) => {
     if (!user) return;
 
-    const docRef = doc(db, "users", user.uid, "favorites", item.id);
+    // Create a safe document ID since item.id might be a URL containing slashes
+    const safeDocId = btoa(encodeURIComponent(item.id)).replace(/=/g, '').replace(/\//g, '_').replace(/\+/g, '-');
+    const docRef = doc(db, "users", user.uid, "favorites", safeDocId);
     const exists = favoriteIds.includes(item.id);
 
     // Optimistic UI updates
@@ -79,6 +86,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         await deleteDoc(docRef);
       } else {
         const cleanItem = Object.fromEntries(Object.entries(item).filter(([_, v]) => v !== undefined));
+        cleanItem.originalId = item.id;
         await setDoc(docRef, cleanItem);
       }
       // Clear cache so next fetch is fresh if TTL expired

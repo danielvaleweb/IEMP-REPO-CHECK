@@ -89,7 +89,7 @@ export default function Navbar() {
         console.log("Foreground notification handled in Navbar:", payload);
       }).catch(err => console.error(err));
     }
-  }, [user, isAdmin]);
+  }, [user?.uid, isAdmin]);
 
   const handleMouseEnter = (name: string) => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);

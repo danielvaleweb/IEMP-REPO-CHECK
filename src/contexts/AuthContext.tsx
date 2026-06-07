@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, useMemo } from "react";
 import {
   onAuthStateChanged,
   User,
@@ -417,18 +417,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [firebaseUser, profile, isAdmin]);
 
-  const user = firebaseUser ? {
-    ...firebaseUser,
-    displayName: profile?.name || firebaseUser.displayName,
-    photoURL: profile?.photoURL || firebaseUser.photoURL,
-    uid: firebaseUser.uid,
-    email: firebaseUser.email
-  } : (isCustomLoggedIn ? {
-    displayName: customUserData?.name || "Administrador",
-    email: customUserData?.email || "admin@ministerioprofecia.com.br",
-    photoURL: customUserData?.photoURL || "",
-    uid: customUserData?.id || "admin"
-  } : null);
+  const user = useMemo(() => {
+    return firebaseUser ? {
+      ...firebaseUser,
+      displayName: profile?.name || firebaseUser.displayName,
+      photoURL: profile?.photoURL || firebaseUser.photoURL,
+      uid: firebaseUser.uid,
+      email: firebaseUser.email
+    } : (isCustomLoggedIn ? {
+      displayName: customUserData?.name || "Administrador",
+      email: customUserData?.email || "admin@ministerioprofecia.com.br",
+      photoURL: customUserData?.photoURL || "",
+      uid: customUserData?.id || "admin"
+    } : null);
+  }, [firebaseUser, profile?.name, profile?.photoURL, isCustomLoggedIn, customUserData?.name, customUserData?.email, customUserData?.photoURL, customUserData?.id]);
 
   return (
     <AuthContext.Provider value={{ user, profile: profile || customUserData, setProfile, loading, login, loginAsGuest, loginWithEmail, signupWithEmail, logout, isAdmin, isGuest, setCustomLogin, error, clearError }}>

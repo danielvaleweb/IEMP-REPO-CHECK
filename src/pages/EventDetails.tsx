@@ -136,6 +136,7 @@ export default function EventDetails() {
   const [hasGivenFeedback, setHasGivenFeedback] = useState(false);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
   const [showSafariModal, setShowSafariModal] = useState(false);
