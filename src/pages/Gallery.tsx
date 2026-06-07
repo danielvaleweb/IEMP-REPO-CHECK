@@ -145,6 +145,7 @@ export default function Gallery() {
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState<number | null>(null);
   const [showMobileShare, setShowMobileShare] = useState(false);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
+  const [showSafariModal, setShowSafariModal] = useState(false);
 
   useEffect(() => {
     setShowMobileShare(false);
@@ -479,6 +480,15 @@ export default function Gallery() {
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isSafari = /^((?!chrome|crios|android).)*safari/i.test(navigator.userAgent);
+      
+      if (isIOS && isSafari) {
+        setShowSafariModal(true);
+        setDownloadingUrl(null);
+        return;
+      }
+
       const realUrl = getImageUrl(photoUrl);
       const match = realUrl.match(/[?&]id=([^&]+)/) || realUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {

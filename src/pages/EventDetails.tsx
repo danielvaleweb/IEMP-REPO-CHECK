@@ -138,6 +138,7 @@ export default function EventDetails() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
+  const [showSafariModal, setShowSafariModal] = useState(false);
 
   // Removal request states
   const [showInfoModal, setShowInfoModal] = useState(false);
@@ -472,6 +473,15 @@ export default function EventDetails() {
       }
     } catch (error) {
       console.error("Erro ao baixar imagem:", error);
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isSafari = /^((?!chrome|crios|android).)*safari/i.test(navigator.userAgent);
+      
+      if (isIOS && isSafari) {
+        setShowSafariModal(true);
+        setDownloadingUrl(null);
+        return;
+      }
+
       const realUrl = getImageUrl(photoUrl);
       const match = realUrl.match(/[?&]id=([^&]+)/) || realUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
       if (match && match[1]) {
@@ -1597,6 +1607,50 @@ export default function EventDetails() {
                 Entendi
               </Button>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Safari Chrome Fallback Modal */}
+      <AnimatePresence>
+        {showSafariModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="bg-[#10001D] border border-white/10 rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#BF76FF] to-pink-500" />
+              <button 
+                onClick={() => setShowSafariModal(false)}
+                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-white transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              
+              <div className="w-20 h-20 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-6 text-red-400">
+                <Download className="w-8 h-8" />
+              </div>
+              
+              <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-3">Download Bloqueado</h3>
+              <p className="text-gray-400 text-sm mb-8 leading-relaxed">
+                O navegador Safari bloqueou o download da imagem. Para uma experiência perfeita, recomendamos utilizar o Google Chrome.
+              </p>
+              
+              <Button
+                onClick={() => window.open("https://apps.apple.com/br/app/google-chrome/id535886823", "_blank")}
+                className="w-full h-14 bg-white text-black hover:bg-gray-200 rounded-2xl font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-3 shadow-xl"
+              >
+                <img src="https://upload.wikimedia.org/wikipedia/commons/8/87/Google_Chrome_icon_%282011%29.png" alt="Chrome" className="w-6 h-6" />
+                Baixar Chrome
+              </Button>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
