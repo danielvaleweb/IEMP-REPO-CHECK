@@ -123,7 +123,10 @@ export const MovieCard = ({
         <img 
           src={displayImage} 
           alt={item.title} 
-          className="w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110"
+          className={cn(
+            "w-full h-full object-cover transition-transform duration-[1.5s] group-hover:scale-110",
+            type === 'event' && "object-[center_25%]"
+          )}
         />
         {/* Play icon removed on hover as requested */}
       </div>
@@ -154,7 +157,10 @@ export const MovieCard = ({
         <img 
           src={displayImage} 
           alt={item.title} 
-          className="w-full h-full object-cover"
+          className={cn(
+            "w-full h-full object-cover",
+            type === 'event' && "object-[center_25%]"
+          )}
         />
       </div>
 
@@ -182,7 +188,10 @@ export const MovieCard = ({
                 <img 
                   src={displayImage} 
                   alt={item.title} 
-                  className="w-full h-full object-cover"
+                  className={cn(
+                    "w-full h-full object-cover",
+                    type === 'event' && "object-[center_25%]"
+                  )}
                 />
               )}
             </div>
