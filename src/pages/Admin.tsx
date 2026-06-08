@@ -11470,6 +11470,9 @@ const Admin = () => {
                         menuSource: "agenda",
                         authorId: profile?.id || user?.uid || "",
                         authorName: profile?.name || "Membro",
+                        organization: profile?.name || user?.displayName || "Membro",
+                        organizerId: profile?.id || user?.uid || "",
+                        organizerImage: profile?.photoURL || user?.photoURL || "",
                         createdAt: serverTimestamp(),
                       };
 
