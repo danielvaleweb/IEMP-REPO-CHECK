@@ -73,7 +73,7 @@ function AppContent() {
   useEffect(() => {
     const checkMaintenance = async () => {
       try {
-        const data = await firestoreService.getDoc<any>("settings", "general", 1000 * 60 * 60); // 1 hour TTL
+        const data = await firestoreService.getDoc<any>("settings", "general", 0); // 0 TTL para sempre checar ao vivo
         if (data && data.maintenanceMode) {
           setMaintenanceMode(true);
           setMaintenanceMessage(data.maintenanceMessage || "");

@@ -47,7 +47,7 @@ export const firestoreService = {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const item: CacheItem<T[]> = JSON.parse(cached);
-      if (Date.now() - item.timestamp < item.ttl) {
+      if (Date.now() - item.timestamp < ttl) {
         console.log(`[FirestoreService] Serving ${collectionName} from persistent cache`);
         console.log(`FETCH-DB: GET-COLLECTION CACHED: ${collectionName}`);
         return item.data;
@@ -114,7 +114,7 @@ export const firestoreService = {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const item: CacheItem<T> = JSON.parse(cached);
-      if (Date.now() - item.timestamp < item.ttl) {
+      if (Date.now() - item.timestamp < ttl) {
         console.log(`[FirestoreService] Serving ${collectionName}/${docId} from persistent cache`);
         console.log(`FETCH-DB: GET-DOC CACHED ${collectionName}/${docId}`);
         return item.data;
@@ -179,7 +179,7 @@ export const firestoreService = {
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const item: CacheItem<number> = JSON.parse(cached);
-      if (Date.now() - item.timestamp < item.ttl) {
+      if (Date.now() - item.timestamp < ttl) {
         console.log(`FETCH-DB: GET-COUNT CACHED ${constraints}`);
         return item.data;
       }
