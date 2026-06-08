@@ -293,7 +293,7 @@ export default function EventDetails() {
     }
 
     if (!user) {
-      navigate("/admin"); // Redirect to login
+      navigate(`/admin?redirect=/evento/${id}&eventTitle=${encodeURIComponent(event?.title || 'Evento')}`); // Redirect to login
       return;
     }
     

@@ -2705,7 +2705,7 @@ const Admin = () => {
   // Redirecionamento automático para página de solicitação se pendente
   useEffect(() => {
     if (user && profile && (profile.status === "pending" || profile.status === "pending_approval") && !isMasterAdmin) {
-      navigate("/solicitacao");
+      navigate("/solicitacao" + window.location.search);
     }
   }, [user, profile, isMasterAdmin, navigate]);
   const [signUpData, setSignUpData] = useState({

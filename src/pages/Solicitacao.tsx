@@ -1,6 +1,6 @@
 import React from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, Check, Clock, ShieldCheck, LogIn } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { motion } from "motion/react";
@@ -8,6 +8,12 @@ import { motion } from "motion/react";
 export default function Solicitacao() {
   const { profile, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
+  const redirectPath = searchParams.get("redirect");
+  const eventTitle = searchParams.get("eventTitle");
+  
+  const isFromEvent = redirectPath?.startsWith("/evento/");
 
   const status = profile?.status || "pending";
   const isRejected = status === "rejected" || status === "reprovado";
@@ -116,8 +122,28 @@ export default function Solicitacao() {
             <div className="space-y-4">
               <div className="bg-[#BF76FF]/10 border border-[#BF76FF]/20 p-6 rounded-3xl text-center shadow-[0_0_50px_rgba(191,118,255,0.05)]">
                 <p className="text-[#BF76FF] font-bold mb-2 uppercase tracking-tighter text-xl">Em Análise</p>
-                <p className="text-gray-400 text-sm italic">"Você será notificado em breve no seu App ou por Whatsapp"</p>
+                <p className="text-gray-400 text-sm italic mb-6">"Você será notificado em breve no seu App ou por Whatsapp"</p>
+                
+                <div className="bg-[#BF76FF]/20 border border-[#BF76FF]/30 p-5 rounded-2xl animate-pulse shadow-lg">
+                  <p className="text-white font-black text-lg leading-tight uppercase tracking-tight">
+                    Enquanto analisamos seu cadastro, você já tem acesso liberado para visualizar as <span className="text-[#BF76FF]">fotos dos eventos</span> e a <span className="text-[#BF76FF]">galeria da igreja</span>!
+                  </p>
+                </div>
               </div>
+              
+              <Button 
+                onClick={() => {
+                  if (isFromEvent && redirectPath) {
+                    navigate(redirectPath);
+                  } else {
+                    navigate("/");
+                  }
+                }}
+                className="w-full h-14 bg-[#BF76FF] hover:bg-[#a656f0] text-white font-black uppercase tracking-tighter text-lg rounded-2xl shadow-xl shadow-[#BF76FF]/20 transition-all cursor-pointer"
+              >
+                {isFromEvent && eventTitle ? `Voltar para ${eventTitle}` : "Voltar à Tela Inicial"}
+              </Button>
+              
               <Button 
                 onClick={async () => {
                   await logout();
@@ -126,7 +152,7 @@ export default function Solicitacao() {
                 variant="outline"
                 className="w-full h-14 border-white/10 text-gray-400 hover:bg-white/5 rounded-2xl font-bold uppercase tracking-tighter cursor-pointer"
               >
-                Voltar à Página Inicial
+                Sair
               </Button>
             </div>
           )}
