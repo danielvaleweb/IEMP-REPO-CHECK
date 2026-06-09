@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 import { AlertCircle, Info, ChevronLeft, Video, X, MessageCircle, Send, Star, Link as LinkIcon, Key } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { auth, db } from "@/lib/firebase";
-import { collection, addDoc, query, where, onSnapshot, serverTimestamp, orderBy, updateDoc, doc } from "firebase/firestore";
+import { collection, addDoc, query, where, onSnapshot, serverTimestamp, orderBy, updateDoc, doc, setDoc } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
 
 const STATIC_AVATAR_URL = "https://res.cloudinary.com/dslmdkfoh/image/upload/v1779374398/broker_profiles/6ec53d62-d8f3-4a9f-9d63-ffce3fd00e6b_nwzigm.png";
@@ -47,9 +47,18 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
   const [showMessage, setShowMessage] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   
-  // Views: "menu", "chat", "faq", "forgotPassword"
-  const [view, setView] = useState<"menu" | "chat" | "faq" | "forgotPassword">("menu");
+  // Views: "menu", "chat", "faq", "forgotPassword", "ticketForm", "ticketSuccess", "ticketList"
+  const [view, setView] = useState<"menu" | "chat" | "faq" | "forgotPassword" | "ticketForm" | "ticketSuccess" | "ticketList">("menu");
   const [forgotEmail, setForgotEmail] = useState("");
+
+  const [ticketContactName, setTicketContactName] = useState(profile?.name || "");
+  const [ticketCompanyName, setTicketCompanyName] = useState("");
+  const [ticketSubject, setTicketSubject] = useState("");
+  const [ticketDescription, setTicketDescription] = useState("");
+  const [ticketPriority, setTicketPriority] = useState("medium");
+  const [isSubmittingTicket, setIsSubmittingTicket] = useState(false);
+  const [ticketIdSuccess, setTicketIdSuccess] = useState("");
+  const [userTickets, setUserTickets] = useState<any[]>([]);
 
   const [chatInput, setChatInput] = useState("");
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -119,7 +128,44 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
     setIsLeftAligned(isLeft);
   };
 
-  const [botSettings, setBotSettings] = useState<{ botEnabled?: boolean, botPrompt?: string, botName?: string, botImage?: string, botGif?: string, botMessagesLogin?: string, botMessagesDashboard?: string, botMessagesAgenda?: string, botMessagesDefault?: string }>({});
+  const [botSettings, setBotSettings] = useState<{ botEnabled?: boolean, botPrompt?: string, botName?: string, botImage?: string, botGif?: string, botMessagesLogin?: string, botMessagesDashboard?: string, botMessagesAgenda?: string, botMessagesDefault?: string, botTicketRoles?: string[] }>({});
+
+  const handleTicketSubmit = async () => {
+    if (!ticketContactName.trim() || !ticketCompanyName.trim() || !ticketSubject.trim() || !ticketDescription.trim()) return;
+    setIsSubmittingTicket(true);
+    try {
+      const randomId = "TKT-" + Math.floor(1000 + Math.random() * 9000).toString();
+      const ticketData = {
+        id: randomId,
+        title: ticketSubject.trim(),
+        client: ticketCompanyName.trim(),
+        status: "open",
+        priority: ticketPriority,
+        createdAt: new Date().toLocaleString("pt-BR"),
+        updatedAt: new Date().toLocaleString("pt-BR"),
+        description: `Relatado por: ${ticketContactName.trim()}\n\n${ticketDescription.trim()}`,
+        ownerId: "danielvaleweb_master",
+        requesterId: effectiveUserId,
+        assignee: "",
+        replies: [],
+        deviceLogs: { url: window.location.href, userAgent: navigator.userAgent }
+      };
+      
+      await setDoc(doc(db, "tickets", randomId), ticketData);
+      
+      setTicketIdSuccess(randomId);
+      setView("ticketSuccess");
+      
+      // Reset form
+      setTicketSubject("");
+      setTicketDescription("");
+      setTicketPriority("medium");
+    } catch(err) {
+      console.error("Error creating ticket:", err);
+    } finally {
+      setIsSubmittingTicket(false);
+    }
+  };
 
   useEffect(() => {
     const unsub = onSnapshot(doc(db, "settings", "general"), (snap) => {
@@ -129,6 +175,19 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
     });
     return () => unsub();
   }, []);
+
+  // Fetch tickets for the current user
+  useEffect(() => {
+    if (!effectiveUserId) return;
+    const q = query(
+      collection(db, "tickets"),
+      where("requesterId", "==", effectiveUserId)
+    );
+    const unsub = onSnapshot(q, (snap) => {
+      setUserTickets(snap.docs.map(d => ({ docId: d.id, ...d.data() })));
+    });
+    return () => unsub();
+  }, [effectiveUserId]);
 
   // Escutar chat de suporte ativo do usuário
   useEffect(() => {
@@ -520,6 +579,21 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
                       </div>
                     </button>
 
+                    {(botSettings.botTicketRoles || []).includes(profile?.role || "") && (
+                      <button 
+                        onClick={() => setView("ticketList")}
+                        className={cn("w-full border shadow-sm p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all text-left", isDarkMode ? "bg-white/5 border-white/5 hover:bg-indigo-500/10" : "bg-white border-gray-100 hover:bg-indigo-50/50")}
+                      >
+                        <div className="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center shrink-0">
+                          <AlertCircle className="w-5 h-5 text-indigo-500" />
+                        </div>
+                        <div>
+                          <h4 className={cn("font-bold text-sm uppercase tracking-tight", TEXT_PRIMARY)}>Problemas com o site?</h4>
+                          <p className={cn("text-[11px] font-medium mt-0.5 leading-tight", TEXT_SECONDARY)}>Abra um chamado técnico</p>
+                        </div>
+                      </button>
+                    )}
+
                     <button 
                       onClick={() => setView("faq")}
                       className={cn("w-full border shadow-sm p-4 rounded-2xl flex items-center gap-4 hover:shadow-md transition-all text-left", isDarkMode ? "bg-white/5 border-white/5 hover:bg-amber-500/10" : "bg-white border-gray-100 hover:bg-amber-50/50")}
@@ -783,6 +857,153 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
                             Vá em "Agenda da Igreja", clique em "Novo Evento" no canto superior direito e preencha os detalhes como título, horário, local e descrição.
                           </p>
                        </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* === TICKET FORM VIEW === */}
+              {view === "ticketForm" && (
+                <div className={cn("flex flex-col h-full min-h-[500px]", BG_PANEL)}>
+                  <div className={cn("px-4 py-4 flex items-center gap-3 border-b", BORDER_COLOR)}>
+                    <button onClick={() => setView("menu")} className={cn("p-2 rounded-full transition-colors", isDarkMode ? "hover:bg-white/10 text-gray-300" : "hover:bg-gray-100 text-gray-600")}>
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <h3 className={cn("font-black text-sm uppercase tracking-widest", TEXT_PRIMARY)}>
+                      Abertura de Chamado
+                    </h3>
+                  </div>
+                  <div className="p-6 flex-1 overflow-y-auto space-y-4">
+                    <div>
+                      <label className={cn("text-[10px] font-bold uppercase tracking-widest mb-1 block", TEXT_SECONDARY)}>Seu Nome</label>
+                      <Input 
+                        value={ticketContactName}
+                        onChange={(e) => setTicketContactName(e.target.value)}
+                        className={cn("h-11 rounded-xl", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50")} 
+                      />
+                    </div>
+                    <div>
+                      <label className={cn("text-[10px] font-bold uppercase tracking-widest mb-1 block", TEXT_SECONDARY)}>Empresa / Projeto</label>
+                      <Input 
+                        value={ticketCompanyName}
+                        onChange={(e) => setTicketCompanyName(e.target.value)}
+                        placeholder="Ex: TechFlow Solutions"
+                        className={cn("h-11 rounded-xl", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50")} 
+                      />
+                    </div>
+                    <div>
+                      <label className={cn("text-[10px] font-bold uppercase tracking-widest mb-1 block", TEXT_SECONDARY)}>Assunto / Título</label>
+                      <Input 
+                        value={ticketSubject}
+                        onChange={(e) => setTicketSubject(e.target.value)}
+                        placeholder="O que está acontecendo?"
+                        className={cn("h-11 rounded-xl", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50")} 
+                      />
+                    </div>
+                    <div>
+                      <label className={cn("text-[10px] font-bold uppercase tracking-widest mb-1 block", TEXT_SECONDARY)}>Descrição detalhada</label>
+                      <Textarea 
+                        value={ticketDescription}
+                        onChange={(e) => setTicketDescription(e.target.value)}
+                        placeholder="Descreva o problema em detalhes..."
+                        className={cn("h-24 rounded-xl resize-none", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50")} 
+                      />
+                    </div>
+                    <div>
+                      <label className={cn("text-[10px] font-bold uppercase tracking-widest mb-1 block", TEXT_SECONDARY)}>Prioridade</label>
+                      <select
+                        value={ticketPriority}
+                        onChange={(e) => setTicketPriority(e.target.value)}
+                        className={cn("w-full h-11 px-3 rounded-xl border text-sm font-medium focus:outline-none focus:ring-1 focus:ring-[#BF76FF]", isDarkMode ? "bg-white/5 border-white/10 text-white" : "bg-gray-50 border-gray-200 text-gray-900")}
+                      >
+                        <option value="low">Baixa</option>
+                        <option value="medium">Média</option>
+                        <option value="high">Alta</option>
+                        <option value="critical">Crítica</option>
+                      </select>
+                    </div>
+                    
+                    <Button 
+                      onClick={handleTicketSubmit}
+                      disabled={isSubmittingTicket || !ticketContactName.trim() || !ticketCompanyName.trim() || !ticketSubject.trim() || !ticketDescription.trim()}
+                      className="w-full h-12 rounded-xl text-white font-black uppercase tracking-widest mt-4"
+                      style={{ backgroundColor: THEME_COLOR }}
+                    >
+                      {isSubmittingTicket ? "Enviando..." : "Abrir Chamado"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* === TICKET SUCCESS VIEW === */}
+              {view === "ticketSuccess" && (
+                <div className={cn("flex flex-col h-full min-h-[400px] items-center justify-center p-8 text-center", BG_PANEL)}>
+                  <div className="w-16 h-16 rounded-full bg-green-500/10 text-green-500 flex items-center justify-center mb-6">
+                    <Star className="w-8 h-8 fill-current" />
+                  </div>
+                  <h3 className={cn("text-xl font-black uppercase tracking-tighter mb-2", TEXT_PRIMARY)}>Chamado Aberto!</h3>
+                  <p className={cn("text-sm font-medium leading-relaxed", TEXT_SECONDARY)}>
+                    Seu chamado técnico foi aberto com sucesso com o identificador <strong className={TEXT_PRIMARY}>ID {ticketIdSuccess}</strong>! Nossa equipe NOC já foi acionada. Qualquer resposta ou atualização aparecerá logo abaixo.
+                  </p>
+                  <Button 
+                    onClick={() => setView("ticketList")}
+                    className={cn("w-full h-12 rounded-xl mt-8 font-black uppercase tracking-widest", isDarkMode ? "bg-white/10 text-white hover:bg-white/20" : "bg-gray-100 text-gray-900 hover:bg-gray-200")}
+                  >
+                    Ver Meus Chamados
+                  </Button>
+                </div>
+              )}
+
+              {/* === TICKET LIST VIEW === */}
+              {view === "ticketList" && (
+                <div className={cn("flex flex-col h-full min-h-[500px]", BG_PANEL)}>
+                  <div className={cn("px-4 py-4 flex items-center gap-3 border-b", BORDER_COLOR)}>
+                    <button onClick={() => setView("menu")} className={cn("p-2 rounded-full transition-colors", isDarkMode ? "hover:bg-white/10 text-gray-300" : "hover:bg-gray-100 text-gray-600")}>
+                      <ChevronLeft className="w-5 h-5" />
+                    </button>
+                    <h3 className={cn("font-black text-sm uppercase tracking-widest", TEXT_PRIMARY)}>
+                      Seus Chamados
+                    </h3>
+                  </div>
+                  
+                  <div className="p-6 flex-1 overflow-y-auto flex flex-col">
+                    <div className="flex-1 space-y-4">
+                      {userTickets.length === 0 ? (
+                        <div className="text-center py-10 opacity-50">
+                          <AlertCircle className="w-10 h-10 mx-auto mb-3" />
+                          <p className={cn("text-xs font-bold uppercase tracking-widest", TEXT_SECONDARY)}>Nenhum chamado aberto</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {userTickets.map(ticket => (
+                            <div key={ticket.docId} className={cn("p-4 rounded-2xl border transition-all hover:scale-[1.02]", isDarkMode ? "bg-white/5 border-white/10" : "bg-white border-black/5 shadow-sm")}>
+                              <div className="flex justify-between items-start mb-2">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-[#BF76FF]">{ticket.id}</span>
+                                <span className={cn("text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md", 
+                                  ticket.status === "open" ? "bg-yellow-500/10 text-yellow-500" : 
+                                  ticket.status === "closed" ? "bg-green-500/10 text-green-500" : "bg-blue-500/10 text-blue-500"
+                                )}>
+                                  {ticket.status === "open" ? "Aberto" : ticket.status === "closed" ? "Resolvido" : "Em Andamento"}
+                                </span>
+                              </div>
+                              <h4 className={cn("font-bold text-sm tracking-tight mb-1 line-clamp-1", TEXT_PRIMARY)}>{ticket.title}</h4>
+                              <p className={cn("text-[10px] font-medium mt-1 truncate", TEXT_SECONDARY)}>
+                                {ticket.createdAt}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="pt-4 shrink-0">
+                      <Button 
+                        onClick={() => setView("ticketForm")}
+                        className="w-full h-12 rounded-xl text-white font-black uppercase tracking-widest shadow-md"
+                        style={{ backgroundColor: THEME_COLOR }}
+                      >
+                        Abrir Novo Chamado
+                      </Button>
                     </div>
                   </div>
                 </div>

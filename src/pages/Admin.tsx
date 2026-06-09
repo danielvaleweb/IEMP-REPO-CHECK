@@ -10393,6 +10393,38 @@ const Admin = () => {
                             onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botPrompt: e.target.value }))}
                           />
                         </div>
+
+                        <div className="space-y-2 mt-6 pt-6 border-t border-white/5">
+                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Botão "Problemas com o site?"</label>
+                            <p className="text-xs text-gray-400 mb-2">Selecione quais cargos podem ver o botão de abrir chamado técnico no menu do assistente.</p>
+                            <div className="flex flex-wrap gap-2">
+                                {allRoles.map((role: string) => {
+                                    const isSelected = (localSettings.botTicketRoles || settings.botTicketRoles || []).includes(role);
+                                    return (
+                                        <button
+                                            key={`bot-ticket-role-${role}`}
+                                            onClick={() => {
+                                                const current = localSettings.botTicketRoles || settings.botTicketRoles || [];
+                                                if (isSelected) {
+                                                    setLocalSettings((prev: any) => ({ ...prev, botTicketRoles: current.filter((r: string) => r !== role) }));
+                                                } else {
+                                                    setLocalSettings((prev: any) => ({ ...prev, botTicketRoles: [...current, role] }));
+                                                }
+                                            }}
+                                            className={cn(
+                                                "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border",
+                                                isSelected
+                                                    ? "bg-[#BF76FF] border-[#BF76FF] text-white shadow-md shadow-[#BF76FF]/20"
+                                                    : isDarkMode ? "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10" : "bg-black/5 border-black/10 text-gray-500 hover:bg-black/10"
+                                            )}
+                                        >
+                                            {role}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
                       </div>
                     </div>
 
