@@ -8662,7 +8662,7 @@ const Admin = () => {
                               </>
                             )}
                             {(activeTab !== 'membros' && activeTab !== 'visitantes') && (
-                              <div className="flex items-center gap-3 w-full sm:w-auto">
+                              <div className="flex flex-col-reverse sm:flex-row items-center gap-3 w-full sm:w-auto">
                                 <Button
                                   variant="ghost"
                                   disabled={isSubmitting}
