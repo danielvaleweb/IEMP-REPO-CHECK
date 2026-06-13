@@ -16,7 +16,11 @@ import { appAlert } from '@/lib/modalHelpers';
 
 export default function RadioPage() {
   const { user, profile, isAdmin } = useAuth();
-  const { tracks, radioArtists, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted, hasAccess } = useRadio();
+  const { tracks, radioArtists, playlists, settings, isLiveMode, currentTrack, isPlaying, playTrack: handlePlay, playLive, volume, isMuted, hasAccess, initializeRadio } = useRadio();
+
+  useEffect(() => {
+    initializeRadio();
+  }, [initializeRadio]);
 
   // App state
   const [activeTab, setActiveTab] = useState<'discover' | 'playlists' | 'live'>('discover');

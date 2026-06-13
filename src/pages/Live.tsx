@@ -57,35 +57,10 @@ export default function Live() {
   const channelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
 
   useEffect(() => {
-    const fetchLiveVideoId = async () => {
-      try {
-        const channelId = settings.youtubeChannelId || "UCILgaItnqDH3plhRXD54QUg";
-        const response = await fetch(`/api/youtube?channelId=${channelId}`);
-        if (response.ok) {
-          const data = await response.json();
-          const items = data.items || [];
-          
-          // Tentar encontrar um vídeo marcado como "live" primeiro
-          const liveVideo = items.find((v: any) => 
-            v.snippet?.liveBroadcastContent === "live" || 
-            v.snippet?.thumbnails?.high?.url?.includes("_live")
-          );
-
-          if (liveVideo) {
-            const vidId = typeof liveVideo.id === 'string' ? liveVideo.id : (liveVideo.id?.videoId || liveVideo.contentDetails?.videoId);
-            setVideoId(vidId);
-          } else if (items.length > 0) {
-            // Se não houver live explícita, usa o mais recente (se for playlistItems, o id está normalizado)
-            const vidId = typeof items[0].id === 'string' ? items[0].id : (items[0].id?.videoId || items[0].contentDetails?.videoId);
-            setVideoId(vidId);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to fetch live video id", error);
-      }
-    };
-    fetchLiveVideoId();
-  }, [settings.youtubeChannelId]);
+    if (settings.youtubeVideoId) {
+      setVideoId(settings.youtubeVideoId);
+    }
+  }, [settings.youtubeVideoId]);
 
   return (
     <div className="pt-24 pb-12 px-4 min-h-screen gradient-bg">

@@ -37,6 +37,7 @@ interface RadioContextProps {
   setIsMuted: (v: boolean) => void;
   playerRef: any;
   hasAccess: boolean;
+  initializeRadio: () => void;
 }
 
 // ... unchanged interface the rest of the way up to RadioProvider ...
@@ -80,7 +81,17 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
 
   const playerRef = useRef<any>(null);
 
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  const initializeRadio = () => {
+    if (!isInitialized) {
+      setIsInitialized(true);
+    }
+  };
+
   useEffect(() => {
+    if (!isInitialized) return;
+
     const unsubTracks = onSnapshot(query(collection(db, "radio-playlist"), orderBy("order", "asc")), (snap) => {
       setTracks(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => handleFirestoreError(err, OperationType.LIST, "radio-playlist"));
@@ -115,7 +126,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       unsubPlaylists();
       unsubVignettes();
     };
-  }, []);
+  }, [isInitialized]);
 
   useEffect(() => {
     if (!hasAccess && isPlaying) {
@@ -127,6 +138,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
 
   const playTrack = (track: any, sourceQueue: any[]) => {
     if (!hasAccess) return;
+    initializeRadio();
     setIsLiveMode(false);
     setQueue(sourceQueue);
     const idx = sourceQueue.findIndex(t => t.id === track.id);
@@ -141,6 +153,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
 
   const playLive = () => {
     if (!hasAccess) return;
+    initializeRadio();
     setIsLiveMode(true);
     setCurrentTrack(null);
     setQueue([]);
@@ -322,7 +335,7 @@ export function RadioProvider({ children }: { children: React.ReactNode }) {
       volume, progress, duration, isMuted, isPlayerOpen, isPlayerMinimized,
       isShuffle, isRepeat, setIsShuffle, setIsRepeat,
       setIsPlayerMinimized, playTrack, playLive, togglePlay, playNext, playPrev,
-      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess
+      handleSeek, setVolume, setIsMuted, playerRef, handleProgress, handleDurationChange, getUrlToPlay, hasAccess, initializeRadio
     } as any}>
       {children}
       {/* Hidden Global Player - using fixed on-screen foreground to prevent aggressive background/minimize throttling by Chromium's occlusion tracker */}

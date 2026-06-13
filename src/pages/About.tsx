@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, query, limit } from "firebase/firestore";
 import { useAuth } from "@/contexts/AuthContext";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -53,7 +53,7 @@ export default function About() {
   useEffect(() => {
     const fetchMembers = async () => {
       try {
-        const snap = await getDocs(collection(db, "members"));
+        const snap = await getDocs(query(collection(db, "members"), limit(100)));
         const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
         const activeMembers = data.filter(m => {
           const mRole = m.role || "";
