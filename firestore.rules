@@ -8,7 +8,7 @@ service cloud.firestore {
     }
 
     function isMasterAdmin() {
-      return isSignedIn() && request.auth.token.email == "iempministerioprofecia@gmail.com";
+      return isSignedIn() && ("email" in request.auth.token) && request.auth.token.email == "iempministerioprofecia@gmail.com";
     }
 
     function getRole() {
@@ -19,7 +19,7 @@ service cloud.firestore {
 
     function isLeader() {
       return exists(/databases/$(database)/documents/members/$(request.auth.uid)) 
-        ? get(/databases/$(database)/documents/members/$(request.auth.uid)).data.isLeader == true
+        ? get(/databases/$(database)/documents/members/$(request.auth.uid)).data.get('isLeader', false) == true
         : false;
     }
 
@@ -239,7 +239,7 @@ service cloud.firestore {
     match /agenda/{eventId} {
       allow read, list, get: if true;
       allow create: if isSignedIn() && (
-        isMasterAdmin() || isEditor() || incoming().status == 'pending'
+        incoming().get('status', '') == 'pending' || isMasterAdmin() || isEditor()
       ) && isValidAgenda(incoming());
       allow update: if (isMasterAdmin() || isEditor()) && isValidAgenda(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
