@@ -117,6 +117,7 @@ const EventosView = lazy(() => import("@/components/admin/EventosView").then(m =
 const EventFeedbacksAdmin = lazy(() => import("@/components/admin/EventFeedbacksAdmin").then(m => ({ default: m.EventFeedbacksAdmin })));
 const SavedLoginsAdmin = lazy(() => import("@/components/admin/SavedLoginsAdmin").then(m => ({ default: m.SavedLoginsAdmin })));
 const ChatInboxView = lazy(() => import("@/components/admin/ChatInboxView").then(m => ({ default: m.ChatInboxView })));
+const WhatsAppBlastView = lazy(() => import("@/components/admin/WhatsAppBlastView").then(m => ({ default: m.WhatsAppBlastView })));
 
 const slugify = (text: string) => {
   return (text || "")
@@ -2242,6 +2243,7 @@ const Admin = () => {
   const [showVisitors, setShowVisitors] = useState(false);
   const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
+  const [showWhatsAppBlast, setShowWhatsAppBlast] = useState(false);
 
   // Computed
   const pendingMembers = members.filter(m => {
@@ -5086,7 +5088,7 @@ const Admin = () => {
                 {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile notificationCount={canCreateEventDirectly ? pendingAgendaCount : 0} />}
                 {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("ebd") && <SidebarItem icon={GraduationCap} active={activeTab === "ebd" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("ebd"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="EBD" collapsed={true} isDark={isDarkMode} mobile />}
-                {canViewTab("membros") && <SidebarItem icon={Users} active={(activeTab === "membros" || activeTab === "visitantes") && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); setShowVisitors(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembersCount : 0} />}
+                {canViewTab("membros") && <SidebarItem icon={Users} active={(activeTab === "membros" || activeTab === "visitantes") && !showWhatsAppBlast && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); setShowVisitors(false); setShowWhatsAppBlast(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembersCount : 0} />}
                 {canViewTab("tons") && <SidebarItem icon={Music} active={activeTab === "tons" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("tons"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Tons" collapsed={true} isDark={isDarkMode} mobile />}
                 <SidebarItem
                   icon={MessageSquare}
@@ -8818,7 +8820,15 @@ const Admin = () => {
 
               ) : (activeTab === "membros" || activeTab === "visitantes") && !isEditing ? (
                 <div className="space-y-6">
-                  {viewingMember ? (
+                   {showWhatsAppBlast && activeTab === "membros" ? (
+                     <Suspense fallback={<ViewLoader />}>
+                       <WhatsAppBlastView
+                         isDark={isDarkMode}
+                         members={members.filter(m => m.status !== 'pending' && m.status !== 'pending_approval')}
+                         profile={profile}
+                       />
+                     </Suspense>
+                   ) : viewingMember ? (
                     <MemberProfile
                       member={viewingMember}
                       isDark={isDarkMode}
@@ -11656,7 +11666,29 @@ const Admin = () => {
                 <PanelRightClose className="w-6 h-6" />
               </button>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
+              
+              {(isMasterAdmin || profile?.role === "Desenvolvedor") && (
+                <button
+                  onClick={() => {
+                    setActiveTab("membros");
+                    setShowWhatsAppBlast(true);
+                    setShowPending(false);
+                    setViewingMember(null);
+                    setIsEditing(false);
+                    setSelectedItem(null);
+                  }}
+                  title="Disparo WA"
+                  className={cn(
+                    "relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+                    activeTab === "membros" && showWhatsAppBlast
+                      ? "bg-[#25D366] text-white shadow-lg shadow-[#25D366]/20"
+                      : isDarkMode ? "bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20" : "bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20"
+                  )}
+                >
+                  <Megaphone className="w-5 h-5" />
+                </button>
+              )}
 
               {canViewTab("avisos") && (
                 <ActionIcon
