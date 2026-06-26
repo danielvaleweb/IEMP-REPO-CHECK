@@ -142,6 +142,7 @@ const ROLE_COLORS: Record<string, string> = {
   "Direção": "#7f009b",
   "Secretaria": "#3b52d3",
   "Desenvolvedor": "#ffffff",
+  "Event Manager": "#25D366",
   "Mídia": "#383838",
   "Diácono": "#824bb4",
   "Diaconisa": "#824bb4",
@@ -1739,6 +1740,7 @@ const Admin = () => {
 
   const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
   const isAdminOrDev = profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || isMasterAdmin;
+  const canManageBlast = isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || profile?.role === "Event Manager";
 
   const [activeViewRole, setActiveViewRole] = useState<string | null>(null);
 
@@ -2414,6 +2416,7 @@ const Admin = () => {
   const allRoles = useMemo(() => [
     "Direção",
     "Secretaria",
+    "Event Manager",
     "Desenvolvedor",
     "Mídia",
     "Coord. Mulheres",
@@ -5248,6 +5251,25 @@ const Admin = () => {
                     </div>
 
                     <div className="flex flex-col gap-2.5 mb-2 w-full">
+                      {canManageBlast && (
+                        <SheetClose
+                          className={cn(
+                            "flex items-center gap-3 p-3.5 rounded-[20px] transition-all border outline-none w-full shadow-lg shadow-[#25D366]/10",
+                            isDarkMode ? "bg-[#25D366]/15 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/25" : "bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20"
+                          )}
+                          onClick={() => {
+                            setActiveTab("membros");
+                            setShowWhatsAppBlast(true);
+                            setShowPending(false);
+                            setViewingMember(null);
+                            setIsEditing(false);
+                            setSelectedItem(null);
+                          }}
+                        >
+                          <Megaphone className="w-5 h-5 text-[#25D366]" />
+                          <span className="font-black text-[11px] uppercase tracking-wider">Disparo WA (CRM)</span>
+                        </SheetClose>
+                      )}
                       <SheetClose
                         className={cn(
                           "flex items-center gap-3 p-3.5 rounded-[20px] transition-all border outline-none w-full",
@@ -11668,7 +11690,7 @@ const Admin = () => {
             </div>
             <div className="flex gap-2 items-center">
               
-              {(isMasterAdmin || profile?.role === "Desenvolvedor") && (
+              {canManageBlast && (
                 <button
                   onClick={() => {
                     setActiveTab("membros");

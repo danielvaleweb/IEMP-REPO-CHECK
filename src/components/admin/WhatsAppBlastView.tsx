@@ -20,6 +20,7 @@ import {
   Loader2,
   Trash2,
 } from 'lucide-react';
+import { CampaignKanban, Lead, LeadStatus } from './CampaignKanban';
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, limit } from 'firebase/firestore';
@@ -28,7 +29,7 @@ import { collection, addDoc, serverTimestamp, getDocs, query, orderBy, limit } f
 const CLOUD_NAME = 'dvkgodvhm';
 const UPLOAD_PRESET = 'site_uploads';
 
-interface Member {
+export interface Member {
   id: string;
   name: string;
   phone?: string;
@@ -57,13 +58,7 @@ interface WhatsAppBlastViewProps {
   profile: any;
 }
 
-type Step = 'message' | 'recipients' | 'blast' | 'history';
-type RecipientStatus = 'pending' | 'sent' | 'skipped' | 'no_phone';
-
-interface BlastRecipient {
-  member: Member;
-  status: RecipientStatus;
-}
+type Step = 'message' | 'recipients' | 'kanban' | 'history';
 
 const WhatsAppSVG = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -82,7 +77,12 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
 
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
-  const [blastQueue, setBlastQueue] = useState<BlastRecipient[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  
+  // Billing fields
+  const [billingValue, setBillingValue] = useState('');
+  const [billingType, setBillingType] = useState('Por pessoa');
+  const [pixKey, setPixKey] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [history, setHistory] = useState<BlastHistoryEntry[]>([]);
@@ -208,52 +208,20 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
   };
 
   // ─── Blast flow ────────────────────────────────────────────────────────────
-  const startBlast = () => {
-    const queue: BlastRecipient[] = [...selectedMemberIds]
+  const startKanban = () => {
+    const initialLeads: Lead[] = [...selectedMemberIds]
       .map(id => members.find(m => m.id === id))
       .filter(Boolean)
-      .map(m => ({ member: m!, status: 'pending' as RecipientStatus }));
-    setBlastQueue(queue);
-    setCurrentIndex(0);
-    setStep('blast');
+      .map(m => ({ member: m!, status: 'a_enviar' as LeadStatus }));
+    setLeads(initialLeads);
+    setStep('kanban');
   };
 
-  const currentRecipient = blastQueue[currentIndex];
-
-  const openWhatsApp = () => {
-    if (!currentRecipient?.member.phone) return;
-    window.open(buildWaUrl(currentRecipient.member, message, imageUrl), '_blank');
-  };
-
-  const confirmSent = () => {
-    const updated = [...blastQueue];
-    updated[currentIndex] = { ...updated[currentIndex], status: 'sent' };
-    setBlastQueue(updated);
-    if (currentIndex + 1 < blastQueue.length) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      finishBlast(updated);
-    }
-  };
-
-  const skipCurrent = () => {
-    const updated = [...blastQueue];
-    updated[currentIndex] = { ...updated[currentIndex], status: 'skipped' };
-    setBlastQueue(updated);
-    if (currentIndex + 1 < blastQueue.length) {
-      setCurrentIndex(currentIndex + 1);
-    } else {
-      finishBlast(updated);
-    }
-  };
-
-  const finishBlast = async (finalQueue: BlastRecipient[]) => {
+  const finishBlast = async (finalLeads: Lead[]) => {
     setIsSaving(true);
-    const sentCount = finalQueue.filter(r => r.status === 'sent').length;
-    const skippedCount = finalQueue.filter(r => r.status === 'skipped').length;
-    const noPhoneCount = finalQueue.filter(r => r.status === 'no_phone').length;
+    const sentCount = finalLeads.filter(r => r.status !== 'a_enviar' && r.status !== 'erro' && r.status !== 'cancelado').length;
 
-    const recipients = finalQueue.map(r => ({
+    const recipients = finalLeads.map(r => ({
       memberId: r.member.id,
       memberName: r.member.name,
       status: r.status,
@@ -263,10 +231,12 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
       await addDoc(collection(db, 'whatsapp_blasts'), {
         message,
         imageUrl: imageUrl || null,
+        billingValue,
+        billingType,
+        pixKey,
         sentAt: serverTimestamp(),
-        totalSelected: finalQueue.length,
+        totalSelected: finalLeads.length,
         totalSent: sentCount,
-        totalSkipped: skippedCount + noPhoneCount,
         recipients,
         sentBy: profile?.id,
         sentByName: profile?.name || 'Admin',
@@ -275,13 +245,9 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
       console.error('Error saving blast history:', err);
     } finally {
       setIsSaving(false);
+      setStep('history');
     }
   };
-
-  const isBlastFinished = blastQueue.length > 0 && currentIndex >= blastQueue.length;
-  const blastProgress = blastQueue.length > 0 ? (currentIndex / blastQueue.length) * 100 : 0;
-  const sentCount = blastQueue.filter(r => r.status === 'sent').length;
-  const skippedCount = blastQueue.filter(r => r.status === 'skipped').length;
 
   const resetAll = () => {
     setStep('message');
@@ -289,7 +255,9 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
     setImageUrl('');
     setImageError('');
     setSelectedMemberIds(new Set());
-    setBlastQueue([]);
+    setLeads([]);
+    setBillingValue('');
+    setPixKey('');
     setCurrentIndex(0);
     setMemberSearch('');
   };
@@ -357,12 +325,12 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
           {[
             { key: 'message', label: 'Mensagem', num: 1 },
             { key: 'recipients', label: 'Membros', num: 2 },
-            { key: 'blast', label: 'Disparo', num: 3 },
+            { key: 'kanban', label: 'Funil CRM', num: 3 },
           ].map((s, i) => {
             const isActive = step === s.key;
             const isDone =
-              (s.key === 'message' && (step === 'recipients' || step === 'blast')) ||
-              (s.key === 'recipients' && step === 'blast');
+              (s.key === 'message' && (step === 'recipients' || step === 'kanban')) ||
+              (s.key === 'recipients' && step === 'kanban');
             return (
               <React.Fragment key={s.key}>
                 <div className="flex items-center gap-2">
@@ -510,6 +478,56 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                 <p className="text-xs text-red-400 font-semibold">{imageError}</p>
               </div>
             )}
+          </div>
+
+          {/* Configuração de Cobrança (CRM) */}
+          <div className="bg-white/3 border border-white/5 rounded-3xl p-6 space-y-4">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-xl bg-[#25D366]/15 flex items-center justify-center">
+                <span className="text-[#25D366] font-black text-xs">R$</span>
+              </div>
+              <h2 className="text-lg font-black uppercase tracking-tight text-white">Dados da Cobrança</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Valor Cobrado</label>
+                <input
+                  type="text"
+                  value={billingValue}
+                  onChange={e => setBillingValue(e.target.value)}
+                  placeholder="Ex: 50,00"
+                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-white text-sm focus:outline-none focus:border-[#25D366]/50 transition-all"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Tipo de Cobrança</label>
+                <select
+                  value={billingType}
+                  onChange={e => setBillingType(e.target.value)}
+                  className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-white text-sm focus:outline-none focus:border-[#25D366]/50 transition-all appearance-none"
+                >
+                  <option value="Por pessoa" className="bg-roxo-bg">Por pessoa</option>
+                  <option value="Por família" className="bg-roxo-bg">Por família</option>
+                  <option value="Mensalidade" className="bg-roxo-bg">Mensalidade</option>
+                  <option value="Doação" className="bg-roxo-bg">Doação</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Chave PIX (Opcional)</label>
+              <input
+                type="text"
+                value={pixKey}
+                onChange={e => setPixKey(e.target.value)}
+                placeholder="Ex: celular, CPF ou email"
+                className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-white text-sm focus:outline-none focus:border-[#25D366]/50 transition-all"
+              />
+              <p className="text-[10px] text-gray-500 font-semibold mt-1">
+                Essa chave será enviada na mensagem de pagamento da campanha.
+              </p>
+            </div>
           </div>
 
           {/* Preview Card */}
@@ -682,216 +700,39 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
             )}
 
             <button
-              disabled={selectedWithPhone === 0}
-              onClick={startBlast}
+              disabled={selectedCount === 0}
+              onClick={startKanban}
               className={cn(
                 "w-full h-14 rounded-2xl font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 transition-all duration-300",
-                selectedWithPhone > 0
-                  ? "bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white shadow-lg shadow-[#25D366]/25 hover:shadow-xl hover:shadow-[#25D366]/30 hover:scale-[1.01]"
+                selectedCount > 0
+                  ? "bg-gradient-to-r from-[#7300FF] to-[#BF76FF] text-white shadow-lg shadow-[#7300FF]/25 hover:shadow-xl hover:shadow-[#7300FF]/30 hover:scale-[1.01]"
                   : "bg-white/5 text-gray-600 cursor-not-allowed"
               )}
             >
-              <WhatsAppSVG className="w-5 h-5" />
-              Iniciar Disparo ({selectedWithPhone} membros)
+              <Users className="w-5 h-5" />
+              Abrir Funil CRM ({selectedCount} membros)
             </button>
           </div>
         </div>
       )}
 
       {/* ════════════════════════════════════════════════════════════════
-          STEP 3: Blast
+          STEP 3: Kanban
       ═══════════════════════════════════════════════════════════════════ */}
-      {step === 'blast' && (
-        <div className="max-w-2xl mx-auto space-y-6">
-          {/* Progress Bar */}
-          <div className="bg-white/3 border border-white/5 rounded-3xl p-6 space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black uppercase tracking-tight text-white">
-                {isBlastFinished ? '🎉 Disparo Concluído!' : `Disparando... ${currentIndex + 1} / ${blastQueue.length}`}
-              </h2>
-              {!isBlastFinished && (
-                <span className="text-xs font-black text-gray-500 uppercase tracking-widest">
-                  {Math.round(blastProgress)}%
-                </span>
-              )}
-            </div>
-
-            <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-[#25D366] to-[#128C7E] rounded-full transition-all duration-500"
-                style={{ width: `${isBlastFinished ? 100 : blastProgress}%` }}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-[#25D366]/5 border border-[#25D366]/10 rounded-2xl p-3 text-center">
-                <p className="text-2xl font-black text-[#25D366]">{sentCount}</p>
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Enviados</p>
-              </div>
-              <div className="bg-amber-500/5 border border-amber-500/10 rounded-2xl p-3 text-center">
-                <p className="text-2xl font-black text-amber-400">{skippedCount}</p>
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Pulados</p>
-              </div>
-              <div className="bg-white/5 border border-white/5 rounded-2xl p-3 text-center">
-                <p className="text-2xl font-black text-gray-400">{blastQueue.length - currentIndex}</p>
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">Restantes</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Current Recipient Action */}
-          {!isBlastFinished && currentRecipient && (
-            <div className="bg-white/3 border border-[#BF76FF]/10 rounded-3xl p-6 space-y-5 animate-in slide-in-from-bottom-4 duration-300">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Próximo na fila</p>
-
-              {/* Member Card */}
-              <div className="flex items-center gap-4 p-4 bg-white/5 rounded-2xl">
-                {currentRecipient.member.photoURL || currentRecipient.member.photoUrl ? (
-                  <img
-                    src={currentRecipient.member.photoURL || currentRecipient.member.photoUrl}
-                    className="w-14 h-14 rounded-full object-cover border-2 border-[#BF76FF]/20"
-                    alt=""
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-full bg-[#BF76FF]/10 text-[#BF76FF] text-xl font-black flex items-center justify-center border-2 border-[#BF76FF]/10">
-                    {currentRecipient.member.name?.[0]}
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-xl font-black text-white">{currentRecipient.member.name}</h3>
-                  <p className="text-xs text-gray-500 font-semibold">{currentRecipient.member.role || 'Membro'}</p>
-                  {currentRecipient.member.phone ? (
-                    <p className="text-xs text-[#25D366] font-bold mt-1 flex items-center gap-1">
-                      <WhatsAppSVG className="w-3 h-3" />
-                      {currentRecipient.member.phone}
-                    </p>
-                  ) : (
-                    <p className="text-xs text-amber-400 font-bold mt-1 flex items-center gap-1">
-                      <AlertTriangle className="w-3 h-3" />
-                      Sem telefone — será pulado
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Message Preview */}
-              <div className="bg-[#075E54]/10 border border-[#075E54]/20 rounded-2xl p-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-2">Mensagem que será enviada</p>
-                <div className="bg-[#DCF8C6] text-gray-800 rounded-[14px] rounded-tl-none p-3 shadow-sm max-w-xs space-y-2">
-                  {imageUrl && (
-                    <img src={imageUrl} alt="Imagem" className="w-full rounded-xl object-cover max-h-40" />
-                  )}
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                    {personalizeMessage(message, currentRecipient.member)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              {currentRecipient.member.phone ? (
-                <div className="space-y-3">
-                  <button
-                    onClick={openWhatsApp}
-                    className="w-full h-14 rounded-2xl bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/25 hover:shadow-xl hover:scale-[1.01] transition-all"
-                  >
-                    <WhatsAppSVG className="w-5 h-5" />
-                    Abrir WhatsApp
-                    <ExternalLink className="w-4 h-4 opacity-60" />
-                  </button>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
-                      onClick={confirmSent}
-                      className="h-12 rounded-2xl bg-[#25D366]/10 border border-[#25D366]/20 text-[#25D366] hover:bg-[#25D366]/20 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all"
-                    >
-                      <CheckCircle2 className="w-4 h-4" />
-                      Confirmado
-                    </button>
-                    <button
-                      onClick={skipCurrent}
-                      className="h-12 rounded-2xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all"
-                    >
-                      <SkipForward className="w-4 h-4" />
-                      Pular
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={skipCurrent}
-                  className="w-full h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 transition-all"
-                >
-                  <SkipForward className="w-4 h-4" />
-                  Pular (sem telefone)
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Finished */}
-          {isBlastFinished && (
-            <div className="bg-white/3 border border-[#25D366]/20 rounded-3xl p-8 text-center space-y-4 animate-in zoom-in-90 duration-300">
-              <div className="w-16 h-16 rounded-full bg-[#25D366]/10 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="w-8 h-8 text-[#25D366]" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-white">Disparo finalizado!</h3>
-                <p className="text-sm text-gray-500 font-semibold mt-1">
-                  {sentCount} enviados · {skippedCount} pulados
-                </p>
-              </div>
-              {isSaving && (
-                <p className="text-xs text-gray-500 font-semibold animate-pulse">Salvando no histórico...</p>
-              )}
-              <button
-                onClick={resetAll}
-                className="w-full h-12 rounded-2xl bg-gradient-to-r from-[#7300FF] to-[#BF76FF] text-white font-black uppercase tracking-widest text-xs flex items-center justify-center gap-2 shadow-lg shadow-[#7300FF]/20 hover:scale-[1.01] transition-all mt-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Novo Disparo
-              </button>
-            </div>
-          )}
-
-          {/* Queue Overview */}
-          <div className="bg-white/3 border border-white/5 rounded-3xl p-4 space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">Fila de Envio</p>
-            <div className="space-y-1.5 max-h-64 overflow-y-auto scrollbar-hide">
-              {blastQueue.map((r, idx) => (
-                <div
-                  key={r.member.id}
-                  className={cn(
-                    "flex items-center gap-3 p-2.5 rounded-xl border transition-all",
-                    idx === currentIndex && !isBlastFinished
-                      ? "border-[#BF76FF]/30 bg-[#BF76FF]/5"
-                      : "border-white/5 bg-transparent"
-                  )}
-                >
-                  <div className="shrink-0">
-                    {r.status === 'sent' ? (
-                      <CheckCircle2 className="w-4 h-4 text-[#25D366]" />
-                    ) : r.status === 'skipped' || r.status === 'no_phone' ? (
-                      <SkipForward className="w-4 h-4 text-amber-400" />
-                    ) : idx === currentIndex && !isBlastFinished ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-[#BF76FF] border-t-transparent animate-spin" />
-                    ) : (
-                      <Clock className="w-4 h-4 text-gray-600" />
-                    )}
-                  </div>
-                  <p className={cn(
-                    "text-xs font-bold flex-1 truncate",
-                    r.status === 'sent' ? "text-[#25D366]" :
-                      r.status === 'skipped' ? "text-amber-400" :
-                        idx === currentIndex ? "text-white" : "text-gray-600"
-                  )}>
-                    {r.member.name}
-                  </p>
-                  {!r.member.phone && (
-                    <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+      {step === 'kanban' && (
+        <div className="max-w-[95vw] mx-auto overflow-x-auto pb-8">
+           <CampaignKanban
+             leads={leads}
+             setLeads={setLeads}
+             message={message}
+             imageUrl={imageUrl}
+             billingValue={billingValue}
+             billingType={billingType}
+             pixKey={pixKey}
+             onFinish={() => {
+                finishBlast(leads);
+             }}
+           />
         </div>
       )}
 
