@@ -21,6 +21,7 @@ import {
   Trash2,
   Plus,
   UserPlus,
+  DollarSign,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -209,10 +210,9 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
   const eligibleMembers = useMemo(() => {
     return members.filter(m =>
       m.status !== 'pending' &&
-      m.status !== 'pending_approval' &&
-      m.id !== profile?.id
+      m.status !== 'pending_approval'
     );
-  }, [members, profile?.id]);
+  }, [members]);
 
   const filteredMembers = useMemo(() => {
     if (!memberSearch.trim()) return eligibleMembers;
@@ -864,13 +864,26 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                       {camp.isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                     </div>
                     <div>
-                      <h3 className="font-black text-white text-base sm:text-lg tracking-tight flex items-center gap-2.5">
-                        {camp.title}
-                        {camp.billingValue && (
-                          <span className="text-[10px] bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 px-2 py-0.5 rounded-full font-bold">
-                            R$ {camp.billingValue}
-                          </span>
-                        )}
+                      <h3 className="font-black text-white text-base sm:text-lg tracking-tight flex items-center flex-wrap gap-2.5">
+                        <span>{camp.title}</span>
+                        {(() => {
+                          const parseCur = (s?: string) => s ? parseFloat(s.replace(/[^\d,-]/g, '').replace(',', '.')) || 0 : 0;
+                          const totalArrecadado = camp.leads.reduce((acc, l) => {
+                            const paid = parseCur(l.paidValue);
+                            if (l.status === 'pago') {
+                              return acc + (paid > 0 ? paid : parseCur(l.paymentValue || camp.billingValue));
+                            }
+                            if (paid > 0) return acc + paid;
+                            return acc;
+                          }, 0);
+
+                          return (
+                            <span className="text-[11px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-black tracking-wide flex items-center gap-1 shadow-sm">
+                              <DollarSign className="w-3 h-3 text-emerald-400 shrink-0" />
+                              <span>Arrecadado: R$ {totalArrecadado.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </span>
+                          );
+                        })()}
                       </h3>
                       <p className="text-[11px] text-gray-400 font-medium mt-0.5">
                         Criada em {new Date(camp.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} • {camp.leads.length} membros na pipeline
@@ -1103,14 +1116,15 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
 
             <div className="flex-1 overflow-y-auto space-y-1.5 min-h-[200px] max-h-[350px] pr-1 scrollbar-hide">
               {members
-                .filter(m => !addMemberCamp.leads.some(l => l.member.id === m.id))
                 .filter(m => m.name?.toLowerCase().includes(addMemberSearch.toLowerCase().trim()))
                 .map(m => {
+                  const alreadyIn = addMemberCamp.leads.some(l => l.member.id === m.id);
                   const isSel = addMemberSelectedIds.has(m.id);
                   return (
                     <div
                       key={m.id}
                       onClick={() => {
+                        if (alreadyIn) return;
                         setAddMemberSelectedIds(prev => {
                           const next = new Set(prev);
                           if (next.has(m.id)) next.delete(m.id);
@@ -1119,13 +1133,17 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                         });
                       }}
                       className={cn(
-                        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all duration-150",
-                        isSel ? "bg-[#BF76FF]/15 border-[#BF76FF]/40 text-white" : "bg-white/[0.02] border-white/5 hover:bg-white/5 text-gray-300"
+                        "flex items-center justify-between p-3 rounded-xl border transition-all duration-150 select-none",
+                        alreadyIn
+                          ? "bg-white/[0.01] border-white/5 opacity-40 cursor-not-allowed"
+                          : isSel
+                            ? "bg-[#BF76FF]/15 border-[#BF76FF]/40 text-white cursor-pointer"
+                            : "bg-white/[0.02] border-white/5 hover:bg-white/5 text-gray-300 cursor-pointer"
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <div className={cn("w-4 h-4 rounded border flex items-center justify-center shrink-0", isSel ? "bg-[#BF76FF] border-[#BF76FF]" : "border-white/20")}>
-                          {isSel && <Check className="w-3 h-3 text-white font-black" />}
+                        <div className={cn("w-4 h-4 rounded border flex items-center justify-center shrink-0", alreadyIn ? "bg-white/10 border-white/10" : isSel ? "bg-[#BF76FF] border-[#BF76FF]" : "border-white/20")}>
+                          {(alreadyIn || isSel) && <Check className="w-3 h-3 text-white font-black" />}
                         </div>
                         {m.photoURL || m.photoUrl ? (
                           <img src={m.photoURL || m.photoUrl} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" alt="" />
@@ -1135,16 +1153,19 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                           </div>
                         )}
                         <div>
-                          <p className="text-xs font-bold leading-tight">{m.name}</p>
+                          <p className="text-xs font-bold leading-tight flex items-center gap-2">
+                            <span>{m.name}</span>
+                            {alreadyIn && <span className="text-[9px] bg-white/10 text-gray-400 px-1.5 py-0.5 rounded uppercase tracking-wider font-semibold">Já na campanha</span>}
+                          </p>
                           <p className="text-[10px] text-gray-500">{m.phone || 'Sem telefone'}</p>
                         </div>
                       </div>
                     </div>
                   );
                 })}
-              {members.filter(m => !addMemberCamp.leads.some(l => l.member.id === m.id)).length === 0 && (
+              {members.filter(m => m.name?.toLowerCase().includes(addMemberSearch.toLowerCase().trim())).length === 0 && (
                 <div className="py-12 text-center text-gray-500 text-xs font-medium">
-                  Todos os membros já estão nesta campanha.
+                  Nenhum membro encontrado na busca.
                 </div>
               )}
             </div>
