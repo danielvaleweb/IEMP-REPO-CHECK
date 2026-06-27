@@ -19,6 +19,9 @@ import {
   Upload,
   Loader2,
   Trash2,
+  Plus,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { CampaignKanban, Lead, LeadStatus } from './CampaignKanban';
 import { cn } from '@/lib/utils';
@@ -62,12 +65,58 @@ type Step = 'message' | 'recipients' | 'kanban' | 'history';
 
 const WhatsAppSVG = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z" />
   </svg>
 );
 
+export interface SavedCampaign {
+  id: string;
+  title: string;
+  createdAt: string;
+  message: string;
+  imageUrl?: string;
+  billingValue?: string;
+  billingType?: string;
+  pixKey?: string;
+  leads: Lead[];
+  isCollapsed?: boolean;
+}
+
 export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastViewProps) {
-  const [step, setStep] = useState<Step>('message');
+  const [campaignTitle, setCampaignTitle] = useState('');
+  const [savedCampaigns, setSavedCampaigns] = useState<SavedCampaign[]>(() => {
+    try {
+      const stored = localStorage.getItem('wa_crm_saved_campaigns_v3');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  });
+
+  const updateSavedCampaigns = (newList: SavedCampaign[] | ((prev: SavedCampaign[]) => SavedCampaign[])) => {
+    setSavedCampaigns(prev => {
+      const updated = typeof newList === 'function' ? newList(prev) : newList;
+      try {
+        localStorage.setItem('wa_crm_saved_campaigns_v3', JSON.stringify(updated));
+      } catch { }
+      return updated;
+    });
+  };
+
+  const [step, setStepState] = useState<Step>(() => {
+    try {
+      const active = localStorage.getItem('wa_crm_active_step_v3') as Step;
+      if (active) return active;
+      const stored = localStorage.getItem('wa_crm_saved_campaigns_v3');
+      const list = stored ? JSON.parse(stored) : [];
+      return list.length > 0 ? 'kanban' : 'message';
+    } catch { return 'message'; }
+  });
+
+  const setStep = (newStep: Step) => {
+    setStepState(newStep);
+    try {
+      localStorage.setItem('wa_crm_active_step_v3', newStep);
+    } catch { }
+  };
   const [message, setMessage] = useState('');
   const [imageUrl, setImageUrl] = useState(''); // Cloudinary URL
   const [imageUploading, setImageUploading] = useState(false);
@@ -78,7 +127,7 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMemberIds, setSelectedMemberIds] = useState<Set<string>>(new Set());
   const [leads, setLeads] = useState<Lead[]>([]);
-  
+
   // Billing fields
   const [billingValue, setBillingValue] = useState('');
   const [billingType, setBillingType] = useState('Por pessoa');
@@ -87,6 +136,8 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
   const [isSaving, setIsSaving] = useState(false);
   const [history, setHistory] = useState<BlastHistoryEntry[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [confirmDeleteCamp, setConfirmDeleteCamp] = useState<SavedCampaign | null>(null);
+  const [confirmFinishCamp, setConfirmFinishCamp] = useState<SavedCampaign | null>(null);
 
   // ─── Image Upload ──────────────────────────────────────────────────────────
   const handleImageFile = async (file: File) => {
@@ -212,13 +263,31 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
     const initialLeads: Lead[] = [...selectedMemberIds]
       .map(id => members.find(m => m.id === id))
       .filter(Boolean)
-      .map(m => ({ member: m!, status: 'a_enviar' as LeadStatus }));
-    setLeads(initialLeads);
+      .map(m => ({ member: m!, status: 'a_enviar' as LeadStatus, paymentValue: billingValue }));
+
+    const now = new Date();
+    const title = campaignTitle.trim() || `Campanha ${now.toLocaleDateString('pt-BR')} (${initialLeads.length} leads)`;
+    const newCamp: SavedCampaign = {
+      id: Date.now().toString(),
+      title,
+      createdAt: now.toISOString(),
+      message,
+      imageUrl: imageUrl || undefined,
+      billingValue,
+      billingType,
+      pixKey,
+      leads: initialLeads,
+      isCollapsed: false
+    };
+
+    updateSavedCampaigns(prev => [newCamp, ...prev.map(c => ({ ...c, isCollapsed: true }))]);
+    setCampaignTitle('');
     setStep('kanban');
   };
 
-  const finishBlast = async (finalLeads: Lead[]) => {
+  const finishBlast = async (campaignToFinish: SavedCampaign) => {
     setIsSaving(true);
+    const finalLeads = campaignToFinish.leads;
     const sentCount = finalLeads.filter(r => r.status !== 'a_enviar' && r.status !== 'erro' && r.status !== 'cancelado').length;
 
     const recipients = finalLeads.map(r => ({
@@ -229,11 +298,12 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
 
     try {
       await addDoc(collection(db, 'whatsapp_blasts'), {
-        message,
-        imageUrl: imageUrl || null,
-        billingValue,
-        billingType,
-        pixKey,
+        title: campaignToFinish.title,
+        message: campaignToFinish.message,
+        imageUrl: campaignToFinish.imageUrl || null,
+        billingValue: campaignToFinish.billingValue || null,
+        billingType: campaignToFinish.billingType || null,
+        pixKey: campaignToFinish.pixKey || null,
         sentAt: serverTimestamp(),
         totalSelected: finalLeads.length,
         totalSent: sentCount,
@@ -241,11 +311,18 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
         sentBy: profile?.id,
         sentByName: profile?.name || 'Admin',
       });
+
+      const remaining = savedCampaigns.filter(c => c.id !== campaignToFinish.id);
+      updateSavedCampaigns(remaining);
+
+      if (remaining.length === 0) {
+        setStep('history');
+      }
     } catch (err) {
       console.error('Error saving blast history:', err);
+      alert('Erro ao salvar histórico da campanha.');
     } finally {
       setIsSaving(false);
-      setStep('history');
     }
   };
 
@@ -295,67 +372,93 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
         onChange={e => { const f = e.target.files?.[0]; if (f) handleImageFile(f); }}
       />
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      {/* Top Header & 3 Main Tabs Switcher */}
+      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 mb-8 bg-[#120c1a] p-6 rounded-3xl border border-white/10 shadow-xl">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-[#25D366]/15 flex items-center justify-center shadow-lg shadow-[#25D366]/10">
-            <Megaphone className="w-6 h-6 text-[#25D366]" />
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#BF76FF] to-[#7300FF] flex items-center justify-center shadow-lg shadow-[#BF76FF]/20 text-white shrink-0">
+            <Megaphone className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-2xl font-black uppercase tracking-tight text-white">
-              Disparo WhatsApp
+            <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white">
+              Disparo & CRM WhatsApp
             </h1>
-            <p className="text-xs text-gray-500 font-semibold mt-0.5">
-              Envie mensagens para membros de forma sequencial
+            <p className="text-xs text-gray-400 font-medium mt-0.5">
+              Gerencie funis abertos, dispare sequências em massa e verifique o histórico
             </p>
           </div>
         </div>
-        <button
-          onClick={loadHistory}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-bold uppercase tracking-widest transition-all"
-        >
-          <History className="w-4 h-4" />
-          <span className="hidden sm:inline">Histórico</span>
-        </button>
+
+        {/* 3 Main Tabs Navigation */}
+        <div className="flex flex-wrap items-center gap-2 bg-white/[0.03] p-1.5 rounded-2xl border border-white/5 w-full xl:w-auto">
+          <button
+            onClick={() => setStep('kanban')}
+            className={cn(
+              "flex-1 sm:flex-none px-4 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 select-none",
+              step === 'kanban'
+                ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/25 scale-[1.02]"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <Users className="w-4 h-4 shrink-0" />
+            <span>Campanhas Abertas ({savedCampaigns.length})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              if (history.length === 0) loadHistory();
+              else setStep('history');
+            }}
+            className={cn(
+              "flex-1 sm:flex-none px-4 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 select-none",
+              step === 'history'
+                ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/25 scale-[1.02]"
+                : "text-gray-400 hover:text-white hover:bg-white/5"
+            )}
+          >
+            <History className="w-4 h-4 shrink-0" />
+            <span>Campanhas Encerradas</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setMessage('');
+              setImageUrl('');
+              setSelectedMemberIds(new Set());
+              setStep('message');
+            }}
+            className={cn(
+              "w-full sm:w-auto px-5 py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 select-none",
+              step === 'message' || step === 'recipients'
+                ? "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/20 scale-[1.02]"
+                : "bg-white/10 text-white hover:bg-white/15"
+            )}
+          >
+            <Plus className="w-4 h-4 font-black shrink-0" />
+            <span>Nova Campanha</span>
+          </button>
+        </div>
       </div>
 
-      {/* Step Indicator */}
-      {step !== 'history' && (
-        <div className="flex items-center gap-2 mb-8">
-          {[
-            { key: 'message', label: 'Mensagem', num: 1 },
-            { key: 'recipients', label: 'Membros', num: 2 },
-            { key: 'kanban', label: 'Funil CRM', num: 3 },
-          ].map((s, i) => {
-            const isActive = step === s.key;
-            const isDone =
-              (s.key === 'message' && (step === 'recipients' || step === 'kanban')) ||
-              (s.key === 'recipients' && step === 'kanban');
-            return (
-              <React.Fragment key={s.key}>
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all duration-300",
-                    isActive ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/30" :
-                      isDone ? "bg-[#25D366] text-white" :
-                        "bg-white/5 text-gray-500"
-                  )}>
-                    {isDone ? <Check className="w-4 h-4" /> : s.num}
-                  </div>
-                  <span className={cn(
-                    "text-xs font-bold uppercase tracking-widest hidden sm:block",
-                    isActive ? "text-white" : isDone ? "text-[#25D366]" : "text-gray-600"
-                  )}>{s.label}</span>
-                </div>
-                {i < 2 && (
-                  <div className={cn(
-                    "flex-1 h-px transition-all duration-500",
-                    isDone ? "bg-[#25D366]" : "bg-white/5"
-                  )} />
-                )}
-              </React.Fragment>
-            );
-          })}
+      {/* Wizard Progress Indicator (Only shown when creating Nova Campanha) */}
+      {(step === 'message' || step === 'recipients') && (
+        <div className="flex items-center gap-3 mb-8 bg-[#150f1d] px-5 py-3.5 rounded-2xl border border-white/10 shadow-lg w-fit mx-auto animate-in fade-in duration-200">
+          <span className="text-[11px] font-black text-gray-500 uppercase tracking-widest mr-1">Etapa atual:</span>
+
+          <div className="flex items-center gap-2" onClick={() => setStep('message')} role="button">
+            <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black transition-all", step === 'message' ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30 ring-2 ring-emerald-500/30" : "bg-[#25D366] text-white")}>
+              {step === 'recipients' ? <Check className="w-3.5 h-3.5 font-bold" /> : 1}
+            </div>
+            <span className={cn("text-xs font-black uppercase tracking-wider cursor-pointer", step === 'message' ? "text-white" : "text-gray-400 hover:text-white")}>1. Escrever Mensagem</span>
+          </div>
+
+          <ChevronRight className="w-4 h-4 text-gray-600" />
+
+          <div className="flex items-center gap-2">
+            <div className={cn("w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-black transition-all", step === 'recipients' ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/30 ring-2 ring-emerald-500/30" : "bg-white/5 text-gray-600")}>
+              2
+            </div>
+            <span className={cn("text-xs font-black uppercase tracking-wider", step === 'recipients' ? "text-white" : "text-gray-600")}>2. Selecionar Membros</span>
+          </div>
         </div>
       )}
 
@@ -480,6 +583,20 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
             )}
           </div>
 
+          {/* Título do Funil */}
+          <div className="bg-white/3 border border-white/5 rounded-3xl p-6 space-y-3">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#BF76FF]" /> Nome / Título da Campanha (CRM)
+            </label>
+            <input
+              type="text"
+              value={campaignTitle}
+              onChange={e => setCampaignTitle(e.target.value)}
+              placeholder="Ex: Campanha Ceia, Retiro de Jovens..."
+              className="w-full h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-white text-sm focus:outline-none focus:border-[#BF76FF]/50 transition-all"
+            />
+          </div>
+
           {/* Configuração de Cobrança (CRM) */}
           <div className="bg-white/3 border border-white/5 rounded-3xl p-6 space-y-4">
             <div className="flex items-center gap-3 mb-2">
@@ -488,7 +605,7 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
               </div>
               <h2 className="text-lg font-black uppercase tracking-tight text-white">Dados da Cobrança</h2>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1">
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Valor Cobrado</label>
@@ -717,28 +834,112 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
       )}
 
       {/* ════════════════════════════════════════════════════════════════
-          STEP 3: Kanban
+          STEP 3: Hub de Funis CRM Salvos
       ═══════════════════════════════════════════════════════════════════ */}
       {step === 'kanban' && (
-        <div className="max-w-[95vw] mx-auto overflow-x-auto pb-8">
-           <CampaignKanban
-             leads={leads}
-             setLeads={setLeads}
-             message={message}
-             imageUrl={imageUrl}
-             billingValue={billingValue}
-             billingType={billingType}
-             pixKey={pixKey}
-             onFinish={() => {
-                finishBlast(leads);
-             }}
-           />
+        <div className="max-w-[95vw] mx-auto space-y-6 pb-12 animate-in fade-in duration-200">
+          {savedCampaigns.length === 0 ? (
+            <div className="py-20 text-center border border-dashed border-white/10 rounded-3xl">
+              <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+              <p className="text-gray-400 font-bold text-sm">Nenhuma campanha ativa no momento.</p>
+              <button onClick={() => setStep('message')} className="mt-3 text-[#BF76FF] font-bold text-xs underline">
+                Criar a primeira campanha
+              </button>
+            </div>
+          ) : (
+            savedCampaigns.map(camp => (
+              <div key={camp.id} className="bg-[#120c1a] border border-white/10 rounded-[32px] overflow-hidden shadow-2xl transition-all">
+                <div
+                  onClick={() => {
+                    updateSavedCampaigns(prev => prev.map(c => c.id === camp.id ? { ...c, isCollapsed: !c.isCollapsed } : c));
+                  }}
+                  className="p-5 bg-white/[0.03] hover:bg-white/[0.05] border-b border-white/5 flex items-center justify-between cursor-pointer transition-colors select-none group"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-8 h-8 rounded-xl bg-[#BF76FF]/10 border border-[#BF76FF]/20 flex items-center justify-center text-[#BF76FF] group-hover:scale-110 transition-transform">
+                      {camp.isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h3 className="font-black text-white text-base sm:text-lg tracking-tight flex items-center gap-2.5">
+                        {camp.title}
+                        {camp.billingValue && (
+                          <span className="text-[10px] bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 px-2 py-0.5 rounded-full font-bold">
+                            R$ {camp.billingValue}
+                          </span>
+                        )}
+                      </h3>
+                      <p className="text-[11px] text-gray-400 font-medium mt-0.5">
+                        Criada em {new Date(camp.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} • {camp.leads.length} membros na pipeline
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
+                    {/* Concluir Campanha Button */}
+                    <button
+                      onClick={() => setConfirmFinishCamp(camp)}
+                      className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-black uppercase tracking-wider shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95"
+                    >
+                      <Check className="w-3.5 h-3.5 font-black" />
+                      <span>Concluir</span>
+                    </button>
+
+                    {/* Recolher / Expandir Button */}
+                    <button
+                      onClick={() => {
+                        updateSavedCampaigns(prev => prev.map(c => c.id === camp.id ? { ...c, isCollapsed: !c.isCollapsed } : c));
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold transition-colors flex items-center gap-1.5"
+                    >
+                      {camp.isCollapsed ? (
+                        <><span>Expandir</span><ChevronDown className="w-3.5 h-3.5" /></>
+                      ) : (
+                        <><span>Recolher</span><ChevronUp className="w-3.5 h-3.5" /></>
+                      )}
+                    </button>
+
+                    {/* Delete Button */}
+                    <button
+                      onClick={() => setConfirmDeleteCamp(camp)}
+                      className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                      title="Excluir campanha"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {!camp.isCollapsed && (
+                  <div className="p-4 sm:p-6 overflow-x-auto">
+                    <CampaignKanban
+                      leads={camp.leads}
+                      setLeads={(newLeadsAction) => {
+                        updateSavedCampaigns(prev => prev.map(c => {
+                          if (c.id === camp.id) {
+                            const updatedLeads = typeof newLeadsAction === 'function' ? newLeadsAction(c.leads) : newLeadsAction;
+                            return { ...c, leads: updatedLeads };
+                          }
+                          return c;
+                        }));
+                      }}
+                      message={camp.message}
+                      imageUrl={camp.imageUrl}
+                      billingValue={camp.billingValue}
+                      billingType={camp.billingType}
+                      pixKey={camp.pixKey}
+                      campaignId={camp.id}
+                      onFinish={() => {
+                        finishBlast(camp);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════
-          HISTORY
-      ═══════════════════════════════════════════════════════════════════ */}
       {step === 'history' && (
         <div className="max-w-3xl mx-auto space-y-4">
           <div className="flex items-center justify-between mb-2">
@@ -810,6 +1011,68 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* ─── Confirmation Modal: Delete Campaign ────────────────────────── */}
+      {confirmDeleteCamp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setConfirmDeleteCamp(null)}>
+          <div className="bg-[#150f1d] border border-white/10 p-6 rounded-3xl max-w-md w-full shadow-2xl space-y-5 text-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl bg-red-500/10 text-red-400 flex items-center justify-center mx-auto border border-red-500/20">
+              <Trash2 className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-white uppercase tracking-tight">Excluir Campanha?</h3>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Tem certeza que deseja excluir permanentemente a campanha <span className="text-white font-bold">"{confirmDeleteCamp.title}"</span>? Os dados deste funil serão perdidos.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button onClick={() => setConfirmDeleteCamp(null)} className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  updateSavedCampaigns(prev => prev.filter(c => c.id !== confirmDeleteCamp.id));
+                  setConfirmDeleteCamp(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-red-500/20 transition-all"
+              >
+                Sim, Excluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Confirmation Modal: Finish Campaign ────────────────────────── */}
+      {confirmFinishCamp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setConfirmFinishCamp(null)}>
+          <div className="bg-[#150f1d] border border-white/10 p-6 rounded-3xl max-w-md w-full shadow-2xl space-y-5 text-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+              <Check className="w-7 h-7 font-black" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-white uppercase tracking-tight">Concluir Campanha?</h3>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Deseja encerrar e arquivar <span className="text-white font-bold">"{confirmFinishCamp.title}"</span>? Ela será gravada no Histórico e removida das campanhas abertas.
+              </p>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button onClick={() => setConfirmFinishCamp(null)} className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  finishBlast(confirmFinishCamp);
+                  setConfirmFinishCamp(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition-all"
+              >
+                Sim, Concluir
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

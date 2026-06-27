@@ -1,36 +1,39 @@
 import React, { useState } from 'react';
-import { 
-  DndContext, 
-  closestCorners, 
-  KeyboardSensor, 
-  PointerSensor, 
-  useSensor, 
+import {
+  DndContext,
+  closestCorners,
+  pointerWithin,
+  rectIntersection,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
   useSensors,
   DragEndEvent,
   useDroppable
 } from '@dnd-kit/core';
-import { 
-  SortableContext, 
-  verticalListSortingStrategy, 
-  useSortable 
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Member } from './WhatsAppBlastView';
-import { 
-  MessageSquare, 
-  Phone, 
-  User, 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock, 
-  DollarSign, 
-  X, 
-  Send, 
-  Paperclip, 
+import {
+  MessageSquare,
+  Phone,
+  User,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  DollarSign,
+  X,
+  Send,
+  Paperclip,
   Calendar,
   ExternalLink,
   ChevronRight,
-  Plus
+  Plus,
+  Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -48,31 +51,34 @@ export interface Lead {
   status: LeadStatus;
   comments?: LeadComment[];
   paymentValue?: string;
+  paidValue?: string;
   paymentDate?: string;
   paymentMethod?: string;
+  billingDueDate?: string;
 }
 
 const COLUMNS: { id: LeadStatus; title: string; color: string; bg: string }[] = [
   { id: 'a_enviar', title: 'A Contatar', color: 'text-amber-400', bg: 'bg-amber-400/10 border-amber-400/20' },
-  { id: 'contactado', title: 'Contactados', color: 'text-[#25D366]', bg: 'bg-[#25D366]/10 border-[#25D366]/20' },
-  { id: 'erro', title: 'Não Chegou', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/20' },
-  { id: 'respondeu', title: 'Respostas', color: 'text-[#BF76FF]', bg: 'bg-[#BF76FF]/10 border-[#BF76FF]/20' },
-  { id: 'pagamento_pendente', title: 'Cobrança', color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
-  { id: 'pago', title: 'Pago', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20' },
-  { id: 'cancelado', title: 'Cancelado', color: 'text-gray-500', bg: 'bg-white/5 border-white/10' }
+  { id: 'contactado', title: 'Msg Enviada', color: 'text-[#25D366]', bg: 'bg-[#25D366]/10 border-[#25D366]/20' },
+  { id: 'erro', title: 'Msg Não Chegou', color: 'text-red-400', bg: 'bg-red-400/10 border-red-400/20' },
+  { id: 'respondeu', title: 'Respondeu', color: 'text-[#BF76FF]', bg: 'bg-[#BF76FF]/10 border-[#BF76FF]/20' },
+  { id: 'pagamento_pendente', title: 'Cobrar ', color: 'text-blue-400', bg: 'bg-blue-400/10 border-blue-400/20' },
+  { id: 'pago', title: 'Pagou', color: 'text-emerald-400', bg: 'bg-emerald-400/10 border-emerald-400/20' },
+  { id: 'cancelado', title: 'Cancelou', color: 'text-gray-500', bg: 'bg-white/5 border-white/10' }
 ];
 
 // Sortable Card Component
-function KanbanCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+function KanbanCard({ lead, prefix, onClick }: { lead: Lead; prefix: string; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: lead.member.id,
+    id: `${prefix}${lead.member.id}`,
     data: { lead }
   });
 
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.4 : 1
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition: isDragging ? undefined : transition,
+    zIndex: isDragging ? 99999 : undefined,
+    position: isDragging ? 'relative' : undefined,
   };
 
   const name = lead.member.name || 'Membro';
@@ -85,7 +91,10 @@ function KanbanCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
       {...attributes}
       {...listeners}
       onClick={onClick}
-      className="bg-[#1a1325] hover:bg-[#231a31] border border-white/5 hover:border-white/10 rounded-2xl p-3.5 cursor-pointer transition-all shadow-md group space-y-2.5"
+      className={cn(
+        "bg-[#1a1325] hover:bg-[#231a31] border border-white/5 hover:border-white/10 rounded-2xl p-3.5 transition-all shadow-md group space-y-2.5 select-none",
+        isDragging ? "cursor-grabbing border-[#BF76FF] border-2 shadow-2xl rotate-3 scale-105 bg-[#241935] opacity-95" : "cursor-grab relative"
+      )}
     >
       <div className="flex items-center gap-3">
         {photo ? (
@@ -101,16 +110,66 @@ function KanbanCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
         </div>
       </div>
 
+      {/* Due Date Indicator */}
+      {lead.status === 'pagamento_pendente' && lead.billingDueDate && (() => {
+        const due = new Date(lead.billingDueDate + 'T00:00:00');
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        return (
+          <div className="pt-1 pb-0.5">
+            <div className={cn(
+              "px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 border w-fit shadow-sm",
+              diffDays > 0 ? "bg-blue-500/15 text-blue-400 border-blue-500/30" :
+                diffDays === 0 ? "bg-amber-500/15 text-amber-400 border-amber-500/30" :
+                  "bg-red-500/15 text-red-400 border-red-500/30"
+            )}>
+              <Clock className="w-3 h-3 shrink-0" />
+              <span>
+                {diffDays > 0 ? `Cobrar em ${diffDays} dia${diffDays > 1 ? 's' : ''} restante${diffDays > 1 ? 's' : ''}` :
+                  diffDays === 0 ? `Cobrar hoje` :
+                    `Atrasado há ${Math.abs(diffDays)} dia${Math.abs(diffDays) > 1 ? 's' : ''}`}
+              </span>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Badges/Indicators */}
       <div className="flex items-center justify-between pt-2 border-t border-white/5 text-[10px]">
-        {lead.paymentValue ? (
-          <span className="font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">
-            R$ {lead.paymentValue}
-          </span>
-        ) : (
-          <span className="text-gray-600 font-medium">Sem valor</span>
-        )}
-        
+        {(() => {
+          const parseCur = (s?: string) => s ? parseFloat(s.replace(/[^\d,-]/g, '').replace(',', '.')) || 0 : 0;
+          const fmtCur = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+          const total = parseCur(lead.paymentValue);
+          const paid = parseCur(lead.paidValue);
+          const diff = total - paid;
+
+          if (lead.paidValue && paid > 0 && diff > 0) {
+            return (
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="font-bold text-gray-500 line-through text-[9px]">R$ {lead.paymentValue}</span>
+                <span className="font-black text-amber-400 bg-amber-400/15 border border-amber-400/30 px-1.5 py-0.5 rounded text-[10px]">
+                  Faltam R$ {fmtCur(diff)}
+                </span>
+              </div>
+            );
+          }
+          if (lead.paidValue && paid >= total && total > 0) {
+            return (
+              <span className="font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-md">
+                Pago R$ {lead.paymentValue}
+              </span>
+            );
+          }
+          return lead.paymentValue ? (
+            <span className="font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">
+              R$ {lead.paymentValue}
+            </span>
+          ) : (
+            <span className="text-gray-600 font-medium">Sem valor</span>
+          );
+        })()}
+
         {lead.comments && lead.comments.length > 0 && (
           <span className="flex items-center gap-1 text-[#BF76FF] font-semibold">
             <MessageSquare className="w-3 h-3" />
@@ -123,15 +182,16 @@ function KanbanCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
 }
 
 // Droppable Column Component
-function KanbanColumn({ column, leads, onCardClick }: { 
-  column: typeof COLUMNS[0]; 
-  leads: Lead[]; 
+function KanbanColumn({ column, leads, prefix, onCardClick }: {
+  column: typeof COLUMNS[0];
+  leads: Lead[];
+  prefix: string;
   onCardClick: (lead: Lead) => void;
 }) {
-  const { setNodeRef } = useDroppable({ id: column.id });
+  const { setNodeRef } = useDroppable({ id: `${prefix}${column.id}` });
 
   return (
-    <div className="w-full sm:w-72 shrink-0 flex flex-col bg-white/[0.02] border border-white/5 rounded-[28px] max-h-[75vh] overflow-hidden">
+    <div className="w-full sm:w-72 shrink-0 flex flex-col bg-white/[0.02] border border-white/5 rounded-[28px] h-fit pb-3">
       {/* Column Header */}
       <div className={cn("p-4 border-b flex items-center justify-between font-black uppercase text-xs tracking-wider", column.bg)}>
         <span className={column.color}>{column.title}</span>
@@ -141,10 +201,10 @@ function KanbanColumn({ column, leads, onCardClick }: {
       </div>
 
       {/* Cards List */}
-      <div ref={setNodeRef} className="p-3 flex-1 overflow-y-auto space-y-2.5 min-h-[100px]">
-        <SortableContext items={leads.map(l => l.member.id)} strategy={verticalListSortingStrategy}>
+      <div ref={setNodeRef} className="p-3 flex-1 space-y-2.5 min-h-[140px]">
+        <SortableContext items={leads.map(l => `${prefix}${l.member.id}`)} strategy={verticalListSortingStrategy}>
           {leads.map(lead => (
-            <KanbanCard key={lead.member.id} lead={lead} onClick={() => onCardClick(lead)} />
+            <KanbanCard key={lead.member.id} lead={lead} prefix={prefix} onClick={() => onCardClick(lead)} />
           ))}
         </SortableContext>
         {leads.length === 0 && (
@@ -157,30 +217,39 @@ function KanbanColumn({ column, leads, onCardClick }: {
   );
 }
 
-export function CampaignKanban({ 
-  leads, 
-  setLeads, 
-  message, 
+export function CampaignKanban({
+  campaignId = 'default',
+  leads,
+  setLeads,
+  message,
   imageUrl,
   billingValue,
   billingType,
   pixKey,
   onFinish
 }: {
+  campaignId?: string;
   leads: Lead[];
-  setLeads: React.Dispatch<React.SetStateAction<Lead[]>>;
+  setLeads: (action: Lead[] | ((prev: Lead[]) => Lead[])) => void;
   message: string;
-  imageUrl: string;
-  billingValue: string;
-  billingType: string;
-  pixKey: string;
+  imageUrl?: string;
+  billingValue?: string;
+  billingType?: string;
+  pixKey?: string;
   onFinish: () => void;
 }) {
+  const prefix = `${campaignId}::`;
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
   const [newComment, setNewComment] = useState('');
   const [commentAttachment, setCommentAttachment] = useState('');
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [mobileTab, setMobileTab] = useState<LeadStatus>('a_enviar');
+  const [billingPromptLead, setBillingPromptLead] = useState<Lead | null>(null);
+  const [tempBillingDate, setTempBillingDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return d.toISOString().split('T')[0];
+  });
 
   const handleCommentFile = async (file: File) => {
     setIsUploadingAttachment(true);
@@ -213,30 +282,43 @@ export function CampaignKanban({
     const { active, over } = event;
     if (!over) return;
 
-    const leadId = active.id as string;
-    const overId = over.id as LeadStatus;
+    const leadId = (active.id as string).replace(prefix, '');
+    const overId = (over.id as string).replace(prefix, '');
 
-    // Check if overId is a valid column
+    let targetStatus: LeadStatus | null = null;
     if (COLUMNS.some(c => c.id === overId)) {
-      setLeads(prev => prev.map(l => {
-        if (l.member.id === leadId) {
-          return { ...l, status: overId };
-        }
-        return l;
-      }));
+      targetStatus = overId as LeadStatus;
+    } else {
+      const overLead = leads.find(l => l.member.id === overId);
+      if (overLead) targetStatus = overLead.status;
+    }
+
+    if (targetStatus) {
+      const dragged = leads.find(l => l.member.id === leadId);
+      if (!dragged) return;
+
+      if (targetStatus === 'pagamento_pendente' && dragged.status !== 'pagamento_pendente') {
+        setBillingPromptLead({ ...dragged, status: 'pagamento_pendente' });
+      } else {
+        setLeads(prev => prev.map(l => l.member.id === leadId ? { ...l, status: targetStatus! } : l));
+      }
     }
   };
 
   const updateLeadStatus = (newStatus: LeadStatus) => {
     if (!activeLead) return;
-    setLeads(prev => prev.map(l => {
-      if (l.member.id === activeLead.member.id) {
-        const updated = { ...l, status: newStatus };
-        setActiveLead(updated);
-        return updated;
-      }
-      return l;
-    }));
+    if (newStatus === 'pagamento_pendente' && activeLead.status !== 'pagamento_pendente') {
+      setBillingPromptLead({ ...activeLead, status: 'pagamento_pendente' });
+    } else {
+      setLeads(prev => prev.map(l => {
+        if (l.member.id === activeLead.member.id) {
+          const updated = { ...l, status: newStatus };
+          setActiveLead(updated);
+          return updated;
+        }
+        return l;
+      }));
+    }
   };
 
   const addComment = () => {
@@ -266,10 +348,10 @@ export function CampaignKanban({
     const phone = lead.member.phone?.replace(/\D/g, '') || '';
     if (!phone) return;
     const finalPhone = phone.startsWith('55') ? phone : `55${phone}`;
-    
+
     let text = message.replace(/\{\{nome\}\}/gi, lead.member.name?.split(' ')[0] || '');
     if (imageUrl) text += `\n\n${imageUrl}`;
-    
+
     // If in billing stage, attach PIX
     if (lead.status === 'pagamento_pendente' && pixKey) {
       text = `Paz do Senhor ${lead.member.name?.split(' ')[0]}! 🙏\nSegue os dados para pagamento (${billingType}):\nValor: R$ ${billingValue || lead.paymentValue || '0,00'}\nChave PIX: ${pixKey}\n\nDeus abençoe!`;
@@ -278,26 +360,16 @@ export function CampaignKanban({
     window.open(`https://wa.me/${finalPhone}?text=${encodeURIComponent(text)}`, '_blank');
   };
 
+  const customCollision = (args: any) => {
+    const pointer = pointerWithin(args);
+    if (pointer.length > 0) return pointer;
+    const rect = rectIntersection(args);
+    if (rect.length > 0) return rect;
+    return closestCorners(args);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Top Controls */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white/[0.03] border border-white/5 p-6 rounded-3xl">
-        <div>
-          <h2 className="text-xl font-black uppercase tracking-tight text-white flex items-center gap-2">
-            Funil de Campanha (CRM)
-          </h2>
-          <p className="text-xs text-gray-400 mt-1">
-            {leads.length} membros selecionados — Arraste os cards pelas etapas ou clique para gerenciar.
-          </p>
-        </div>
-        <button
-          onClick={onFinish}
-          className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-black uppercase text-xs tracking-widest transition-all shadow-lg shadow-emerald-500/20"
-        >
-          Concluir Campanha
-        </button>
-      </div>
-
       {/* Mobile Column Selector Pills */}
       <div className="sm:hidden flex gap-2 overflow-x-auto pb-3 pt-1 scrollbar-hide">
         {COLUMNS.map(col => {
@@ -322,14 +394,15 @@ export function CampaignKanban({
       </div>
 
       {/* Kanban Columns Grid */}
-      <DndContext sensors={sensors} collisionDetection={closestCorners} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={customCollision} onDragEnd={handleDragEnd}>
         {/* Desktop View: All Columns */}
         <div className="hidden sm:flex gap-4 overflow-x-auto pb-6 pt-2">
           {COLUMNS.map(col => (
-            <KanbanColumn 
-              key={col.id} 
-              column={col} 
+            <KanbanColumn
+              key={col.id}
+              column={col}
               leads={leads.filter(l => l.status === col.id)}
+              prefix={prefix}
               onCardClick={lead => setActiveLead(lead)}
             />
           ))}
@@ -339,15 +412,69 @@ export function CampaignKanban({
         <div className="sm:hidden pt-1 pb-6">
           {COLUMNS.filter(c => c.id === mobileTab).map(col => (
             <div key={col.id} className="w-full animate-in fade-in duration-200">
-              <KanbanColumn 
-                column={col} 
+              <KanbanColumn
+                column={col}
                 leads={leads.filter(l => l.status === col.id)}
+                prefix={prefix}
                 onCardClick={lead => setActiveLead(lead)}
               />
             </div>
           ))}
         </div>
       </DndContext>
+
+      {/* ─── Modal: Solicitar Data de Cobrança ────────────────────────── */}
+      {billingPromptLead && (
+        <div className="fixed inset-0 z-[999999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setBillingPromptLead(null)}>
+          <div className="bg-[#150f1d] border border-blue-500/30 p-6 rounded-3xl max-w-sm w-full shadow-2xl space-y-5 text-center animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20 shadow-lg shadow-blue-500/10">
+              <Calendar className="w-7 h-7 font-black" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-white uppercase tracking-tight">Agendar Cobrança</h3>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                Quando o lead <span className="text-white font-bold">"{billingPromptLead.member.name}"</span> deverá ser cobrado?
+              </p>
+            </div>
+            <div className="text-left space-y-1.5 pt-1">
+              <label className="text-[10px] font-black text-blue-400 uppercase tracking-widest px-1">Data da Cobrança</label>
+              <input
+                type="date"
+                value={tempBillingDate}
+                onChange={e => setTempBillingDate(e.target.value)}
+                className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white font-bold focus:outline-none focus:border-blue-500 transition-colors"
+              />
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                onClick={() => {
+                  setLeads(prev => prev.map(l => l.member.id === billingPromptLead.member.id ? { ...l, status: 'pagamento_pendente' } : l));
+                  setBillingPromptLead(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-colors"
+              >
+                Sem Data
+              </button>
+              <button
+                onClick={() => {
+                  setLeads(prev => prev.map(l => {
+                    if (l.member.id === billingPromptLead.member.id) {
+                      const upd = { ...l, status: 'pagamento_pendente' as LeadStatus, billingDueDate: tempBillingDate };
+                      if (activeLead && activeLead.member.id === l.member.id) setActiveLead(upd);
+                      return upd;
+                    }
+                    return l;
+                  }));
+                  setBillingPromptLead(null);
+                }}
+                className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-500/25 transition-all"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Lead Details Modal ────────────────────────────────────────────── */}
       {activeLead && (
@@ -401,8 +528,8 @@ export function CampaignKanban({
                       onClick={() => updateLeadStatus(col.id)}
                       className={cn(
                         "px-3 py-1.5 rounded-xl text-xs font-bold transition-all border",
-                        activeLead.status === col.id 
-                          ? cn(col.bg, col.color, "ring-2 ring-white/20") 
+                        activeLead.status === col.id
+                          ? cn(col.bg, col.color, "ring-2 ring-white/20")
                           : "bg-white/5 border-transparent text-gray-400 hover:bg-white/10"
                       )}
                     >
@@ -417,18 +544,33 @@ export function CampaignKanban({
                 <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400 flex items-center gap-1.5">
                   <DollarSign className="w-4 h-4" /> Controle de Pagamento
                 </span>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[10px] text-gray-500 font-bold uppercase">Valor Combinado (R$)</label>
+                    <label className="text-[10px] text-gray-500 font-bold uppercase">Valor Combinado</label>
                     <input
                       type="text"
                       defaultValue={activeLead.paymentValue || billingValue}
                       onChange={e => {
                         const val = e.target.value;
                         setLeads(prev => prev.map(l => l.member.id === activeLead.member.id ? { ...l, paymentValue: val } : l));
+                        setActiveLead(prev => prev ? { ...prev, paymentValue: val } : null);
                       }}
                       placeholder="0,00"
                       className="w-full h-9 bg-white/5 border border-white/10 rounded-lg px-3 text-white text-xs mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-amber-400 font-bold uppercase">Pago (Parcial / Total)</label>
+                    <input
+                      type="text"
+                      defaultValue={activeLead.paidValue || ''}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setLeads(prev => prev.map(l => l.member.id === activeLead.member.id ? { ...l, paidValue: val } : l));
+                        setActiveLead(prev => prev ? { ...prev, paidValue: val } : null);
+                      }}
+                      placeholder="Ex: 50,00"
+                      className="w-full h-9 bg-amber-400/5 border border-amber-400/20 rounded-lg px-3 text-amber-300 text-xs mt-1 font-bold focus:outline-none focus:border-amber-400"
                     />
                   </div>
                   <div>
@@ -439,6 +581,7 @@ export function CampaignKanban({
                       onChange={e => {
                         const val = e.target.value;
                         setLeads(prev => prev.map(l => l.member.id === activeLead.member.id ? { ...l, paymentDate: val } : l));
+                        setActiveLead(prev => prev ? { ...prev, paymentDate: val } : null);
                       }}
                       className="w-full h-9 bg-white/5 border border-white/10 rounded-lg px-3 text-white text-xs mt-1"
                     />
@@ -463,22 +606,22 @@ export function CampaignKanban({
                       placeholder="Adicionar comentário ou observação..."
                       className="flex-1 h-11 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white focus:outline-none focus:border-[#BF76FF]"
                     />
-                    
+
                     <label className={cn(
                       "w-11 h-11 rounded-xl flex items-center justify-center border border-white/10 cursor-pointer transition-all shrink-0",
-                      isUploadingAttachment ? "bg-[#BF76FF]/20 text-[#BF76FF] animate-pulse cursor-not-allowed" : 
-                      commentAttachment ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
+                      isUploadingAttachment ? "bg-[#BF76FF]/20 text-[#BF76FF] animate-pulse cursor-not-allowed" :
+                        commentAttachment ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" : "bg-white/5 text-gray-400 hover:text-white hover:bg-white/10"
                     )}>
                       <Paperclip className="w-5 h-5" />
-                      <input 
-                        type="file" 
-                        accept="image/*,application/pdf" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
                         disabled={isUploadingAttachment}
                         onChange={e => {
                           const f = e.target.files?.[0];
                           if (f) handleCommentFile(f);
-                        }} 
+                        }}
                       />
                     </label>
 
@@ -508,7 +651,7 @@ export function CampaignKanban({
                           <span>{c.createdAt}</span>
                         </div>
                         {c.text && <p className="text-xs text-gray-200 leading-relaxed">{c.text}</p>}
-                        
+
                         {c.attachments && c.attachments.map((att, idx) => (
                           <div key={idx} className="mt-2 pt-2 border-t border-white/5">
                             <a href={att} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[10px] text-[#BF76FF] hover:underline bg-[#BF76FF]/10 p-2 rounded-lg">
@@ -523,6 +666,17 @@ export function CampaignKanban({
                   )}
                 </div>
               </div>
+            </div>
+
+            {/* Modal Footer with OK button */}
+            <div className="p-4 bg-white/[0.02] border-t border-white/5 flex items-center justify-end gap-3 shrink-0">
+              <button
+                onClick={() => setActiveLead(null)}
+                className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
+              >
+                <Check className="w-4 h-4 font-black" />
+                OK
+              </button>
             </div>
           </div>
         </div>

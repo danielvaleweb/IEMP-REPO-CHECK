@@ -508,9 +508,9 @@ function CalendarView({
                           <div className={cn(
                             "w-1.5 h-1.5 rounded-full",
                             event.status === 'pending' ? "bg-yellow-500 animate-pulse" :
-                            (event.originalType || event.type) === 'agenda-direcao' ? "bg-green-500" :
-                            (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post' ? "bg-[#BF76FF]" :
-                            agendaType === 'direcao' ? "bg-green-500" : "bg-[#BF76FF]"
+                              (event.originalType || event.type) === 'agenda-direcao' ? "bg-green-500" :
+                                (event.originalType || event.type) === 'agenda' || (event.originalType || event.type) === 'post' ? "bg-[#BF76FF]" :
+                                  agendaType === 'direcao' ? "bg-green-500" : "bg-[#BF76FF]"
                           )} />
                           <p className={cn("font-black text-sm whitespace-normal tracking-tight leading-tight", isDark ? "text-white" : "text-black")}>{event.title}</p>
                         </div>
@@ -1529,9 +1529,9 @@ const Admin = () => {
   // Chat Messages Listener
   useEffect(() => {
     if (!profile?.id || !activeChatUser?.id) return;
-    
+
     const chatId = activeChatId || [profile.id, activeChatUser.id].sort().join('_');
-    
+
     const q = query(
       collection(db, "chats", chatId, "messages"),
       orderBy("timestamp", "asc")
@@ -1707,7 +1707,7 @@ const Admin = () => {
     }
   };
   const [isReportingBug, setIsReportingBug] = useState(false);
-  
+
   useEffect(() => {
     const handleOpenBug = () => setIsReportingBug(true);
     window.addEventListener('open-bug-report', handleOpenBug);
@@ -1867,7 +1867,7 @@ const Admin = () => {
     if (rolePerms?.tabs?.agenda && typeof rolePerms.tabs.agenda === 'object' && rolePerms.tabs.agenda.create !== undefined) {
       return rolePerms.tabs.agenda.create;
     }
-    
+
     return r.name === "Desenvolvedor" ||
       r.name === "Administradores" ||
       r.name === "Secretaria" ||
@@ -2050,7 +2050,7 @@ const Admin = () => {
                 const [year, month, day] = n.eventDate.split('-');
                 return `${day}/${month}/${year}`;
               }
-            } catch {}
+            } catch { }
             return "";
           })();
           treatedTitle = formattedDate ? `Data solicitada: ${formattedDate}` : "Data solicitada";
@@ -2163,7 +2163,7 @@ const Admin = () => {
     try {
       if (notif.type === "request" || notif.type === "agenda" || notif.type === "agenda_rejected") {
         setActiveTab("agenda");
-        
+
         let targetDate: Date | null = null;
 
         // Camada 1: Buscar o ID do evento na agenda já carregada localmente (mergedAgenda)
@@ -2359,7 +2359,7 @@ const Admin = () => {
 
   const handleUpdateMemberRole = async () => {
     if (!memberToProcess || !selectedRoleForEdit) return;
-    
+
     // Safeguard: only Admins and Developers can update member roles
     const hasRolePermission = isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor";
     if (!hasRolePermission) {
@@ -2925,7 +2925,7 @@ const Admin = () => {
       ), (snap) => {
         const notifs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         setNotifications(notifs);
-        
+
         // Calculate unread count locally from the loaded notifications to save Firestore reads
         const unreadCount = notifs.filter((n: any) => !n.read).length;
         setCounts(prev => ({
@@ -3110,9 +3110,9 @@ const Admin = () => {
       (err) => console.error("Error loading chats", err)
     );
 
-    let unsubSupportChats = () => {};
+    let unsubSupportChats = () => { };
     const hasSupportAccess = profile?.role === 'Administrador Master' || profile?.role === 'Desenvolvedor' || profile?.role === 'Administrador';
-    
+
     if (hasSupportAccess) {
       unsubSupportChats = onSnapshot(
         query(collection(db, "chats"), where("isSupport", "==", true)),
@@ -3202,7 +3202,7 @@ const Admin = () => {
   const checkFolderAccessibility = async (link: string, index: number) => {
     if (!link) return false;
     setCheckingFolders(prev => ({ ...prev, [index]: true }));
-    
+
     let folderId = link.trim();
     if (folderId.includes("drive.google.com")) {
       const folderPatterns = [
@@ -3219,7 +3219,7 @@ const Admin = () => {
         }
       }
     }
-    
+
     try {
       const response = await fetch(`/api/drive-proxy?id=${folderId}`);
       if (response.ok) {
@@ -3233,7 +3233,7 @@ const Admin = () => {
     } catch (e) {
       console.error("Live check folder error", e);
     }
-    
+
     setFolderVerified(prev => ({ ...prev, [index]: false }));
     setCheckingFolders(prev => ({ ...prev, [index]: false }));
     return false;
@@ -3360,7 +3360,7 @@ const Admin = () => {
 
     const grouped = new Map<string, any[]>();
     const activeMembers = members.filter(m => m.status !== "pending" && m.name && m.name.trim() !== "");
-    
+
     activeMembers.forEach(m => {
       const pr = getPrimaryRole(m);
       if (!grouped.has(pr)) {
@@ -3714,12 +3714,12 @@ const Admin = () => {
       // Sync Event to Agenda Geral and Agenda Direção
       if (collectionName === "posts") {
         const hasInvitedMembers = dataToSave.invitedMembers && dataToSave.invitedMembers.length > 0;
-        
+
         // 1. Sync to Agenda Geral ('agenda' collection)
         try {
           const agendaQuery = query(collection(db, "agenda"), where("eventId", "==", itemDocId));
           const agendaSnapshot = await getDocs(agendaQuery);
-          
+
           if (hasInvitedMembers) {
             const agendaData = {
               title: dataToSave.title,
@@ -3733,7 +3733,7 @@ const Admin = () => {
               hidden: dataToSave.hidden || false,
               updatedAt: serverTimestamp()
             };
-            
+
             if (!agendaSnapshot.empty) {
               const docRef = agendaSnapshot.docs[0].ref;
               await setDoc(docRef, agendaData, { merge: true });
@@ -3760,10 +3760,10 @@ const Admin = () => {
             const rolesStr = formatRoles(m).toLowerCase();
             return rolesStr.includes("direção") || rolesStr.includes("direcao");
           });
-          
+
           const direcaoQuery = query(collection(db, "agenda-direcao"), where("eventId", "==", itemDocId));
           const direcaoSnapshot = await getDocs(direcaoQuery);
-          
+
           if (hasDirecao) {
             const direcaoData = {
               title: dataToSave.title,
@@ -3777,7 +3777,7 @@ const Admin = () => {
               hidden: dataToSave.hidden || false,
               updatedAt: serverTimestamp()
             };
-            
+
             if (!direcaoSnapshot.empty) {
               const docRef = direcaoSnapshot.docs[0].ref;
               await setDoc(docRef, direcaoData, { merge: true });
@@ -3796,15 +3796,15 @@ const Admin = () => {
           console.error("Error syncing to Agenda Direcao", e);
         }
       }
-      
+
       // Update local state immediately for instant feedback
-      const savedItem = { 
-        ...dataToSave, 
+      const savedItem = {
+        ...dataToSave,
         id: itemDocId,
         // Mock some fields that come from DB if not present
         createdAt: dataToSave.createdAt || { toDate: () => new Date() }
       };
-      
+
       if (collectionName === "posts") setPosts(prev => selectedItem?.id ? prev.map(p => p.id === itemDocId ? { ...p, ...savedItem } : p) : [savedItem, ...prev]);
       if (collectionName === "blog") setBlog(prev => selectedItem?.id ? prev.map(b => b.id === itemDocId ? { ...b, ...savedItem } : b) : [savedItem, ...prev]);
       if (collectionName === "agenda") setAgenda(prev => selectedItem?.id ? prev.map(a => a.id === itemDocId ? { ...a, ...savedItem } : a) : [...prev, savedItem]);
@@ -3969,7 +3969,7 @@ const Admin = () => {
     }
   };
 
-   const mergedAgenda = useMemo(() => {
+  const mergedAgenda = useMemo(() => {
     const fromPosts = posts
       .filter(p => p.date)
       .map(p => {
@@ -4069,8 +4069,8 @@ const Admin = () => {
 
       const isFutureOrToday = itemDate >= today;
       const matchesSearch = item.title?.toLowerCase().includes(importSearch.toLowerCase()) ||
-                            item.location?.toLowerCase().includes(importSearch.toLowerCase());
-      
+        item.location?.toLowerCase().includes(importSearch.toLowerCase());
+
       return isFutureOrToday && matchesSearch;
     });
   }, [activeTab, agenda, agendaDirecao, importSearch]);
@@ -4082,7 +4082,7 @@ const Admin = () => {
     try {
       // Replicar EXATAMENTE igual todos os campos do evento original
       const { id: originalId, createdAt: originalCreatedAt, type: sourceType, ...originalData } = event;
-      
+
       const dataToSave = {
         ...originalData,
         createdAt: serverTimestamp(),
@@ -4162,7 +4162,7 @@ const Admin = () => {
       setDeleteConfirm(null);
     } finally {
       setIsSubmitting(false);
-      
+
       // Update local state immediately
       if (deleteConfirm) {
         const { id, collection: col } = deleteConfirm;
@@ -4335,13 +4335,13 @@ const Admin = () => {
                     type="email"
                     placeholder=" "
                     className={cn(
-                      "peer w-full h-16 border rounded-2xl px-6 pt-5 pb-1 text-lg transition-all outline-none", 
+                      "peer w-full h-16 border rounded-2xl px-6 pt-5 pb-1 text-lg transition-all outline-none",
                       isDarkMode ? "bg-cinza-input border-white/5 text-gray-200 focus:border-[#BF76FF]" : "bg-white border-black/5 text-gray-800 focus:border-[#BF76FF]"
                     )}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
-                  <label 
+                  <label
                     htmlFor="email"
                     className="absolute text-sm duration-300 transform -translate-y-3 scale-75 top-[18px] z-10 origin-[0] left-6 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-[18px] peer-focus:scale-75 peer-focus:-translate-y-3 text-gray-500 peer-focus:text-[#BF76FF] pointer-events-none"
                   >
@@ -4366,7 +4366,7 @@ const Admin = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                   />
-                  <label 
+                  <label
                     htmlFor="password"
                     className="absolute text-sm duration-300 transform -translate-y-3 scale-75 top-[18px] z-10 origin-[0] left-6 peer-placeholder-shown:scale-100 peer-placeholder-shown:-translate-y-1/2 peer-placeholder-shown:top-1/2 peer-focus:top-[18px] peer-focus:scale-75 peer-focus:-translate-y-3 text-gray-500 peer-focus:text-[#BF76FF] pointer-events-none"
                   >
@@ -4384,7 +4384,7 @@ const Admin = () => {
                 <div className="flex justify-end pt-1">
                   <button
                     onClick={() => {
-                      const msg = email.trim() 
+                      const msg = email.trim()
                         ? `esqueci minha senha meu email é ${email.trim()}`
                         : "Esqueci meu Email e senha preciso de ajuda.";
                       window.open(`https://wa.me/5532999194640?text=${encodeURIComponent(msg)}`, '_blank');
@@ -4443,7 +4443,7 @@ const Admin = () => {
                         if (!dbPassword) {
                           try {
                             const savedLoginsQuery = query(
-                              collection(db, "saved-logins"), 
+                              collection(db, "saved-logins"),
                               where("username", "==", email)
                             );
                             const savedLoginsSnap = await getDocs(savedLoginsQuery);
@@ -4451,7 +4451,7 @@ const Admin = () => {
                               dbPassword = savedLoginsSnap.docs[0].data().password;
                             } else {
                               const savedLoginsQueryLc = query(
-                                collection(db, "saved-logins"), 
+                                collection(db, "saved-logins"),
                                 where("username", "==", normalizedEmail)
                               );
                               const savedLoginsSnapLc = await getDocs(savedLoginsQueryLc);
@@ -4887,7 +4887,7 @@ const Admin = () => {
                   )}
                 >
                   {/* Default MP design: font Helvetica Neue, no pink button background, bold M, light P */}
-                  <div 
+                  <div
                     style={{ fontFamily: '"Helvetica Neue", Helvetica, Arial, sans-serif' }}
                     className="absolute inset-0 flex items-center justify-center text-xl tracking-tight transition-all duration-300 group-hover:opacity-0 group-hover:scale-75 select-none"
                   >
@@ -5096,9 +5096,9 @@ const Admin = () => {
                 <SidebarItem
                   icon={MessageSquare}
                   active={activeTab === "chat"}
-                  onClick={() => { 
-                    setActiveTab("chat"); 
-                    setRightSidebarView("hidden"); 
+                  onClick={() => {
+                    setActiveTab("chat");
+                    setRightSidebarView("hidden");
                     setActiveChatUser(null);
                     setActiveChatId(null);
                     const params = new URLSearchParams(searchParams);
@@ -5125,8 +5125,8 @@ const Admin = () => {
                       className={cn(
                         "w-10 h-10 rounded-full overflow-hidden border-2 transition-all shrink-0 p-0.5 bg-white/5",
                         profile?.status_online === 'busy' ? "border-red-500 shadow-[0_0_10px_rgba(239,68,68,0.3)]" :
-                        profile?.status_online === 'away' ? "border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]" :
-                        "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
+                          profile?.status_online === 'away' ? "border-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.3)]" :
+                            "border-green-500 shadow-[0_0_10px_rgba(34,197,94,0.3)]"
                       )}
                     >
                       <div className="w-full h-full rounded-full overflow-hidden">
@@ -5267,7 +5267,7 @@ const Admin = () => {
                           }}
                         >
                           <Megaphone className="w-5 h-5 text-[#25D366]" />
-                          <span className="font-black text-[11px] uppercase tracking-wider">Disparo WA (CRM)</span>
+                          <span className="font-black text-[11px] uppercase tracking-wider">Event Manager</span>
                         </SheetClose>
                       )}
                       <SheetClose
@@ -5363,116 +5363,116 @@ const Admin = () => {
                     )}
                   </div>
                 </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className={cn("w-[320px] rounded-[24px] p-0 border shadow-2xl mt-4 overflow-hidden", isDarkMode ? "bg-roxo-bg border-white/5 text-white" : "bg-white border-black/5 text-black")}>
-                <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-black uppercase tracking-tighter text-base">Notificações</h3>
+                <DropdownMenuContent align="end" className={cn("w-[320px] rounded-[24px] p-0 border shadow-2xl mt-4 overflow-hidden", isDarkMode ? "bg-roxo-bg border-white/5 text-white" : "bg-white border-black/5 text-black")}>
+                  <div className="p-4 border-b border-black/5 dark:border-white/5 flex items-center justify-between">
+                    <div>
+                      <h3 className="font-black uppercase tracking-tighter text-base">Notificações</h3>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={handleMarkAllAsRead}
+                        className="p-2 rounded-lg text-gray-500 hover:text-[#BF76FF] transition-all"
+                      >
+                        <CheckCheck className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={handleClearNotifications}
+                        className="p-2 rounded-lg text-gray-500 hover:text-red-500 transition-all font-bold text-[10px] uppercase tracking-widest"
+                      >
+                        Limpar
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={handleMarkAllAsRead}
-                      className="p-2 rounded-lg text-gray-500 hover:text-[#BF76FF] transition-all"
-                    >
-                      <CheckCheck className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={handleClearNotifications}
-                      className="p-2 rounded-lg text-gray-500 hover:text-red-500 transition-all font-bold text-[10px] uppercase tracking-widest"
-                    >
-                      Limpar
-                    </button>
-                  </div>
-                </div>
-                <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                  <div className="p-2">
-                    {displayNotifications.length > 0 ? (
-                      displayNotifications.map((n) => {
-                        const isExpanded = expandedNotifs.includes(n.id);
-                        return (
-                          <div
-                            key={n.id}
-                            onClick={() => handleNotificationClick(n)}
-                            className={cn(
-                              "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent cursor-pointer flex flex-col group",
-                              !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600")
-                            )}
-                          >
-                            <div className="flex gap-3">
-                              <div className={cn(
-                                "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                                n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' :
-                                  n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' :
-                                    n.type === 'bug' ? 'bg-orange-600/20 text-orange-600' :
-                                      n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
-                                        n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
-                                          n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
-                                            n.type === 'request' ? 'bg-[#FACC15]/20 text-[#FACC15]' :
-                                              'bg-green-500/20 text-green-500'
-                              )}>
-                                {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> :
-                                  n.type === 'activity' ? <Zap className="w-4 h-4" /> :
-                                    n.type === 'bug' ? <Bug className="w-4 h-4" /> :
-                                      n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
-                                        n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
-                                          n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
-                                            n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
-                                              n.type === 'request' ? <Calendar className="w-4 h-4" /> :
-                                                <Bell className="w-4 h-4" />
-                                }
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-sm font-bold leading-tight line-clamp-1">{n.title}</p>
-                                  <ChevronDown className={cn("w-4 h-4 shrink-0 transition-transform opacity-50 group-hover:opacity-100", isExpanded ? "rotate-180" : "")} />
+                  <div className="max-h-[300px] overflow-y-auto scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+                    <div className="p-2">
+                      {displayNotifications.length > 0 ? (
+                        displayNotifications.map((n) => {
+                          const isExpanded = expandedNotifs.includes(n.id);
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={() => handleNotificationClick(n)}
+                              className={cn(
+                                "p-3 rounded-xl mb-1 last:mb-0 transition-all border border-transparent cursor-pointer flex flex-col group",
+                                !n.read ? (isDarkMode ? "bg-[#BF76FF]/5 border-[#BF76FF]/10 text-white" : "bg-[#BF76FF]/5 border-[#BF76FF]/10") : (isDarkMode ? "hover:bg-white/5 text-gray-400" : "hover:bg-black/5 text-gray-600")
+                              )}
+                            >
+                              <div className="flex gap-3">
+                                <div className={cn(
+                                  "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
+                                  n.type === 'registration' ? 'bg-blue-500/20 text-blue-500' :
+                                    n.type === 'activity' ? 'bg-[#BF76FF]/20 text-[#BF76FF]' :
+                                      n.type === 'bug' ? 'bg-orange-600/20 text-orange-600' :
+                                        n.type === 'gallery_removal' || n.type === 'agenda_rejected' ? 'bg-red-500/20 text-red-500' :
+                                          n.type === 'birthday' ? 'bg-orange-500/20 text-orange-500 animate-pulse' :
+                                            n.type === 'event_feedback' ? 'bg-yellow-500/20 text-yellow-500' :
+                                              n.type === 'request' ? 'bg-[#FACC15]/20 text-[#FACC15]' :
+                                                'bg-green-500/20 text-green-500'
+                                )}>
+                                  {n.type === 'registration' ? <UserPlus className="w-4 h-4" /> :
+                                    n.type === 'activity' ? <Zap className="w-4 h-4" /> :
+                                      n.type === 'bug' ? <Bug className="w-4 h-4" /> :
+                                        n.type === 'gallery_removal' ? <Trash2 className="w-4 h-4" /> :
+                                          n.type === 'agenda_rejected' ? <XCircle className="w-4 h-4" /> :
+                                            n.type === 'birthday' ? <Cake className="w-4 h-4" /> :
+                                              n.type === 'event_feedback' ? <Star className="w-4 h-4" /> :
+                                                n.type === 'request' ? <Calendar className="w-4 h-4" /> :
+                                                  <Bell className="w-4 h-4" />
+                                  }
                                 </div>
-                                {isExpanded && (
-                                  <p className="text-xs opacity-70 mt-1 transition-all whitespace-pre-wrap">{n.message}</p>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-sm font-bold leading-tight line-clamp-1">{n.title}</p>
+                                    <ChevronDown className={cn("w-4 h-4 shrink-0 transition-transform opacity-50 group-hover:opacity-100", isExpanded ? "rotate-180" : "")} />
+                                  </div>
+                                  {isExpanded && (
+                                    <p className="text-xs opacity-70 mt-1 transition-all whitespace-pre-wrap">{n.message}</p>
+                                  )}
+                                  <p className="text-[10px] font-medium opacity-40 mt-2">
+                                    {getRelativeTime(n.createdAt || n.timestamp)}
+                                  </p>
+                                </div>
+                                {!n.read && (
+                                  <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
                                 )}
-                                <p className="text-[10px] font-medium opacity-40 mt-2">
-                                  {getRelativeTime(n.createdAt || n.timestamp)}
-                                </p>
                               </div>
-                              {!n.read && (
-                                <div className="w-2 h-2 rounded-full bg-[#BF76FF] shrink-0 mt-1.5" />
+                              {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback" || n.type === "agenda_rejected" || n.type === "bug") && (
+                                <button
+                                  onClick={(e) => handleNotificationAction(n, e)}
+                                  className={cn(
+                                    "mt-3 w-full flex justify-center items-center gap-2 py-2 rounded-xl text-xs font-bold transition-colors",
+                                    n.type === "request"
+                                      ? "bg-[#FACC15]/10 text-[#FACC15] hover:bg-[#FACC15]/20"
+                                      : "bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20"
+                                  )}
+                                >
+                                  Acessar Detalhes
+                                </button>
+                              )}
+                              {n.type === 'birthday' && n.memberPhone && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    window.open(`https://wa.me/55${n.memberPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Parabéns ${n.memberName}! Que Deus te abençoe grandemente no seu aniversário!`)}`, '_blank');
+                                  }}
+                                  className="mt-3 w-full flex justify-center items-center gap-2 bg-[#25D366]/20 text-[#25D366] py-2 rounded-xl text-xs font-bold hover:bg-[#25D366]/30 transition-colors"
+                                >
+                                  <Phone className="w-3 h-3" />
+                                  Dar os Parabéns!
+                                </button>
                               )}
                             </div>
-                            {isExpanded && (n.type === "request" || n.type === "agenda" || n.type === "registration" || n.type === "chat" || n.type === "gallery_removal" || n.type === "event_feedback" || n.type === "agenda_rejected" || n.type === "bug") && (
-                              <button
-                                onClick={(e) => handleNotificationAction(n, e)}
-                                className={cn(
-                                  "mt-3 w-full flex justify-center items-center gap-2 py-2 rounded-xl text-xs font-bold transition-colors",
-                                  n.type === "request"
-                                    ? "bg-[#FACC15]/10 text-[#FACC15] hover:bg-[#FACC15]/20"
-                                    : "bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF]/20"
-                                )}
-                              >
-                                Acessar Detalhes
-                              </button>
-                            )}
-                            {n.type === 'birthday' && n.memberPhone && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  window.open(`https://wa.me/55${n.memberPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Parabéns ${n.memberName}! Que Deus te abençoe grandemente no seu aniversário!`)}`, '_blank');
-                                }}
-                                className="mt-3 w-full flex justify-center items-center gap-2 bg-[#25D366]/20 text-[#25D366] py-2 rounded-xl text-xs font-bold hover:bg-[#25D366]/30 transition-colors"
-                              >
-                                <Phone className="w-3 h-3" />
-                                Dar os Parabéns!
-                              </button>
-                            )}
-                          </div>
-                        )
-                      })
-                    ) : (
-                      <div className="py-8 flex flex-col items-center justify-center text-center opacity-40">
-                        <Bell className="w-8 h-8 mb-2" />
-                        <p className="text-xs font-bold uppercase tracking-widest">Sem notificações</p>
-                      </div>
-                    )}
+                          )
+                        })
+                      ) : (
+                        <div className="py-8 flex flex-col items-center justify-center text-center opacity-40">
+                          <Bell className="w-8 h-8 mb-2" />
+                          <p className="text-xs font-bold uppercase tracking-widest">Sem notificações</p>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </DropdownMenuContent>
+                </DropdownMenuContent>
               </DropdownMenu>
             </div>
           </header>
@@ -5569,9 +5569,9 @@ const Admin = () => {
 
               {/* MessageSquare Chat Trigger */}
               <button
-                onClick={() => { 
-                  setActiveTab("chat"); 
-                  if (window.innerWidth < 1280) setRightSidebarView("hidden"); 
+                onClick={() => {
+                  setActiveTab("chat");
+                  if (window.innerWidth < 1280) setRightSidebarView("hidden");
                   setActiveChatUser(null);
                   setActiveChatId(null);
                   const params = new URLSearchParams(searchParams);
@@ -5913,603 +5913,603 @@ const Admin = () => {
             )}>
               {isEditing ? (
                 <>
-                <Card className={cn(
-                  "border-white/5 rounded-3xl shadow-2xl transition-all overflow-hidden",
-                  "p-4 md:p-10",
-                  isDarkMode ? "bg-roxo-bg" : "bg-white border-black/5"
-                )}>
-                  <div className={cn(
-                    "space-y-8",
-                    !isReadOnly ? "pb-32 md:pb-36" : ""
+                  <Card className={cn(
+                    "border-white/5 rounded-3xl shadow-2xl transition-all overflow-hidden",
+                    "p-4 md:p-10",
+                    isDarkMode ? "bg-roxo-bg" : "bg-white border-black/5"
                   )}>
-                    {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") ? (
-                      <div className="mb-2">
-                        <Button
-                          variant="ghost"
-                          onClick={() => setIsEditing(false)}
-                          className="pl-0 text-gray-500 hover:text-[#BF76FF] hover:bg-transparent uppercase tracking-[0.2em] text-[10px] font-bold"
-                        >
-                          <ArrowLeft className="w-4 h-4 mr-2" />
-                          Voltar
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-4 mb-2">
-                        <div className="w-12 h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center">
-                          {activeTab === 'noticias' ? (
-                            <Newspaper className="w-6 h-6 text-[#BF76FF]" />
-                          ) : (
-                            <Edit className="w-6 h-6 text-[#BF76FF]" />
-                          )}
-                        </div>
-                        <h4 className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>
-                          {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Nova"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'noticias' ? 'Matéria' : activeTab === 'membros' ? 'Perfil' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
-                        </h4>
-                      </div>
-                    )}
-
-                    {/* Pending Member Approval UI */}
-                    {activeTab === "membros" && selectedItem?.status === "pending" && (
-                      <div className="bg-[#BF76FF]/10 border border-[#BF76FF]/30 rounded-2xl p-6 mb-6">
-                        <h5 className="text-[#BF76FF] font-bold mb-2 flex items-center gap-2">
-                          <Bell className="w-5 h-5" /> Solicitação de Cadastro Pendente
-                        </h5>
-                        <p className="text-sm text-gray-300 mb-6">
-                          Este usuário solicitou acesso ao painel. Verifique as informações abaixo e decida se deseja aprovar ou reprovar.
-                        </p>
-                        <div className="flex gap-4">
+                    <div className={cn(
+                      "space-y-8",
+                      !isReadOnly ? "pb-32 md:pb-36" : ""
+                    )}>
+                      {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") ? (
+                        <div className="mb-2">
                           <Button
-                            className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-lg"
-                            onClick={async () => {
-                              try {
-                                const updateData: any = { status: "approved" };
-
-                                if (selectedItem.signupPassword) {
-                                  updateData.signupPassword = deleteField();
-                                  try {
-                                    await addDoc(collection(db, "saved-logins"), {
-                                      title: `Cadastro - ${selectedItem.name}`,
-                                      username: selectedItem.email,
-                                      password: selectedItem.signupPassword,
-                                      createdAt: serverTimestamp(),
-                                      updatedAt: serverTimestamp()
-                                    });
-                                  } catch (e) {
-                                    console.error("Failed to save login password", e);
-                                  }
-                                }
-
-                                await updateDoc(doc(db, "members", selectedItem.id), updateData);
-                                firestoreService.clearCache("members");
-                                // Gatilho: Notificação de aprovação
-                                /*
-                                fetch("/backend/push/broadcast", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({
-                                    title: "🎉 Acesso Liberado!",
-                                    message: "Seu cadastro foi aprovado. Seja bem-vindo ao Ministério Profecia!",
-                                    target: "specific",
-                                    userIds: [selectedItem.id]
-                                  })
-                                }).catch(e => console.error("Erro ao notificar aprovação:", e));
-                                */
-                                const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi APROVADO! Você já pode acessar usando seu e-mail e a senha padrão (admin).`;
-                                if (selectedItem.phone) {
-                                  window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                                }
-                                setIsEditing(false);
-                                setSelectedItem(null);
-                              } catch (e) {
-                                handleFirestoreError(e, OperationType.UPDATE, `members/${selectedItem.id}`);
-                              }
-                            }}
+                            variant="ghost"
+                            onClick={() => setIsEditing(false)}
+                            className="pl-0 text-gray-500 hover:text-[#BF76FF] hover:bg-transparent uppercase tracking-[0.2em] text-[10px] font-bold"
                           >
-                            <CheckCircle2 className="w-5 h-5 mr-2" /> Aprovar
+                            <ArrowLeft className="w-4 h-4 mr-2" />
+                            Voltar
                           </Button>
-                          <Button
-                            className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-12 text-lg"
-                            onClick={async () => {
-                              let reason = "Não atende aos requisitos no momento.";
-                              try {
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-4 mb-2">
+                          <div className="w-12 h-12 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center">
+                            {activeTab === 'noticias' ? (
+                              <Newspaper className="w-6 h-6 text-[#BF76FF]" />
+                            ) : (
+                              <Edit className="w-6 h-6 text-[#BF76FF]" />
+                            )}
+                          </div>
+                          <h4 className={cn("text-2xl md:text-3xl font-black tracking-tighter transition-colors", isDarkMode ? "text-white" : "text-black")}>
+                            {isReadOnly ? "Visualizar" : selectedItem ? "Editar" : "Nova"} {activeTab === 'eventos' ? 'Evento' : activeTab === 'noticias' ? 'Matéria' : activeTab === 'membros' ? 'Perfil' : activeTab === 'agenda-direcao' ? 'Compromisso' : 'Agenda'}
+                          </h4>
+                        </div>
+                      )}
+
+                      {/* Pending Member Approval UI */}
+                      {activeTab === "membros" && selectedItem?.status === "pending" && (
+                        <div className="bg-[#BF76FF]/10 border border-[#BF76FF]/30 rounded-2xl p-6 mb-6">
+                          <h5 className="text-[#BF76FF] font-bold mb-2 flex items-center gap-2">
+                            <Bell className="w-5 h-5" /> Solicitação de Cadastro Pendente
+                          </h5>
+                          <p className="text-sm text-gray-300 mb-6">
+                            Este usuário solicitou acesso ao painel. Verifique as informações abaixo e decida se deseja aprovar ou reprovar.
+                          </p>
+                          <div className="flex gap-4">
+                            <Button
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold h-12 text-lg"
+                              onClick={async () => {
                                 try {
-                                  const userReason = window.prompt("Motivo da reprovação:");
-                                  if (userReason === null) return; // Cancelled
-                                  if (userReason) reason = userReason;
-                                } catch (e) {
-                                  // Prompt blocked, use default reason
-                                }
-                                await updateDoc(doc(db, "members", selectedItem.id), { status: "rejected", rejectReason: reason });
-                                firestoreService.clearCache("members");
-                                const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi REPROVADO. Motivo: ${reason}`;
-                                if (selectedItem.phone) {
-                                  window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
-                                }
-                                setIsEditing(false);
-                                setSelectedItem(null);
-                              } catch (e) {
-                                handleFirestoreError(e, OperationType.UPDATE, `members/${selectedItem.id}`);
-                              }
-                            }}
-                          >
-                            <X className="w-5 h-5 mr-2" /> Reprovar
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                                  const updateData: any = { status: "approved" };
 
-                    {(activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") && (
-                      isReadOnly ? (
-                        <motion.div
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          className="space-y-10 py-4"
-                        >
-                          {/* Header Section */}
-                          {activeTab === "eventos" && formData.image && (
-                            <div className="relative aspect-video w-full rounded-[40px] overflow-hidden shadow-2xl mb-12">
-                              <img src={getImageUrl(formData.image)} alt="" className="w-full h-full object-cover" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                              <div className="absolute top-8 left-8">
-                                <span className="bg-primary px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
-                                  {formData.organization || "Evento"}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="space-y-4">
-                            <div className="flex items-center gap-3">
-                              <div className="h-[2px] w-8 bg-[#BF76FF]" />
-                              <p className="text-[#BF76FF] font-black uppercase tracking-[0.2em] text-[10px]">{activeTab === 'eventos' ? 'Detalhes do Evento' : activeTab === 'noticias' ? 'Detalhes da Notícia' : 'Agenda da Direção'}</p>
-                            </div>
-                            <h3 className={cn("text-4xl md:text-6xl font-black tracking-tighter transition-colors leading-[0.9]", isDarkMode ? "text-white" : "text-black")}>
-                              {formData.title}
-                            </h3>
-                          </div>
-
-                          {(activeTab === "eventos" || activeTab === "noticias") && formData.content && (
-                            <div className={cn("p-8 md:p-12 rounded-[40px] border transition-all text-lg md:text-xl font-medium leading-relaxed", isDarkMode ? "bg-white/5 border-white/5 text-gray-300" : "bg-white border-black/5 text-gray-700 shadow-sm")}>
-                              <div className="flex items-center gap-2 mb-6">
-                                <div className="w-1 h-6 bg-primary rounded-full" />
-                                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">{activeTab === "eventos" ? "Sobre o Evento" : "Matéria jornalística"}</h4>
-                              </div>
-                              <p className="whitespace-pre-wrap">{formData.content}</p>
-                            </div>
-                          )}
-
-                          {/* Info Cards Row */}
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
-                            <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
-                              <div>
-                                <Calendar className="w-5 h-5 text-[#BF76FF] mb-4" />
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Data</p>
-                              </div>
-                              <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
-                                {(() => {
-                                  try {
-                                    if (!formData.date) return '...';
-                                    if (formData.date.includes('T')) {
-                                      return format(parseISO(formData.date.split('T')[0]), 'dd/MM/yyyy');
+                                  if (selectedItem.signupPassword) {
+                                    updateData.signupPassword = deleteField();
+                                    try {
+                                      await addDoc(collection(db, "saved-logins"), {
+                                        title: `Cadastro - ${selectedItem.name}`,
+                                        username: selectedItem.email,
+                                        password: selectedItem.signupPassword,
+                                        createdAt: serverTimestamp(),
+                                        updatedAt: serverTimestamp()
+                                      });
+                                    } catch (e) {
+                                      console.error("Failed to save login password", e);
                                     }
-                                    return formData.date;
-                                  } catch (e) {
-                                    return '...';
                                   }
-                                })()}
-                              </p>
-                            </div>
-                            <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
-                              <div>
-                                <Clock className="w-5 h-5 text-[#BF76FF] mb-4" />
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Horário</p>
-                              </div>
-                              <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
-                                {formData.date && formData.date.includes('T') && formData.date.split('T')[1]
-                                  ? `${formData.date.split('T')[1].substring(0, 5)}${formData.endTime ? ` às ${formData.endTime}` : ''}`
-                                  : 'Horário não definido'}
-                              </p>
-                            </div>
-                            <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
-                              <div>
-                                <Users className="w-5 h-5 text-[#BF76FF] mb-4" />
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Organização</p>
-                              </div>
-                              <p className={cn("text-xl font-black truncate", isDarkMode ? "text-white" : "text-black")}>
-                                {formData.organization || formData.organizer || "Igreja Local"}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          {/* Info & Observations Cards */}
-                          {(formData.additionalInfo || formData.observations) && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                              {formData.additionalInfo && (
-                                <div className={cn("p-8 rounded-[32px] border flex flex-col gap-4 relative overflow-hidden group transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
-                                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#BF76FF]/5 blur-3xl -mr-16 -mt-16 group-hover:bg-[#BF76FF]/10 transition-colors" />
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
-                                      <Info className="w-5 h-5" />
-                                    </div>
-                                    <h3 className={cn("text-lg font-black uppercase tracking-tight", isDarkMode ? "text-white/90" : "text-black/80")}>Contato e Informações</h3>
-                                  </div>
-                                  <p className={cn("leading-relaxed text-sm md:text-base whitespace-pre-wrap", isDarkMode ? "text-gray-400" : "text-gray-600")}>
-                                    {formData.additionalInfo}
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {formData.observations && (
-                                <div className={cn("p-8 rounded-[32px] border flex flex-col gap-4 relative overflow-hidden group transition-all", isDarkMode ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-500/10 shadow-sm")}>
-                                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl -mr-16 -mt-16 group-hover:bg-amber-500/10 transition-colors" />
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
-                                      <AlertCircle className="w-5 h-5" />
-                                    </div>
-                                    <h3 className={cn("text-lg font-black uppercase tracking-tight", isDarkMode ? "text-white/90" : "text-black/80")}>Observações Importantes</h3>
-                                  </div>
-                                  <p className={cn("leading-relaxed text-sm md:text-base italic whitespace-pre-wrap", isDarkMode ? "text-gray-400" : "text-gray-600")}>
-                                    {formData.observations}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )}
 
-                          {/* Photo Gallery Preview (for Events) */}
-                          {activeTab === "eventos" && (() => {
-                            const galleryPhotos = Array.isArray(formData.gallery) ? formData.gallery : [];
-                            const drivePhotos: string[] = [];
-                            if (formData.driveFolders && Array.isArray(formData.driveFolders)) {
-                              formData.driveFolders.forEach((folder: any) => {
-                                if (folder.images && Array.isArray(folder.images)) {
-                                  folder.images.forEach((imgId: string) => {
-                                    drivePhotos.push(`https://drive.google.com/thumbnail?id=${imgId}&sz=w1000`);
-                                  });
+                                  await updateDoc(doc(db, "members", selectedItem.id), updateData);
+                                  firestoreService.clearCache("members");
+                                  // Gatilho: Notificação de aprovação
+                                  /*
+                                  fetch("/backend/push/broadcast", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      title: "🎉 Acesso Liberado!",
+                                      message: "Seu cadastro foi aprovado. Seja bem-vindo ao Ministério Profecia!",
+                                      target: "specific",
+                                      userIds: [selectedItem.id]
+                                    })
+                                  }).catch(e => console.error("Erro ao notificar aprovação:", e));
+                                  */
+                                  const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi APROVADO! Você já pode acessar usando seu e-mail e a senha padrão (admin).`;
+                                  if (selectedItem.phone) {
+                                    window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                  }
+                                  setIsEditing(false);
+                                  setSelectedItem(null);
+                                } catch (e) {
+                                  handleFirestoreError(e, OperationType.UPDATE, `members/${selectedItem.id}`);
                                 }
-                              });
-                            }
-                            const allPhotos = [...galleryPhotos, ...drivePhotos];
-                            if (allPhotos.length === 0) return null;
+                              }}
+                            >
+                              <CheckCircle2 className="w-5 h-5 mr-2" /> Aprovar
+                            </Button>
+                            <Button
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold h-12 text-lg"
+                              onClick={async () => {
+                                let reason = "Não atende aos requisitos no momento.";
+                                try {
+                                  try {
+                                    const userReason = window.prompt("Motivo da reprovação:");
+                                    if (userReason === null) return; // Cancelled
+                                    if (userReason) reason = userReason;
+                                  } catch (e) {
+                                    // Prompt blocked, use default reason
+                                  }
+                                  await updateDoc(doc(db, "members", selectedItem.id), { status: "rejected", rejectReason: reason });
+                                  firestoreService.clearCache("members");
+                                  const msg = `Olá ${selectedItem.name}, seu cadastro no painel do Ministério Profecia foi REPROVADO. Motivo: ${reason}`;
+                                  if (selectedItem.phone) {
+                                    window.open(`https://wa.me/55${selectedItem.phone.replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank');
+                                  }
+                                  setIsEditing(false);
+                                  setSelectedItem(null);
+                                } catch (e) {
+                                  handleFirestoreError(e, OperationType.UPDATE, `members/${selectedItem.id}`);
+                                }
+                              }}
+                            >
+                              <X className="w-5 h-5 mr-2" /> Reprovar
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
-                            return (
-                              <div className="space-y-6">
-                                <div className="flex items-center gap-3">
-                                  <div className="h-[2px] w-6 bg-primary" />
-                                  <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Galeria de Fotos</h4>
+                      {(activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos" || activeTab === "noticias") && (
+                        isReadOnly ? (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="space-y-10 py-4"
+                          >
+                            {/* Header Section */}
+                            {activeTab === "eventos" && formData.image && (
+                              <div className="relative aspect-video w-full rounded-[40px] overflow-hidden shadow-2xl mb-12">
+                                <img src={getImageUrl(formData.image)} alt="" className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                <div className="absolute top-8 left-8">
+                                  <span className="bg-primary px-4 py-2 rounded-full text-white text-[10px] font-black uppercase tracking-widest">
+                                    {formData.organization || "Evento"}
+                                  </span>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                                  {allPhotos.map((url: string, i: number) => (
-                                    <div key={`gallery-preview-${url}-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
-                                      <img src={getImageUrl(url)} alt="" className="w-full h-full object-cover" />
+                              </div>
+                            )}
+
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-3">
+                                <div className="h-[2px] w-8 bg-[#BF76FF]" />
+                                <p className="text-[#BF76FF] font-black uppercase tracking-[0.2em] text-[10px]">{activeTab === 'eventos' ? 'Detalhes do Evento' : activeTab === 'noticias' ? 'Detalhes da Notícia' : 'Agenda da Direção'}</p>
+                              </div>
+                              <h3 className={cn("text-4xl md:text-6xl font-black tracking-tighter transition-colors leading-[0.9]", isDarkMode ? "text-white" : "text-black")}>
+                                {formData.title}
+                              </h3>
+                            </div>
+
+                            {(activeTab === "eventos" || activeTab === "noticias") && formData.content && (
+                              <div className={cn("p-8 md:p-12 rounded-[40px] border transition-all text-lg md:text-xl font-medium leading-relaxed", isDarkMode ? "bg-white/5 border-white/5 text-gray-300" : "bg-white border-black/5 text-gray-700 shadow-sm")}>
+                                <div className="flex items-center gap-2 mb-6">
+                                  <div className="w-1 h-6 bg-primary rounded-full" />
+                                  <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">{activeTab === "eventos" ? "Sobre o Evento" : "Matéria jornalística"}</h4>
+                                </div>
+                                <p className="whitespace-pre-wrap">{formData.content}</p>
+                              </div>
+                            )}
+
+                            {/* Info Cards Row */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+                              <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
+                                <div>
+                                  <Calendar className="w-5 h-5 text-[#BF76FF] mb-4" />
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Data</p>
+                                </div>
+                                <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
+                                  {(() => {
+                                    try {
+                                      if (!formData.date) return '...';
+                                      if (formData.date.includes('T')) {
+                                        return format(parseISO(formData.date.split('T')[0]), 'dd/MM/yyyy');
+                                      }
+                                      return formData.date;
+                                    } catch (e) {
+                                      return '...';
+                                    }
+                                  })()}
+                                </p>
+                              </div>
+                              <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
+                                <div>
+                                  <Clock className="w-5 h-5 text-[#BF76FF] mb-4" />
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Horário</p>
+                                </div>
+                                <p className={cn("text-xl font-black", isDarkMode ? "text-white" : "text-black")}>
+                                  {formData.date && formData.date.includes('T') && formData.date.split('T')[1]
+                                    ? `${formData.date.split('T')[1].substring(0, 5)}${formData.endTime ? ` às ${formData.endTime}` : ''}`
+                                    : 'Horário não definido'}
+                                </p>
+                              </div>
+                              <div className={cn("p-6 rounded-[32px] border transition-all flex flex-col justify-between min-h-[140px]", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
+                                <div>
+                                  <Users className="w-5 h-5 text-[#BF76FF] mb-4" />
+                                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Organização</p>
+                                </div>
+                                <p className={cn("text-xl font-black truncate", isDarkMode ? "text-white" : "text-black")}>
+                                  {formData.organization || formData.organizer || "Igreja Local"}
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Info & Observations Cards */}
+                            {(formData.additionalInfo || formData.observations) && (
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                {formData.additionalInfo && (
+                                  <div className={cn("p-8 rounded-[32px] border flex flex-col gap-4 relative overflow-hidden group transition-all", isDarkMode ? "bg-white/5 border-white/10" : "bg-gray-50 border-black/5 shadow-sm")}>
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-[#BF76FF]/5 blur-3xl -mr-16 -mt-16 group-hover:bg-[#BF76FF]/10 transition-colors" />
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-2xl bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
+                                        <Info className="w-5 h-5" />
+                                      </div>
+                                      <h3 className={cn("text-lg font-black uppercase tracking-tight", isDarkMode ? "text-white/90" : "text-black/80")}>Contato e Informações</h3>
+                                    </div>
+                                    <p className={cn("leading-relaxed text-sm md:text-base whitespace-pre-wrap", isDarkMode ? "text-gray-400" : "text-gray-600")}>
+                                      {formData.additionalInfo}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {formData.observations && (
+                                  <div className={cn("p-8 rounded-[32px] border flex flex-col gap-4 relative overflow-hidden group transition-all", isDarkMode ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-500/10 shadow-sm")}>
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 blur-3xl -mr-16 -mt-16 group-hover:bg-amber-500/10 transition-colors" />
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-10 h-10 rounded-2xl bg-amber-500/10 flex items-center justify-center text-amber-500">
+                                        <AlertCircle className="w-5 h-5" />
+                                      </div>
+                                      <h3 className={cn("text-lg font-black uppercase tracking-tight", isDarkMode ? "text-white/90" : "text-black/80")}>Observações Importantes</h3>
+                                    </div>
+                                    <p className={cn("leading-relaxed text-sm md:text-base italic whitespace-pre-wrap", isDarkMode ? "text-gray-400" : "text-gray-600")}>
+                                      {formData.observations}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Photo Gallery Preview (for Events) */}
+                            {activeTab === "eventos" && (() => {
+                              const galleryPhotos = Array.isArray(formData.gallery) ? formData.gallery : [];
+                              const drivePhotos: string[] = [];
+                              if (formData.driveFolders && Array.isArray(formData.driveFolders)) {
+                                formData.driveFolders.forEach((folder: any) => {
+                                  if (folder.images && Array.isArray(folder.images)) {
+                                    folder.images.forEach((imgId: string) => {
+                                      drivePhotos.push(`https://drive.google.com/thumbnail?id=${imgId}&sz=w1000`);
+                                    });
+                                  }
+                                });
+                              }
+                              const allPhotos = [...galleryPhotos, ...drivePhotos];
+                              if (allPhotos.length === 0) return null;
+
+                              return (
+                                <div className="space-y-6">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-[2px] w-6 bg-primary" />
+                                    <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500">Galeria de Fotos</h4>
+                                  </div>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                                    {allPhotos.map((url: string, i: number) => (
+                                      <div key={`gallery-preview-${url}-${i}`} className="aspect-square rounded-2xl overflow-hidden border border-white/10 shadow-lg">
+                                        <img src={getImageUrl(url)} alt="" className="w-full h-full object-cover" />
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })()}
+
+                            {/* Location Section */}
+                            {formData.location && (
+                              <div className={cn("p-8 md:p-10 rounded-[40px] border relative overflow-hidden group transition-all", isDarkMode ? "bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border-white/5" : "bg-gradient-to-br from-gray-50 to-white border-black/5 shadow-inner")}>
+                                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                                  <div className="space-y-3">
+                                    <div className="flex items-center gap-2 mb-1">
+                                      <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Localização do Evento</p>
+                                    </div>
+                                    <p className={cn("text-xl md:text-3xl font-black max-w-xl leading-tight tracking-tight", isDarkMode ? "text-white" : "text-black")}>
+                                      {formData.location}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.location)}`, '_blank')}
+                                    className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-full h-16 md:h-20 px-8 md:px-12 font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-4 shadow-2xl shadow-[#BF76FF]/40 transition-all hover:scale-105 active:scale-95"
+                                  >
+                                    Abrir no GPS <MapPin className="w-5 h-5" />
+                                  </Button>
+                                </div>
+                                <div className="absolute top-0 right-0 w-80 h-80 bg-[#BF76FF]/5 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none" />
+                                <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#BF76FF]/3 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
+                              </div>
+                            )}
+
+                            {/* Invited Members Section */}
+                            {(formData.invitedMembers?.length > 0) && (
+                              <div className="space-y-8 py-6">
+                                <div className="flex items-center gap-6">
+                                  <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Membros da igreja presente</h5>
+                                  <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/5" : "bg-black/5")} />
+                                </div>
+
+                                <div className="flex flex-wrap gap-x-8 gap-y-10">
+                                  {formData.invitedMembers.map((m: any) => (
+                                    <div key={m.id} className="flex flex-col items-center gap-4 group">
+                                      <div className="relative">
+                                        <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                          <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
+                                            {m.photo ? (
+                                              <img src={getImageUrl(m.photo)} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                                <Users className="w-10 h-10" />
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-lg border-4 z-10 hidden md:block", isDarkMode ? "border-[#111]" : "border-white")} />
+                                      </div>
+                                      <div className="text-center space-y-0.5">
+                                        <p className={cn("text-[11px] font-black uppercase tracking-[0.15em] transition-colors", isDarkMode ? "text-white group-hover:text-[#BF76FF]" : "text-black")}>
+                                          {m.name}
+                                        </p>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
                               </div>
-                            );
-                          })()}
+                            )}
 
-                          {/* Location Section */}
-                          {formData.location && (
-                            <div className={cn("p-8 md:p-10 rounded-[40px] border relative overflow-hidden group transition-all", isDarkMode ? "bg-gradient-to-br from-[#1a1a1a] to-[#0a0a0a] border-white/5" : "bg-gradient-to-br from-gray-50 to-white border-black/5 shadow-inner")}>
-                              <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
-                                <div className="space-y-3">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Localização do Evento</p>
-                                  </div>
-                                  <p className={cn("text-xl md:text-3xl font-black max-w-xl leading-tight tracking-tight", isDarkMode ? "text-white" : "text-black")}>
-                                    {formData.location}
-                                  </p>
-                                </div>
-                                <Button
-                                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(formData.location)}`, '_blank')}
-                                  className="bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-full h-16 md:h-20 px-8 md:px-12 font-black uppercase tracking-[0.2em] text-[10px] flex items-center justify-center gap-4 shadow-2xl shadow-[#BF76FF]/40 transition-all hover:scale-105 active:scale-95"
-                                >
-                                  Abrir no GPS <MapPin className="w-5 h-5" />
-                                </Button>
-                              </div>
-                              <div className="absolute top-0 right-0 w-80 h-80 bg-[#BF76FF]/5 rounded-full blur-3xl -mr-40 -mt-40 pointer-events-none" />
-                              <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#BF76FF]/3 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none" />
-                            </div>
-                          )}
-
-                          {/* Invited Members Section */}
-                          {(formData.invitedMembers?.length > 0) && (
-                            <div className="space-y-8 py-6">
-                              <div className="flex items-center gap-6">
-                                <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Membros da igreja presente</h5>
-                                <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/5" : "bg-black/5")} />
-                              </div>
-
-                              <div className="flex flex-wrap gap-x-8 gap-y-10">
-                                {formData.invitedMembers.map((m: any) => (
-                                  <div key={m.id} className="flex flex-col items-center gap-4 group">
-                                    <div className="relative">
-                                      <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                                        <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
-                                          {m.photo ? (
-                                            <img src={getImageUrl(m.photo)} alt={m.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                          ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                                              <Users className="w-10 h-10" />
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-lg border-4 z-10 hidden md:block", isDarkMode ? "border-[#111]" : "border-white")} />
-                                    </div>
-                                    <div className="text-center space-y-0.5">
-                                      <p className={cn("text-[11px] font-black uppercase tracking-[0.15em] transition-colors", isDarkMode ? "text-white group-hover:text-[#BF76FF]" : "text-black")}>
-                                        {m.name}
-                                      </p>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Guests Section */}
-                          {formData.guests && Array.isArray(formData.guests) && formData.guests.filter((g: any) => g.name).length > 0 && (
-                            <div className="space-y-8 py-6">
-                              <div className="flex items-center gap-6">
-                                <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Convidados presente</h5>
-                                <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/5" : "bg-black/5")} />
-                              </div>
-
-                              <div className="flex flex-wrap gap-x-8 gap-y-10">
-                                {formData.guests.filter((g: any) => g.name).map((guest: any, idx: number) => (
-                                  <div key={`guest-display-${idx}`} className="flex flex-col items-center gap-4 group">
-                                    <div className="relative">
-                                      <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                                        <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
-                                          {guest.image ? (
-                                            <img src={getImageUrl(guest.image)} alt={guest.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                          ) : (
-                                            <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                                              <Users className="w-10 h-10" />
-                                            </div>
-                                          )}
-                                        </div>
-                                      </div>
-                                      <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 bg-amber-500 rounded-lg border-4 z-10 hidden md:block", isDarkMode ? "border-[#111]" : "border-white")} />
-                                    </div>
-                                    <div className="text-center space-y-0.5">
-                                      <p className={cn("text-[11px] font-black uppercase tracking-[0.15em] transition-colors", isDarkMode ? "text-white group-hover:text-[#BF76FF]" : "text-black")}>
-                                        {guest.name}
-                                      </p>
-                                      {guest.role && (
-                                        <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">{guest.role}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                        </motion.div>
-                      ) : (
-                        <>
-                          <div className="space-y-6">
-                            {activeTab === "eventos" && (
-                              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                {/* 1. Tipo de Registro Selector (Sleek Apple style segmented control) */}
-                                <div className="space-y-4">
-                                  <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Tipo de Registro</label>
-                                  <div className={cn("p-1.5 rounded-[24px] flex gap-2 w-full apple-card", isDarkMode ? "bg-cinza-input" : "bg-gray-100/50 border border-black/5")}>
-                                    {(['evento', 'culto', 'visita'] as const).map((t) => (
-                                      <button
-                                        key={t}
-                                        type="button"
-                                        disabled={isReadOnly}
-                                        className={cn(
-                                          "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
-                                          formData.typeEvent === t || (!formData.typeEvent && t === 'evento')
-                                            ? t === 'evento'
-                                              ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-lg shadow-[#FF0A6C]/25"
-                                              : t === 'culto'
-                                                ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-lg shadow-[#00FFFF]/20"
-                                                : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-lg shadow-[#FF2525]/25"
-                                            : isDarkMode ? "bg-transparent text-white/50 hover:text-white" : "bg-transparent text-black/50 hover:text-black"
-                                        )}
-                                        onClick={() => setFormData({ ...formData, typeEvent: t })}
-                                      >
-                                        {t === 'evento' ? 'Evento' : t === 'culto' ? 'Culto' : 'Visita'}
-                                      </button>
-                                    ))}
-                                  </div>
+                            {/* Guests Section */}
+                            {formData.guests && Array.isArray(formData.guests) && formData.guests.filter((g: any) => g.name).length > 0 && (
+                              <div className="space-y-8 py-6">
+                                <div className="flex items-center gap-6">
+                                  <h5 className="text-[10px] font-black text-gray-500 uppercase tracking-[0.4em] whitespace-nowrap">Convidados presente</h5>
+                                  <div className={cn("h-[1px] flex-1", isDarkMode ? "bg-white/5" : "bg-black/5")} />
                                 </div>
 
-                                {/* Form Fields based on Type */}
-                                {(formData.typeEvent === 'culto') ? (
-                                  /* --- CULTO FORM --- */
-                                  <div className="space-y-6">
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa do Culto (Imagem)</label>
-                                      {!isReadOnly ? (
-                                        <UploadImages
-                                          maxFiles={1}
-                                          multiple={false}
-                                          value={formData.image}
-                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
-                                        />
-                                      ) : (
-                                        formData.image && (
-                                          <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                            <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                          </div>
-                                        )
-                                      )}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Culto: Ex: Culto da Família</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                        placeholder="Título do Culto..."
-                                        value={formData.title || ""}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Bio do Culto</label>
-                                      <Textarea
-                                        className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                        placeholder="Conte mais sobre o culto..."
-                                        value={formData.content || ""}
-                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
-                                        <Input
-                                          type="date"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
-                                          onChange={(e) => {
-                                            const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
-                                            setFormData({ ...formData, date: `${e.target.value}T${time}` });
-                                          }}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                      
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
-                                        <div className="relative">
-                                          <Input
-                                            type="time"
-                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                            value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
-                                            onChange={(e) => {
-                                              const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
-                                              setFormData({ ...formData, date: `${date}T${e.target.value}` });
-                                            }}
-                                            readOnly={isReadOnly}
-                                          />
-                                        </div>
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
-                                        <Input
-                                          type="time"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          value={formData.endTime || ""}
-                                          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                ) : formData.typeEvent === 'visita' ? (
-                                  /* --- VISITA FORM --- */
-                                  <div className="space-y-6">
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa da Visita (Imagem)</label>
-                                      {!isReadOnly ? (
-                                        <UploadImages
-                                          maxFiles={1}
-                                          multiple={false}
-                                          value={formData.image}
-                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
-                                        />
-                                      ) : (
-                                        formData.image && (
-                                          <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                            <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                                          </div>
-                                        )
-                                      )}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título da Visita (Ex: Visita Hospitalar, Visita ao Lar)</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                        placeholder="Título da Visita..."
-                                        value={formData.title || ""}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Descrição / Bio da Visita</label>
-                                      <Textarea
-                                        className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                        placeholder="Descreva o propósito da visita..."
-                                        value={formData.content || ""}
-                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
-                                        <Input
-                                          type="date"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
-                                          onChange={(e) => {
-                                            const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
-                                            setFormData({ ...formData, date: `${e.target.value}T${time}` });
-                                          }}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                      
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
-                                        <div className="relative">
-                                          <Input
-                                            type="time"
-                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                            value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
-                                            onChange={(e) => {
-                                              const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
-                                              setFormData({ ...formData, date: `${date}T${e.target.value}` });
-                                            }}
-                                            readOnly={isReadOnly}
-                                          />
-                                        </div>
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
-                                        <Input
-                                          type="time"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          value={formData.endTime || ""}
-                                          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Local / Endereço da Visita</label>
+                                <div className="flex flex-wrap gap-x-8 gap-y-10">
+                                  {formData.guests.filter((g: any) => g.name).map((guest: any, idx: number) => (
+                                    <div key={`guest-display-${idx}`} className="flex flex-col items-center gap-4 group">
                                       <div className="relative">
-                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF2525]" />
+                                        <div className={cn("w-24 h-24 md:w-28 md:h-28 rounded-[2rem] border-2 border-white/5 p-1.5 transition-all duration-500 group-hover:border-[#BF76FF] group-hover:rotate-6 rotate-[-3deg]", isDarkMode ? "bg-white/5" : "bg-black/5")}>
+                                          <div className="w-full h-full rounded-[1.6rem] bg-gray-200 overflow-hidden shadow-2xl border border-white/10">
+                                            {guest.image ? (
+                                              <img src={getImageUrl(guest.image)} alt={guest.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                            ) : (
+                                              <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
+                                                <Users className="w-10 h-10" />
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className={cn("absolute -bottom-1 -right-1 w-6 h-6 bg-amber-500 rounded-lg border-4 z-10 hidden md:block", isDarkMode ? "border-[#111]" : "border-white")} />
+                                      </div>
+                                      <div className="text-center space-y-0.5">
+                                        <p className={cn("text-[11px] font-black uppercase tracking-[0.15em] transition-colors", isDarkMode ? "text-white group-hover:text-[#BF76FF]" : "text-black")}>
+                                          {guest.name}
+                                        </p>
+                                        {guest.role && (
+                                          <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">{guest.role}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                          </motion.div>
+                        ) : (
+                          <>
+                            <div className="space-y-6">
+                              {activeTab === "eventos" && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                  {/* 1. Tipo de Registro Selector (Sleek Apple style segmented control) */}
+                                  <div className="space-y-4">
+                                    <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Tipo de Registro</label>
+                                    <div className={cn("p-1.5 rounded-[24px] flex gap-2 w-full apple-card", isDarkMode ? "bg-cinza-input" : "bg-gray-100/50 border border-black/5")}>
+                                      {(['evento', 'culto', 'visita'] as const).map((t) => (
+                                        <button
+                                          key={t}
+                                          type="button"
+                                          disabled={isReadOnly}
+                                          className={cn(
+                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                            formData.typeEvent === t || (!formData.typeEvent && t === 'evento')
+                                              ? t === 'evento'
+                                                ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-lg shadow-[#FF0A6C]/25"
+                                                : t === 'culto'
+                                                  ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-lg shadow-[#00FFFF]/20"
+                                                  : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-lg shadow-[#FF2525]/25"
+                                              : isDarkMode ? "bg-transparent text-white/50 hover:text-white" : "bg-transparent text-black/50 hover:text-black"
+                                          )}
+                                          onClick={() => setFormData({ ...formData, typeEvent: t })}
+                                        >
+                                          {t === 'evento' ? 'Evento' : t === 'culto' ? 'Culto' : 'Visita'}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Form Fields based on Type */}
+                                  {(formData.typeEvent === 'culto') ? (
+                                    /* --- CULTO FORM --- */
+                                    <div className="space-y-6">
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa do Culto (Imagem)</label>
+                                        {!isReadOnly ? (
+                                          <UploadImages
+                                            maxFiles={1}
+                                            multiple={false}
+                                            value={formData.image}
+                                            onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                          />
+                                        ) : (
+                                          formData.image && (
+                                            <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                              <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Culto: Ex: Culto da Família</label>
                                         <Input
-                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          placeholder="Ex: Rua, Número, Bairro, Cidade..."
-                                          value={formData.location || ""}
-                                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Título do Culto..."
+                                          value={formData.title || ""}
+                                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                           readOnly={isReadOnly}
                                         />
                                       </div>
-                                    </div>
 
-                                    {/* Organizer / Contact Info */}
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Bio do Culto</label>
+                                        <Textarea
+                                          className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Conte mais sobre o culto..."
+                                          value={formData.content || ""}
+                                          onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
+                                          <Input
+                                            type="date"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
+                                            onChange={(e) => {
+                                              const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
+                                              setFormData({ ...formData, date: `${e.target.value}T${time}` });
+                                            }}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
+                                          <div className="relative">
+                                            <Input
+                                              type="time"
+                                              className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                              value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
+                                              onChange={(e) => {
+                                                const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
+                                                setFormData({ ...formData, date: `${date}T${e.target.value}` });
+                                              }}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
+                                          <Input
+                                            type="time"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={formData.endTime || ""}
+                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ) : formData.typeEvent === 'visita' ? (
+                                    /* --- VISITA FORM --- */
+                                    <div className="space-y-6">
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa da Visita (Imagem)</label>
+                                        {!isReadOnly ? (
+                                          <UploadImages
+                                            maxFiles={1}
+                                            multiple={false}
+                                            value={formData.image}
+                                            onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                          />
+                                        ) : (
+                                          formData.image && (
+                                            <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                              <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título da Visita (Ex: Visita Hospitalar, Visita ao Lar)</label>
+                                        <Input
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Título da Visita..."
+                                          value={formData.title || ""}
+                                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Descrição / Bio da Visita</label>
+                                        <Textarea
+                                          className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Descreva o propósito da visita..."
+                                          value={formData.content || ""}
+                                          onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                          readOnly={isReadOnly}
+                                        />
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
+                                          <Input
+                                            type="date"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
+                                            onChange={(e) => {
+                                              const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
+                                              setFormData({ ...formData, date: `${e.target.value}T${time}` });
+                                            }}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
+                                          <div className="relative">
+                                            <Input
+                                              type="time"
+                                              className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                              value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
+                                              onChange={(e) => {
+                                                const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
+                                                setFormData({ ...formData, date: `${date}T${e.target.value}` });
+                                              }}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
+                                          <Input
+                                            type="time"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={formData.endTime || ""}
+                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Local / Endereço da Visita</label>
+                                        <div className="relative">
+                                          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF2525]" />
+                                          <Input
+                                            className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            placeholder="Ex: Rua, Número, Bairro, Cidade..."
+                                            value={formData.location || ""}
+                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* Organizer / Contact Info */}
                                       <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Nome do Organizador / Responsável</label>
                                         <Input
@@ -6520,7 +6520,7 @@ const Admin = () => {
                                           readOnly={isReadOnly}
                                         />
                                       </div>
-                                      
+
                                       {isAdminOrDev && (
                                         <div className="space-y-2">
                                           <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Contato do Organizador (Visível somente para ADM)</label>
@@ -6533,438 +6533,114 @@ const Admin = () => {
                                           />
                                         </div>
                                       )}
-                                     <div className="space-y-2">
-                                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações Importantes</label>
-                                       <Textarea
-                                         className={cn("min-h-[100px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                         placeholder="Alguma recomendação ou detalhe importante sobre a visita..."
-                                         value={formData.importantNotes || ""}
-                                         onChange={(e) => setFormData({ ...formData, importantNotes: e.target.value })}
-                                         readOnly={isReadOnly}
-                                       />
-                                     </div>
-
-                                     {/* church member scale divided by cargo */}
-                                     <div className="space-y-4">
-                                       <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Participação de Membros na Visita?</label>
-                                       <div className="flex gap-2.5">
-                                         <button
-                                           type="button"
-                                           disabled={isReadOnly}
-                                           className={cn(
-                                             "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
-                                             formData.memberParticipation
-                                               ? "bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20"
-                                               : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
-                                         )}
-                                         onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
-                                       >
-                                         Sim
-                                       </button>
-                                       <button
-                                         type="button"
-                                         disabled={isReadOnly}
-                                         className={cn(
-                                           "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
-                                           !formData.memberParticipation
-                                             ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
-                                             : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
-                                         )}
-                                         onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
-                                       >
-                                         Não
-                                       </button>
-                                     </div>
-                                   </div>
-
-                                   {formData.memberParticipation && (
-                                     <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
-                                       <div className="flex items-center justify-between">
-                                         <h4 className="text-xs font-black uppercase text-[#10B981] tracking-widest">Escala de Membros por Cargo</h4>
-                                         <span className="text-[10px] font-bold text-gray-400">
-                                           {formData.invitedMembers?.length || 0} membros selecionados
-                                         </span>
-                                       </div>
-                                       
-                                       <div className="space-y-6">
-                                         {Object.entries(groupedMembersByRole)
-                                           .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
-                                           .map(([roleName, roleMembers]) => {
-                                             const allSelected = roleMembers.every(m => formData.invitedMembers?.some((im: any) => im.id === m.id));
-                                             
-                                             return (
-                                               <div key={`role-group-${roleName}`} className="space-y-2.5">
-                                                 <div onClick={() => setCollapsedScaleCategories(prev => ({ ...prev, [roleName]: !(collapsedScaleCategories[roleName] ?? true) }))} className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.04] transition-colors">
-                                                   <div className="flex items-center gap-2">
-                                                      {(collapsedScaleCategories[roleName] ?? true) ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
-                                                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
-                                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-400 font-mono">
-                                                        {roleMembers.filter(m => formData.invitedMembers?.some((im: any) => im.id === m.id)).length}/{roleMembers.length}
-                                                      </span>
-                                                    </div>
-                                                   {!isReadOnly && (
-                                                     <button
-                                                       type="button"
-                                                       onClick={(e) => { e.stopPropagation();
-                                                         const currentInvited = formData.invitedMembers || [];
-                                                         if (allSelected) {
-                                                           const roleIds = new Set(roleMembers.map(rm => rm.id));
-                                                           setFormData({
-                                                             ...formData,
-                                                             invitedMembers: currentInvited.filter((im: any) => !roleIds.has(im.id))
-                                                           });
-                                                         } else {
-                                                           const currentIds = new Set(currentInvited.map((im: any) => im.id));
-                                                           const toAdd = roleMembers
-                                                             .filter(rm => !currentIds.has(rm.id))
-                                                             .map(rm => ({ id: rm.id, name: rm.name, photo: rm.photoURL }));
-                                                           setFormData({
-                                                             ...formData,
-                                                             invitedMembers: [...currentInvited, ...toAdd]
-                                                           });
-                                                         }
-                                                       }}
-                                                       className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
-                                                     >
-                                                       {allSelected ? "Desmarcar Todos" : "Selecionar Todos"}
-                                                     </button>
-                                                   )}
-                                                 </div>
-                                                 
-                                                 {!(collapsedScaleCategories[roleName] ?? true) && ( <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
-                                                   {roleMembers.map((member) => {
-                                                     const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
-                                                     return (
-                                                       <button
-                                                         key={`member-scale-${member.id}`}
-                                                         type="button"
-                                                         disabled={isReadOnly}
-                                                         onClick={() => {
-                                                           const currentInvited = formData.invitedMembers || [];
-                                                           if (isSelected) {
-                                                             setFormData({
-                                                               ...formData,
-                                                               invitedMembers: currentInvited.filter((im: any) => im.id !== member.id)
-                                                             });
-                                                           } else {
-                                                             setFormData({
-                                                               ...formData,
-                                                               invitedMembers: [...currentInvited, { id: member.id, name: member.name, photo: member.photoURL }]
-                                                             });
-                                                           }
-                                                         }}
-                                                         className={cn(
-                                                           "flex items-center gap-3 p-3 rounded-xl border transition-all text-left w-full cursor-pointer",
-                                                           isSelected
-                                                             ? "bg-[#BF76FF]/10 border-[#BF76FF] text-white"
-                                                             : isDarkMode ? "bg-white/[0.01] border-white/5 text-gray-400 hover:bg-white/[0.03] hover:text-white" : "bg-black/[0.01] border-black/5 text-gray-600 hover:bg-black/[0.03] hover:text-black"
-                                                         )}
-                                                       >
-                                                         <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 border border-white/10 shrink-0">
-                                                           {member.photoURL ? (
-                                                             <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
-                                                           ) : (
-                                                             <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-500">
-                                                               <Users className="w-4 h-4" />
-                                                             </div>
-                                                           )}
-                                                         </div>
-                                                         <span className="text-[11px] font-bold truncate">{member.name}</span>
-                                                       </button>
-                                                     );
-                                                   })}
-                                                 </div>
-                                                  )}
-                                               </div>
-                                             );
-                                           })}
-                                       </div>
-                                     </div>
-                                   )}
-                                   <div className="hidden">
-                                    </div>
-                                  </div>
-                                ) : (
-                                  /* --- EVENTO FORM (FULL) --- */
-                                  <div className="space-y-6">
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa do Evento (Banner)</label>
-                                      {!isReadOnly ? (
-                                        <UploadImages
-                                          maxFiles={1}
-                                          multiple={false}
-                                          value={formData.image}
-                                          onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações Importantes</label>
+                                        <Textarea
+                                          className={cn("min-h-[100px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Alguma recomendação ou detalhe importante sobre a visita..."
+                                          value={formData.importantNotes || ""}
+                                          onChange={(e) => setFormData({ ...formData, importantNotes: e.target.value })}
+                                          readOnly={isReadOnly}
                                         />
-                                      ) : (
-                                        formData.image && (
-                                          <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                            <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                      </div>
+
+                                      {/* church member scale divided by cargo */}
+                                      <div className="space-y-4">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Participação de Membros na Visita?</label>
+                                        <div className="flex gap-2.5">
+                                          <button
+                                            type="button"
+                                            disabled={isReadOnly}
+                                            className={cn(
+                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                              formData.memberParticipation
+                                                ? "bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20"
+                                                : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                            )}
+                                            onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
+                                          >
+                                            Sim
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={isReadOnly}
+                                            className={cn(
+                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                              !formData.memberParticipation
+                                                ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
+                                                : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                            )}
+                                            onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
+                                          >
+                                            Não
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {formData.memberParticipation && (
+                                        <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
+                                          <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-black uppercase text-[#10B981] tracking-widest">Escala de Membros por Cargo</h4>
+                                            <span className="text-[10px] font-bold text-gray-400">
+                                              {formData.invitedMembers?.length || 0} membros selecionados
+                                            </span>
                                           </div>
-                                        )
-                                      )}
-                                    </div>
 
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Evento</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                        placeholder="Ex: Conferência de Jovens 2026"
-                                        value={formData.title || ""}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
+                                          <div className="space-y-6">
+                                            {Object.entries(groupedMembersByRole)
+                                              .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
+                                              .map(([roleName, roleMembers]) => {
+                                                const allSelected = roleMembers.every(m => formData.invitedMembers?.some((im: any) => im.id === m.id));
 
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Biografia do Evento</label>
-                                      <Textarea
-                                        className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                        placeholder="Descreva o evento com todos os detalhes..."
-                                        value={formData.content || ""}
-                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
-                                        <Input
-                                          type="date"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
-                                          onChange={(e) => {
-                                            const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
-                                            setFormData({ ...formData, date: `${e.target.value}T${time}` });
-                                          }}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                      
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
-                                        <div className="relative">
-                                          
-                                          <Input
-                                            type="time"
-                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                            value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
-                                            onChange={(e) => {
-                                              const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
-                                              setFormData({ ...formData, date: `${date}T${e.target.value}` });
-                                            }}
-                                            readOnly={isReadOnly}
-                                          />
-                                        </div>
-                                      </div>
-
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
-                                        <Input
-                                          type="time"
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          value={formData.endTime || ""}
-                                          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Local</label>
-                                      <div className="relative">
-                                        <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF0A6C]" />
-                                        <Input
-                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          placeholder="Ex: Igreja IEMP - Sede"
-                                          value={formData.location || ""}
-                                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                    </div>
-
-                                    {/* Evento Interno / Externo (Sleek Apple segmented toggle) */}
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Evento Interno ou Externo?</label>
-                                      <div className="flex gap-2.5">
-                                        <button
-                                          type="button"
-                                          disabled={isReadOnly}
-                                          className={cn(
-                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
-                                            formData.scope === 'externo'
-                                              ? (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
-                                              : "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
-                                          )}
-                                          onClick={() => setFormData({ ...formData, scope: 'interno' })}
-                                        >
-                                          Interno
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={isReadOnly}
-                                          className={cn(
-                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
-                                            formData.scope === 'externo'
-                                              ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
-                                              : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
-                                          )}
-                                          onClick={() => setFormData({ ...formData, scope: 'externo' })}
-                                        >
-                                          Externo
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Nome do Organizador</label>
-                                        <Input
-                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          placeholder="Ex: Pra. Ana Clara"
-                                          value={formData.organizer || ""}
-                                          onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                      
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Foto do Organizador</label>
-                                        {!isReadOnly ? (
-                                          <UploadImages
-                                            maxFiles={1}
-                                            multiple={false}
-                                            value={formData.organizerImage}
-                                            onUploadComplete={(images) => setFormData({ ...formData, organizerImage: images[0]?.secure_url || "" })}
-                                          />
-                                        ) : (
-                                          formData.organizerImage && (
-                                            <div className="mt-2 w-20 h-20 rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                              <img src={getImageUrl(formData.organizerImage)} alt="Preview" className="w-full h-full object-cover" />
-                                            </div>
-                                          )
-                                        )}
-                                      </div>
-
-                                      {isAdminOrDev && (
-                                        <div className="space-y-2">
-                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Contato do Organizador (ADM ONLY)</label>
-                                          <Input
-                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                            placeholder="Ex: (31) 99876-5432"
-                                            value={formData.organizerContact || ""}
-                                            onChange={(e) => setFormData({ ...formData, organizerContact: e.target.value })}
-                                            readOnly={isReadOnly}
-                                          />
-                                        </div>
-                                      )}
-                                    </div>
-
-
-                                    {/* church member scale divided by cargo */}
-                                    <div className="space-y-4">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Participação de Membros no Evento?</label>
-                                      <div className="flex gap-2.5">
-                                        <button
-                                          type="button"
-                                          disabled={isReadOnly}
-                                          className={cn(
-                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
-                                            formData.memberParticipation
-                                              ? "bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20"
-                                              : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
-                                          )}
-                                          onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
-                                        >
-                                          Sim
-                                        </button>
-                                        <button
-                                          type="button"
-                                          disabled={isReadOnly}
-                                          className={cn(
-                                            "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
-                                            !formData.memberParticipation
-                                              ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
-                                              : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
-                                          )}
-                                          onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
-                                        >
-                                          Não
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    {formData.memberParticipation && (
-                                      <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
-                                        <div className="flex items-center justify-between">
-                                          <h4 className="text-xs font-black uppercase text-[#10B981] tracking-widest">Escala de Membros por Cargo</h4>
-                                          <span className="text-[10px] font-bold text-gray-400">
-                                            {formData.invitedMembers?.length || 0} membros selecionados
-                                          </span>
-                                        </div>
-                                        
-                                        <div className="space-y-6">
-                                          {Object.entries(groupedMembersByRole)
-                                            .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
-                                            .map(([roleName, roleMembers]) => {
-                                              const allSelected = roleMembers.every(m => formData.invitedMembers?.some((im: any) => im.id === m.id));
-                                              const isCollapsed = collapsedScaleCategories[roleName] ?? true;
-                                              const selectedCount = roleMembers.filter(m => formData.invitedMembers?.some((im: any) => im.id === m.id)).length;
-                                              
-                                              return (
-                                                <div key={`role-group-${roleName}`} className="space-y-2.5">
-                                                  <div 
-                                                    onClick={() => setCollapsedScaleCategories(prev => ({ ...prev, [roleName]: !isCollapsed }))}
-                                                    className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.04] transition-colors"
-                                                  >
-                                                    <div className="flex items-center gap-2">
-                                                      {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
-                                                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
-                                                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-400 font-mono">
-                                                        {selectedCount}/{roleMembers.length}
-                                                      </span>
+                                                return (
+                                                  <div key={`role-group-${roleName}`} className="space-y-2.5">
+                                                    <div onClick={() => setCollapsedScaleCategories(prev => ({ ...prev, [roleName]: !(collapsedScaleCategories[roleName] ?? true) }))} className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.04] transition-colors">
+                                                      <div className="flex items-center gap-2">
+                                                        {(collapsedScaleCategories[roleName] ?? true) ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+                                                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-400 font-mono">
+                                                          {roleMembers.filter(m => formData.invitedMembers?.some((im: any) => im.id === m.id)).length}/{roleMembers.length}
+                                                        </span>
+                                                      </div>
+                                                      {!isReadOnly && (
+                                                        <button
+                                                          type="button"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const currentInvited = formData.invitedMembers || [];
+                                                            if (allSelected) {
+                                                              const roleIds = new Set(roleMembers.map(rm => rm.id));
+                                                              setFormData({
+                                                                ...formData,
+                                                                invitedMembers: currentInvited.filter((im: any) => !roleIds.has(im.id))
+                                                              });
+                                                            } else {
+                                                              const currentIds = new Set(currentInvited.map((im: any) => im.id));
+                                                              const toAdd = roleMembers
+                                                                .filter(rm => !currentIds.has(rm.id))
+                                                                .map(rm => ({ id: rm.id, name: rm.name, photo: rm.photoURL }));
+                                                              setFormData({
+                                                                ...formData,
+                                                                invitedMembers: [...currentInvited, ...toAdd]
+                                                              });
+                                                            }
+                                                          }}
+                                                          className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
+                                                        >
+                                                          {allSelected ? "Desmarcar Todos" : "Selecionar Todos"}
+                                                        </button>
+                                                      )}
                                                     </div>
-                                                    {!isReadOnly && (
-                                                      <button
-                                                        type="button"
-                                                        onClick={(e) => {
-                                                          e.stopPropagation();
-                                                          const currentInvited = formData.invitedMembers || [];
-                                                          if (allSelected) {
-                                                            const roleIds = new Set(roleMembers.map(rm => rm.id));
-                                                            setFormData({
-                                                              ...formData,
-                                                              invitedMembers: currentInvited.filter((im: any) => !roleIds.has(im.id))
-                                                            });
-                                                          } else {
-                                                            const currentIds = new Set(currentInvited.map((im: any) => im.id));
-                                                            const toAdd = roleMembers
-                                                              .filter(rm => !currentIds.has(rm.id))
-                                                              .map(rm => ({ id: rm.id, name: rm.name, photo: rm.photoURL }));
-                                                            setFormData({
-                                                              ...formData,
-                                                              invitedMembers: [...currentInvited, ...toAdd]
-                                                            });
-                                                          }
-                                                        }}
-                                                        className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
-                                                      >
-                                                        {allSelected ? "Desmarcar Todos" : "Selecionar Todos"}
-                                                      </button>
-                                                    )}
-                                                  </div>
-                                                  
-                                                  {!isCollapsed && (
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+
+                                                    {!(collapsedScaleCategories[roleName] ?? true) && (<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
                                                       {roleMembers.map((member) => {
                                                         const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
                                                         return (
-                                                          <div
-                                                            key={`member-select-${member.id}`}
+                                                          <button
+                                                            key={`member-scale-${member.id}`}
+                                                            type="button"
+                                                            disabled={isReadOnly}
                                                             onClick={() => {
-                                                              if (isReadOnly) return;
                                                               const currentInvited = formData.invitedMembers || [];
                                                               if (isSelected) {
                                                                 setFormData({
@@ -6979,853 +6655,475 @@ const Admin = () => {
                                                               }
                                                             }}
                                                             className={cn(
-                                                              "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                                              "flex items-center gap-3 p-3 rounded-xl border transition-all text-left w-full cursor-pointer",
                                                               isSelected
-                                                                ? "bg-[#BF76FF]/15 border-[#BF76FF]/35"
-                                                                : "bg-white/[0.01] border-white/5 hover:bg-white/[0.04]"
+                                                                ? "bg-[#BF76FF]/10 border-[#BF76FF] text-white"
+                                                                : isDarkMode ? "bg-white/[0.01] border-white/5 text-gray-400 hover:bg-white/[0.03] hover:text-white" : "bg-black/[0.01] border-black/5 text-gray-600 hover:bg-black/[0.03] hover:text-black"
                                                             )}
                                                           >
-                                                            <div className="flex items-center gap-3">
-                                                              <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 shrink-0">
-                                                                {member.photoURL ? (
-                                                                  <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" />
-                                                                ) : (
-                                                                  <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold text-xs">
-                                                                    {member.name?.[0]}
-                                                                  </div>
-                                                                )}
-                                                              </div>
-                                                              <span className="text-[11px] font-bold text-white truncate max-w-[120px]">{member.name}</span>
+                                                            <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 border border-white/10 shrink-0">
+                                                              {member.photoURL ? (
+                                                                <img src={getImageUrl(member.photoURL)} alt="" className="w-full h-full object-cover" />
+                                                              ) : (
+                                                                <div className="w-full h-full flex items-center justify-center bg-gray-300 text-gray-500">
+                                                                  <Users className="w-4 h-4" />
+                                                                </div>
+                                                              )}
                                                             </div>
-                                                            <div className={cn(
-                                                              "w-5 h-5 rounded-md flex items-center justify-center transition-all",
-                                                              isSelected ? "bg-[#BF76FF] text-white" : "bg-white/10 text-transparent"
-                                                            )}>
-                                                              <Check className="w-3.5 h-3.5" />
-                                                            </div>
-                                                          </div>
+                                                            <span className="text-[11px] font-bold truncate">{member.name}</span>
+                                                          </button>
                                                         );
                                                       })}
                                                     </div>
-                                                  )}
-                                                </div>
-                                              );
-                                            })}
-                                        </div>
-                                      </div>
-                                    )}
-
-                                    {/* External Guests */}
-                                    <div className="space-y-4">
-                                      <div className="flex items-center justify-between ml-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Participação de Convidados (Externos)</label>
-                                        {!isReadOnly && (
-                                          <Button
-                                            type="button"
-                                            onClick={() => {
-                                              const current = Array.isArray(formData.guests) ? formData.guests : [];
-                                              setFormData({ ...formData, guests: [...current, { name: "", image: "", congregation: "" }] });
-                                            }}
-                                            className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px]"
-                                          >
-                                            <Plus className="w-3 h-3 mr-2" /> Novo Convidado
-                                          </Button>
-                                        )}
-                                      </div>
-                                      <div className="space-y-4">
-                                        {(formData.guests || []).map((guest: any, i: number) => (
-                                          <div key={`guest-${i}`} className={cn("p-5 rounded-[24px] border relative group grid grid-cols-1 md:grid-cols-3 gap-4", isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-black/5 bg-black/[0.01]")}>
-                                            <div className="space-y-1">
-                                              <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome</label>
-                                              <Input placeholder="Nome Completo" value={guest.name || ""} onChange={(e) => {
-                                                const g = [...formData.guests]; g[i].name = e.target.value; setFormData({ ...formData, guests: g });
-                                              }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
-                                            </div>
-                                            <div className="space-y-1">
-                                              <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Congregação</label>
-                                              <Input placeholder="Ex: Assembleia de Deus" value={guest.congregation || ""} onChange={(e) => {
-                                                const g = [...formData.guests]; g[i].congregation = e.target.value; setFormData({ ...formData, guests: g });
-                                              }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
-                                            </div>
-                                            <div className="space-y-2 col-span-1 md:col-span-3 border-t border-white/5 pt-4 mt-2">
-                                              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Foto do Convidado</label>
-                                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                                                <div className="space-y-1">
-                                                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção A: Upload da Foto</label>
-                                                  <UploadImages
-                                                    maxFiles={1}
-                                                    multiple={false}
-                                                    value={guest.image || ""}
-                                                    onUploadComplete={(images) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: images[0]?.secure_url || "" } : g) })}
-                                                  />
-                                                </div>
-                                                <div className="space-y-1.5 self-start">
-                                                  <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção B: Ou cole o Link/URL da foto</label>
-                                                  <Input 
-                                                    placeholder="Ex: https://exemplo.com/foto.jpg" 
-                                                    value={guest.image || ""} 
-                                                    onChange={(e) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: e.target.value } : g) })}
-                                                    className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} 
-                                                  />
-                                                  {guest.image && (
-                                                    <p className="text-[9px] text-[#10B981] font-bold ml-1">✓ Imagem vinculada com sucesso.</p>
-                                                  )}
-                                                </div>
-                                              </div>
-                                            </div>
-                                            {!isReadOnly && (
-                                              <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500/10 text-red-500 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                <X className="w-3.5 h-3.5" />
-                                              </Button>
-                                            )}
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
                                           </div>
-                                        ))}
+                                        </div>
+                                      )}
+                                      <div className="hidden">
                                       </div>
                                     </div>
+                                  ) : (
+                                    /* --- EVENTO FORM (FULL) --- */
+                                    <div className="space-y-6">
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Capa do Evento (Banner)</label>
+                                        {!isReadOnly ? (
+                                          <UploadImages
+                                            maxFiles={1}
+                                            multiple={false}
+                                            value={formData.image}
+                                            onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                          />
+                                        ) : (
+                                          formData.image && (
+                                            <div className="mt-2 relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                              <img src={getImageUrl(formData.image)} alt="Preview" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                            </div>
+                                          )
+                                        )}
+                                      </div>
 
-                                    {/* YouTube Video Link */}
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do Vídeo no YouTube</label>
-                                      <div className="relative">
-                                        <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Evento</label>
                                         <Input
-                                          className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                          placeholder="https://www.youtube.com/watch?v=..."
-                                          value={formData.videoUrl || ""}
-                                          onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                                          className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Ex: Conferência de Jovens 2026"
+                                          value={formData.title || ""}
+                                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                                           readOnly={isReadOnly}
                                         />
                                       </div>
-                                    </div>
 
-                                    {/* Photo Frame Link */}
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Moldura da Foto (Criar minha foto) link/upload</label>
-                                      {!isReadOnly ? (
-                                        <UploadImages
-                                          maxFiles={1}
-                                          multiple={false}
-                                          value={formData.frameUrl}
-                                          onUploadComplete={(images) => setFormData({ ...formData, frameUrl: images[0]?.secure_url || "" })}
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Biografia do Evento</label>
+                                        <Textarea
+                                          className={cn("min-h-[120px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Descreva o evento com todos os detalhes..."
+                                          value={formData.content || ""}
+                                          onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                          readOnly={isReadOnly}
                                         />
-                                      ) : (
-                                        formData.frameUrl && (
-                                          <div className="mt-2 w-32 h-32 rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                            <img src={getImageUrl(formData.frameUrl)} alt="Preview" className="w-full h-full object-cover" />
-                                          </div>
-                                        )
-                                      )}
-                                    </div>
+                                      </div>
 
-                                    {/* Observations / custom fields */}
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações Importantes</label>
-                                      <Textarea
-                                        className={cn("min-h-[100px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                        placeholder="Ex: Trazer roupa branca, Chegar 30min antes..."
-                                        value={formData.observations || ""}
-                                        onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Google Drive Multi-Folder Syncer (Shared among all types) */}
-                            <div className="space-y-4 mt-6">
-                              <div className="flex items-center justify-between ml-2">
-                                <div className="space-y-0.5">
-                                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Google Drive: Pastas de Fotos</label>
-                                  <p className="text-[9px] text-gray-400 font-medium">Sincronize pastas de fotos públicas do Drive para exibir na galeria.</p>
-                                </div>
-                                {!isReadOnly && (
-                                  <Button
-                                    type="button"
-                                    onClick={() => {
-                                      const current = formData.driveFolders || [];
-                                      setFormData({
-                                        ...formData,
-                                        driveFolders: [...current, { title: "", link: "", images: [] }]
-                                      });
-                                    }}
-                                    className={cn(
-                                      "h-8 rounded-lg px-4 font-black uppercase text-[10px] cursor-pointer transition-all border-none",
-                                      (formData.typeEvent === "evento" || !formData.typeEvent)
-                                        ? "bg-[#FF0A6C]/10 text-[#FF0A6C] hover:bg-[#FF0A6C] hover:text-white"
-                                        : formData.typeEvent === "culto"
-                                          ? "bg-[#00FFFF]/10 text-[#00FFFF] hover:bg-[#00FFFF] hover:text-black"
-                                          : "bg-[#FF2525]/10 text-[#FF2525] hover:bg-[#FF2525] hover:text-white"
-                                    )}
-                                  >
-                                    <Plus className="w-3 h-3 mr-2" /> Nova Pasta
-                                  </Button>
-                                )}
-                              </div>
-
-                              <div className="grid grid-cols-1 gap-4">
-                                {(formData.driveFolders || []).map((folder: any, i: number) => {
-                                  const isChecking = checkingFolders[i];
-                                  const isVerified = folderVerified[i];
-
-                                  return (
-                                    <div key={i} className={cn("p-6 rounded-[28px] border transition-all relative overflow-hidden", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5 shadow-sm")}>
-                                      {!isReadOnly && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const current = [...formData.driveFolders];
-                                            current.splice(i, 1);
-                                            setFormData({ ...formData, driveFolders: current });
-                                          }}
-                                          className="absolute top-4 right-4 text-red-500 hover:text-red-600 transition-colors p-2 hover:bg-red-500/10 rounded-full cursor-pointer"
-                                        >
-                                          <Trash2 className="w-4 h-4" />
-                                        </button>
-                                      )}
-
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <div className="space-y-2">
-                                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome da Pasta (Ex: Dia 1, Louvor)</label>
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Data</label>
                                           <Input
-                                            className={cn("h-12 rounded-xl px-4 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                            value={folder.title || ""}
+                                            type="date"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
                                             onChange={(e) => {
-                                              const current = [...formData.driveFolders];
-                                              current[i].title = e.target.value;
-                                              setFormData({ ...formData, driveFolders: current });
+                                              const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "00:00:00";
+                                              setFormData({ ...formData, date: `${e.target.value}T${time}` });
                                             }}
-                                            placeholder="Nome da Pasta..."
                                             readOnly={isReadOnly}
                                           />
                                         </div>
 
                                         <div className="space-y-2">
-                                          <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Link da Pasta do Google Drive (Compartilhado Público)</label>
-                                          <div className="flex gap-2">
+                                          <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Início</label>
+                                          <div className="relative">
+
                                             <Input
-                                              className={cn("h-12 rounded-xl px-4 border transition-all apple-input flex-1", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                              value={folder.link || ""}
+                                              type="time"
+                                              className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                              value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
                                               onChange={(e) => {
-                                                const current = [...formData.driveFolders];
-                                                current[i].link = e.target.value;
-                                                setFormData({ ...formData, driveFolders: current });
-                                                if (e.target.value.length > 20) {
-                                                  checkFolderAccessibility(e.target.value, i);
-                                                }
+                                                const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
+                                                setFormData({ ...formData, date: `${date}T${e.target.value}` });
                                               }}
-                                              placeholder="https://drive.google.com/..."
                                               readOnly={isReadOnly}
                                             />
-                                            {!isReadOnly && (
-                                              <Button
-                                                type="button"
-                                                onClick={() => syncSpecificFolder(i)}
-                                                disabled={!folder.link || isSyncing}
-                                                className="h-12 px-4 rounded-xl bg-[#00A859] hover:bg-[#008A49] text-white border-none transition-all font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(0,168,89,0.2)]"
-                                              >
-                                                {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />} Sincronizar
-                                              </Button>
-                                            )}
                                           </div>
                                         </div>
-                                      </div>
 
-                                      {folder.link && (
-                                        <div className="flex items-center gap-2 mt-3 ml-1">
-                                          {isChecking ? (
-                                            <span className="text-[9px] font-bold text-gray-400 animate-pulse flex items-center gap-1">
-                                              <Loader2 className="w-3 h-3 animate-spin text-[#BF76FF]" /> Verificando acessibilidade no Drive...
-                                            </span>
-                                          ) : isVerified === true ? (
-                                            <span className="text-[9px] font-bold text-green-500 flex items-center gap-1">
-                                              <CheckCircle2 className="w-3 h-3 text-green-500" /> Pasta pública e acessível. Pronto para sincronizar.
-                                            </span>
-                                          ) : isVerified === false ? (
-                                            <span className="text-[9px] font-bold text-amber-500 flex items-center gap-1">
-                                              <AlertCircle className="w-3 h-3 text-amber-500" /> Acesso restrito ou ID inválido. Compartilhe como "Qualquer pessoa com o link".
-                                            </span>
-                                          ) : folder.images && folder.images.length > 0 ? (
-                                            <span className="text-[9px] font-bold text-green-500 flex items-center gap-1">
-                                              <CheckCircle2 className="w-3 h-3 text-green-500" /> {folder.images.length} fotos já sincronizadas.
-                                            </span>
-                                          ) : (
-                                            <span className="text-[9px] font-bold text-gray-400 flex items-center gap-1">
-                                              <HardDrive className="w-3 h-3" /> Clique em Sincronizar para importar as fotos.
-                                            </span>
-                                          )}
-                                        </div>
-                                      )}
-
-                                      {folder.images && folder.images.length > 0 && (
-                                        <div className="mt-4">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">
-                                              Selecione a foto de destaque (Aparecerá grande no celular)
-                                            </label>
-                                            <span className="text-[9px] font-medium text-gray-400">
-                                              ✓ {folder.images.length} fotos importadas
-                                            </span>
-                                          </div>
-                                          <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
-                                            {folder.images.slice(0, 50).map((imgId: string, imgIdx: number) => (
-                                              <div 
-                                                key={`thumb-${imgId}-${imgIdx}`} 
-                                                onClick={() => {
-                                                  if (isReadOnly) return;
-                                                  const current = [...formData.driveFolders];
-                                                  const imgs = [...current[i].images];
-                                                  // Remove from current pos and put at index 0
-                                                  const selected = imgs.splice(imgIdx, 1)[0];
-                                                  imgs.unshift(selected);
-                                                  current[i].images = imgs;
-                                                  setFormData({ ...formData, driveFolders: current });
-                                                }}
-                                                className={cn(
-                                                  "relative w-20 h-20 shrink-0 rounded-xl overflow-hidden cursor-pointer border-2 transition-all",
-                                                  imgIdx === 0 ? "border-[#BF76FF] shadow-[0_0_15px_rgba(191,118,255,0.3)] scale-105 z-10" : "border-transparent opacity-60 hover:opacity-100 bg-black/10"
-                                                )}
-                                              >
-                                                <img 
-                                                  src={`https://drive.google.com/thumbnail?id=${imgId}&sz=w200`} 
-                                                  className="w-full h-full object-cover" 
-                                                  loading="lazy"
-                                                />
-                                                {imgIdx === 0 && (
-                                                  <div className="absolute inset-x-0 bottom-0 bg-[#BF76FF] text-white text-[8px] font-black uppercase tracking-widest text-center py-1">
-                                                    Destaque
-                                                  </div>
-                                                )}
-                                              </div>
-                                            ))}
-                                            {folder.images.length > 50 && (
-                                              <div className="w-20 h-20 shrink-0 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-[9px] font-black text-gray-500 uppercase tracking-widest text-center px-2">
-                                                +{folder.images.length - 50} fotos
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-
-                                {(!formData.driveFolders || formData.driveFolders.length === 0) && (
-                                  <div className="py-6 border border-dashed border-white/10 rounded-[24px] text-center opacity-40 text-[10px] font-bold uppercase tracking-widest text-gray-500">
-                                    Nenhuma pasta do Drive configurada
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-
-                            {activeTab === "noticias" && (
-                              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <div className="p-8 rounded-[32px] bg-primary/5 border border-primary/10">
-                                  <h3 className="text-sm font-black uppercase tracking-widest text-[#BF76FF] mb-6 flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-[#BF76FF] animate-pulse" />
-                                    Estrutura Jornalística
-                                  </h3>
-
-                                  <div className="space-y-6">
-                                    {formData.content && (
-                                      <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10 mt-4" id="push-notification-noticias-toggle">
-                                        <input
-                                          type="checkbox"
-                                          id="notifyAllNoticia"
-                                          className="w-5 h-5 accent-[#BF76FF] rounded-lg"
-                                          checked={formData.notifyAll || false}
-                                          onChange={(e) => setFormData({ ...formData, notifyAll: e.target.checked })}
-                                        />
-                                        <label htmlFor="notifyAllNoticia" className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest cursor-pointer select-none">
-                                          Disparar Notificação Push para este post
-                                        </label>
-                                      </div>
-                                    )}
-
-                                    {/* 1. Título */}
-                                    <div className="space-y-2">
-                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título da Matéria</label>
-                                      <Input
-                                        className={cn("border h-16 rounded-2xl px-6 text-xl font-black transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                        placeholder="Título impactante da notícia..."
-                                        value={formData.title || ""}
-                                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                      />
-                                    </div>
-
-                                    {/* 2. Subtítulo */}
-                                    <div className="space-y-2">
-                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Subtítulo / Gravata</label>
-                                      <Textarea
-                                        className={cn("border min-h-[80px] rounded-2xl p-6 transition-all font-medium", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                        placeholder="Um resumo breve que aparece logo abaixo do título"
-                                        value={formData.subtitle || ""}
-                                        onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
-                                      />
-                                    </div>
-
-                                    {/* 3. Fonte */}
-                                    <div className="space-y-2">
-                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Fonte da Matéria</label>
-                                      <Input
-                                        className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                        placeholder="Ex: Redação Ministério Profecia, G1, Gospel Prime..."
-                                        value={formData.source || ""}
-                                        onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                                      />
-                                    </div>
-
-                                    {/* 4. Social Sharing Preview */}
-                                    <div className="py-4 border-y border-white/5 space-y-4">
-                                      <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Previsão de Compartilhamento</label>
-                                      <div className="flex gap-3">
-                                        <div className="p-3 rounded-2xl bg-[#25D366]/10 text-[#25D366] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                                          <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center text-white">
-                                            <MessageSquare className="w-4 h-4 fill-current" />
-                                          </div>
-                                          WhatsApp
-                                        </div>
-                                        <div className="p-3 rounded-2xl bg-[#E1306C]/10 text-[#E1306C] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-white">
-                                            <Instagram className="w-4 h-4" />
-                                          </div>
-                                          Instagram
-                                        </div>
-                                        <div className="p-3 rounded-2xl bg-[#1877F2]/10 text-[#1877F2] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                                          <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white">
-                                            <Facebook className="w-4 h-4 fill-current" />
-                                          </div>
-                                          Facebook
-                                        </div>
-                                        <div className="p-3 rounded-2xl bg-white/5 text-gray-400 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                                          <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
-                                            <Share2 className="w-4 h-4" />
-                                          </div>
-                                          Geral
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* 5. Video Script / URL */}
-                                    <div className="space-y-4">
-                                      <div className="flex items-center justify-between ml-2">
-                                        <label className={cn("text-[10px] font-black uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Vídeo de Destaque</label>
-                                        <div className="flex gap-2">
-                                          <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[8px] font-black uppercase tracking-widest border border-red-500/20">YouTube</span>
-                                          <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[8px] font-black uppercase tracking-widest border border-purple-500/20">Instagram</span>
-                                          <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">Shorts</span>
-                                        </div>
-                                      </div>
-                                      <Input
-                                        className={cn("border h-12 rounded-2xl px-6 transition-all italic", isDarkMode ? "bg-cinza-input border-white/5 text-gray-300 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                        placeholder="Cole o link (YouTube, Instagram ou Shorts)..."
-                                        value={formData.videoUrl || ""}
-                                        onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                                      />
-                                    </div>
-
-                                    {/* 6. Imagem Principal e Legenda */}
-                                    <div className="space-y-4 pt-4 border-t border-white/5">
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
-                                          <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem de Capa</label>
+                                          <label className="text-[10px] font-black text-gray-500 ml-2 uppercase tracking-widest">Término</label>
+                                          <Input
+                                            type="time"
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input w-full", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            value={formData.endTime || ""}
+                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Local</label>
+                                        <div className="relative">
+                                          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF0A6C]" />
+                                          <Input
+                                            className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            placeholder="Ex: Igreja IEMP - Sede"
+                                            value={formData.location || ""}
+                                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* Evento Interno / Externo (Sleek Apple segmented toggle) */}
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Evento Interno ou Externo?</label>
+                                        <div className="flex gap-2.5">
+                                          <button
+                                            type="button"
+                                            disabled={isReadOnly}
+                                            className={cn(
+                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                              formData.scope === 'externo'
+                                                ? (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                                : "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                            )}
+                                            onClick={() => setFormData({ ...formData, scope: 'interno' })}
+                                          >
+                                            Interno
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={isReadOnly}
+                                            className={cn(
+                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                              formData.scope === 'externo'
+                                                ? "bg-[#BF76FF] text-white shadow-lg shadow-[#BF76FF]/20"
+                                                : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                            )}
+                                            onClick={() => setFormData({ ...formData, scope: 'externo' })}
+                                          >
+                                            Externo
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Nome do Organizador</label>
+                                          <Input
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            placeholder="Ex: Pra. Ana Clara"
+                                            value={formData.organizer || ""}
+                                            onChange={(e) => setFormData({ ...formData, organizer: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Foto do Organizador</label>
                                           {!isReadOnly ? (
                                             <UploadImages
                                               maxFiles={1}
                                               multiple={false}
-                                              value={formData.image}
-                                              onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                              value={formData.organizerImage}
+                                              onUploadComplete={(images) => setFormData({ ...formData, organizerImage: images[0]?.secure_url || "" })}
                                             />
                                           ) : (
-                                            formData.image && (
-                                              <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/10 group">
-                                                <img src={getImageUrl(formData.image)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
+                                            formData.organizerImage && (
+                                              <div className="mt-2 w-20 h-20 rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                                <img src={getImageUrl(formData.organizerImage)} alt="Preview" className="w-full h-full object-cover" />
                                               </div>
                                             )
                                           )}
                                         </div>
-                                        <div className="space-y-2">
-                                          <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Legenda da Imagem</label>
-                                          <Input
-                                            className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                            placeholder="Fiel orando no monte"
-                                            value={formData.imageCaption || ""}
-                                            onChange={(e) => setFormData({ ...formData, imageCaption: e.target.value })}
-                                            readOnly={isReadOnly}
-                                          />
-                                        </div>
-                                      </div>
-                                      {/* Removido preview redundante pois o componente já mostra */}
-                                    </div>
 
-                                    {/* 7. Conteúdo da Matéria */}
-                                    <div className="space-y-2">
-                                      <div className="flex items-center gap-2 mb-2 ml-2">
-                                        <div className="w-1 h-3 bg-[#BF76FF] rounded-full" />
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Corpo da Matéria (Texto Principal)</label>
-                                      </div>
-                                      <Textarea
-                                        className={cn("border min-h-[300px] rounded-[32px] p-8 transition-all text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-cinza-input border-white/5 text-white/90 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                        placeholder="Escreva aqui a reportagem completa. Use parágrafos para melhor leitura."
-                                        value={formData.content || ""}
-                                        onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                      />
-                                    </div>
-
-                                    {/* 8. Galeria de Fotos */}
-                                    <div className="space-y-6 pt-6 border-t border-white/5">
-                                      <div className="flex items-center justify-between ml-2">
-                                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Galeria / Fotos Enviadas</label>
-                                        {!isReadOnly && (
-                                          <UploadImages
-                                            maxFiles={10}
-                                            value={typeof formData.gallery === 'string'
-                                              ? formData.gallery.split('\n').filter((l: string) => l.trim())
-                                              : (Array.isArray(formData.gallery) ? formData.gallery : [])}
-                                            onUploadComplete={(images) => {
-                                              const newUrls = images.map(img => img.secure_url);
-                                              const currentGallery = typeof formData.gallery === 'string'
-                                                ? formData.gallery.split('\n').filter((l: string) => l.trim())
-                                                : (Array.isArray(formData.gallery) ? formData.gallery : []);
-                                              
-                                              setFormData({ 
-                                                ...formData, 
-                                                gallery: [...currentGallery, ...newUrls].join('\n') 
-                                              });
-                                            }}
-                                          />
+                                        {isAdminOrDev && (
+                                          <div className="space-y-2">
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Contato do Organizador (ADM ONLY)</label>
+                                            <Input
+                                              className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                              placeholder="Ex: (31) 99876-5432"
+                                              value={formData.organizerContact || ""}
+                                              onChange={(e) => setFormData({ ...formData, organizerContact: e.target.value })}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
                                         )}
                                       </div>
 
-                                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        {(() => {
-                                          const urls = typeof formData.gallery === 'string'
-                                            ? formData.gallery.split('\n')
-                                            : (Array.isArray(formData.gallery) ? formData.gallery : []);
 
-                                          // Always show an empty array if empty but we want to map correctly
-                                          // Wait, the filter removes empty strings, but we need to keep empty inputs while editing
-                                          const displayUrls = typeof formData.gallery === 'string' ? formData.gallery.split('\n') : (Array.isArray(formData.gallery) ? formData.gallery : []);
+                                      {/* church member scale divided by cargo */}
+                                      <div className="space-y-4">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Participação de Membros no Evento?</label>
+                                        <div className="flex gap-2.5">
+                                          <button
+                                            type="button"
+                                            disabled={isReadOnly}
+                                            className={cn(
+                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                              formData.memberParticipation
+                                                ? "bg-[#10B981] text-white shadow-lg shadow-[#10B981]/20"
+                                                : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                            )}
+                                            onClick={() => setFormData({ ...formData, memberParticipation: true, inviteChurch: true })}
+                                          >
+                                            Sim
+                                          </button>
+                                          <button
+                                            type="button"
+                                            disabled={isReadOnly}
+                                            className={cn(
+                                              "flex-1 h-12 rounded-[18px] text-[11px] font-black uppercase tracking-widest transition-all duration-300 apple-button cursor-pointer",
+                                              !formData.memberParticipation
+                                                ? "bg-[#FF2525] text-white shadow-lg shadow-[#FF2525]/20"
+                                                : (isDarkMode ? "bg-white/5 text-gray-500" : "bg-black/5 text-gray-400")
+                                            )}
+                                            onClick={() => setFormData({ ...formData, memberParticipation: false, inviteChurch: false, invitedMembers: [] })}
+                                          >
+                                            Não
+                                          </button>
+                                        </div>
+                                      </div>
 
-                                          return displayUrls.map((url: string, i: number) => (
-                                            <div key={`form-gallery-noticia-${i}`} className={cn("p-4 rounded-3xl border transition-all space-y-3 relative group", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-white border-black/5 shadow-sm")}>
-                                              <div className="flex gap-2">
-                                                <div className="relative flex-1">
-                                                  <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
-                                                  <Input
-                                                    className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                                    placeholder="URL da imagem..."
-                                                    value={url.trim()}
-                                                    onChange={(e) => {
-                                                      const newGallery = [...displayUrls];
-                                                      newGallery[i] = e.target.value;
-                                                      setFormData({ ...formData, gallery: newGallery.join('\n') });
-                                                    }}
-                                                    readOnly={isReadOnly}
-                                                  />
-                                                </div>
-                                                {!isReadOnly && (
-                                                  <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shrink-0"
-                                                    onClick={() => {
-                                                      const newGallery = displayUrls.filter((_, idx) => idx !== i);
-                                                      setFormData({ ...formData, gallery: newGallery.join('\n') });
-                                                    }}
-                                                  >
-                                                    <Trash2 className="w-4 h-4" />
-                                                  </Button>
-                                                )}
-                                              </div>
-                                              {url.trim() && (
-                                                <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20 group-hover:scale-[1.02] transition-transform duration-300">
-                                                  <img src={getImageUrl(url.trim())} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
-                                                  {!isReadOnly && url.trim() && (
-                                                    <button
-                                                      type="button"
-                                                      onClick={() => setFormData({ ...formData, image: url.trim() })}
-                                                      className={cn(
-                                                        "absolute bottom-2 left-2 right-2 py-1.5 rounded-xl flex items-center justify-center gap-1 opacity-100 transition-all z-20 text-[8px] font-black uppercase tracking-widest border border-white/20 backdrop-blur-md",
-                                                        formData.image === url.trim() ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.4)]" : "bg-black/60 text-white hover:bg-black/80"
-                                                      )}
+                                      {formData.memberParticipation && (
+                                        <div className="space-y-6 p-6 rounded-[28px] bg-white/[0.01] border border-white/5">
+                                          <div className="flex items-center justify-between">
+                                            <h4 className="text-xs font-black uppercase text-[#10B981] tracking-widest">Escala de Membros por Cargo</h4>
+                                            <span className="text-[10px] font-bold text-gray-400">
+                                              {formData.invitedMembers?.length || 0} membros selecionados
+                                            </span>
+                                          </div>
+
+                                          <div className="space-y-6">
+                                            {Object.entries(groupedMembersByRole)
+                                              .filter(([roleName]) => !["Visitante", "Membro"].includes(roleName))
+                                              .map(([roleName, roleMembers]) => {
+                                                const allSelected = roleMembers.every(m => formData.invitedMembers?.some((im: any) => im.id === m.id));
+                                                const isCollapsed = collapsedScaleCategories[roleName] ?? true;
+                                                const selectedCount = roleMembers.filter(m => formData.invitedMembers?.some((im: any) => im.id === m.id)).length;
+
+                                                return (
+                                                  <div key={`role-group-${roleName}`} className="space-y-2.5">
+                                                    <div
+                                                      onClick={() => setCollapsedScaleCategories(prev => ({ ...prev, [roleName]: !isCollapsed }))}
+                                                      className="flex justify-between items-center bg-white/[0.02] border border-white/5 px-4 py-2.5 rounded-xl cursor-pointer hover:bg-white/[0.04] transition-colors"
                                                     >
-                                                      {formData.image === url.trim() ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
-                                                      {formData.image === url.trim() ? "Capa da Notícia" : "Definir como Capa"}
-                                                    </button>
-                                                  )}
-                                                </div>
-                                              )}
-                                            </div>
-                                          ));
-                                        })()}
+                                                      <div className="flex items-center gap-2">
+                                                        {isCollapsed ? <ChevronRight className="w-3.5 h-3.5 text-gray-400" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-400" />}
+                                                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-300">{roleName}</span>
+                                                        <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-white/5 border border-white/5 text-gray-400 font-mono">
+                                                          {selectedCount}/{roleMembers.length}
+                                                        </span>
+                                                      </div>
+                                                      {!isReadOnly && (
+                                                        <button
+                                                          type="button"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const currentInvited = formData.invitedMembers || [];
+                                                            if (allSelected) {
+                                                              const roleIds = new Set(roleMembers.map(rm => rm.id));
+                                                              setFormData({
+                                                                ...formData,
+                                                                invitedMembers: currentInvited.filter((im: any) => !roleIds.has(im.id))
+                                                              });
+                                                            } else {
+                                                              const currentIds = new Set(currentInvited.map((im: any) => im.id));
+                                                              const toAdd = roleMembers
+                                                                .filter(rm => !currentIds.has(rm.id))
+                                                                .map(rm => ({ id: rm.id, name: rm.name, photo: rm.photoURL }));
+                                                              setFormData({
+                                                                ...formData,
+                                                                invitedMembers: [...currentInvited, ...toAdd]
+                                                              });
+                                                            }
+                                                          }}
+                                                          className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
+                                                        >
+                                                          {allSelected ? "Desmarcar Todos" : "Selecionar Todos"}
+                                                        </button>
+                                                      )}
+                                                    </div>
 
-                                        {(!formData.gallery || (typeof formData.gallery === 'string' && formData.gallery.trim() === '') || (Array.isArray(formData.gallery) && formData.gallery.length === 0)) && (
-                                          <div className={cn("col-span-full py-12 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center text-gray-500 gap-3 opacity-50", isDarkMode ? "border-white/10" : "border-black/10")}>
-                                            <ImageIcon className="w-10 h-10 opacity-20" />
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-center">Nenhuma foto enviada</p>
+                                                    {!isCollapsed && (
+                                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 px-1 animate-in fade-in slide-in-from-top-1 duration-200">
+                                                        {roleMembers.map((member) => {
+                                                          const isSelected = formData.invitedMembers?.some((im: any) => im.id === member.id);
+                                                          return (
+                                                            <div
+                                                              key={`member-select-${member.id}`}
+                                                              onClick={() => {
+                                                                if (isReadOnly) return;
+                                                                const currentInvited = formData.invitedMembers || [];
+                                                                if (isSelected) {
+                                                                  setFormData({
+                                                                    ...formData,
+                                                                    invitedMembers: currentInvited.filter((im: any) => im.id !== member.id)
+                                                                  });
+                                                                } else {
+                                                                  setFormData({
+                                                                    ...formData,
+                                                                    invitedMembers: [...currentInvited, { id: member.id, name: member.name, photo: member.photoURL }]
+                                                                  });
+                                                                }
+                                                              }}
+                                                              className={cn(
+                                                                "flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer",
+                                                                isSelected
+                                                                  ? "bg-[#BF76FF]/15 border-[#BF76FF]/35"
+                                                                  : "bg-white/[0.01] border-white/5 hover:bg-white/[0.04]"
+                                                              )}
+                                                            >
+                                                              <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-lg overflow-hidden bg-gray-200 shrink-0">
+                                                                  {member.photoURL ? (
+                                                                    <img src={getImageUrl(member.photoURL)} className="w-full h-full object-cover" alt="" />
+                                                                  ) : (
+                                                                    <div className="w-full h-full flex items-center justify-center bg-[#BF76FF]/20 text-[#BF76FF] font-bold text-xs">
+                                                                      {member.name?.[0]}
+                                                                    </div>
+                                                                  )}
+                                                                </div>
+                                                                <span className="text-[11px] font-bold text-white truncate max-w-[120px]">{member.name}</span>
+                                                              </div>
+                                                              <div className={cn(
+                                                                "w-5 h-5 rounded-md flex items-center justify-center transition-all",
+                                                                isSelected ? "bg-[#BF76FF] text-white" : "bg-white/10 text-transparent"
+                                                              )}>
+                                                                <Check className="w-3.5 h-3.5" />
+                                                              </div>
+                                                            </div>
+                                                          );
+                                                        })}
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                );
+                                              })}
                                           </div>
-                                        )}
-                                      </div>
-                                    </div>
-
-                                    {/* 9. Tópicos e Configurações de exibição (Previews das seções finais) */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
-                                      <div className="p-6 rounded-[24px] bg-white/5 border border-white/5">
-                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Seção: Últimas Notícias</h4>
-                                        <div className="flex gap-3 opacity-40 grayscale">
-                                          <div className="w-12 h-12 rounded-lg bg-gray-500 shrink-0" />
-                                          <div className="space-y-1 flex-1">
-                                            <div className="h-2 w-full bg-gray-500 rounded" />
-                                            <div className="h-2 w-2/3 bg-gray-500 rounded" />
-                                          </div>
                                         </div>
-                                        <p className="mt-4 text-[9px] text-gray-500 italic text-center">Ativado automaticamente para novos posts</p>
-                                      </div>
-                                      <div className="p-6 rounded-[24px] bg-white/5 border border-white/5">
-                                        <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Seção: Matérias Relacionadas</h4>
-                                        <div className="grid grid-cols-3 gap-2 opacity-40 grayscale">
-                                          <div className="aspect-square bg-gray-500 rounded-lg" />
-                                          <div className="aspect-square bg-gray-500 rounded-lg" />
-                                          <div className="aspect-square bg-gray-500 rounded-lg" />
-                                        </div>
-                                        <p className="mt-4 text-[9px] text-gray-500 italic text-center">Calculado por similaridade de conteúdo</p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                                      )}
 
-                            {(activeTab === "agenda" || activeTab === "agenda-direcao") && (
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título do Compromisso</label>
-                                  <Input
-                                    className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                    placeholder="Ex: Visitar igreja no Grama"
-                                    value={formData.title || ""}
-                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    readOnly={isReadOnly}
-                                  />
-                                </div>
-
-                                <div className="grid grid-cols-1 gap-4">
-                                  <div className="space-y-2">
-                                    <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Data e Horário</label>
-                                    <div className="flex flex-col md:flex-row gap-3">
-                                      <div className="flex-1 space-y-1">
-                                        <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Data</p>
-                                        <Input
-                                          type="date"
-                                          className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                          value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
-                                          onChange={(e) => {
-                                            const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "";
-                                            setFormData({ ...formData, date: time ? `${e.target.value}T${time}` : e.target.value });
-                                          }}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                      <div className="flex-1 space-y-1">
-                                        <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Início</p>
-                                        <div className="relative">
-                                          
-                                          <Input
-                                            type="time"
-                                            className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                            value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
-                                            onChange={(e) => {
-                                              const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
-                                              setFormData({ ...formData, date: `${date}T${e.target.value}` });
-                                            }}
-                                            readOnly={isReadOnly}
-                                          />
-                                        </div>
-                                      </div>
-                                      <div className="flex-1 space-y-1">
-                                        <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Término</p>
-                                        <Input
-                                          type="time"
-                                          className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                          value={formData.endTime || ""}
-                                          onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  <div className="space-y-2">
-                                    <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Local</label>
-                                    <Input
-                                      className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                      placeholder="Ex: Igreja Local..."
-                                      value={formData.location || ""}
-                                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                                      readOnly={isReadOnly}
-                                    />
-                                  </div>
-                                  <div className="space-y-2 relative">
-                                    <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Organizador</label>
-                                    <div className="relative">
-                                      <Input
-                                        className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                        placeholder="Selecionar membro ou digitar nome..."
-                                        value={formData.organization || ""}
-                                        onChange={(e) => {
-                                          setFormData({ ...formData, organization: e.target.value, organizerId: null });
-                                          setOrganizerSearch(e.target.value);
-                                        }}
-                                        onFocus={() => setShowOrganizerDropdown(true)}
-                                        onBlur={() => setTimeout(() => setShowOrganizerDropdown(false), 200)}
-                                        readOnly={isReadOnly}
-                                      />
-                                      {showOrganizerDropdown && !isReadOnly && (
-                                        <div className={cn("absolute top-full left-0 right-0 mt-2 rounded-xl border shadow-xl z-50 max-h-48 overflow-y-auto", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5")}>
-                                          {members.filter(m => !!m.name && m.name.trim() !== '' && m.status !== 'pending' && m.status !== 'visitor_session' && m.name.toLowerCase().includes((organizerSearch || '').toLowerCase())).map(member => (
-                                            <div
-                                              key={member.id}
-                                              className={cn("px-4 py-3 cursor-pointer text-sm font-bold flex items-center gap-3 transition-colors", isDarkMode ? "hover:bg-white/5 text-white" : "hover:bg-gray-50 text-black")}
+                                      {/* External Guests */}
+                                      <div className="space-y-4">
+                                        <div className="flex items-center justify-between ml-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Participação de Convidados (Externos)</label>
+                                          {!isReadOnly && (
+                                            <Button
+                                              type="button"
                                               onClick={() => {
-                                                setFormData({
-                                                  ...formData,
-                                                  organization: member.name,
-                                                  organizerId: member.id,
-                                                  organizerImage: member.photoURL || ""
-                                                });
-                                                setOrganizerSearch("");
-                                                setShowOrganizerDropdown(false);
+                                                const current = Array.isArray(formData.guests) ? formData.guests : [];
+                                                setFormData({ ...formData, guests: [...current, { name: "", image: "", congregation: "" }] });
                                               }}
+                                              className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px]"
                                             >
-                                              {member.photoURL ? (
-                                                <img src={member.photoURL} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
-                                              ) : (
-                                                <div className="w-6 h-6 rounded-full bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
-                                                  <User className="w-3 h-3" />
+                                              <Plus className="w-3 h-3 mr-2" /> Novo Convidado
+                                            </Button>
+                                          )}
+                                        </div>
+                                        <div className="space-y-4">
+                                          {(formData.guests || []).map((guest: any, i: number) => (
+                                            <div key={`guest-${i}`} className={cn("p-5 rounded-[24px] border relative group grid grid-cols-1 md:grid-cols-3 gap-4", isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-black/5 bg-black/[0.01]")}>
+                                              <div className="space-y-1">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome</label>
+                                                <Input placeholder="Nome Completo" value={guest.name || ""} onChange={(e) => {
+                                                  const g = [...formData.guests]; g[i].name = e.target.value; setFormData({ ...formData, guests: g });
+                                                }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                              </div>
+                                              <div className="space-y-1">
+                                                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Congregação</label>
+                                                <Input placeholder="Ex: Assembleia de Deus" value={guest.congregation || ""} onChange={(e) => {
+                                                  const g = [...formData.guests]; g[i].congregation = e.target.value; setFormData({ ...formData, guests: g });
+                                                }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                              </div>
+                                              <div className="space-y-2 col-span-1 md:col-span-3 border-t border-white/5 pt-4 mt-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Foto do Convidado</label>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                                                  <div className="space-y-1">
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção A: Upload da Foto</label>
+                                                    <UploadImages
+                                                      maxFiles={1}
+                                                      multiple={false}
+                                                      value={guest.image || ""}
+                                                      onUploadComplete={(images) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: images[0]?.secure_url || "" } : g) })}
+                                                    />
+                                                  </div>
+                                                  <div className="space-y-1.5 self-start">
+                                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção B: Ou cole o Link/URL da foto</label>
+                                                    <Input
+                                                      placeholder="Ex: https://exemplo.com/foto.jpg"
+                                                      value={guest.image || ""}
+                                                      onChange={(e) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: e.target.value } : g) })}
+                                                      className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                                    />
+                                                    {guest.image && (
+                                                      <p className="text-[9px] text-[#10B981] font-bold ml-1">✓ Imagem vinculada com sucesso.</p>
+                                                    )}
+                                                  </div>
                                                 </div>
+                                              </div>
+                                              {!isReadOnly && (
+                                                <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500/10 text-red-500 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                  <X className="w-3.5 h-3.5" />
+                                                </Button>
                                               )}
-                                              {member.name}
                                             </div>
                                           ))}
                                         </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                                      </div>
 
-                            {(activeTab === "agenda" || activeTab === "agenda-direcao") && (
-                                  <div className="space-y-4">
-                                    <div className="space-y-2">
-                                      <label className={cn("text-xs font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>
-                                        A igreja foi convidada?
-                                        {!isReadOnly && (
-                                          <div className="flex gap-2 ml-4">
-                                            <button
-                                              type="button"
-                                              className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all", formData.inviteChurch ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500")}
-                                              onClick={() => {
-                                                setFormData({ ...formData, inviteChurch: true });
-                                                setIsMemberSelectorOpen(true);
-                                              }}
-                                            >
-                                              Sim
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all", !formData.inviteChurch ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500")}
-                                              onClick={() => setFormData({ ...formData, inviteChurch: false, invitedMembers: [] })}
-                                            >
-                                              Não
-                                            </button>
-                                          </div>
-                                        )}
-                                      </label>
-                                      {isReadOnly && (
-                                        <p className="text-sm font-medium mt-1">{formData.inviteChurch ? "Sim" : "Não"}</p>
-                                      )}
-                                      {formData.inviteChurch && formData.invitedMembers?.length > 0 && (
-                                        <p className="text-xs text-[#BF76FF] mt-2 italic font-medium">{formData.invitedMembers.length} membro(s) convidado(s). {(!isReadOnly) && (<span className="cursor-pointer underline" onClick={() => setIsMemberSelectorOpen(true)}>Editar Lista</span>)}</p>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="space-y-4 pt-4 border-t border-white/5">
-                                      <div className="flex items-center justify-between">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Convidados Externos / Palestrantes</label>
-                                        {!isReadOnly && (
-                                          <Button
-                                            type="button"
-                                            onClick={() => {
-                                              const current = Array.isArray(formData.guests) ? formData.guests : [];
-                                              setFormData({ ...formData, guests: [...current, { name: "", image: "", role: "" }] });
-                                            }}
-                                            className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px]"
-                                          >
-                                            <Plus className="w-3 h-3 mr-2" /> Adicionar
-                                          </Button>
+                                      {/* YouTube Video Link */}
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do Vídeo no YouTube</label>
+                                        <div className="relative">
+                                          <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                                          <Input
+                                            className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            placeholder="https://www.youtube.com/watch?v=..."
+                                            value={formData.videoUrl || ""}
+                                            onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+
+                                      {/* Photo Frame Link */}
+                                      <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Moldura da Foto (Criar minha foto) link/upload</label>
+                                        {!isReadOnly ? (
+                                          <UploadImages
+                                            maxFiles={1}
+                                            multiple={false}
+                                            value={formData.frameUrl}
+                                            onUploadComplete={(images) => setFormData({ ...formData, frameUrl: images[0]?.secure_url || "" })}
+                                          />
+                                        ) : (
+                                          formData.frameUrl && (
+                                            <div className="mt-2 w-32 h-32 rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                              <img src={getImageUrl(formData.frameUrl)} alt="Preview" className="w-full h-full object-cover" />
+                                            </div>
+                                          )
                                         )}
                                       </div>
-                                      <div className="space-y-3">
-                                        {(formData.guests || []).map((guest: any, i: number) => (
-                                          <div key={`guest-agenda-${i}`} className={cn("p-4 rounded-2xl border relative group grid grid-cols-1 md:grid-cols-3 gap-3", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5")}>
-                                            <Input placeholder="Nome" value={guest.name} onChange={(e) => {
-                                              const g = [...formData.guests]; g[i].name = e.target.value; setFormData({ ...formData, guests: g });
-                                            }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
-                                            <Input placeholder="Cargo" value={guest.role} onChange={(e) => {
-                                              const g = [...formData.guests]; g[i].role = e.target.value; setFormData({ ...formData, guests: g });
-                                            }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
-                                            <Input placeholder="Foto URL" value={guest.image} onChange={(e) => {
-                                              const g = [...formData.guests]; g[i].image = e.target.value; setFormData({ ...formData, guests: g });
-                                            }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
-                                            {!isReadOnly && (
-                                              <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xl">
-                                                <X className="w-3 h-3" />
-                                              </Button>
-                                            )}
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
 
-                                    <div className="space-y-2">
-                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do vídeo / Youtube</label>
-                                      <Input
-                                        className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                        placeholder="https://youtube.com/..."
-                                        value={formData.youtubeLink || formData.videoUrl || ""}
-                                        onChange={(e) => setFormData({ ...formData, youtubeLink: e.target.value, videoUrl: e.target.value })}
-                                        readOnly={isReadOnly}
-                                      />
-                                    </div>
-                                  </div>
-                                )}
-
-                            {(activeTab === "eventos" || activeTab === "agenda" || activeTab === "agenda-direcao") && (
-                              <>
-                                {/* Rodapé Comum do Formulário */}
-                                <div className="space-y-6 pt-6 border-t border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                  {!isReadOnly && (
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      {/* Observations / custom fields */}
                                       <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">contatos e informações</label>
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações Importantes</label>
                                         <Textarea
-                                          className={cn("min-h-[100px] rounded-2xl p-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
-                                          placeholder="Detalhes de contato e informações adicionais..."
-                                          value={formData.additionalInfo || ""}
-                                          onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
-                                          readOnly={isReadOnly}
-                                        />
-                                      </div>
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações importantes</label>
-                                        <Textarea
-                                          className={cn("min-h-[100px] rounded-2xl p-6 border transition-all border-dashed border-[#BF76FF]/20", isDarkMode ? "bg-[#BF76FF]/5 text-[#BF76FF]/80" : "bg-purple-50 text-[#BF76FF]")}
-                                          placeholder="Obs importantes..."
+                                          className={cn("min-h-[100px] rounded-[24px] p-6 border transition-all leading-relaxed apple-input resize-y", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                          placeholder="Ex: Trazer roupa branca, Chegar 30min antes..."
                                           value={formData.observations || ""}
                                           onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
                                           readOnly={isReadOnly}
@@ -7833,1005 +7131,1708 @@ const Admin = () => {
                                       </div>
                                     </div>
                                   )}
-
-
                                 </div>
-                              </>
-                            )}
-                          </div>
-                        </>
-                      )
-                    )}
-
-                    {activeTab === "membros" && (
-                      <div className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div 
-                            className={cn(
-                              "space-y-2 p-4 rounded-3xl transition-all duration-300",
-                              highlightedFields.includes('photoURL') ? "bg-red-500/10 border border-red-500 animate-pulse" : "border border-transparent"
-                            )} 
-                            id="field-photoURL"
-                            onFocus={() => setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'))}
-                            onClick={() => setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'))}
-                          >
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Perfil</label>
-                            {!isReadOnly ? (
-                              <UploadImages
-                                maxFiles={1}
-                                multiple={false}
-                                value={formData.photoURL}
-                                onUploadComplete={(images) => {
-                                  setFormData({ ...formData, photoURL: images[0]?.secure_url || "" });
-                                  setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'));
-                                }}
-                              />
-                            ) : (
-                              formData.photoURL && (
-                                <div className="mt-2 w-20 h-20 rounded-full overflow-hidden border border-white/5 bg-black/20">
-                                  <img src={getImageUrl(formData.photoURL)} alt="Preview" className="w-full h-full object-cover" />
-                                </div>
-                              )
-                            )}
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Capa</label>
-                            {!isReadOnly ? (
-                              <UploadImages
-                                maxFiles={1}
-                                multiple={false}
-                                value={formData.coverImage}
-                                onUploadComplete={(images) => setFormData({ ...formData, coverImage: images[0]?.secure_url || "" })}
-                              />
-                            ) : (
-                              formData.coverImage && (
-                                <div className="mt-2 aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
-                                  <img src={getImageUrl(formData.coverImage)} alt="Preview" className="w-full h-full object-cover" />
-                                </div>
-                              )
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome</label>
-                            <Input
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              value={formData.name || ""}
-                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">E-mail</label>
-                            <Input
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              value={formData.email || ""}
-                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp (com DDD)</label>
-                            <Input
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="11999999999"
-                              value={formData.phone || ""}
-                              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data de Nascimento</label>
-                            <Input
-                              type="date"
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              value={formData.birthDate || ""}
-                              onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data que se tornou membro</label>
-                            <Input
-                              type="date"
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              value={formData.joinedDate || ""}
-                              onChange={(e) => setFormData({ ...formData, joinedDate: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                          <div className="space-y-2" id="field-instagram">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                              <Instagram className="w-3.5 h-3.5" /> Instagram
-                            </label>
-                            <Input
-                              className={cn(
-                                "border h-14 rounded-2xl px-6 transition-all",
-                                highlightedFields.includes('instagram') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
-                                isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black"
                               )}
-                              placeholder="@seu_instagram"
-                              value={formData.instagram || ""}
-                              onChange={(e) => {
-                                setFormData({ ...formData, instagram: e.target.value });
-                                setHighlightedFields(prev => prev.filter(f => f !== 'instagram'));
-                              }}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                          <div className="space-y-2 md:col-span-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                              <Wrench className="w-3.5 h-3.5" /> O que faz de melhor na igreja
-                            </label>
 
-                            <div className="relative" id="field-churchSkills">
-                              <div
-                                className={cn(
-                                  "min-h-[3.5rem] w-full border rounded-2xl p-3 flex flex-wrap gap-2 cursor-pointer transition-all",
-                                  highlightedFields.includes('churchSkills') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
-                                  isDarkMode ? "bg-cinza-input border-white/5" : "bg-white border-black/5"
-                                )}
-                                onClick={() => {
-                                  if (!isReadOnly) {
-                                    setShowSkillsDropdownAdmin(!showSkillsDropdownAdmin);
-                                    setHighlightedFields(prev => prev.filter(f => f !== 'churchSkills'));
-                                  }
-                                }}
-                              >
-                                {formData.churchSkills ? formData.churchSkills.split(",").map(skill => skill.trim()).filter(Boolean).map((skill, idx) => (
-                                  <span key={idx} className="bg-[#BF76FF]/20 text-[#BF76FF] text-[10px] font-bold uppercase px-2 py-1 rounded-lg flex items-center gap-1">
-                                    {skill}
-                                    {!isReadOnly && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          const skills = formData.churchSkills.split(",").map(s => s.trim()).filter(s => s !== skill);
-                                          setFormData({ ...formData, churchSkills: skills.join(", ") });
-                                        }}
-                                        className="hover:text-white"
-                                      >
-                                        ×
-                                      </button>
-                                    )}
-                                  </span>
-                                )) : (
-                                  <span className="text-gray-500 text-sm py-1.5 px-3 italic">Selecione habilidades ministeriais...</span>
-                                )}
-                              </div>
-
-                              <AnimatePresence>
-                                {showSkillsDropdownAdmin && !isReadOnly && (
-                                  <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 10 }}
-                                    className={cn(
-                                      "absolute top-full mt-2 left-0 right-0 border rounded-2xl overflow-hidden z-50 shadow-2xl p-4",
-                                      isDarkMode ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10"
-                                    )}
-                                  >
-                                    <div className="flex gap-2 mb-4">
-                                      <Input
-                                        placeholder="Nova habilidade..."
-                                        value={newSkillName}
-                                        onChange={(e) => setNewSkillName(e.target.value)}
-                                        className={cn("h-10 text-xs", isDarkMode ? "bg-black border-white/10 text-white placeholder:text-gray-600" : "bg-gray-50 border-black/5 text-black")}
-                                      />
-                                      <Button onClick={handleAddSkill} size="sm" className="bg-[#BF76FF] text-white">Adicionar</Button>
-                                    </div>
-
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2">
-                                      {availableSkills.map(skill => {
-                                        const isSelected = formData.churchSkills?.split(",").map(s => s.trim()).includes(skill);
-                                        return (
-                                          <div key={skill} className="flex items-center group">
-                                            <button
-                                              type="button"
-                                              onClick={() => {
-                                                const currentSkills = formData.churchSkills?.split(",").map(s => s.trim()).filter(Boolean) || [];
-                                                if (isSelected) {
-                                                  setFormData({ ...formData, churchSkills: currentSkills.filter(s => s !== skill).join(", ") });
-                                                } else {
-                                                  setFormData({ ...formData, churchSkills: [...currentSkills, skill].join(", ") });
-                                                }
-                                              }}
-                                              className={cn(
-                                                "flex-1 text-[10px] font-bold uppercase p-2 rounded-lg text-left transition-colors",
-                                                isSelected ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500 hover:bg-white/10"
-                                              )}
-                                            >
-                                              {skill}
-                                            </button>
-                                            <button
-                                              onClick={(e) => { e.stopPropagation(); handleRemoveSkill(skill); }}
-                                              className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-400 transition-all ml-1"
-                                            >
-                                              <Trash2 className="w-3 h-3" />
-                                            </button>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-
-                                    <div className="mt-4 pt-4 border-t border-white/10 flex justify-end">
-                                      <Button
-                                        type="button"
-                                        onClick={() => setShowSkillsDropdownAdmin(false)}
-                                        className="bg-[#BF76FF] hover:bg-[#A05ADB] text-white rounded-xl px-6 font-black uppercase text-[10px] tracking-widest h-10 transition-all shadow-lg shadow-[#BF76FF]/20"
-                                      >
-                                        Confirmar Seleção
-                                      </Button>
-                                    </div>
-                                  </motion.div>
-                                )}
-                              </AnimatePresence>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
-                              <FileText className="w-3.5 h-3.5" /> Biografia
-                            </label>
-                            {!isReadOnly && (
-                              <div className="flex items-center gap-1">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    handleInsertMarkdown('bold');
-                                  }}
-                                  title="Negrito"
-                                >
-                                  <Bold className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
-                                  onMouseDown={(e) => {
-                                    e.preventDefault();
-                                    handleInsertMarkdown('italic');
-                                  }}
-                                  title="Itálico"
-                                >
-                                  <Italic className="w-4 h-4" />
-                                </Button>
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger
-                                    render={
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
-                                        title="Emojis"
-                                      />
-                                    }
-                                  >
-                                    <Smile className="w-4 h-4" />
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className={cn("p-2 grid grid-cols-5 gap-1 min-w-[160px] z-[100]", isDarkMode ? "bg-[#1A1A1A] border-white/10" : "bg-white border-black/10")}>
-                                    {["😀", "😍", "🙏", "✨", "🔥", "❤️", "🙌", "😊", "😎", "✝️", "📖", "⛪", "🎶", "🕊️", "💎"].map(emoji => (
-                                      <button
-                                        key={emoji}
-                                        type="button"
-                                        className="w-8 h-8 flex items-center justify-center hover:bg-[#BF76FF]/20 rounded-lg transition-colors text-lg"
-                                        onClick={() => handleInsertMarkdown('emoji', emoji)}
-                                      >
-                                        {emoji}
-                                      </button>
-                                    ))}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </div>
-                            )}
-                          </div>
-                          <Textarea
-                            ref={bioRef}
-                            id="field-bio"
-                            className={cn(
-                              "border min-h-[120px] rounded-2xl p-6 transition-all",
-                              highlightedFields.includes('bio') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
-                              isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner"
-                            )}
-                            placeholder="Fale um pouco sobre você (quem é você, há quanto tempo está na igreja, etc)..."
-                            value={formData.bio !== undefined ? formData.bio : (formData.additionalInfo || "")}
-                            onChange={(e) => {
-                              setFormData({ ...formData, bio: e.target.value });
-                              setHighlightedFields(prev => prev.filter(f => f !== 'bio'));
-                            }}
-                            readOnly={isReadOnly}
-                          />
-                        </div>
-
-                        <div className="space-y-4">
-                          <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block">Ministérios e Cargos</label>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {allRoles.map(role => {
-                              const ministry = (formData.ministries || []).find((m: any) => (typeof m === 'string' ? m : m.name) === role);
-                              const isSelected = !!ministry;
-                              const isLeader = typeof ministry === 'object' ? ministry.isLeader : false;
-
-                              return (
-                                <div key={`role-selection-${role}`} className={cn("p-4 rounded-2xl border flex items-center justify-between transition-all", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
-                                  <div className="flex items-center gap-3">
-                                    <input
-                                      type="checkbox"
-                                      checked={isSelected}
-                                      disabled={isReadOnly || !isAdminOrDev}
-                                      onChange={(e) => {
-                                        const currentMinistries = formData.ministries || [];
-                                        if (e.target.checked) {
-                                          setFormData({
-                                            ...formData,
-                                            ministries: [...currentMinistries, { name: role, isLeader: false }]
-                                          });
-                                        } else {
-                                          setFormData({
-                                            ...formData,
-                                            ministries: currentMinistries.filter((m: any) => (typeof m === 'string' ? m : m.name) !== role)
-                                          });
-                                        }
-                                      }}
-                                      className="w-5 h-5 rounded border-gray-300 text-[#BF76FF] focus:ring-[#BF76FF] cursor-pointer"
-                                    />
-                                    <span className={cn("text-sm font-bold", isDarkMode ? "text-white" : "text-black")}>{role}</span>
+                              {/* Google Drive Multi-Folder Syncer (Shared among all types) */}
+                              <div className="space-y-4 mt-6">
+                                <div className="flex items-center justify-between ml-2">
+                                  <div className="space-y-0.5">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Google Drive: Pastas de Fotos</label>
+                                    <p className="text-[9px] text-gray-400 font-medium">Sincronize pastas de fotos públicas do Drive para exibir na galeria.</p>
                                   </div>
+                                  {!isReadOnly && (
+                                    <Button
+                                      type="button"
+                                      onClick={() => {
+                                        const current = formData.driveFolders || [];
+                                        setFormData({
+                                          ...formData,
+                                          driveFolders: [...current, { title: "", link: "", images: [] }]
+                                        });
+                                      }}
+                                      className={cn(
+                                        "h-8 rounded-lg px-4 font-black uppercase text-[10px] cursor-pointer transition-all border-none",
+                                        (formData.typeEvent === "evento" || !formData.typeEvent)
+                                          ? "bg-[#FF0A6C]/10 text-[#FF0A6C] hover:bg-[#FF0A6C] hover:text-white"
+                                          : formData.typeEvent === "culto"
+                                            ? "bg-[#00FFFF]/10 text-[#00FFFF] hover:bg-[#00FFFF] hover:text-black"
+                                            : "bg-[#FF2525]/10 text-[#FF2525] hover:bg-[#FF2525] hover:text-white"
+                                      )}
+                                    >
+                                      <Plus className="w-3 h-3 mr-2" /> Nova Pasta
+                                    </Button>
+                                  )}
+                                </div>
 
-                                  {isSelected && (
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="checkbox"
-                                        id={`leader-${role}`}
-                                        checked={isLeader}
-                                        disabled={isReadOnly || !isAdminOrDev}
-                                        onChange={(e) => {
-                                          const currentMinistries = formData.ministries || [];
-                                          setFormData({
-                                            ...formData,
-                                            ministries: currentMinistries.map((m: any) =>
-                                              (typeof m === 'string' ? m : m.name) === role ? { name: role, isLeader: e.target.checked } : m
-                                            )
-                                          });
-                                        }}
-                                        className="w-4 h-4 rounded border-gray-300 text-[#BF76FF] focus:ring-[#BF76FF] cursor-pointer"
-                                      />
-                                      <label htmlFor={`leader-${role}`} className="text-[10px] font-bold text-gray-500 uppercase tracking-widest cursor-pointer">Líder</label>
+                                <div className="grid grid-cols-1 gap-4">
+                                  {(formData.driveFolders || []).map((folder: any, i: number) => {
+                                    const isChecking = checkingFolders[i];
+                                    const isVerified = folderVerified[i];
+
+                                    return (
+                                      <div key={i} className={cn("p-6 rounded-[28px] border transition-all relative overflow-hidden", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5 shadow-sm")}>
+                                        {!isReadOnly && (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              const current = [...formData.driveFolders];
+                                              current.splice(i, 1);
+                                              setFormData({ ...formData, driveFolders: current });
+                                            }}
+                                            className="absolute top-4 right-4 text-red-500 hover:text-red-600 transition-colors p-2 hover:bg-red-500/10 rounded-full cursor-pointer"
+                                          >
+                                            <Trash2 className="w-4 h-4" />
+                                          </button>
+                                        )}
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                          <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome da Pasta (Ex: Dia 1, Louvor)</label>
+                                            <Input
+                                              className={cn("h-12 rounded-xl px-4 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                              value={folder.title || ""}
+                                              onChange={(e) => {
+                                                const current = [...formData.driveFolders];
+                                                current[i].title = e.target.value;
+                                                setFormData({ ...formData, driveFolders: current });
+                                              }}
+                                              placeholder="Nome da Pasta..."
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+
+                                          <div className="space-y-2">
+                                            <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Link da Pasta do Google Drive (Compartilhado Público)</label>
+                                            <div className="flex gap-2">
+                                              <Input
+                                                className={cn("h-12 rounded-xl px-4 border transition-all apple-input flex-1", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                                value={folder.link || ""}
+                                                onChange={(e) => {
+                                                  const current = [...formData.driveFolders];
+                                                  current[i].link = e.target.value;
+                                                  setFormData({ ...formData, driveFolders: current });
+                                                  if (e.target.value.length > 20) {
+                                                    checkFolderAccessibility(e.target.value, i);
+                                                  }
+                                                }}
+                                                placeholder="https://drive.google.com/..."
+                                                readOnly={isReadOnly}
+                                              />
+                                              {!isReadOnly && (
+                                                <Button
+                                                  type="button"
+                                                  onClick={() => syncSpecificFolder(i)}
+                                                  disabled={!folder.link || isSyncing}
+                                                  className="h-12 px-4 rounded-xl bg-[#00A859] hover:bg-[#008A49] text-white border-none transition-all font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(0,168,89,0.2)]"
+                                                >
+                                                  {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <HardDrive className="w-3.5 h-3.5" />} Sincronizar
+                                                </Button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        </div>
+
+                                        {folder.link && (
+                                          <div className="flex items-center gap-2 mt-3 ml-1">
+                                            {isChecking ? (
+                                              <span className="text-[9px] font-bold text-gray-400 animate-pulse flex items-center gap-1">
+                                                <Loader2 className="w-3 h-3 animate-spin text-[#BF76FF]" /> Verificando acessibilidade no Drive...
+                                              </span>
+                                            ) : isVerified === true ? (
+                                              <span className="text-[9px] font-bold text-green-500 flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3 text-green-500" /> Pasta pública e acessível. Pronto para sincronizar.
+                                              </span>
+                                            ) : isVerified === false ? (
+                                              <span className="text-[9px] font-bold text-amber-500 flex items-center gap-1">
+                                                <AlertCircle className="w-3 h-3 text-amber-500" /> Acesso restrito ou ID inválido. Compartilhe como "Qualquer pessoa com o link".
+                                              </span>
+                                            ) : folder.images && folder.images.length > 0 ? (
+                                              <span className="text-[9px] font-bold text-green-500 flex items-center gap-1">
+                                                <CheckCircle2 className="w-3 h-3 text-green-500" /> {folder.images.length} fotos já sincronizadas.
+                                              </span>
+                                            ) : (
+                                              <span className="text-[9px] font-bold text-gray-400 flex items-center gap-1">
+                                                <HardDrive className="w-3 h-3" /> Clique em Sincronizar para importar as fotos.
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        {folder.images && folder.images.length > 0 && (
+                                          <div className="mt-4">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                                                Selecione a foto de destaque (Aparecerá grande no celular)
+                                              </label>
+                                              <span className="text-[9px] font-medium text-gray-400">
+                                                ✓ {folder.images.length} fotos importadas
+                                              </span>
+                                            </div>
+                                            <div className="flex gap-2 overflow-x-auto pb-4 custom-scrollbar">
+                                              {folder.images.slice(0, 50).map((imgId: string, imgIdx: number) => (
+                                                <div
+                                                  key={`thumb-${imgId}-${imgIdx}`}
+                                                  onClick={() => {
+                                                    if (isReadOnly) return;
+                                                    const current = [...formData.driveFolders];
+                                                    const imgs = [...current[i].images];
+                                                    // Remove from current pos and put at index 0
+                                                    const selected = imgs.splice(imgIdx, 1)[0];
+                                                    imgs.unshift(selected);
+                                                    current[i].images = imgs;
+                                                    setFormData({ ...formData, driveFolders: current });
+                                                  }}
+                                                  className={cn(
+                                                    "relative w-20 h-20 shrink-0 rounded-xl overflow-hidden cursor-pointer border-2 transition-all",
+                                                    imgIdx === 0 ? "border-[#BF76FF] shadow-[0_0_15px_rgba(191,118,255,0.3)] scale-105 z-10" : "border-transparent opacity-60 hover:opacity-100 bg-black/10"
+                                                  )}
+                                                >
+                                                  <img
+                                                    src={`https://drive.google.com/thumbnail?id=${imgId}&sz=w200`}
+                                                    className="w-full h-full object-cover"
+                                                    loading="lazy"
+                                                  />
+                                                  {imgIdx === 0 && (
+                                                    <div className="absolute inset-x-0 bottom-0 bg-[#BF76FF] text-white text-[8px] font-black uppercase tracking-widest text-center py-1">
+                                                      Destaque
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              ))}
+                                              {folder.images.length > 50 && (
+                                                <div className="w-20 h-20 shrink-0 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-[9px] font-black text-gray-500 uppercase tracking-widest text-center px-2">
+                                                  +{folder.images.length - 50} fotos
+                                                </div>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+
+                                  {(!formData.driveFolders || formData.driveFolders.length === 0) && (
+                                    <div className="py-6 border border-dashed border-white/10 rounded-[24px] text-center opacity-40 text-[10px] font-bold uppercase tracking-widest text-gray-500">
+                                      Nenhuma pasta do Drive configurada
                                     </div>
                                   )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-
-
-                        <div className="pt-6 border-t border-white/10 mt-8 space-y-6">
-                          <h4 className={cn("text-lg font-black uppercase tracking-widest", isDarkMode ? "text-white" : "text-black")}>Área Profissional / Serviços</h4>
-                          <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Estas informações aparecerão na página de /servicos</p>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="space-y-2" id="field-professionalArea">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Área Profissional</label>
-                              <Input
-                                className={cn(
-                                  "border h-14 rounded-2xl px-6 transition-all",
-                                  highlightedFields.includes('professionalArea') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
-                                  isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black"
-                                )}
-                                placeholder="Tecnologia, Saúde, Educação..."
-                                value={formData.professionalArea || ""}
-                                onChange={(e) => {
-                                  setFormData({ ...formData, professionalArea: e.target.value });
-                                  setHighlightedFields(prev => prev.filter(f => f !== 'professionalArea'));
-                                }}
-                                readOnly={isReadOnly}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Profissão / Serviço Oferecido</label>
-                              <Input
-                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                placeholder="Ex: Pedreiro, Contador, Design Gráfico..."
-                                value={formData.profession || ""}
-                                onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
-                                readOnly={isReadOnly}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Empresa</label>
-                              <Input
-                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                placeholder="Ex: Construtora Silva"
-                                value={formData.companyName || ""}
-                                onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                                readOnly={isReadOnly}
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Profissional</label>
-                                <div className="flex items-center gap-2">
-                                  <input
-                                    type="checkbox"
-                                    id="samePhoneAdmin"
-                                    checked={formData.isCompanyWhatsappSame || false}
-                                    onChange={(e) => setFormData({ ...formData, isCompanyWhatsappSame: e.target.checked })}
-                                    disabled={isReadOnly}
-                                    className="rounded border-[#BF76FF]/30 bg-white/5 text-[#BF76FF] focus:ring-[#BF76FF]/20"
-                                  />
-                                  <label htmlFor="samePhoneAdmin" className="text-[9px] uppercase font-bold text-gray-500 cursor-pointer">Mesmo do pessoal</label>
-                                </div>
                               </div>
-                              <Input
-                                className={cn("border h-14 rounded-2xl px-6 transition-all",
-                                  isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black",
-                                  formData.isCompanyWhatsappSame && "opacity-50"
-                                )}
-                                placeholder="Ex: 11999999999"
-                                value={formData.isCompanyWhatsappSame ? (formData.phone || "Não cadastrado") : (formData.companyWhatsapp || formData.servicePhone || "")}
-                                onChange={(e) => setFormData({ ...formData, companyWhatsapp: e.target.value })}
-                                readOnly={isReadOnly || formData.isCompanyWhatsappSame}
-                              />
-                            </div>
-                            <div className="space-y-2 md:col-span-2">
-                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Logo da Empresa (URL)</label>
-                              <Input
-                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                                placeholder="https://exemplo.com/logo.jpg"
-                                value={formData.companyLogo || ""}
-                                onChange={(e) => setFormData({ ...formData, companyLogo: e.target.value })}
-                                readOnly={isReadOnly}
-                              />
-                            </div>
-                          </div>
 
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Endereço da Empresa</label>
-                            <Input
-                              className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Rua, Número, Bairro, Cidade - UF"
-                              value={formData.companyAddress || formData.serviceAddress || ""}
-                              onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
+                              {activeTab === "noticias" && (
+                                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                  <div className="p-8 rounded-[32px] bg-primary/5 border border-primary/10">
+                                    <h3 className="text-sm font-black uppercase tracking-widest text-[#BF76FF] mb-6 flex items-center gap-2">
+                                      <div className="w-2 h-2 rounded-full bg-[#BF76FF] animate-pulse" />
+                                      Estrutura Jornalística
+                                    </h3>
 
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tipo de Serviço / Descrição</label>
-                            <Textarea
-                              className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
-                              placeholder="Descreva detalhadamente o que a empresa faz..."
-                              value={formData.companyServiceType || formData.serviceDescription || ""}
-                              onChange={(e) => setFormData({ ...formData, companyServiceType: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
+                                    <div className="space-y-6">
+                                      {formData.content && (
+                                        <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10 mt-4" id="push-notification-noticias-toggle">
+                                          <input
+                                            type="checkbox"
+                                            id="notifyAllNoticia"
+                                            className="w-5 h-5 accent-[#BF76FF] rounded-lg"
+                                            checked={formData.notifyAll || false}
+                                            onChange={(e) => setFormData({ ...formData, notifyAll: e.target.checked })}
+                                          />
+                                          <label htmlFor="notifyAllNoticia" className="text-xs font-bold text-[#BF76FF] uppercase tracking-widest cursor-pointer select-none">
+                                            Disparar Notificação Push para este post
+                                          </label>
+                                        </div>
+                                      )}
 
-                    {activeTab === "radio" && (
-                      <div className="space-y-4">
-                        {radioSubTab === "tracks" && (
-                          <>
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Nome da Música</label>
-                              <Input
-                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                                placeholder="Ex: Louvor de Adoração - Casa do Pai"
-                                value={formData.title || ""}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                readOnly={isReadOnly}
-                              />
-                            </div>
+                                      {/* 1. Título */}
+                                      <div className="space-y-2">
+                                        <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título da Matéria</label>
+                                        <Input
+                                          className={cn("border h-16 rounded-2xl px-6 text-xl font-black transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                          placeholder="Título impactante da notícia..."
+                                          value={formData.title || ""}
+                                          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                        />
+                                      </div>
 
-                            <div className="flex flex-col gap-2 relative">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Artista</label>
-                              <Input
-                                list="artists-list"
-                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                                placeholder="Ex: Aline Barros, Fernandinho..."
-                                value={formData.artist || ""}
-                                onChange={(e) => setFormData({ ...formData, artist: e.target.value })}
-                                readOnly={isReadOnly}
-                              />
-                              <datalist id="artists-list">
-                                {radioArtists.map((a: any) => (
-                                  <option key={a.id} value={a.name} />
-                                ))}
-                              </datalist>
-                            </div>
+                                      {/* 2. Subtítulo */}
+                                      <div className="space-y-2">
+                                        <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Subtítulo / Gravata</label>
+                                        <Textarea
+                                          className={cn("border min-h-[80px] rounded-2xl p-6 transition-all font-medium", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                          placeholder="Um resumo breve que aparece logo abaixo do título"
+                                          value={formData.subtitle || ""}
+                                          onChange={(e) => setFormData({ ...formData, subtitle: e.target.value })}
+                                        />
+                                      </div>
 
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Fonte</label>
-                              <Input
-                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                                placeholder="Ex: Youtube, Spotify, Gravadora XYZ"
-                                value={formData.source || ""}
-                                onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                                readOnly={isReadOnly}
-                              />
+                                      {/* 3. Fonte */}
+                                      <div className="space-y-2">
+                                        <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Fonte da Matéria</label>
+                                        <Input
+                                          className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                          placeholder="Ex: Redação Ministério Profecia, G1, Gospel Prime..."
+                                          value={formData.source || ""}
+                                          onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                                        />
+                                      </div>
+
+                                      {/* 4. Social Sharing Preview */}
+                                      <div className="py-4 border-y border-white/5 space-y-4">
+                                        <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Previsão de Compartilhamento</label>
+                                        <div className="flex gap-3">
+                                          <div className="p-3 rounded-2xl bg-[#25D366]/10 text-[#25D366] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                            <div className="w-8 h-8 rounded-full bg-[#25D366] flex items-center justify-center text-white">
+                                              <MessageSquare className="w-4 h-4 fill-current" />
+                                            </div>
+                                            WhatsApp
+                                          </div>
+                                          <div className="p-3 rounded-2xl bg-[#E1306C]/10 text-[#E1306C] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#f09433] via-[#e6683c] to-[#bc1888] flex items-center justify-center text-white">
+                                              <Instagram className="w-4 h-4" />
+                                            </div>
+                                            Instagram
+                                          </div>
+                                          <div className="p-3 rounded-2xl bg-[#1877F2]/10 text-[#1877F2] flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                            <div className="w-8 h-8 rounded-full bg-[#1877F2] flex items-center justify-center text-white">
+                                              <Facebook className="w-4 h-4 fill-current" />
+                                            </div>
+                                            Facebook
+                                          </div>
+                                          <div className="p-3 rounded-2xl bg-white/5 text-gray-400 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
+                                            <div className="w-8 h-8 rounded-full bg-gray-500 flex items-center justify-center text-white">
+                                              <Share2 className="w-4 h-4" />
+                                            </div>
+                                            Geral
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      {/* 5. Video Script / URL */}
+                                      <div className="space-y-4">
+                                        <div className="flex items-center justify-between ml-2">
+                                          <label className={cn("text-[10px] font-black uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Vídeo de Destaque</label>
+                                          <div className="flex gap-2">
+                                            <span className="px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 text-[8px] font-black uppercase tracking-widest border border-red-500/20">YouTube</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[8px] font-black uppercase tracking-widest border border-purple-500/20">Instagram</span>
+                                            <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase tracking-widest border border-blue-500/20">Shorts</span>
+                                          </div>
+                                        </div>
+                                        <Input
+                                          className={cn("border h-12 rounded-2xl px-6 transition-all italic", isDarkMode ? "bg-cinza-input border-white/5 text-gray-300 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                          placeholder="Cole o link (YouTube, Instagram ou Shorts)..."
+                                          value={formData.videoUrl || ""}
+                                          onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                                        />
+                                      </div>
+
+                                      {/* 6. Imagem Principal e Legenda */}
+                                      <div className="space-y-4 pt-4 border-t border-white/5">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                          <div className="space-y-2">
+                                            <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Imagem de Capa</label>
+                                            {!isReadOnly ? (
+                                              <UploadImages
+                                                maxFiles={1}
+                                                multiple={false}
+                                                value={formData.image}
+                                                onUploadComplete={(images) => setFormData({ ...formData, image: images[0]?.secure_url || "" })}
+                                              />
+                                            ) : (
+                                              formData.image && (
+                                                <div className="relative aspect-video rounded-[32px] overflow-hidden border border-white/10 group">
+                                                  <img src={getImageUrl(formData.image)} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="" />
+                                                </div>
+                                              )
+                                            )}
+                                          </div>
+                                          <div className="space-y-2">
+                                            <label className={cn("text-[10px] font-black uppercase tracking-widest ml-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>Legenda da Imagem</label>
+                                            <Input
+                                              className={cn("border h-12 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                              placeholder="Fiel orando no monte"
+                                              value={formData.imageCaption || ""}
+                                              onChange={(e) => setFormData({ ...formData, imageCaption: e.target.value })}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+                                        </div>
+                                        {/* Removido preview redundante pois o componente já mostra */}
+                                      </div>
+
+                                      {/* 7. Conteúdo da Matéria */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center gap-2 mb-2 ml-2">
+                                          <div className="w-1 h-3 bg-[#BF76FF] rounded-full" />
+                                          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Corpo da Matéria (Texto Principal)</label>
+                                        </div>
+                                        <Textarea
+                                          className={cn("border min-h-[300px] rounded-[32px] p-8 transition-all text-lg leading-relaxed scrollbar-thin", isDarkMode ? "bg-cinza-input border-white/5 text-white/90 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                          placeholder="Escreva aqui a reportagem completa. Use parágrafos para melhor leitura."
+                                          value={formData.content || ""}
+                                          onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                                        />
+                                      </div>
+
+                                      {/* 8. Galeria de Fotos */}
+                                      <div className="space-y-6 pt-6 border-t border-white/5">
+                                        <div className="flex items-center justify-between ml-2">
+                                          <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Galeria / Fotos Enviadas</label>
+                                          {!isReadOnly && (
+                                            <UploadImages
+                                              maxFiles={10}
+                                              value={typeof formData.gallery === 'string'
+                                                ? formData.gallery.split('\n').filter((l: string) => l.trim())
+                                                : (Array.isArray(formData.gallery) ? formData.gallery : [])}
+                                              onUploadComplete={(images) => {
+                                                const newUrls = images.map(img => img.secure_url);
+                                                const currentGallery = typeof formData.gallery === 'string'
+                                                  ? formData.gallery.split('\n').filter((l: string) => l.trim())
+                                                  : (Array.isArray(formData.gallery) ? formData.gallery : []);
+
+                                                setFormData({
+                                                  ...formData,
+                                                  gallery: [...currentGallery, ...newUrls].join('\n')
+                                                });
+                                              }}
+                                            />
+                                          )}
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                          {(() => {
+                                            const urls = typeof formData.gallery === 'string'
+                                              ? formData.gallery.split('\n')
+                                              : (Array.isArray(formData.gallery) ? formData.gallery : []);
+
+                                            // Always show an empty array if empty but we want to map correctly
+                                            // Wait, the filter removes empty strings, but we need to keep empty inputs while editing
+                                            const displayUrls = typeof formData.gallery === 'string' ? formData.gallery.split('\n') : (Array.isArray(formData.gallery) ? formData.gallery : []);
+
+                                            return displayUrls.map((url: string, i: number) => (
+                                              <div key={`form-gallery-noticia-${i}`} className={cn("p-4 rounded-3xl border transition-all space-y-3 relative group", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-white border-black/5 shadow-sm")}>
+                                                <div className="flex gap-2">
+                                                  <div className="relative flex-1">
+                                                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                                                    <Input
+                                                      className={cn("border h-10 rounded-xl pl-10 pr-4 text-[10px] transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                                      placeholder="URL da imagem..."
+                                                      value={url.trim()}
+                                                      onChange={(e) => {
+                                                        const newGallery = [...displayUrls];
+                                                        newGallery[i] = e.target.value;
+                                                        setFormData({ ...formData, gallery: newGallery.join('\n') });
+                                                      }}
+                                                      readOnly={isReadOnly}
+                                                    />
+                                                  </div>
+                                                  {!isReadOnly && (
+                                                    <Button
+                                                      type="button"
+                                                      variant="ghost"
+                                                      className="w-10 h-10 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-all shrink-0"
+                                                      onClick={() => {
+                                                        const newGallery = displayUrls.filter((_, idx) => idx !== i);
+                                                        setFormData({ ...formData, gallery: newGallery.join('\n') });
+                                                      }}
+                                                    >
+                                                      <Trash2 className="w-4 h-4" />
+                                                    </Button>
+                                                  )}
+                                                </div>
+                                                {url.trim() && (
+                                                  <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20 group-hover:scale-[1.02] transition-transform duration-300">
+                                                    <img src={getImageUrl(url.trim())} alt="" className="w-full h-full object-cover" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                                                    {!isReadOnly && url.trim() && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => setFormData({ ...formData, image: url.trim() })}
+                                                        className={cn(
+                                                          "absolute bottom-2 left-2 right-2 py-1.5 rounded-xl flex items-center justify-center gap-1 opacity-100 transition-all z-20 text-[8px] font-black uppercase tracking-widest border border-white/20 backdrop-blur-md",
+                                                          formData.image === url.trim() ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.4)]" : "bg-black/60 text-white hover:bg-black/80"
+                                                        )}
+                                                      >
+                                                        {formData.image === url.trim() ? <CheckCircle2 className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                                                        {formData.image === url.trim() ? "Capa da Notícia" : "Definir como Capa"}
+                                                      </button>
+                                                    )}
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ));
+                                          })()}
+
+                                          {(!formData.gallery || (typeof formData.gallery === 'string' && formData.gallery.trim() === '') || (Array.isArray(formData.gallery) && formData.gallery.length === 0)) && (
+                                            <div className={cn("col-span-full py-12 border-2 border-dashed rounded-[32px] flex flex-col items-center justify-center text-gray-500 gap-3 opacity-50", isDarkMode ? "border-white/10" : "border-black/10")}>
+                                              <ImageIcon className="w-10 h-10 opacity-20" />
+                                              <p className="text-[10px] font-black uppercase tracking-widest text-center">Nenhuma foto enviada</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+
+                                      {/* 9. Tópicos e Configurações de exibição (Previews das seções finais) */}
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-white/5">
+                                        <div className="p-6 rounded-[24px] bg-white/5 border border-white/5">
+                                          <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Seção: Últimas Notícias</h4>
+                                          <div className="flex gap-3 opacity-40 grayscale">
+                                            <div className="w-12 h-12 rounded-lg bg-gray-500 shrink-0" />
+                                            <div className="space-y-1 flex-1">
+                                              <div className="h-2 w-full bg-gray-500 rounded" />
+                                              <div className="h-2 w-2/3 bg-gray-500 rounded" />
+                                            </div>
+                                          </div>
+                                          <p className="mt-4 text-[9px] text-gray-500 italic text-center">Ativado automaticamente para novos posts</p>
+                                        </div>
+                                        <div className="p-6 rounded-[24px] bg-white/5 border border-white/5">
+                                          <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-4">Seção: Matérias Relacionadas</h4>
+                                          <div className="grid grid-cols-3 gap-2 opacity-40 grayscale">
+                                            <div className="aspect-square bg-gray-500 rounded-lg" />
+                                            <div className="aspect-square bg-gray-500 rounded-lg" />
+                                            <div className="aspect-square bg-gray-500 rounded-lg" />
+                                          </div>
+                                          <p className="mt-4 text-[9px] text-gray-500 italic text-center">Calculado por similaridade de conteúdo</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {(activeTab === "agenda" || activeTab === "agenda-direcao") && (
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Título do Compromisso</label>
+                                    <Input
+                                      className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                      placeholder="Ex: Visitar igreja no Grama"
+                                      value={formData.title || ""}
+                                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                      readOnly={isReadOnly}
+                                    />
+                                  </div>
+
+                                  <div className="grid grid-cols-1 gap-4">
+                                    <div className="space-y-2">
+                                      <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Data e Horário</label>
+                                      <div className="flex flex-col md:flex-row gap-3">
+                                        <div className="flex-1 space-y-1">
+                                          <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Data</p>
+                                          <Input
+                                            type="date"
+                                            className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                            value={typeof formData.date === 'string' ? formData.date.split('T')[0] : ""}
+                                            onChange={(e) => {
+                                              const time = typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1] : "";
+                                              setFormData({ ...formData, date: time ? `${e.target.value}T${time}` : e.target.value });
+                                            }}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                          <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Início</p>
+                                          <div className="relative">
+
+                                            <Input
+                                              type="time"
+                                              className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-white/80 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                              value={typeof formData.date === 'string' && formData.date.includes('T') ? formData.date.split('T')[1]?.substring(0, 5) : ""}
+                                              onChange={(e) => {
+                                                const date = typeof formData.date === 'string' ? formData.date.split('T')[0] : format(new Date(), "yyyy-MM-dd");
+                                                setFormData({ ...formData, date: `${date}T${e.target.value}` });
+                                              }}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+                                        </div>
+                                        <div className="flex-1 space-y-1">
+                                          <p className="text-[10px] text-gray-400 ml-2 uppercase font-bold">Término</p>
+                                          <Input
+                                            type="time"
+                                            className={cn("border h-14 rounded-2xl px-6 transition-all w-full", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                            value={formData.endTime || ""}
+                                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                      <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Local</label>
+                                      <Input
+                                        className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                        placeholder="Ex: Igreja Local..."
+                                        value={formData.location || ""}
+                                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                                        readOnly={isReadOnly}
+                                      />
+                                    </div>
+                                    <div className="space-y-2 relative">
+                                      <label className={cn("text-xs font-bold uppercase tracking-widest", isDarkMode ? "text-gray-400" : "text-gray-500")}>Organizador</label>
+                                      <div className="relative">
+                                        <Input
+                                          className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                          placeholder="Selecionar membro ou digitar nome..."
+                                          value={formData.organization || ""}
+                                          onChange={(e) => {
+                                            setFormData({ ...formData, organization: e.target.value, organizerId: null });
+                                            setOrganizerSearch(e.target.value);
+                                          }}
+                                          onFocus={() => setShowOrganizerDropdown(true)}
+                                          onBlur={() => setTimeout(() => setShowOrganizerDropdown(false), 200)}
+                                          readOnly={isReadOnly}
+                                        />
+                                        {showOrganizerDropdown && !isReadOnly && (
+                                          <div className={cn("absolute top-full left-0 right-0 mt-2 rounded-xl border shadow-xl z-50 max-h-48 overflow-y-auto", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5")}>
+                                            {members.filter(m => !!m.name && m.name.trim() !== '' && m.status !== 'pending' && m.status !== 'visitor_session' && m.name.toLowerCase().includes((organizerSearch || '').toLowerCase())).map(member => (
+                                              <div
+                                                key={member.id}
+                                                className={cn("px-4 py-3 cursor-pointer text-sm font-bold flex items-center gap-3 transition-colors", isDarkMode ? "hover:bg-white/5 text-white" : "hover:bg-gray-50 text-black")}
+                                                onClick={() => {
+                                                  setFormData({
+                                                    ...formData,
+                                                    organization: member.name,
+                                                    organizerId: member.id,
+                                                    organizerImage: member.photoURL || ""
+                                                  });
+                                                  setOrganizerSearch("");
+                                                  setShowOrganizerDropdown(false);
+                                                }}
+                                              >
+                                                {member.photoURL ? (
+                                                  <img src={member.photoURL} alt={member.name} className="w-6 h-6 rounded-full object-cover" />
+                                                ) : (
+                                                  <div className="w-6 h-6 rounded-full bg-[#BF76FF]/10 flex items-center justify-center text-[#BF76FF]">
+                                                    <User className="w-3 h-3" />
+                                                  </div>
+                                                )}
+                                                {member.name}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
+                              {(activeTab === "agenda" || activeTab === "agenda-direcao") && (
+                                <div className="space-y-4">
+                                  <div className="space-y-2">
+                                    <label className={cn("text-xs font-bold uppercase tracking-widest flex items-center gap-2", isDarkMode ? "text-gray-400" : "text-gray-500")}>
+                                      A igreja foi convidada?
+                                      {!isReadOnly && (
+                                        <div className="flex gap-2 ml-4">
+                                          <button
+                                            type="button"
+                                            className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all", formData.inviteChurch ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500")}
+                                            onClick={() => {
+                                              setFormData({ ...formData, inviteChurch: true });
+                                              setIsMemberSelectorOpen(true);
+                                            }}
+                                          >
+                                            Sim
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className={cn("px-4 py-2 rounded-xl text-xs font-bold transition-all", !formData.inviteChurch ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500")}
+                                            onClick={() => setFormData({ ...formData, inviteChurch: false, invitedMembers: [] })}
+                                          >
+                                            Não
+                                          </button>
+                                        </div>
+                                      )}
+                                    </label>
+                                    {isReadOnly && (
+                                      <p className="text-sm font-medium mt-1">{formData.inviteChurch ? "Sim" : "Não"}</p>
+                                    )}
+                                    {formData.inviteChurch && formData.invitedMembers?.length > 0 && (
+                                      <p className="text-xs text-[#BF76FF] mt-2 italic font-medium">{formData.invitedMembers.length} membro(s) convidado(s). {(!isReadOnly) && (<span className="cursor-pointer underline" onClick={() => setIsMemberSelectorOpen(true)}>Editar Lista</span>)}</p>
+                                    )}
+                                  </div>
+
+                                  <div className="space-y-4 pt-4 border-t border-white/5">
+                                    <div className="flex items-center justify-between">
+                                      <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Convidados Externos / Palestrantes</label>
+                                      {!isReadOnly && (
+                                        <Button
+                                          type="button"
+                                          onClick={() => {
+                                            const current = Array.isArray(formData.guests) ? formData.guests : [];
+                                            setFormData({ ...formData, guests: [...current, { name: "", image: "", role: "" }] });
+                                          }}
+                                          className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px]"
+                                        >
+                                          <Plus className="w-3 h-3 mr-2" /> Adicionar
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <div className="space-y-3">
+                                      {(formData.guests || []).map((guest: any, i: number) => (
+                                        <div key={`guest-agenda-${i}`} className={cn("p-4 rounded-2xl border relative group grid grid-cols-1 md:grid-cols-3 gap-3", isDarkMode ? "border-white/5 bg-white/5" : "border-black/5 bg-black/5")}>
+                                          <Input placeholder="Nome" value={guest.name} onChange={(e) => {
+                                            const g = [...formData.guests]; g[i].name = e.target.value; setFormData({ ...formData, guests: g });
+                                          }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
+                                          <Input placeholder="Cargo" value={guest.role} onChange={(e) => {
+                                            const g = [...formData.guests]; g[i].role = e.target.value; setFormData({ ...formData, guests: g });
+                                          }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
+                                          <Input placeholder="Foto URL" value={guest.image} onChange={(e) => {
+                                            const g = [...formData.guests]; g[i].image = e.target.value; setFormData({ ...formData, guests: g });
+                                          }} className={cn("h-10 text-[11px] rounded-xl border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5 text-black")} />
+                                          {!isReadOnly && (
+                                            <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-red-500 text-white p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-xl">
+                                              <X className="w-3 h-3" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do vídeo / Youtube</label>
+                                    <Input
+                                      className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
+                                      placeholder="https://youtube.com/..."
+                                      value={formData.youtubeLink || formData.videoUrl || ""}
+                                      onChange={(e) => setFormData({ ...formData, youtubeLink: e.target.value, videoUrl: e.target.value })}
+                                      readOnly={isReadOnly}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {(activeTab === "eventos" || activeTab === "agenda" || activeTab === "agenda-direcao") && (
+                                <>
+                                  {/* Rodapé Comum do Formulário */}
+                                  <div className="space-y-6 pt-6 border-t border-white/5 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                    {!isReadOnly && (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">contatos e informações</label>
+                                          <Textarea
+                                            className={cn("min-h-[100px] rounded-2xl p-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-white" : "bg-white border-black/5")}
+                                            placeholder="Detalhes de contato e informações adicionais..."
+                                            value={formData.additionalInfo || ""}
+                                            onChange={(e) => setFormData({ ...formData, additionalInfo: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Observações importantes</label>
+                                          <Textarea
+                                            className={cn("min-h-[100px] rounded-2xl p-6 border transition-all border-dashed border-[#BF76FF]/20", isDarkMode ? "bg-[#BF76FF]/5 text-[#BF76FF]/80" : "bg-purple-50 text-[#BF76FF]")}
+                                            placeholder="Obs importantes..."
+                                            value={formData.observations || ""}
+                                            onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
+                                            readOnly={isReadOnly}
+                                          />
+                                        </div>
+                                      </div>
+                                    )}
+
+
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </>
-                        )}
+                        )
+                      )}
 
-                        {radioSubTab === "vignettes" && (
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Título da Vinheta</label>
-                            <Input
-                              className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                              placeholder="Ex: Identidade Profecia, Chamada de Culto..."
-                              value={formData.title || ""}
-                              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                              readOnly={isReadOnly}
-                            />
+                      {activeTab === "membros" && (
+                        <div className="space-y-8">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div
+                              className={cn(
+                                "space-y-2 p-4 rounded-3xl transition-all duration-300",
+                                highlightedFields.includes('photoURL') ? "bg-red-500/10 border border-red-500 animate-pulse" : "border border-transparent"
+                              )}
+                              id="field-photoURL"
+                              onFocus={() => setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'))}
+                              onClick={() => setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'))}
+                            >
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Perfil</label>
+                              {!isReadOnly ? (
+                                <UploadImages
+                                  maxFiles={1}
+                                  multiple={false}
+                                  value={formData.photoURL}
+                                  onUploadComplete={(images) => {
+                                    setFormData({ ...formData, photoURL: images[0]?.secure_url || "" });
+                                    setHighlightedFields(prev => prev.filter(f => f !== 'photoURL'));
+                                  }}
+                                />
+                              ) : (
+                                formData.photoURL && (
+                                  <div className="mt-2 w-20 h-20 rounded-full overflow-hidden border border-white/5 bg-black/20">
+                                    <img src={getImageUrl(formData.photoURL)} alt="Preview" className="w-full h-full object-cover" />
+                                  </div>
+                                )
+                              )}
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Foto de Capa</label>
+                              {!isReadOnly ? (
+                                <UploadImages
+                                  maxFiles={1}
+                                  multiple={false}
+                                  value={formData.coverImage}
+                                  onUploadComplete={(images) => setFormData({ ...formData, coverImage: images[0]?.secure_url || "" })}
+                                />
+                              ) : (
+                                formData.coverImage && (
+                                  <div className="mt-2 aspect-video rounded-2xl overflow-hidden border border-white/5 bg-black/20">
+                                    <img src={getImageUrl(formData.coverImage)} alt="Preview" className="w-full h-full object-cover" />
+                                  </div>
+                                )
+                              )}
+                            </div>
                           </div>
-                        )}
 
-                        {radioSubTab === "artists" && (
-                          <>
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Nome do Artista</label>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome</label>
                               <Input
-                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                                placeholder="Ex: Gabriel Guedes"
+                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
                                 value={formData.name || ""}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                                 readOnly={isReadOnly}
                               />
                             </div>
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Biografia Curta</label>
-                              <Textarea
-                                className={cn("rounded-2xl p-6 border transition-all min-h-[100px]", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                                placeholder="Fale um pouco sobre o artista..."
-                                value={formData.bio || ""}
-                                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">E-mail</label>
+                              <Input
+                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                value={formData.email || ""}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                 readOnly={isReadOnly}
                               />
                             </div>
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Link da Foto (URL)</label>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp (com DDD)</label>
                               <Input
-                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                                placeholder="Cole o endereço da imagem..."
-                                value={formData.thumbnail || ""}
-                                onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
+                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                placeholder="11999999999"
+                                value={formData.phone || ""}
+                                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                                 readOnly={isReadOnly}
                               />
-                              {formData.thumbnail && (
-                                <div className="mt-2 w-24 h-24 rounded-full overflow-hidden border border-white/10">
-                                  <img src={formData.thumbnail} className="w-full h-full object-cover" alt="Preview Photo" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data de Nascimento</label>
+                              <Input
+                                type="date"
+                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                value={formData.birthDate || ""}
+                                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                                readOnly={isReadOnly}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Data que se tornou membro</label>
+                              <Input
+                                type="date"
+                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                value={formData.joinedDate || ""}
+                                onChange={(e) => setFormData({ ...formData, joinedDate: e.target.value })}
+                                readOnly={isReadOnly}
+                              />
+                            </div>
+                            <div className="space-y-2" id="field-instagram">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                <Instagram className="w-3.5 h-3.5" /> Instagram
+                              </label>
+                              <Input
+                                className={cn(
+                                  "border h-14 rounded-2xl px-6 transition-all",
+                                  highlightedFields.includes('instagram') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
+                                  isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black"
+                                )}
+                                placeholder="@seu_instagram"
+                                value={formData.instagram || ""}
+                                onChange={(e) => {
+                                  setFormData({ ...formData, instagram: e.target.value });
+                                  setHighlightedFields(prev => prev.filter(f => f !== 'instagram'));
+                                }}
+                                readOnly={isReadOnly}
+                              />
+                            </div>
+                            <div className="space-y-2 md:col-span-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                <Wrench className="w-3.5 h-3.5" /> O que faz de melhor na igreja
+                              </label>
+
+                              <div className="relative" id="field-churchSkills">
+                                <div
+                                  className={cn(
+                                    "min-h-[3.5rem] w-full border rounded-2xl p-3 flex flex-wrap gap-2 cursor-pointer transition-all",
+                                    highlightedFields.includes('churchSkills') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
+                                    isDarkMode ? "bg-cinza-input border-white/5" : "bg-white border-black/5"
+                                  )}
+                                  onClick={() => {
+                                    if (!isReadOnly) {
+                                      setShowSkillsDropdownAdmin(!showSkillsDropdownAdmin);
+                                      setHighlightedFields(prev => prev.filter(f => f !== 'churchSkills'));
+                                    }
+                                  }}
+                                >
+                                  {formData.churchSkills ? formData.churchSkills.split(",").map(skill => skill.trim()).filter(Boolean).map((skill, idx) => (
+                                    <span key={idx} className="bg-[#BF76FF]/20 text-[#BF76FF] text-[10px] font-bold uppercase px-2 py-1 rounded-lg flex items-center gap-1">
+                                      {skill}
+                                      {!isReadOnly && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            const skills = formData.churchSkills.split(",").map(s => s.trim()).filter(s => s !== skill);
+                                            setFormData({ ...formData, churchSkills: skills.join(", ") });
+                                          }}
+                                          className="hover:text-white"
+                                        >
+                                          ×
+                                        </button>
+                                      )}
+                                    </span>
+                                  )) : (
+                                    <span className="text-gray-500 text-sm py-1.5 px-3 italic">Selecione habilidades ministeriais...</span>
+                                  )}
+                                </div>
+
+                                <AnimatePresence>
+                                  {showSkillsDropdownAdmin && !isReadOnly && (
+                                    <motion.div
+                                      initial={{ opacity: 0, y: 10 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      exit={{ opacity: 0, y: 10 }}
+                                      className={cn(
+                                        "absolute top-full mt-2 left-0 right-0 border rounded-2xl overflow-hidden z-50 shadow-2xl p-4",
+                                        isDarkMode ? "bg-[#1a1a1a] border-white/10" : "bg-white border-black/10"
+                                      )}
+                                    >
+                                      <div className="flex gap-2 mb-4">
+                                        <Input
+                                          placeholder="Nova habilidade..."
+                                          value={newSkillName}
+                                          onChange={(e) => setNewSkillName(e.target.value)}
+                                          className={cn("h-10 text-xs", isDarkMode ? "bg-black border-white/10 text-white placeholder:text-gray-600" : "bg-gray-50 border-black/5 text-black")}
+                                        />
+                                        <Button onClick={handleAddSkill} size="sm" className="bg-[#BF76FF] text-white">Adicionar</Button>
+                                      </div>
+
+                                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-2">
+                                        {availableSkills.map(skill => {
+                                          const isSelected = formData.churchSkills?.split(",").map(s => s.trim()).includes(skill);
+                                          return (
+                                            <div key={skill} className="flex items-center group">
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const currentSkills = formData.churchSkills?.split(",").map(s => s.trim()).filter(Boolean) || [];
+                                                  if (isSelected) {
+                                                    setFormData({ ...formData, churchSkills: currentSkills.filter(s => s !== skill).join(", ") });
+                                                  } else {
+                                                    setFormData({ ...formData, churchSkills: [...currentSkills, skill].join(", ") });
+                                                  }
+                                                }}
+                                                className={cn(
+                                                  "flex-1 text-[10px] font-bold uppercase p-2 rounded-lg text-left transition-colors",
+                                                  isSelected ? "bg-[#BF76FF] text-white" : "bg-white/5 text-gray-500 hover:bg-white/10"
+                                                )}
+                                              >
+                                                {skill}
+                                              </button>
+                                              <button
+                                                onClick={(e) => { e.stopPropagation(); handleRemoveSkill(skill); }}
+                                                className="opacity-0 group-hover:opacity-100 p-1 text-red-500 hover:text-red-400 transition-all ml-1"
+                                              >
+                                                <Trash2 className="w-3 h-3" />
+                                              </button>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+
+                                      <div className="mt-4 pt-4 border-t border-white/10 flex justify-end">
+                                        <Button
+                                          type="button"
+                                          onClick={() => setShowSkillsDropdownAdmin(false)}
+                                          className="bg-[#BF76FF] hover:bg-[#A05ADB] text-white rounded-xl px-6 font-black uppercase text-[10px] tracking-widest h-10 transition-all shadow-lg shadow-[#BF76FF]/20"
+                                        >
+                                          Confirmar Seleção
+                                        </Button>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1.5">
+                                <FileText className="w-3.5 h-3.5" /> Biografia
+                              </label>
+                              {!isReadOnly && (
+                                <div className="flex items-center gap-1">
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleInsertMarkdown('bold');
+                                    }}
+                                    title="Negrito"
+                                  >
+                                    <Bold className="w-4 h-4" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
+                                    onMouseDown={(e) => {
+                                      e.preventDefault();
+                                      handleInsertMarkdown('italic');
+                                    }}
+                                    title="Itálico"
+                                  >
+                                    <Italic className="w-4 h-4" />
+                                  </Button>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger
+                                      render={
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          className="h-8 w-8 p-0 hover:bg-[#BF76FF]/10 text-gray-500 hover:text-[#BF76FF]"
+                                          title="Emojis"
+                                        />
+                                      }
+                                    >
+                                      <Smile className="w-4 h-4" />
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className={cn("p-2 grid grid-cols-5 gap-1 min-w-[160px] z-[100]", isDarkMode ? "bg-[#1A1A1A] border-white/10" : "bg-white border-black/10")}>
+                                      {["😀", "😍", "🙏", "✨", "🔥", "❤️", "🙌", "😊", "😎", "✝️", "📖", "⛪", "🎶", "🕊️", "💎"].map(emoji => (
+                                        <button
+                                          key={emoji}
+                                          type="button"
+                                          className="w-8 h-8 flex items-center justify-center hover:bg-[#BF76FF]/20 rounded-lg transition-colors text-lg"
+                                          onClick={() => handleInsertMarkdown('emoji', emoji)}
+                                        >
+                                          {emoji}
+                                        </button>
+                                      ))}
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               )}
                             </div>
-                            <div className="flex flex-col gap-2">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Instagram (Username ou Link)</label>
+                            <Textarea
+                              ref={bioRef}
+                              id="field-bio"
+                              className={cn(
+                                "border min-h-[120px] rounded-2xl p-6 transition-all",
+                                highlightedFields.includes('bio') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
+                                isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black shadow-inner"
+                              )}
+                              placeholder="Fale um pouco sobre você (quem é você, há quanto tempo está na igreja, etc)..."
+                              value={formData.bio !== undefined ? formData.bio : (formData.additionalInfo || "")}
+                              onChange={(e) => {
+                                setFormData({ ...formData, bio: e.target.value });
+                                setHighlightedFields(prev => prev.filter(f => f !== 'bio'));
+                              }}
+                              readOnly={isReadOnly}
+                            />
+                          </div>
+
+                          <div className="space-y-4">
+                            <label className="text-xs font-bold text-gray-500 uppercase tracking-widest block">Ministérios e Cargos</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {allRoles.map(role => {
+                                const ministry = (formData.ministries || []).find((m: any) => (typeof m === 'string' ? m : m.name) === role);
+                                const isSelected = !!ministry;
+                                const isLeader = typeof ministry === 'object' ? ministry.isLeader : false;
+
+                                return (
+                                  <div key={`role-selection-${role}`} className={cn("p-4 rounded-2xl border flex items-center justify-between transition-all", isDarkMode ? "bg-white/[0.02] border-white/5" : "bg-gray-50 border-black/5")}>
+                                    <div className="flex items-center gap-3">
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        disabled={isReadOnly || !isAdminOrDev}
+                                        onChange={(e) => {
+                                          const currentMinistries = formData.ministries || [];
+                                          if (e.target.checked) {
+                                            setFormData({
+                                              ...formData,
+                                              ministries: [...currentMinistries, { name: role, isLeader: false }]
+                                            });
+                                          } else {
+                                            setFormData({
+                                              ...formData,
+                                              ministries: currentMinistries.filter((m: any) => (typeof m === 'string' ? m : m.name) !== role)
+                                            });
+                                          }
+                                        }}
+                                        className="w-5 h-5 rounded border-gray-300 text-[#BF76FF] focus:ring-[#BF76FF] cursor-pointer"
+                                      />
+                                      <span className={cn("text-sm font-bold", isDarkMode ? "text-white" : "text-black")}>{role}</span>
+                                    </div>
+
+                                    {isSelected && (
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="checkbox"
+                                          id={`leader-${role}`}
+                                          checked={isLeader}
+                                          disabled={isReadOnly || !isAdminOrDev}
+                                          onChange={(e) => {
+                                            const currentMinistries = formData.ministries || [];
+                                            setFormData({
+                                              ...formData,
+                                              ministries: currentMinistries.map((m: any) =>
+                                                (typeof m === 'string' ? m : m.name) === role ? { name: role, isLeader: e.target.checked } : m
+                                              )
+                                            });
+                                          }}
+                                          className="w-4 h-4 rounded border-gray-300 text-[#BF76FF] focus:ring-[#BF76FF] cursor-pointer"
+                                        />
+                                        <label htmlFor={`leader-${role}`} className="text-[10px] font-bold text-gray-500 uppercase tracking-widest cursor-pointer">Líder</label>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+
+
+                          <div className="pt-6 border-t border-white/10 mt-8 space-y-6">
+                            <h4 className={cn("text-lg font-black uppercase tracking-widest", isDarkMode ? "text-white" : "text-black")}>Área Profissional / Serviços</h4>
+                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest">Estas informações aparecerão na página de /servicos</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="space-y-2" id="field-professionalArea">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Área Profissional</label>
+                                <Input
+                                  className={cn(
+                                    "border h-14 rounded-2xl px-6 transition-all",
+                                    highlightedFields.includes('professionalArea') ? "border-red-500 ring-2 ring-red-500/25 bg-red-500/[0.02]" : "",
+                                    isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black"
+                                  )}
+                                  placeholder="Tecnologia, Saúde, Educação..."
+                                  value={formData.professionalArea || ""}
+                                  onChange={(e) => {
+                                    setFormData({ ...formData, professionalArea: e.target.value });
+                                    setHighlightedFields(prev => prev.filter(f => f !== 'professionalArea'));
+                                  }}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Profissão / Serviço Oferecido</label>
+                                <Input
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                  placeholder="Ex: Pedreiro, Contador, Design Gráfico..."
+                                  value={formData.profession || ""}
+                                  onChange={(e) => setFormData({ ...formData, profession: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Nome da Empresa</label>
+                                <Input
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                  placeholder="Ex: Construtora Silva"
+                                  value={formData.companyName || ""}
+                                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">WhatsApp Profissional</label>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      id="samePhoneAdmin"
+                                      checked={formData.isCompanyWhatsappSame || false}
+                                      onChange={(e) => setFormData({ ...formData, isCompanyWhatsappSame: e.target.checked })}
+                                      disabled={isReadOnly}
+                                      className="rounded border-[#BF76FF]/30 bg-white/5 text-[#BF76FF] focus:ring-[#BF76FF]/20"
+                                    />
+                                    <label htmlFor="samePhoneAdmin" className="text-[9px] uppercase font-bold text-gray-500 cursor-pointer">Mesmo do pessoal</label>
+                                  </div>
+                                </div>
+                                <Input
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all",
+                                    isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black",
+                                    formData.isCompanyWhatsappSame && "opacity-50"
+                                  )}
+                                  placeholder="Ex: 11999999999"
+                                  value={formData.isCompanyWhatsappSame ? (formData.phone || "Não cadastrado") : (formData.companyWhatsapp || formData.servicePhone || "")}
+                                  onChange={(e) => setFormData({ ...formData, companyWhatsapp: e.target.value })}
+                                  readOnly={isReadOnly || formData.isCompanyWhatsappSame}
+                                />
+                              </div>
+                              <div className="space-y-2 md:col-span-2">
+                                <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Logo da Empresa (URL)</label>
+                                <Input
+                                  className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                  placeholder="https://exemplo.com/logo.jpg"
+                                  value={formData.companyLogo || ""}
+                                  onChange={(e) => setFormData({ ...formData, companyLogo: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Endereço da Empresa</label>
                               <Input
-                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                                placeholder="@usuario"
-                                value={formData.instagram || ""}
-                                onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                                className={cn("border h-14 rounded-2xl px-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                placeholder="Rua, Número, Bairro, Cidade - UF"
+                                value={formData.companyAddress || formData.serviceAddress || ""}
+                                onChange={(e) => setFormData({ ...formData, companyAddress: e.target.value })}
                                 readOnly={isReadOnly}
                               />
                             </div>
-                          </>
-                        )}
 
-                        {(radioSubTab === "tracks" || radioSubTab === "vignettes") && (
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Link do YouTube</label>
-                            <Input
-                              className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                              placeholder="Cole o link do YouTube aqui..."
-                              value={radioSubTab === "tracks" ? (formData.youtubeId ? `https://youtube.com/watch?v=${formData.youtubeId}` : formData.rawUrl || "") : (formData.youtubeUrl || "")}
-                              onChange={(e) => {
-                                const url = e.target.value;
-                                const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-                                const match = url.match(regExp);
-                                const videoId = (match && match[2].length === 11) ? match[2] : null;
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Tipo de Serviço / Descrição</label>
+                              <Textarea
+                                className={cn("border min-h-[120px] rounded-2xl p-6 transition-all", isDarkMode ? "bg-cinza-input border-white/5 text-gray-500 focus:text-white" : "bg-white border-black/5 text-gray-400 focus:text-black")}
+                                placeholder="Descreva detalhadamente o que a empresa faz..."
+                                value={formData.companyServiceType || formData.serviceDescription || ""}
+                                onChange={(e) => setFormData({ ...formData, companyServiceType: e.target.value })}
+                                readOnly={isReadOnly}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
-                                if (radioSubTab === "tracks") {
-                                  setFormData({
-                                    ...formData,
-                                    rawUrl: url,
-                                    youtubeId: videoId || ""
-                                  });
-                                } else {
-                                  setFormData({
-                                    ...formData,
-                                    youtubeUrl: url,
-                                    videoId: videoId || "",
-                                    thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : ""
-                                  });
-                                }
-                              }}
-                              readOnly={isReadOnly}
-                            />
-                            {radioSubTab === 'tracks' && formData.youtubeId && (
-                              <div className="mt-2 rounded-xl overflow-hidden aspect-video border border-white/10 max-w-[200px]">
-                                <img src={`https://img.youtube.com/vi/${formData.youtubeId}/mqdefault.jpg`} className="w-full h-full object-cover" alt="Preview YouTube" />
+                      {activeTab === "radio" && (
+                        <div className="space-y-4">
+                          {radioSubTab === "tracks" && (
+                            <>
+                              <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Nome da Música</label>
+                                <Input
+                                  className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                  placeholder="Ex: Louvor de Adoração - Casa do Pai"
+                                  value={formData.title || ""}
+                                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
                               </div>
-                            )}
-                          </div>
-                        )}
 
-                        {radioSubTab === "tracks" && (
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Ordem na Playlist</label>
-                            <Input
-                              type="number"
-                              className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                              value={formData.order || 1}
-                              onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                        )}
-
-                        {radioSubTab === "tracks" && (
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Número de Plays (Desempate pro Top 10)</label>
-                            <Input
-                              type="number"
-                              className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
-                              value={formData.playCount || 0}
-                              onChange={(e) => setFormData({ ...formData, playCount: parseInt(e.target.value) || 0 })}
-                              readOnly={isReadOnly}
-                            />
-                          </div>
-                        )}
-
-                        {radioSubTab === "tracks" && (
-                          <div className="flex flex-col gap-2 mt-2">
-                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Destacar no Top Mais Escutadas?</label>
-                            <button
-                              type="button"
-                              onClick={() => !isReadOnly && setFormData({ ...formData, isTop: !formData.isTop })}
-                              disabled={isReadOnly}
-                              className={cn("h-14 rounded-2xl px-6 font-bold flex items-center justify-between border transition-all w-full focus:outline-none", isDarkMode ? "bg-cinza-input border-white/10 text-white" : "bg-white border-black/5 text-black", formData.isTop ? (isDarkMode ? "border-[#BF76FF]/50 bg-[#BF76FF]/10 text-[#BF76FF]" : "border-[#BF76FF]/50 bg-[#BF76FF]/5 text-[##8E44AD]") : "")}
-                            >
-                              <span className="text-sm">{formData.isTop ? "Sim, Destaque" : "Normal"}</span>
-                              <div className={cn("w-10 h-6 rounded-full p-1 transition-colors flex items-center border", formData.isTop ? "bg-[#BF76FF] border-[#BF76FF]" : "bg-gray-500/20 border-transparent")}>
-                                <div className={cn("w-4 h-4 bg-white rounded-full transition-transform", formData.isTop ? "translate-x-4" : "")} />
+                              <div className="flex flex-col gap-2 relative">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Artista</label>
+                                <Input
+                                  list="artists-list"
+                                  className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                  placeholder="Ex: Aline Barros, Fernandinho..."
+                                  value={formData.artist || ""}
+                                  onChange={(e) => setFormData({ ...formData, artist: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
+                                <datalist id="artists-list">
+                                  {radioArtists.map((a: any) => (
+                                    <option key={a.id} value={a.name} />
+                                  ))}
+                                </datalist>
                               </div>
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
-                    {activeTab === "eventos" && selectedItem?.id && (
-                      <EventFeedbacksAdmin eventId={selectedItem.id} isDark={isDarkMode} />
-                    )}
-
-                    <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-white/5 items-stretch sm:items-center">
-                      {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") ? (
-                        <>
-                          {(!userRolesArray.every(r => r.name === "Direção")) && activeTab === "agenda-direcao" && (
-                            <Button
-                              variant="outline"
-                              className={cn("w-full sm:w-auto rounded-2xl h-12 px-8 font-bold border-none transition-all", isDarkMode ? "bg-white/5 text-white hover:bg-[#BF76FF] hover:text-white" : "bg-gray-100 text-black hover:bg-[#BF76FF] hover:text-white")}
-                              onClick={() => setIsReadOnly(false)}
-                            >
-                              <Edit className="w-4 h-4 mr-2" /> Editar Compromisso
-                            </Button>
+                              <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Fonte</label>
+                                <Input
+                                  className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                  placeholder="Ex: Youtube, Spotify, Gravadora XYZ"
+                                  value={formData.source || ""}
+                                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                            </>
                           )}
 
-                          {activeTab === "agenda-direcao" && (canDelete || selectedItem?.authorId === user?.uid) && (
-                            <Button
-                              variant="ghost"
-                              className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
-                              onClick={() => {
-                                if (selectedItem) {
-                                  handleDelete(selectedItem, "agenda-direcao");
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" /> Remover da Agenda
-                            </Button>
-                          )}
-
-                          {activeTab === "agenda" && selectedItem?.status === "pending" && canCreateEventDirectly && (
-                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                              <Button
-                                className="bg-green-500 hover:bg-green-600 text-white rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
-                                onClick={async () => {
-                                  try {
-                                    await setDoc(doc(db, "agenda", selectedItem.id), { status: "approved", updatedAt: serverTimestamp() }, { merge: true });
-                                    firestoreService.clearCache("agenda");
-
-                                    // Notificar criador
-                                    if (selectedItem.authorId) {
-                                      await addDoc(collection(db, "notifications"), {
-                                        userId: selectedItem.authorId,
-                                        title: "Solicitação Aprovada",
-                                        message: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
-                                        type: "agenda",
-                                        read: false,
-                                        createdAt: serverTimestamp(),
-                                        eventId: selectedItem.id,
-                                        eventDate: selectedItem.date
-                                      });
-
-                                      // Send chat message
-                                      await addDoc(collection(db, "chats"), {
-                                        participants: ["system", selectedItem.authorId],
-                                        lastMessage: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
-                                        lastMessageTime: serverTimestamp(),
-                                        systemChat: true,
-                                        updatedAt: serverTimestamp()
-                                      });
-                                      const chatQuery = query(collection(db, "chats"), where("systemChat", "==", true), where("participants", "array-contains", selectedItem.authorId));
-                                      const chatSnapshot = await getDocs(chatQuery);
-                                      let chatId = null;
-                                      if (!chatSnapshot.empty) chatId = chatSnapshot.docs[0].id;
-                                      if (chatId) {
-                                        await addDoc(collection(db, "chats", chatId, "messages"), {
-                                          text: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
-                                          senderId: "system",
-                                          timestamp: serverTimestamp()
-                                        });
-                                      }
-                                    }
-                                    setIsEditing(false);
-                                  } catch (error) {
-                                    console.error("Error approving request: ", error);
-                                  }
-                                }}
-                              >
-                                <CheckCheck className="w-4 h-4 mr-2" /> Aprovar
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                className="bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
-                                onClick={() => {
-                                  setItemToReject(selectedItem);
-                                  setRejectReason("");
-                                  setIsRejectModalOpen(true);
-                                }}
-                              >
-                                <Trash2 className="w-4 h-4 mr-2" /> Reprovar
-                              </Button>
+                          {radioSubTab === "vignettes" && (
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Título da Vinheta</label>
+                              <Input
+                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                placeholder="Ex: Identidade Profecia, Chamada de Culto..."
+                                value={formData.title || ""}
+                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                readOnly={isReadOnly}
+                              />
                             </div>
                           )}
-                          {activeTab === "eventos" && canEdit && (
-                            <Button
-                              className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer"
-                              onClick={() => setIsReadOnly(false)}
-                            >
-                              <Edit className="w-4 h-4 mr-2" /> Editar Evento
-                            </Button>
-                          )}
-                        </>
-                      ) : !isReadOnly && (
-                        <div className="flex flex-col items-end gap-3 w-full sm:w-auto order-1 sm:order-2 sm:ml-auto">
-                          <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-                            {activeTab === "eventos" && (
-                              <>
-                                <div className={cn(
-                                  "flex items-center gap-3 px-4 py-2 rounded-2xl transition-all",
-                                  (formData.typeEvent === "evento" || !formData.typeEvent)
-                                    ? "bg-[#FF0A6C]/10 border border-[#FF0A6C]/20"
-                                    : formData.typeEvent === "culto"
-                                      ? "bg-[#00FFFF]/10 border border-[#00FFFF]/20"
-                                      : "bg-[#FF2525]/10 border border-[#FF2525]/20"
-                                )}>
-                                  <input
-                                    type="checkbox"
-                                    id="notifyAllGlobal"
-                                    className={cn(
-                                      "w-5 h-5 rounded-lg cursor-pointer",
-                                      (formData.typeEvent === "evento" || !formData.typeEvent)
-                                        ? "accent-[#FF0A6C]"
-                                        : formData.typeEvent === "culto"
-                                          ? "accent-[#00FFFF]"
-                                          : "accent-[#FF2525]"
-                                    )}
-                                    checked={formData.notifyAll || false}
-                                    onChange={(e) => setFormData({ ...formData, notifyAll: e.target.checked })}
-                                  />
-                                  <label
-                                    htmlFor="notifyAllGlobal"
-                                    className={cn(
-                                      "text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer select-none",
-                                      (formData.typeEvent === "evento" || !formData.typeEvent)
-                                        ? "text-[#FF0A6C]"
-                                        : formData.typeEvent === "culto"
-                                          ? "text-[#00FFFF]"
-                                          : "text-[#FF2525]"
-                                    )}
-                                  >
-                                    Notificar push
-                                  </label>
-                                </div>
-                                <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-red-500/10 border border-red-500/20">
-                                  <input
-                                    type="checkbox"
-                                    id="hideFromClicks"
-                                    className="w-5 h-5 accent-red-500 rounded-lg cursor-pointer"
-                                    checked={formData.hideFromClicks || false}
-                                    onChange={(e) => setFormData({ ...formData, hideFromClicks: e.target.checked })}
-                                  />
-                                  <label htmlFor="hideFromClicks" className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] cursor-pointer select-none">
-                                    Ocultar de Clicks Recentes
-                                  </label>
-                                </div>
-                                <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-                                  <input
-                                    type="checkbox"
-                                    id="hidden"
-                                    className="w-5 h-5 accent-amber-600 rounded-lg cursor-pointer"
-                                    checked={formData.hidden || false}
-                                    onChange={(e) => setFormData({ ...formData, hidden: e.target.checked })}
-                                  />
-                                  <label htmlFor="hidden" className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] cursor-pointer select-none">
-                                    Ocultar Registro (Link Direto)
-                                  </label>
-                                </div>
-                              </>
-                            )}
-                            {(activeTab !== 'membros' && activeTab !== 'visitantes') && (
-                              <div className="flex flex-col-reverse sm:flex-row items-center gap-3 w-full sm:w-auto">
-                                <Button
-                                  variant="ghost"
-                                  disabled={isSubmitting}
-                                  onClick={() => { setIsEditing(false); setSelectedItem(null); }}
-                                  className={cn(
-                                    "w-full sm:w-auto rounded-2xl h-12 px-6 font-bold cursor-pointer border transition-all",
-                                    isDarkMode
-                                      ? "text-white hover:bg-white/5 border-white/10"
-                                      : "text-black hover:bg-black/5 border-black/10"
-                                  )}
-                                >
-                                  Cancelar
-                                </Button>
-                                <Button
-                                  className={cn(
-                                    "w-full sm:w-auto hover:opacity-90 rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 border-none transition-all shadow-lg",
-                                    activeTab === "eventos"
-                                      ? (formData.typeEvent === "evento" || !formData.typeEvent)
-                                        ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-[#FF0A6C]/20"
-                                        : formData.typeEvent === "culto"
-                                          ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-[#00FFFF]/20"
-                                          : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-[#FF2525]/20"
-                                      : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-[#7300FF]/20"
-                                  )}
-                                  onClick={handleSave}
-                                  disabled={isSubmitting}
-                                >
-                                  <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
 
-                          {/* Link de Acesso Direto - Exibido apenas se hidden estiver marcado */}
-                          {activeTab === "eventos" && formData.hidden && (
-                            <div className="w-full p-4 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
-                              <div className="flex items-center justify-between">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF]">Link de Acesso Direto</span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const link = `https://ministerioprofecia.com.br/eventos/${slugify(formData.title || "novo-registro")}`;
-                                    navigator.clipboard.writeText(link);
-                                    appAlert("Link copiado para a área de transferência!", "success");
-                                  }}
-                                  className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
-                                >
-                                  Copiar Link
-                                </button>
+                          {radioSubTab === "artists" && (
+                            <>
+                              <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Nome do Artista</label>
+                                <Input
+                                  className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                  placeholder="Ex: Gabriel Guedes"
+                                  value={formData.name || ""}
+                                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
                               </div>
-                              <div className={cn("p-3 rounded-xl text-[11px] font-mono select-all overflow-x-auto break-all", isDarkMode ? "bg-black/40 text-gray-300" : "bg-white text-gray-700 border border-black/5")}>
-                                https://ministerioprofecia.com.br/eventos/{slugify(formData.title || "novo-registro")}
+                              <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Biografia Curta</label>
+                                <Textarea
+                                  className={cn("rounded-2xl p-6 border transition-all min-h-[100px]", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                  placeholder="Fale um pouco sobre o artista..."
+                                  value={formData.bio || ""}
+                                  onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
                               </div>
+                              <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Link da Foto (URL)</label>
+                                <Input
+                                  className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                  placeholder="Cole o endereço da imagem..."
+                                  value={formData.thumbnail || ""}
+                                  onChange={(e) => setFormData({ ...formData, thumbnail: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
+                                {formData.thumbnail && (
+                                  <div className="mt-2 w-24 h-24 rounded-full overflow-hidden border border-white/10">
+                                    <img src={formData.thumbnail} className="w-full h-full object-cover" alt="Preview Photo" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Instagram (Username ou Link)</label>
+                                <Input
+                                  className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                  placeholder="@usuario"
+                                  value={formData.instagram || ""}
+                                  onChange={(e) => setFormData({ ...formData, instagram: e.target.value })}
+                                  readOnly={isReadOnly}
+                                />
+                              </div>
+                            </>
+                          )}
+
+                          {(radioSubTab === "tracks" || radioSubTab === "vignettes") && (
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Link do YouTube</label>
+                              <Input
+                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                placeholder="Cole o link do YouTube aqui..."
+                                value={radioSubTab === "tracks" ? (formData.youtubeId ? `https://youtube.com/watch?v=${formData.youtubeId}` : formData.rawUrl || "") : (formData.youtubeUrl || "")}
+                                onChange={(e) => {
+                                  const url = e.target.value;
+                                  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                                  const match = url.match(regExp);
+                                  const videoId = (match && match[2].length === 11) ? match[2] : null;
+
+                                  if (radioSubTab === "tracks") {
+                                    setFormData({
+                                      ...formData,
+                                      rawUrl: url,
+                                      youtubeId: videoId || ""
+                                    });
+                                  } else {
+                                    setFormData({
+                                      ...formData,
+                                      youtubeUrl: url,
+                                      videoId: videoId || "",
+                                      thumbnail: videoId ? `https://img.youtube.com/vi/${videoId}/mqdefault.jpg` : ""
+                                    });
+                                  }
+                                }}
+                                readOnly={isReadOnly}
+                              />
+                              {radioSubTab === 'tracks' && formData.youtubeId && (
+                                <div className="mt-2 rounded-xl overflow-hidden aspect-video border border-white/10 max-w-[200px]">
+                                  <img src={`https://img.youtube.com/vi/${formData.youtubeId}/mqdefault.jpg`} className="w-full h-full object-cover" alt="Preview YouTube" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {radioSubTab === "tracks" && (
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Ordem na Playlist</label>
+                              <Input
+                                type="number"
+                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                value={formData.order || 1}
+                                onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) })}
+                                readOnly={isReadOnly}
+                              />
+                            </div>
+                          )}
+
+                          {radioSubTab === "tracks" && (
+                            <div className="flex flex-col gap-2">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Número de Plays (Desempate pro Top 10)</label>
+                              <Input
+                                type="number"
+                                className={cn("h-14 rounded-2xl px-6 border transition-all", isDarkMode ? "bg-cinza-input border-white/10 text-white focus:bg-white/5" : "bg-white border-black/5 text-black focus:bg-gray-50")}
+                                value={formData.playCount || 0}
+                                onChange={(e) => setFormData({ ...formData, playCount: parseInt(e.target.value) || 0 })}
+                                readOnly={isReadOnly}
+                              />
+                            </div>
+                          )}
+
+                          {radioSubTab === "tracks" && (
+                            <div className="flex flex-col gap-2 mt-2">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest pl-2">Destacar no Top Mais Escutadas?</label>
+                              <button
+                                type="button"
+                                onClick={() => !isReadOnly && setFormData({ ...formData, isTop: !formData.isTop })}
+                                disabled={isReadOnly}
+                                className={cn("h-14 rounded-2xl px-6 font-bold flex items-center justify-between border transition-all w-full focus:outline-none", isDarkMode ? "bg-cinza-input border-white/10 text-white" : "bg-white border-black/5 text-black", formData.isTop ? (isDarkMode ? "border-[#BF76FF]/50 bg-[#BF76FF]/10 text-[#BF76FF]" : "border-[#BF76FF]/50 bg-[#BF76FF]/5 text-[##8E44AD]") : "")}
+                              >
+                                <span className="text-sm">{formData.isTop ? "Sim, Destaque" : "Normal"}</span>
+                                <div className={cn("w-10 h-6 rounded-full p-1 transition-colors flex items-center border", formData.isTop ? "bg-[#BF76FF] border-[#BF76FF]" : "bg-gray-500/20 border-transparent")}>
+                                  <div className={cn("w-4 h-4 bg-white rounded-full transition-transform", formData.isTop ? "translate-x-4" : "")} />
+                                </div>
+                              </button>
                             </div>
                           )}
                         </div>
                       )}
-                      {isReadOnly && !(isReadOnly && activeTab === "agenda-direcao") && (
-                        <Button
-                          variant="ghost"
-                          className={cn(
-                            "w-full sm:w-auto rounded-2xl h-12 px-8 text-gray-400 cursor-pointer order-2 sm:order-3",
-                            "sm:ml-auto"
-                          )}
-                          onClick={() => setIsEditing(false)}
-                        >
-                          Voltar
-                        </Button>
-                      )}
-                      {selectedItem && !isReadOnly && (canDelete || selectedItem.authorId === user?.uid) && (
-                        <Button
-                          variant="ghost"
-                          className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-6 cursor-pointer order-3 sm:order-1"
-                          onClick={() => {
-                            const col = selectedItem.type === 'post' ? 'posts' :
-                              selectedItem.type === 'agenda' ? 'agenda' :
-                                selectedItem.type === 'agenda-direcao' ? 'agenda-direcao' :
-                                  activeTab === "eventos" ? "posts" :
-                                    activeTab === "membros" || activeTab === "visitantes" ? "members" :
-                                      activeTab === "agenda-direcao" ? "agenda-direcao" :
-                                        "agenda";
-                            handleDelete(selectedItem, col);
-                          }}
-                        >
-                          {(activeTab === "membros" || activeTab === "visitantes") ? (
-                            <>
-                              <span className="relative mr-2 flex items-center">
-                                <UserMinus className="w-4 h-4" />
-                              </span>
-                              Excluir Membro
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </Card>
 
-                {/* Floating Save Button — Member/Visitor Edit */}
-                {isEditing && (activeTab === "membros" || activeTab === "visitantes") && !isReadOnly && (
-                  <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
-                    <div className={cn(
-                      "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
-                      isDarkMode
-                        ? "bg-black/80 border-[#BF76FF]/30 shadow-[#BF76FF]/10"
-                        : "bg-white/80 border-[#BF76FF]/20 shadow-black/10"
-                    )}>
-                      <div className="pl-4 pr-1 hidden sm:block">
-                        <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Editar Perfil</p>
-                        <p className="text-[9px] text-[#BF76FF] font-bold">Você tem alterações pendentes</p>
+                      {activeTab === "eventos" && selectedItem?.id && (
+                        <EventFeedbacksAdmin eventId={selectedItem.id} isDark={isDarkMode} />
+                      )}
+
+                      <div className="flex flex-col sm:flex-row gap-4 pt-8 border-t border-white/5 items-stretch sm:items-center">
+                        {isReadOnly && (activeTab === "agenda" || activeTab === "agenda-direcao" || activeTab === "eventos") ? (
+                          <>
+                            {(!userRolesArray.every(r => r.name === "Direção")) && activeTab === "agenda-direcao" && (
+                              <Button
+                                variant="outline"
+                                className={cn("w-full sm:w-auto rounded-2xl h-12 px-8 font-bold border-none transition-all", isDarkMode ? "bg-white/5 text-white hover:bg-[#BF76FF] hover:text-white" : "bg-gray-100 text-black hover:bg-[#BF76FF] hover:text-white")}
+                                onClick={() => setIsReadOnly(false)}
+                              >
+                                <Edit className="w-4 h-4 mr-2" /> Editar Compromisso
+                              </Button>
+                            )}
+
+                            {activeTab === "agenda-direcao" && (canDelete || selectedItem?.authorId === user?.uid) && (
+                              <Button
+                                variant="ghost"
+                                className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
+                                onClick={() => {
+                                  if (selectedItem) {
+                                    handleDelete(selectedItem, "agenda-direcao");
+                                  }
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" /> Remover da Agenda
+                              </Button>
+                            )}
+
+                            {activeTab === "agenda" && selectedItem?.status === "pending" && canCreateEventDirectly && (
+                              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                <Button
+                                  className="bg-green-500 hover:bg-green-600 text-white rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
+                                  onClick={async () => {
+                                    try {
+                                      await setDoc(doc(db, "agenda", selectedItem.id), { status: "approved", updatedAt: serverTimestamp() }, { merge: true });
+                                      firestoreService.clearCache("agenda");
+
+                                      // Notificar criador
+                                      if (selectedItem.authorId) {
+                                        await addDoc(collection(db, "notifications"), {
+                                          userId: selectedItem.authorId,
+                                          title: "Solicitação Aprovada",
+                                          message: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
+                                          type: "agenda",
+                                          read: false,
+                                          createdAt: serverTimestamp(),
+                                          eventId: selectedItem.id,
+                                          eventDate: selectedItem.date
+                                        });
+
+                                        // Send chat message
+                                        await addDoc(collection(db, "chats"), {
+                                          participants: ["system", selectedItem.authorId],
+                                          lastMessage: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
+                                          lastMessageTime: serverTimestamp(),
+                                          systemChat: true,
+                                          updatedAt: serverTimestamp()
+                                        });
+                                        const chatQuery = query(collection(db, "chats"), where("systemChat", "==", true), where("participants", "array-contains", selectedItem.authorId));
+                                        const chatSnapshot = await getDocs(chatQuery);
+                                        let chatId = null;
+                                        if (!chatSnapshot.empty) chatId = chatSnapshot.docs[0].id;
+                                        if (chatId) {
+                                          await addDoc(collection(db, "chats", chatId, "messages"), {
+                                            text: `Seu compromisso ${selectedItem.title} foi aprovado por ${profile?.name}.`,
+                                            senderId: "system",
+                                            timestamp: serverTimestamp()
+                                          });
+                                        }
+                                      }
+                                      setIsEditing(false);
+                                    } catch (error) {
+                                      console.error("Error approving request: ", error);
+                                    }
+                                  }}
+                                >
+                                  <CheckCheck className="w-4 h-4 mr-2" /> Aprovar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  className="bg-red-500 hover:bg-red-600 text-white rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
+                                  onClick={() => {
+                                    setItemToReject(selectedItem);
+                                    setRejectReason("");
+                                    setIsRejectModalOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4 mr-2" /> Reprovar
+                                </Button>
+                              </div>
+                            )}
+                            {activeTab === "eventos" && canEdit && (
+                              <Button
+                                className="w-full sm:w-auto bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white rounded-2xl h-12 px-10 font-bold cursor-pointer"
+                                onClick={() => setIsReadOnly(false)}
+                              >
+                                <Edit className="w-4 h-4 mr-2" /> Editar Evento
+                              </Button>
+                            )}
+                          </>
+                        ) : !isReadOnly && (
+                          <div className="flex flex-col items-end gap-3 w-full sm:w-auto order-1 sm:order-2 sm:ml-auto">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+                              {activeTab === "eventos" && (
+                                <>
+                                  <div className={cn(
+                                    "flex items-center gap-3 px-4 py-2 rounded-2xl transition-all",
+                                    (formData.typeEvent === "evento" || !formData.typeEvent)
+                                      ? "bg-[#FF0A6C]/10 border border-[#FF0A6C]/20"
+                                      : formData.typeEvent === "culto"
+                                        ? "bg-[#00FFFF]/10 border border-[#00FFFF]/20"
+                                        : "bg-[#FF2525]/10 border border-[#FF2525]/20"
+                                  )}>
+                                    <input
+                                      type="checkbox"
+                                      id="notifyAllGlobal"
+                                      className={cn(
+                                        "w-5 h-5 rounded-lg cursor-pointer",
+                                        (formData.typeEvent === "evento" || !formData.typeEvent)
+                                          ? "accent-[#FF0A6C]"
+                                          : formData.typeEvent === "culto"
+                                            ? "accent-[#00FFFF]"
+                                            : "accent-[#FF2525]"
+                                      )}
+                                      checked={formData.notifyAll || false}
+                                      onChange={(e) => setFormData({ ...formData, notifyAll: e.target.checked })}
+                                    />
+                                    <label
+                                      htmlFor="notifyAllGlobal"
+                                      className={cn(
+                                        "text-[10px] font-black uppercase tracking-[0.2em] cursor-pointer select-none",
+                                        (formData.typeEvent === "evento" || !formData.typeEvent)
+                                          ? "text-[#FF0A6C]"
+                                          : formData.typeEvent === "culto"
+                                            ? "text-[#00FFFF]"
+                                            : "text-[#FF2525]"
+                                      )}
+                                    >
+                                      Notificar push
+                                    </label>
+                                  </div>
+                                  <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-red-500/10 border border-red-500/20">
+                                    <input
+                                      type="checkbox"
+                                      id="hideFromClicks"
+                                      className="w-5 h-5 accent-red-500 rounded-lg cursor-pointer"
+                                      checked={formData.hideFromClicks || false}
+                                      onChange={(e) => setFormData({ ...formData, hideFromClicks: e.target.checked })}
+                                    />
+                                    <label htmlFor="hideFromClicks" className="text-[10px] font-black text-red-500 uppercase tracking-[0.2em] cursor-pointer select-none">
+                                      Ocultar de Clicks Recentes
+                                    </label>
+                                  </div>
+                                  <div className="flex items-center gap-3 px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/20">
+                                    <input
+                                      type="checkbox"
+                                      id="hidden"
+                                      className="w-5 h-5 accent-amber-600 rounded-lg cursor-pointer"
+                                      checked={formData.hidden || false}
+                                      onChange={(e) => setFormData({ ...formData, hidden: e.target.checked })}
+                                    />
+                                    <label htmlFor="hidden" className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] cursor-pointer select-none">
+                                      Ocultar Registro (Link Direto)
+                                    </label>
+                                  </div>
+                                </>
+                              )}
+                              {(activeTab !== 'membros' && activeTab !== 'visitantes') && (
+                                <div className="flex flex-col-reverse sm:flex-row items-center gap-3 w-full sm:w-auto">
+                                  <Button
+                                    variant="ghost"
+                                    disabled={isSubmitting}
+                                    onClick={() => { setIsEditing(false); setSelectedItem(null); }}
+                                    className={cn(
+                                      "w-full sm:w-auto rounded-2xl h-12 px-6 font-bold cursor-pointer border transition-all",
+                                      isDarkMode
+                                        ? "text-white hover:bg-white/5 border-white/10"
+                                        : "text-black hover:bg-black/5 border-black/10"
+                                    )}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                  <Button
+                                    className={cn(
+                                      "w-full sm:w-auto hover:opacity-90 rounded-2xl h-12 px-10 font-bold cursor-pointer disabled:opacity-50 border-none transition-all shadow-lg",
+                                      activeTab === "eventos"
+                                        ? (formData.typeEvent === "evento" || !formData.typeEvent)
+                                          ? "bg-gradient-to-r from-[#FF0A6C] to-[#2D23FF] text-white shadow-[#FF0A6C]/20"
+                                          : formData.typeEvent === "culto"
+                                            ? "bg-gradient-to-r from-[#FFE53B] to-[#00FFFF] text-black shadow-[#00FFFF]/20"
+                                            : "bg-gradient-to-r from-[#FFE53B] to-[#FF2525] text-white shadow-[#FF2525]/20"
+                                        : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] text-white shadow-[#7300FF]/20"
+                                    )}
+                                    onClick={handleSave}
+                                    disabled={isSubmitting}
+                                  >
+                                    <Save className="w-4 h-4 mr-2" /> {isSubmitting ? "Salvando..." : activeTab === 'agenda-direcao' ? "Salvar Compromisso" : "Salvar"}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Link de Acesso Direto - Exibido apenas se hidden estiver marcado */}
+                            {activeTab === "eventos" && formData.hidden && (
+                              <div className="w-full p-4 rounded-2xl bg-[#BF76FF]/5 border border-[#BF76FF]/10 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF]">Link de Acesso Direto</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const link = `https://ministerioprofecia.com.br/eventos/${slugify(formData.title || "novo-registro")}`;
+                                      navigator.clipboard.writeText(link);
+                                      appAlert("Link copiado para a área de transferência!", "success");
+                                    }}
+                                    className="text-[9px] font-black uppercase tracking-widest text-[#BF76FF] hover:underline cursor-pointer"
+                                  >
+                                    Copiar Link
+                                  </button>
+                                </div>
+                                <div className={cn("p-3 rounded-xl text-[11px] font-mono select-all overflow-x-auto break-all", isDarkMode ? "bg-black/40 text-gray-300" : "bg-white text-gray-700 border border-black/5")}>
+                                  https://ministerioprofecia.com.br/eventos/{slugify(formData.title || "novo-registro")}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {isReadOnly && !(isReadOnly && activeTab === "agenda-direcao") && (
+                          <Button
+                            variant="ghost"
+                            className={cn(
+                              "w-full sm:w-auto rounded-2xl h-12 px-8 text-gray-400 cursor-pointer order-2 sm:order-3",
+                              "sm:ml-auto"
+                            )}
+                            onClick={() => setIsEditing(false)}
+                          >
+                            Voltar
+                          </Button>
+                        )}
+                        {selectedItem && !isReadOnly && (canDelete || selectedItem.authorId === user?.uid) && (
+                          <Button
+                            variant="ghost"
+                            className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-6 cursor-pointer order-3 sm:order-1"
+                            onClick={() => {
+                              const col = selectedItem.type === 'post' ? 'posts' :
+                                selectedItem.type === 'agenda' ? 'agenda' :
+                                  selectedItem.type === 'agenda-direcao' ? 'agenda-direcao' :
+                                    activeTab === "eventos" ? "posts" :
+                                      activeTab === "membros" || activeTab === "visitantes" ? "members" :
+                                        activeTab === "agenda-direcao" ? "agenda-direcao" :
+                                          "agenda";
+                              handleDelete(selectedItem, col);
+                            }}
+                          >
+                            {(activeTab === "membros" || activeTab === "visitantes") ? (
+                              <>
+                                <span className="relative mr-2 flex items-center">
+                                  <UserMinus className="w-4 h-4" />
+                                </span>
+                                Excluir Membro
+                              </>
+                            ) : (
+                              <>
+                                <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                              </>
+                            )}
+                          </Button>
+                        )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        disabled={isSubmitting}
-                        onClick={() => { setIsEditing(false); setSelectedItem(null); }}
-                        className={cn(
-                          "rounded-xl h-11 px-5 font-bold text-xs transition-colors",
-                          isDarkMode ? "text-white hover:bg-white/5 border border-white/10" : "text-black hover:bg-black/5 border border-black/10"
-                        )}
-                      >
-                        Cancelar
-                      </Button>
-                      <Button
-                        disabled={isSubmitting}
-                        onClick={handleSave}
-                        className={cn(
-                          "rounded-xl h-11 px-6 font-bold text-xs transition-all duration-300 min-w-[140px]",
-                          isSubmitting
-                            ? "bg-gray-600 text-white cursor-wait"
-                            : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white shadow-lg shadow-[#7300FF]/25"
-                        )}
-                      >
-                        {isSubmitting ? (
-                          <><span className="animate-spin mr-2">⟳</span>Salvando...</>
-                        ) : (
-                          <><Save className="w-4 h-4 mr-2" />Salvar</>
-                        )}
-                      </Button>
                     </div>
-                  </div>
-                )}
+                  </Card>
+
+                  {/* Floating Save Button — Member/Visitor Edit */}
+                  {isEditing && (activeTab === "membros" || activeTab === "visitantes") && !isReadOnly && (
+                    <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
+                      <div className={cn(
+                        "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
+                        isDarkMode
+                          ? "bg-black/80 border-[#BF76FF]/30 shadow-[#BF76FF]/10"
+                          : "bg-white/80 border-[#BF76FF]/20 shadow-black/10"
+                      )}>
+                        <div className="pl-4 pr-1 hidden sm:block">
+                          <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Editar Perfil</p>
+                          <p className="text-[9px] text-[#BF76FF] font-bold">Você tem alterações pendentes</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          disabled={isSubmitting}
+                          onClick={() => { setIsEditing(false); setSelectedItem(null); }}
+                          className={cn(
+                            "rounded-xl h-11 px-5 font-bold text-xs transition-colors",
+                            isDarkMode ? "text-white hover:bg-white/5 border border-white/10" : "text-black hover:bg-black/5 border border-black/10"
+                          )}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button
+                          disabled={isSubmitting}
+                          onClick={handleSave}
+                          className={cn(
+                            "rounded-xl h-11 px-6 font-bold text-xs transition-all duration-300 min-w-[140px]",
+                            isSubmitting
+                              ? "bg-gray-600 text-white cursor-wait"
+                              : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white shadow-lg shadow-[#7300FF]/25"
+                          )}
+                        >
+                          {isSubmitting ? (
+                            <><span className="animate-spin mr-2">⟳</span>Salvando...</>
+                          ) : (
+                            <><Save className="w-4 h-4 mr-2" />Salvar</>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : activeTab === "tons" ? (
                 <div className="space-y-6 pb-32">
@@ -8842,15 +8843,15 @@ const Admin = () => {
 
               ) : (activeTab === "membros" || activeTab === "visitantes") && !isEditing ? (
                 <div className="space-y-6">
-                   {showWhatsAppBlast && activeTab === "membros" ? (
-                     <Suspense fallback={<ViewLoader />}>
-                       <WhatsAppBlastView
-                         isDark={isDarkMode}
-                         members={members.filter(m => m.status !== 'pending' && m.status !== 'pending_approval')}
-                         profile={profile}
-                       />
-                     </Suspense>
-                   ) : viewingMember ? (
+                  {showWhatsAppBlast && activeTab === "membros" ? (
+                    <Suspense fallback={<ViewLoader />}>
+                      <WhatsAppBlastView
+                        isDark={isDarkMode}
+                        members={members.filter(m => m.status !== 'pending' && m.status !== 'pending_approval')}
+                        profile={profile}
+                      />
+                    </Suspense>
+                  ) : viewingMember ? (
                     <MemberProfile
                       member={viewingMember}
                       isDark={isDarkMode}
@@ -9241,7 +9242,7 @@ const Admin = () => {
                     }}
                     onNewEvent={(date) => {
                       setSelectedItem(null);
-                      setFormData({ 
+                      setFormData({
                         date: format(date, "yyyy-MM-dd'T'19:00"),
                         organization: profile?.name || user?.displayName || "",
                         organizerId: profile?.id || user?.uid || null
@@ -9277,7 +9278,7 @@ const Admin = () => {
                         // TIME BUCKETS (Line Chart)
                         const now = new Date();
                         let buckets: any[] = [];
-                        
+
                         const parseFlexibleDate = (dateVal: any): Date | null => {
                           if (!dateVal) return null;
                           if (dateVal instanceof Date) return dateVal;
@@ -9289,14 +9290,14 @@ const Admin = () => {
                           }
                           if (typeof dateVal !== 'string') return null;
                           const dStr = dateVal.trim();
-                          
+
                           // Match DD/MM/YYYY pattern
                           const brMatch = dStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
                           if (brMatch) {
                             const day = parseInt(brMatch[1], 10);
                             const month = parseInt(brMatch[2], 10) - 1;
                             const year = parseInt(brMatch[3], 10);
-                            
+
                             // Match HH:mm pattern
                             const timeMatch = dStr.match(/(\d{2}):(\d{2})/);
                             if (timeMatch) {
@@ -9306,14 +9307,14 @@ const Admin = () => {
                             }
                             return new Date(year, month, day, 12, 0, 0);
                           }
-                          
+
                           // Match YYYY-MM-DD pattern to prevent timezone shifting
                           const isoMatch = dStr.match(/(\d{4})-(\d{2})-(\d{2})/);
                           if (isoMatch) {
                             const year = parseInt(isoMatch[1], 10);
                             const month = parseInt(isoMatch[2], 10) - 1;
                             const day = parseInt(isoMatch[3], 10);
-                            
+
                             // Match HH:mm pattern
                             const timeMatch = dStr.match(/[T ](\d{2}):(\d{2})/);
                             if (timeMatch) {
@@ -9323,19 +9324,19 @@ const Admin = () => {
                             }
                             return new Date(year, month, day, 12, 0, 0);
                           }
-                          
+
                           const parsed = new Date(dStr);
                           if (!isNaN(parsed.getTime())) return parsed;
                           return null;
                         };
-                        
+
                         if (chartTimeFilter === 'week') {
                           const daysStr = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
                           const currentDay = now.getDay();
                           // If Sunday (0), Monday was 6 days ago. Else it was currentDay - 1 days ago.
                           const daysSinceMonday = currentDay === 0 ? 6 : currentDay - 1;
-                          
-                          buckets = Array.from({length: 7}).map((_, i) => {
+
+                          buckets = Array.from({ length: 7 }).map((_, i) => {
                             // Start from Monday of the current week (i = 0 is Monday ... i = 6 is Sunday)
                             const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday + i);
                             const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0);
@@ -9343,12 +9344,12 @@ const Admin = () => {
                             return { label: daysStr[d.getDay()], start, end, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
                           });
                         } else if (chartTimeFilter === 'month') {
-                          buckets = Array.from({length: 4}).map((_, i) => {
+                          buckets = Array.from({ length: 4 }).map((_, i) => {
                             // Centered around this week: -14 to +14 days in blocks of 7
                             const offset = -14 + i * 7;
                             const dStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
                             const dEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset + 7);
-                            
+
                             let label = "";
                             if (i === 0) label = "2 Sem. Atrás";
                             else if (i === 1) label = "Última Sem.";
@@ -9359,7 +9360,7 @@ const Admin = () => {
                           });
                         } else if (chartTimeFilter === 'year') {
                           const monthsStr = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-                          buckets = Array.from({length: 6}).map((_, i) => {
+                          buckets = Array.from({ length: 6 }).map((_, i) => {
                             // Centered around this month: -3 to +2 months
                             const d = new Date(now.getFullYear(), now.getMonth() - 3 + i, 1);
                             const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0);
@@ -9367,7 +9368,7 @@ const Admin = () => {
                             return { label: monthsStr[d.getMonth()], start, end, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
                           });
                         } else {
-                          buckets = Array.from({length: 4}).map((_, i) => {
+                          buckets = Array.from({ length: 4 }).map((_, i) => {
                             // Centered around this year: -2 to +1 years
                             const year = now.getFullYear() - 2 + i;
                             const start = new Date(year, 0, 1, 0, 0, 0);
@@ -9375,23 +9376,23 @@ const Admin = () => {
                             return { label: `${year}`, start, end, eventos: 0, visitas: 0, cultos: 0, eventsList: [] };
                           });
                         }
-                        
+
                         // Count data from mergedAgenda to be real and function perfectly
                         mergedAgenda.forEach(p => {
                           if (!p.date) return;
-                          
+
                           // Exclude items from "agenda" (internal meetings) and "blog" (news) collections
                           // Only count real public events, cults, and visits from the "posts" (Eventos) collection
                           if (p.type === 'agenda' || p.type === 'blog') return;
-                          
+
                           // Determine typeEvent with robust fallbacks based on title keywords if not set
                           let type = p.typeEvent || 'evento';
                           if (!p.typeEvent && p.title) {
                             const titleLower = p.title.toLowerCase();
                             if (
-                              titleLower.includes('culto') || 
-                              titleLower.includes('ceia') || 
-                              titleLower.includes('libertação') || 
+                              titleLower.includes('culto') ||
+                              titleLower.includes('ceia') ||
+                              titleLower.includes('libertação') ||
                               titleLower.includes('adoração') ||
                               titleLower.includes('oração') ||
                               titleLower.includes('oracao')
@@ -9401,7 +9402,7 @@ const Admin = () => {
                               type = 'visita';
                             }
                           }
-                          
+
                           const pd = parseFlexibleDate(p.date);
                           if (!pd) return;
                           for (let b of buckets) {
@@ -9417,12 +9418,12 @@ const Admin = () => {
                         });
 
                         const maxValueLine = Math.max(10, ...buckets.map(b => b[activeMetric]));
-                        
+
                         const width = 800;
                         const height = 300;
                         const paddingX = 60;
                         const paddingY = 40;
-                        
+
                         const getPath = () => {
                           if (buckets.length === 0) return { d: '', pts: [] };
                           const pts = buckets.map((b, i) => ({
@@ -9434,8 +9435,8 @@ const Admin = () => {
                           }));
                           let d = `M ${pts[0].x},${pts[0].y} `;
                           for (let i = 0; i < pts.length - 1; i++) {
-                            const cpX = (pts[i].x + pts[i+1].x) / 2;
-                            d += `C ${cpX},${pts[i].y} ${cpX},${pts[i+1].y} ${pts[i+1].x},${pts[i+1].y} `;
+                            const cpX = (pts[i].x + pts[i + 1].x) / 2;
+                            d += `C ${cpX},${pts[i].y} ${cpX},${pts[i + 1].y} ${pts[i + 1].x},${pts[i + 1].y} `;
                           }
                           return { d, pts };
                         };
@@ -9447,10 +9448,10 @@ const Admin = () => {
                           areaD = `${activeLine.d} L ${pts[pts.length - 1].x},${height - paddingY} L ${pts[0].x},${height - paddingY} Z`;
                         }
 
-                        const metricColor = activeMetric === 'eventos' 
-                          ? '#BF76FF' 
-                          : activeMetric === 'cultos' 
-                            ? (isDarkMode ? '#FFFFFF' : '#333333') 
+                        const metricColor = activeMetric === 'eventos'
+                          ? '#BF76FF'
+                          : activeMetric === 'cultos'
+                            ? (isDarkMode ? '#FFFFFF' : '#333333')
                             : '#FF007F';
 
                         const getTooltipLabel = (b: any) => {
@@ -9471,9 +9472,9 @@ const Admin = () => {
                         const roleCountsMap: Record<string, number> = {};
                         members.forEach(m => {
                           if (
-                            m.role === 'Administradores' || 
-                            m.role === 'Administrador Master' || 
-                            m.role === 'Desenvolvedor' || 
+                            m.role === 'Administradores' ||
+                            m.role === 'Administrador Master' ||
+                            m.role === 'Desenvolvedor' ||
                             m.status === 'visitor' ||
                             m.role?.toLowerCase() === 'visitante'
                           ) return;
@@ -9482,7 +9483,7 @@ const Admin = () => {
                         });
                         const roleData = Object.entries(roleCountsMap).map(([label, value], i) => ({
                           label, value: value as number, color: roleColors[i % roleColors.length]
-                        })).sort((a,b) => b.value - a.value);
+                        })).sort((a, b) => b.value - a.value);
 
                         const totalRoles = roleData.reduce((acc, item) => acc + item.value, 0) || 1;
                         const radius = 40;
@@ -9498,7 +9499,7 @@ const Admin = () => {
 
                         return (
                           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                            
+
                             {/* MULTILINE TIME CHART */}
                             <div className={cn("xl:col-span-2 p-6 md:p-8 rounded-[32px] border transition-all overflow-hidden relative group/chartcard", isDarkMode ? "bg-[#111] border-white/5" : "bg-white border-black/5 shadow-xl")}>
                               <div className="flex flex-col xl:flex-row xl:items-center justify-between mb-8 gap-4">
@@ -9506,7 +9507,7 @@ const Admin = () => {
                                   <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter", isDarkMode ? "text-white" : "text-black")}>
                                     Histórico de Atividades
                                   </h4>
-                                  
+
                                   {/* Metric Capsule Selector */}
                                   <div className={cn("flex items-center gap-1.5 p-1.5 rounded-[20px] w-fit", isDarkMode ? "bg-black/60 border border-white/5" : "bg-gray-100/80 border border-black/5")}>
                                     {(['eventos', 'cultos', 'visitas'] as const).map(m => {
@@ -9526,14 +9527,14 @@ const Admin = () => {
                                           }}
                                           className={cn(
                                             "px-4 py-2 rounded-[16px] text-[10px] font-black uppercase tracking-wider transition-all duration-300 flex items-center gap-1.5",
-                                            isActive 
-                                              ? activeColorClass 
+                                            isActive
+                                              ? activeColorClass
                                               : isDarkMode ? "text-gray-500 hover:text-gray-300" : "text-gray-400 hover:text-gray-600"
                                           )}
                                         >
-                                          <div className={cn("w-1.5 h-1.5 rounded-full", 
-                                            isActive 
-                                              ? "bg-current" 
+                                          <div className={cn("w-1.5 h-1.5 rounded-full",
+                                            isActive
+                                              ? "bg-current"
                                               : m === 'eventos' ? "bg-[#BF76FF]" : m === 'cultos' ? (isDarkMode ? "bg-white" : "bg-gray-800") : "bg-[#FF007F]"
                                           )} />
                                           {m === 'eventos' ? 'Eventos' : m === 'cultos' ? 'Cultos' : 'Visitas'}
@@ -9547,7 +9548,7 @@ const Admin = () => {
                                 <div className="self-end xl:self-start">
                                   <div className={cn("flex items-center gap-1 p-1 rounded-[16px] border w-fit", isDarkMode ? "bg-black border-white/10" : "bg-gray-100 border-black/10")}>
                                     {(['week', 'month', 'year', 'all'] as const).map(t => (
-                                      <button 
+                                      <button
                                         key={t}
                                         onClick={() => {
                                           setChartTimeFilter(t);
@@ -9555,8 +9556,8 @@ const Admin = () => {
                                         }}
                                         className={cn(
                                           "px-4 py-1.5 rounded-[12px] text-xs font-bold transition-all duration-300",
-                                          chartTimeFilter === t 
-                                            ? (isDarkMode ? "bg-white/10 text-white" : "bg-white shadow text-black") 
+                                          chartTimeFilter === t
+                                            ? (isDarkMode ? "bg-white/10 text-white" : "bg-white shadow text-black")
                                             : (isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-500 hover:text-black")
                                         )}
                                       >
@@ -9566,11 +9567,11 @@ const Admin = () => {
                                   </div>
                                 </div>
                               </div>
-                              
+
                               <div className="w-full overflow-x-auto scrollbar-hide -mx-6 px-6 md:mx-0 md:px-0 relative">
                                 <div className="min-w-[600px] w-full relative">
-                                  <svg 
-                                    viewBox={`0 0 ${width} ${height}`} 
+                                  <svg
+                                    viewBox={`0 0 ${width} ${height}`}
                                     className="w-full h-auto drop-shadow-xl overflow-visible"
                                     onMouseLeave={() => setHoveredPointIdx(null)}
                                   >
@@ -9600,12 +9601,12 @@ const Admin = () => {
 
                                     {/* Glowing Curved Line Path */}
                                     {activeLine.d && (
-                                      <path 
-                                        d={activeLine.d} 
-                                        fill="none" 
-                                        stroke={metricColor} 
-                                        strokeWidth="4.5" 
-                                        strokeLinecap="round" 
+                                      <path
+                                        d={activeLine.d}
+                                        fill="none"
+                                        stroke={metricColor}
+                                        strokeWidth="4.5"
+                                        strokeLinecap="round"
                                         className="transition-all duration-500"
                                       />
                                     )}
@@ -9714,8 +9715,8 @@ const Admin = () => {
                                         }}
                                         className={cn(
                                           "z-30 p-4 rounded-2xl border backdrop-blur-xl shadow-2xl min-w-[180px] max-w-[260px] animate-in fade-in slide-in-from-left-2 duration-300",
-                                          isDarkMode 
-                                            ? "bg-black/85 border-[#BF76FF]/20 text-white" 
+                                          isDarkMode
+                                            ? "bg-black/85 border-[#BF76FF]/20 text-white"
                                             : "bg-white/90 border-[#BF76FF]/10 text-black shadow-black/10"
                                         )}
                                       >
@@ -9778,7 +9779,7 @@ const Admin = () => {
                               <h4 className={cn("text-xl md:text-2xl font-black tracking-tighter mb-8", isDarkMode ? "text-white" : "text-black")}>
                                 Cargos no Sistema
                               </h4>
-                              
+
                               <div className="flex flex-col md:flex-row xl:flex-col items-center gap-8 flex-1">
                                 <div className="relative w-48 h-48 md:w-56 md:h-56 shrink-0 group/chart">
                                   <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90 drop-shadow-2xl overflow-visible">
@@ -9803,7 +9804,7 @@ const Admin = () => {
                                     <div className="text-[8px] font-bold text-gray-500 uppercase tracking-widest mt-1">Cargos</div>
                                   </div>
                                 </div>
-                                
+
                                 <div className="flex-1 w-full max-h-56 overflow-y-auto scrollbar-hide flex flex-col gap-1.5">
                                   {roleData.length === 0 && (
                                     <p className="text-xs font-bold text-gray-500 text-center">Nenhum cargo ativo.</p>
@@ -9820,7 +9821,7 @@ const Admin = () => {
                                 </div>
                               </div>
                             </div>
-                            
+
                           </div>
                         );
                       })()}
@@ -9830,7 +9831,7 @@ const Admin = () => {
                   {/* Profile Completion Progress Card */}
                   {(() => {
                     if (!profile) return null;
-                    
+
                     const isApproved = profile.status === "approved" || profile.status === "active" || user?.email === "iempministerioprofecia@gmail.com";
                     if (!isApproved) return null;
 
@@ -9869,7 +9870,7 @@ const Admin = () => {
 
                     const completedCount = steps.filter(s => s.completed).length;
                     const percentage = Math.round((completedCount / steps.length) * 100);
-                    
+
                     if (percentage === 100) return null;
 
                     return (
@@ -9883,13 +9884,13 @@ const Admin = () => {
 
                         <div className={cn(
                           "border rounded-[32px] p-6 md:p-8 relative overflow-hidden transition-all duration-300 shadow-2xl group",
-                          isDarkMode 
-                            ? "bg-gradient-to-br from-[#BF76FF]/10 via-[#1C1C1C] to-black border-white/5" 
+                          isDarkMode
+                            ? "bg-gradient-to-br from-[#BF76FF]/10 via-[#1C1C1C] to-black border-white/5"
                             : "bg-gradient-to-br from-[#BF76FF]/5 via-white to-gray-50 border-black/5"
                         )}>
                           {/* Premium Glowing Aura Background Effect */}
                           <div className="absolute -top-24 -right-24 w-48 h-48 rounded-full bg-[#BF76FF]/20 blur-3xl group-hover:scale-125 transition-transform duration-700 pointer-events-none" />
-                          
+
                           <div className="relative z-10 flex flex-col md:flex-row gap-6 md:gap-10 items-center justify-between">
                             <div className="flex-1 w-full space-y-4">
                               <div>
@@ -9908,7 +9909,7 @@ const Admin = () => {
                                   <span className="text-[#BF76FF] font-black text-sm">{completedCount} de {steps.length} ({percentage}%)</span>
                                 </div>
                                 <div className={cn("w-full h-3 rounded-full overflow-hidden relative", isDarkMode ? "bg-white/5" : "bg-black/5")}>
-                                  <div 
+                                  <div
                                     className="h-full rounded-full bg-gradient-to-r from-[#BF76FF] to-[#7300FF] transition-all duration-1000 ease-out relative"
                                     style={{ width: `${percentage}%` }}
                                   >
@@ -9934,12 +9935,12 @@ const Admin = () => {
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {steps.map((step) => {
                               return (
-                                <div 
-                                  key={step.id} 
+                                <div
+                                  key={step.id}
                                   onClick={() => handleFocusProfileField(step.id)}
                                   className={cn(
                                     "p-4 rounded-2xl border transition-all duration-300 flex items-start gap-3 cursor-pointer select-none",
-                                    step.completed 
+                                    step.completed
                                       ? (isDarkMode ? "bg-green-500/5 border-green-500/10 opacity-60" : "bg-green-500/[0.02] border-green-500/10 opacity-70")
                                       : (isDarkMode ? "bg-white/[0.02] border-white/5 hover:border-[#BF76FF]/30 hover:bg-white/[0.04]" : "bg-white border-black/5 shadow-sm hover:border-[#BF76FF]/30 hover:shadow-md")
                                   )}
@@ -9979,10 +9980,10 @@ const Admin = () => {
                     </div>
 
                     <div className={cn("border rounded-[32px] p-6 md:p-12 transition-colors", isDarkMode ? "bg-[#1C1C1C] border-white/5" : "bg-white border-black/5 shadow-xl")}>
-                      <UpcomingEvents 
-                        agenda={mergedAgenda} 
-                        isDark={isDarkMode} 
-                        isAdmin={isAdminOrDev} 
+                      <UpcomingEvents
+                        agenda={mergedAgenda}
+                        isDark={isDarkMode}
+                        isAdmin={isAdminOrDev}
                         onView={(item) => {
                           setSelectedItem(item);
                           setFormData(item);
@@ -10107,9 +10108,9 @@ const Admin = () => {
                     deleteButtonLabel="Remover da Agenda"
                     onNewEvent={(date) => {
                       setSelectedItem(null);
-                      setFormData({ 
-                        date: format(date, "yyyy-MM-dd"), 
-                        inviteChurch: false, 
+                      setFormData({
+                        date: format(date, "yyyy-MM-dd"),
+                        inviteChurch: false,
                         invitedMembers: [],
                         organization: profile?.name || user?.displayName || "",
                         organizerId: profile?.id || user?.uid || null
@@ -10224,7 +10225,7 @@ const Admin = () => {
                                 </div>
                               )}
                             </div>
-                            
+
                             {/* Option to upload image or paste external URL */}
                             <div className="space-y-4">
                               <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Imagem do Banner</label>
@@ -10306,118 +10307,118 @@ const Admin = () => {
 
                       <div className="space-y-6">
                         <div className="space-y-8">
-                            <div className="space-y-2">
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Nome do Assistente</label>
-                              <Input
-                                className={cn("w-full md:w-1/2 h-12 px-4 rounded-xl border-none text-sm font-bold transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
-                                placeholder="Ex: Assistente da IEMP"
-                                value={localSettings.botName ?? settings.botName ?? "Assistente da IEMP"}
-                                onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botName: e.target.value }))}
-                              />
-                            </div>
-                            
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                              {/* Avatar Normal */}
-                              <div className="space-y-4 p-5 rounded-3xl border border-white/5 bg-white/5">
-                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Avatar Padrão (Imagem do Chat)</label>
-                                <div className="space-y-4">
-                                  <div className="space-y-2">
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção A: Upload do PC</span>
-                                    <UploadImages
-                                      maxFiles={1}
-                                      multiple={false}
-                                      value={localSettings.botImage ?? settings.botImage ?? ""}
-                                      onUploadComplete={(images) => setLocalSettings((prev: any) => ({ ...prev, botImage: images[0]?.secure_url || "" }))}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção B: URL Externa</span>
-                                    <Input
-                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
-                                      placeholder="https://..."
-                                      value={localSettings.botImage ?? settings.botImage ?? ""}
-                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botImage: e.target.value }))}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* GIF Animado */}
-                              <div className="space-y-4 p-5 rounded-3xl border border-white/5 bg-white/5">
-                                <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Avatar Animado (Balão Flutuante)</label>
-                                <div className="space-y-4">
-                                  <div className="space-y-2">
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção A: Upload do PC (GIF/Imagem)</span>
-                                    <UploadImages
-                                      maxFiles={1}
-                                      multiple={false}
-                                      value={localSettings.botGif ?? settings.botGif ?? ""}
-                                      onUploadComplete={(images) => setLocalSettings((prev: any) => ({ ...prev, botGif: images[0]?.secure_url || "" }))}
-                                    />
-                                  </div>
-                                  <div className="space-y-2">
-                                    <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção B: URL Externa</span>
-                                    <Input
-                                      className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
-                                      placeholder="https://..."
-                                      value={localSettings.botGif ?? settings.botGif ?? ""}
-                                      onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botGif: e.target.value }))}
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="space-y-4">
-                            <div>
-                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Mensagens Flutuantes (Balão Animado)</label>
-                              <p className="text-xs text-gray-400 mb-2">Configure frases diferentes dependendo de qual tela o usuário está (uma por linha).</p>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na tela de Login</label>
-                                <textarea
-                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
-                                  placeholder="Dúvidas ao fazer login?\nPrecisa de ajuda?"
-                                  value={localSettings.botMessagesLogin ?? settings.botMessagesLogin ?? "Dúvidas ao fazer login?\nPrecisa de ajuda?"}
-                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesLogin: e.target.value }))}
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na tela Visão Geral (Home)</label>
-                                <textarea
-                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
-                                  placeholder="Bem-vindo de volta!\nComo posso ajudar hoje?"
-                                  value={localSettings.botMessagesDashboard ?? settings.botMessagesDashboard ?? "Bem-vindo de volta!\nComo posso ajudar hoje?"}
-                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesDashboard: e.target.value }))}
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na Agenda</label>
-                                <textarea
-                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
-                                  placeholder="Dúvidas na agenda?\nQuer agendar algo?"
-                                  value={localSettings.botMessagesAgenda ?? settings.botMessagesAgenda ?? "Dúvidas na agenda?\nQuer agendar algo?"}
-                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesAgenda: e.target.value }))}
-                                />
-                              </div>
-                              <div className="space-y-1">
-                                <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Padrão (Outras telas)</label>
-                                <textarea
-                                  className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
-                                  placeholder="Precisa de ajuda?\nFale comigo!"
-                                  value={localSettings.botMessagesDefault ?? settings.botMessagesDefault ?? "Precisa de ajuda?\nFale comigo!\nEu sou o Assistente da IEMP\nConsigo te ajudar!"}
-                                  onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesDefault: e.target.value }))}
-                                />
-                              </div>
-                            </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Nome do Assistente</label>
+                            <Input
+                              className={cn("w-full md:w-1/2 h-12 px-4 rounded-xl border-none text-sm font-bold transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                              placeholder="Ex: Assistente da IEMP"
+                              value={localSettings.botName ?? settings.botName ?? "Assistente da IEMP"}
+                              onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botName: e.target.value }))}
+                            />
                           </div>
 
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Instruções (Prompt do Gemini)</label>
-                            <p className="text-xs text-gray-400 mb-2">Defina a personalidade e as regras de resposta do bot. Para desativar a IA ou forçar atendimento humano, instrua-o a responder com "TRANSFER_HUMAN".</p>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Avatar Normal */}
+                            <div className="space-y-4 p-5 rounded-3xl border border-white/5 bg-white/5">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Avatar Padrão (Imagem do Chat)</label>
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção A: Upload do PC</span>
+                                  <UploadImages
+                                    maxFiles={1}
+                                    multiple={false}
+                                    value={localSettings.botImage ?? settings.botImage ?? ""}
+                                    onUploadComplete={(images) => setLocalSettings((prev: any) => ({ ...prev, botImage: images[0]?.secure_url || "" }))}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção B: URL Externa</span>
+                                  <Input
+                                    className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                    placeholder="https://..."
+                                    value={localSettings.botImage ?? settings.botImage ?? ""}
+                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botImage: e.target.value }))}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* GIF Animado */}
+                            <div className="space-y-4 p-5 rounded-3xl border border-white/5 bg-white/5">
+                              <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Avatar Animado (Balão Flutuante)</label>
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção A: Upload do PC (GIF/Imagem)</span>
+                                  <UploadImages
+                                    maxFiles={1}
+                                    multiple={false}
+                                    value={localSettings.botGif ?? settings.botGif ?? ""}
+                                    onUploadComplete={(images) => setLocalSettings((prev: any) => ({ ...prev, botGif: images[0]?.secure_url || "" }))}
+                                  />
+                                </div>
+                                <div className="space-y-2">
+                                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Opção B: URL Externa</span>
+                                  <Input
+                                    className={cn("h-11 rounded-xl border-none text-xs transition-all", isDarkMode ? "bg-cinza-input text-white" : "bg-white text-black")}
+                                    placeholder="https://..."
+                                    value={localSettings.botGif ?? settings.botGif ?? ""}
+                                    onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botGif: e.target.value }))}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Mensagens Flutuantes (Balão Animado)</label>
+                            <p className="text-xs text-gray-400 mb-2">Configure frases diferentes dependendo de qual tela o usuário está (uma por linha).</p>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na tela de Login</label>
+                              <textarea
+                                className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                placeholder="Dúvidas ao fazer login?\nPrecisa de ajuda?"
+                                value={localSettings.botMessagesLogin ?? settings.botMessagesLogin ?? "Dúvidas ao fazer login?\nPrecisa de ajuda?"}
+                                onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesLogin: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na tela Visão Geral (Home)</label>
+                              <textarea
+                                className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                placeholder="Bem-vindo de volta!\nComo posso ajudar hoje?"
+                                value={localSettings.botMessagesDashboard ?? settings.botMessagesDashboard ?? "Bem-vindo de volta!\nComo posso ajudar hoje?"}
+                                onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesDashboard: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Na Agenda</label>
+                              <textarea
+                                className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                placeholder="Dúvidas na agenda?\nQuer agendar algo?"
+                                value={localSettings.botMessagesAgenda ?? settings.botMessagesAgenda ?? "Dúvidas na agenda?\nQuer agendar algo?"}
+                                onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesAgenda: e.target.value }))}
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold uppercase text-gray-400 ml-1">Padrão (Outras telas)</label>
+                              <textarea
+                                className={cn("w-full h-20 p-3 rounded-xl border-none text-xs transition-all resize-none leading-relaxed", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
+                                placeholder="Precisa de ajuda?\nFale comigo!"
+                                value={localSettings.botMessagesDefault ?? settings.botMessagesDefault ?? "Precisa de ajuda?\nFale comigo!\nEu sou o Assistente da IEMP\nConsigo te ajudar!"}
+                                onChange={(e) => setLocalSettings((prev: any) => ({ ...prev, botMessagesDefault: e.target.value }))}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Instruções (Prompt do Gemini)</label>
+                          <p className="text-xs text-gray-400 mb-2">Defina a personalidade e as regras de resposta do bot. Para desativar a IA ou forçar atendimento humano, instrua-o a responder com "TRANSFER_HUMAN".</p>
                           <textarea
                             className={cn("w-full h-32 p-4 rounded-2xl border-none text-sm transition-all resize-none", isDarkMode ? "bg-cinza-input text-white" : "bg-gray-100 text-black")}
                             placeholder='Ex: Você é o Assistente Virtual de suporte da IEMP. Seja educado e responda de forma concisa...'
@@ -10427,34 +10428,34 @@ const Admin = () => {
                         </div>
 
                         <div className="space-y-2 mt-6 pt-6 border-t border-white/5">
-                            <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Botão "Problemas com o site?"</label>
-                            <p className="text-xs text-gray-400 mb-2">Selecione quais cargos podem ver o botão de abrir chamado técnico no menu do assistente.</p>
-                            <div className="flex flex-wrap gap-2">
-                                {allRoles.map((role: string) => {
-                                    const isSelected = (localSettings.botTicketRoles || settings.botTicketRoles || []).includes(role);
-                                    return (
-                                        <button
-                                            key={`bot-ticket-role-${role}`}
-                                            onClick={() => {
-                                                const current = localSettings.botTicketRoles || settings.botTicketRoles || [];
-                                                if (isSelected) {
-                                                    setLocalSettings((prev: any) => ({ ...prev, botTicketRoles: current.filter((r: string) => r !== role) }));
-                                                } else {
-                                                    setLocalSettings((prev: any) => ({ ...prev, botTicketRoles: [...current, role] }));
-                                                }
-                                            }}
-                                            className={cn(
-                                                "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border",
-                                                isSelected
-                                                    ? "bg-[#BF76FF] border-[#BF76FF] text-white shadow-md shadow-[#BF76FF]/20"
-                                                    : isDarkMode ? "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10" : "bg-black/5 border-black/10 text-gray-500 hover:bg-black/10"
-                                            )}
-                                        >
-                                            {role}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                          <label className="text-[10px] font-black uppercase text-gray-500 tracking-widest ml-1">Botão "Problemas com o site?"</label>
+                          <p className="text-xs text-gray-400 mb-2">Selecione quais cargos podem ver o botão de abrir chamado técnico no menu do assistente.</p>
+                          <div className="flex flex-wrap gap-2">
+                            {allRoles.map((role: string) => {
+                              const isSelected = (localSettings.botTicketRoles || settings.botTicketRoles || []).includes(role);
+                              return (
+                                <button
+                                  key={`bot-ticket-role-${role}`}
+                                  onClick={() => {
+                                    const current = localSettings.botTicketRoles || settings.botTicketRoles || [];
+                                    if (isSelected) {
+                                      setLocalSettings((prev: any) => ({ ...prev, botTicketRoles: current.filter((r: string) => r !== role) }));
+                                    } else {
+                                      setLocalSettings((prev: any) => ({ ...prev, botTicketRoles: [...current, role] }));
+                                    }
+                                  }}
+                                  className={cn(
+                                    "px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border",
+                                    isSelected
+                                      ? "bg-[#BF76FF] border-[#BF76FF] text-white shadow-md shadow-[#BF76FF]/20"
+                                      : isDarkMode ? "bg-white/5 border-white/10 text-gray-400 hover:bg-white/10" : "bg-black/5 border-black/10 text-gray-500 hover:bg-black/10"
+                                  )}
+                                >
+                                  {role}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
                       </div>
@@ -10514,7 +10515,7 @@ const Admin = () => {
                                 // Determinar valores atuais
                                 const rolePerms = settings.permissions?.[selectedPermissionRole] || {};
                                 const tabData = rolePerms.tabs?.[tab.id];
-                                
+
                                 const getVal = (action: string) => {
                                   if (tabData && typeof tabData === 'object') return tabData[action] ?? true;
                                   if (action === 'view') {
@@ -10532,18 +10533,18 @@ const Admin = () => {
                                 ];
 
                                 return (
-                                  <div 
-                                    key={`tab-perm-card-${tab.id}`} 
+                                  <div
+                                    key={`tab-perm-card-${tab.id}`}
                                     className={cn(
                                       "relative group p-8 rounded-[40px] border transition-all duration-500",
-                                      isDarkMode 
-                                        ? "bg-[#1a1a1a] border-white/[0.03] hover:border-[#BF76FF]/30 hover:shadow-[0_0_40px_-15px_rgba(191,118,255,0.2)]" 
+                                      isDarkMode
+                                        ? "bg-[#1a1a1a] border-white/[0.03] hover:border-[#BF76FF]/30 hover:shadow-[0_0_40px_-15px_rgba(191,118,255,0.2)]"
                                         : "bg-white border-black/[0.03] shadow-xl hover:shadow-[#BF76FF]/10"
                                     )}
                                   >
                                     {/* Background Glow Effect */}
                                     <div className="absolute inset-0 bg-gradient-to-br from-[#BF76FF]/0 to-[#BF76FF]/0 group-hover:from-[#BF76FF]/5 group-hover:to-transparent rounded-[40px] transition-all duration-700" />
-                                    
+
                                     <div className="relative z-10">
                                       <div className="flex items-center justify-between mb-8">
                                         <div className="flex items-center gap-4">
@@ -10564,12 +10565,12 @@ const Admin = () => {
                                         {actions.map(action => {
                                           const isChecked = getVal(action.id);
                                           return (
-                                            <div 
+                                            <div
                                               key={`${tab.id}-${action.id}`}
                                               onClick={async () => {
                                                 const newValue = !isChecked;
                                                 const currentTabs = rolePerms.tabs || {};
-                                                const currentTabData = typeof currentTabs[tab.id] === 'object' ? currentTabs[tab.id] : { 
+                                                const currentTabData = typeof currentTabs[tab.id] === 'object' ? currentTabs[tab.id] : {
                                                   view: typeof currentTabs[tab.id] === 'boolean' ? currentTabs[tab.id] : canRoleViewTab(selectedPermissionRole, false, tab.id),
                                                   create: rolePerms.create ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
                                                   edit: rolePerms.edit ?? !["Membro", "Visitante"].includes(selectedPermissionRole),
@@ -10598,10 +10599,10 @@ const Admin = () => {
                                               }}
                                               className={cn(
                                                 "group/btn relative flex flex-col items-center justify-center p-4 rounded-[24px] border transition-all duration-300 cursor-pointer overflow-hidden",
-                                                isChecked 
-                                                  ? isDarkMode 
-                                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/40 shadow-[inset_0_0_20px_rgba(191,118,255,0.1)]" 
-                                                    : "bg-[#BF76FF]/5 border-[#BF76FF]/30" 
+                                                isChecked
+                                                  ? isDarkMode
+                                                    ? "bg-[#BF76FF]/10 border-[#BF76FF]/40 shadow-[inset_0_0_20px_rgba(191,118,255,0.1)]"
+                                                    : "bg-[#BF76FF]/5 border-[#BF76FF]/30"
                                                   : isDarkMode
                                                     ? "bg-white/[0.02] border-white/[0.05] grayscale opacity-40 hover:opacity-70"
                                                     : "bg-gray-50 border-black/[0.05] grayscale opacity-40 hover:opacity-70"
@@ -10611,7 +10612,7 @@ const Admin = () => {
                                               {isChecked && (
                                                 <div className="absolute inset-0 bg-gradient-to-t from-[#BF76FF]/10 to-transparent" />
                                               )}
-                                              
+
                                               <span className={cn(
                                                 "text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors",
                                                 isChecked ? "text-[#BF76FF]" : "text-gray-500"
@@ -10621,8 +10622,8 @@ const Admin = () => {
 
                                               <div className={cn(
                                                 "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-500",
-                                                isChecked 
-                                                  ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.6)] scale-110" 
+                                                isChecked
+                                                  ? "bg-[#BF76FF] text-white shadow-[0_0_15px_rgba(191,118,255,0.6)] scale-110"
                                                   : "bg-black/20 text-gray-600 scale-100"
                                               )}>
                                                 {isChecked ? (
@@ -10652,7 +10653,7 @@ const Admin = () => {
                                     { label: "Apagar fotos da Galeria", key: "deletePhotos" }
                                   ].map(perm => {
                                     const isChecked = settings.permissions?.[selectedPermissionRole]?.[perm.key] ?? (
-                                      perm.key === "editProfiles" 
+                                      perm.key === "editProfiles"
                                         ? (selectedPermissionRole === "Administradores" || selectedPermissionRole === "Desenvolvedor")
                                         : !["Membro", "Visitante"].includes(selectedPermissionRole)
                                     );
@@ -10710,7 +10711,7 @@ const Admin = () => {
                           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Sincronização de Vídeos & Lives</p>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-6">
                         <div className="space-y-2">
                           <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest ml-2">ID ou @ do Canal</label>
@@ -10739,7 +10740,7 @@ const Admin = () => {
                           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Opções de Comportamento e Interface</p>
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                         <div className={cn("p-6 rounded-[28px] border flex items-center justify-between transition-colors", isDarkMode ? "bg-black/20 border-white/5" : "bg-gray-50 border-black/5")}>
                           <div>
@@ -10779,8 +10780,8 @@ const Admin = () => {
                       <div className="fixed bottom-24 md:bottom-8 left-1/2 -translate-y-0 -translate-x-1/2 z-50 animate-in slide-in-from-bottom-10 fade-in duration-300">
                         <div className={cn(
                           "p-2.5 rounded-[24px] border backdrop-blur-xl shadow-2xl flex items-center gap-4 transition-all duration-300",
-                          isDarkMode 
-                            ? "bg-black/80 border-[#BF76FF]/30 shadow-[#BF76FF]/10" 
+                          isDarkMode
+                            ? "bg-black/80 border-[#BF76FF]/30 shadow-[#BF76FF]/10"
                             : "bg-white/80 border-[#BF76FF]/20 shadow-black/10"
                         )}>
                           <div className="pl-4 pr-1 hidden sm:block">
@@ -10809,7 +10810,7 @@ const Admin = () => {
                             }}
                             className={cn(
                               "rounded-xl h-11 px-6 font-bold text-xs transition-all duration-300 min-w-[140px]",
-                              showSavedSuccess 
+                              showSavedSuccess
                                 ? "bg-green-500 text-white shadow-lg shadow-green-500/20"
                                 : "bg-gradient-to-r from-[#7300FF] to-[#CC7EFF] hover:opacity-90 text-white shadow-lg shadow-[#7300FF]/25"
                             )}
@@ -10827,7 +10828,7 @@ const Admin = () => {
                     )}
                   </div>
                 </div>
-                ) : activeTab === "logs" ? (
+              ) : activeTab === "logs" ? (
 
 
                 <div className="p-4 md:p-8">
@@ -11689,7 +11690,7 @@ const Admin = () => {
               </button>
             </div>
             <div className="flex gap-2 items-center">
-              
+
               {canManageBlast && (
                 <button
                   onClick={() => {
@@ -11700,7 +11701,7 @@ const Admin = () => {
                     setIsEditing(false);
                     setSelectedItem(null);
                   }}
-                  title="Disparo WA"
+                  title="Event Manager"
                   className={cn(
                     "relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
                     activeTab === "membros" && showWhatsAppBlast
@@ -12191,9 +12192,9 @@ const Admin = () => {
                         {event.thumbnail ? (
                           <img src={event.thumbnail} className="w-12 h-12 rounded-xl object-cover shrink-0" alt="" />
                         ) : (
-                          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", 
-                            activeTab === 'agenda-direcao' 
-                              ? "bg-[#BF76FF]/10 text-[#BF76FF]" 
+                          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                            activeTab === 'agenda-direcao'
+                              ? "bg-[#BF76FF]/10 text-[#BF76FF]"
                               : "bg-green-500/10 text-green-500"
                           )}>
                             {event.type === 'post' ? <Star className="w-6 h-6" /> : <Calendar className="w-6 h-6" />}
@@ -12904,7 +12905,7 @@ function UpcomingEvents({ agenda, isDark, isAdmin, onView }: { agenda: any[], is
             </div>
 
             {/* Content Section */}
-            <div 
+            <div
               onClick={() => onView?.(event)}
               className={cn(
                 "flex-1 p-4 md:p-6 rounded-[24px] md:rounded-[32px] border transition-all relative overflow-hidden group-hover:-translate-y-1 group-hover:shadow-2xl cursor-pointer",
