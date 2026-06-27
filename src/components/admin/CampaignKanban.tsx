@@ -73,7 +73,7 @@ const COLUMNS: { id: LeadStatus; title: string; color: string; bg: string }[] = 
 ];
 
 // Sortable Card Component
-function KanbanCard({ lead, prefix, onClick }: { lead: Lead; prefix: string; onClick: () => void }) {
+function KanbanCard({ lead, prefix, billingValue, onClick }: { lead: Lead; prefix: string; billingValue?: string; onClick: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `${prefix}${lead.member.id}`,
     data: { lead }
@@ -144,14 +144,15 @@ function KanbanCard({ lead, prefix, onClick }: { lead: Lead; prefix: string; onC
         {(() => {
           const parseCur = (s?: string) => s ? parseFloat(s.replace(/[^\d,-]/g, '').replace(',', '.')) || 0 : 0;
           const fmtCur = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-          const total = parseCur(lead.paymentValue);
+          const effectiveVal = lead.paymentValue || billingValue;
+          const total = parseCur(effectiveVal);
           const paid = parseCur(lead.paidValue);
           const diff = total - paid;
 
           if (lead.paidValue && paid > 0 && diff > 0) {
             return (
               <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="font-bold text-gray-500 line-through text-[9px]">R$ {lead.paymentValue}</span>
+                <span className="font-bold text-gray-500 line-through text-[9px]">R$ {effectiveVal}</span>
                 <span className="font-black text-amber-400 bg-amber-400/15 border border-amber-400/30 px-1.5 py-0.5 rounded text-[10px]">
                   Faltam R$ {fmtCur(diff)}
                 </span>
@@ -161,13 +162,13 @@ function KanbanCard({ lead, prefix, onClick }: { lead: Lead; prefix: string; onC
           if (lead.paidValue && paid >= total && total > 0) {
             return (
               <span className="font-bold text-emerald-400 bg-emerald-400/15 border border-emerald-400/30 px-2 py-0.5 rounded-md">
-                Pago R$ {lead.paymentValue}
+                Pago R$ {lead.paymentValue || effectiveVal}
               </span>
             );
           }
-          return lead.paymentValue ? (
+          return effectiveVal ? (
             <span className="font-bold text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-md">
-              R$ {lead.paymentValue}
+              R$ {effectiveVal}
             </span>
           ) : (
             <span className="text-gray-600 font-medium">Sem valor</span>
@@ -186,10 +187,11 @@ function KanbanCard({ lead, prefix, onClick }: { lead: Lead; prefix: string; onC
 }
 
 // Droppable Column Component
-function KanbanColumn({ column, leads, prefix, onCardClick }: {
+function KanbanColumn({ column, leads, prefix, billingValue, onCardClick }: {
   column: typeof COLUMNS[0];
   leads: Lead[];
   prefix: string;
+  billingValue?: string;
   onCardClick: (lead: Lead) => void;
 }) {
   const { setNodeRef } = useDroppable({ id: `${prefix}${column.id}` });
@@ -208,7 +210,7 @@ function KanbanColumn({ column, leads, prefix, onCardClick }: {
       <div ref={setNodeRef} className="p-3 flex-1 space-y-2.5 min-h-[140px]">
         <SortableContext items={leads.map(l => `${prefix}${l.member.id}`)} strategy={verticalListSortingStrategy}>
           {leads.map(lead => (
-            <KanbanCard key={lead.member.id} lead={lead} prefix={prefix} onClick={() => onCardClick(lead)} />
+            <KanbanCard key={lead.member.id} lead={lead} prefix={prefix} billingValue={billingValue} onClick={() => onCardClick(lead)} />
           ))}
         </SortableContext>
         {leads.length === 0 && (
@@ -430,6 +432,7 @@ export function CampaignKanban({
               column={col}
               leads={leads.filter(l => l.status === col.id)}
               prefix={prefix}
+              billingValue={billingValue}
               onCardClick={lead => setActiveLead(lead)}
             />
           ))}
@@ -443,6 +446,7 @@ export function CampaignKanban({
                 column={col}
                 leads={leads.filter(l => l.status === col.id)}
                 prefix={prefix}
+                billingValue={billingValue}
                 onCardClick={lead => setActiveLead(lead)}
               />
             </div>

@@ -24,6 +24,7 @@ import {
   DollarSign,
   ChevronDown,
   ChevronUp,
+  PartyPopper,
 } from 'lucide-react';
 import { CampaignKanban, Lead, LeadStatus } from './CampaignKanban';
 import { cn } from '@/lib/utils';
@@ -380,7 +381,7 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
       <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 mb-8 bg-[#120c1a] p-6 rounded-3xl border border-white/10 shadow-xl">
         <div className="flex items-center gap-4">
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#3ad900] to-[#aaff00] flex items-center justify-center shadow-lg shadow-[#BF76FF]/20 text-white shrink-0">
-            <Megaphone className="w-7 h-7" />
+            <PartyPopper className="w-7 h-7" />
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white">
@@ -841,7 +842,7 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
           STEP 3: Hub de Funis CRM Salvos
       ═══════════════════════════════════════════════════════════════════ */}
       {step === 'kanban' && (
-        <div className="max-w-[95vw] mx-auto space-y-6 pb-12 animate-in fade-in duration-200">
+        <div className="w-full min-w-0 mx-auto space-y-6 pb-12 animate-in fade-in duration-200">
           {savedCampaigns.length === 0 ? (
             <div className="py-20 text-center border border-dashed border-white/10 rounded-3xl">
               <Users className="w-12 h-12 text-gray-600 mx-auto mb-3" />
@@ -923,7 +924,7 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                 </div>
 
                 {!camp.isCollapsed && (
-                  <div className="p-4 sm:p-6 overflow-x-auto">
+                  <div className="p-4 sm:p-6 w-full min-w-0 overflow-x-auto">
                     <CampaignKanban
                       leads={camp.leads}
                       setLeads={(newLeadsAction) => {
@@ -1181,6 +1182,7 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                   const newLeads: Lead[] = membersToAdd.map(m => ({
                     member: m,
                     status: 'a_enviar',
+                    paymentValue: addMemberCamp.billingValue,
                   }));
 
                   updateSavedCampaigns(prev => prev.map(c => {

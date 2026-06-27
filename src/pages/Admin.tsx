@@ -5266,8 +5266,8 @@ const Admin = () => {
                             setSelectedItem(null);
                           }}
                         >
-                          <Megaphone className="w-5 h-5 text-[#25D366]" />
-                          <span className="font-black text-[11px] uppercase tracking-wider">Event Manager</span>
+                          <PartyPopper className="w-5 h-5 text-[#25D366]" />
+                          <span className="font-black text-[11px] uppercase tracking-wider">Evt Manager</span>
                         </SheetClose>
                       )}
                       <SheetClose
@@ -5309,7 +5309,7 @@ const Admin = () => {
         </aside>
 
         {/* Main Content Area */}
-        <main className={cn("flex-1 flex flex-col min-h-0 transition-all duration-500 relative", isDarkMode ? "bg-roxo-bg" : "bg-gray-50")}>
+        <main className={cn("flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden transition-all duration-500 relative", isDarkMode ? "bg-roxo-bg" : "bg-gray-50")}>
           {/* Mobile Header — hidden when chat is active for full-screen experience */}
           <header className={cn(
             "flex h-16 px-6 items-center justify-between border-b transition-colors shrink-0 z-10",
@@ -5896,13 +5896,13 @@ const Admin = () => {
 
           {/* Content View */}
           <div className={cn(
-            "flex-1 scroll-smooth scrollbar-hide overscroll-contain touch-pan-y",
+            "flex-1 scroll-smooth scrollbar-hide overscroll-contain touch-pan-y min-w-0",
             (activeTab === "chat" || activeTab === "conversas")
               ? "p-0 pb-0 overflow-hidden h-full flex flex-col"
-              : "p-0 md:p-8 pb-32 md:pb-8 overflow-y-auto"
+              : "p-0 md:p-8 pb-32 md:pb-8 overflow-y-auto overflow-x-hidden"
           )}>
             <div className={cn(
-              "w-full",
+              "w-full min-w-0",
               (activeTab === "chat" || activeTab === "conversas")
                 ? "max-w-none h-full flex flex-col flex-1"
                 : (activeTab === "config" || activeTab === "visao-geral" || activeTab === "membros" || activeTab === "visitantes" || activeTab === "videos" || activeTab === "eventos" || activeTab === "noticias")
@@ -11703,13 +11703,14 @@ const Admin = () => {
                   }}
                   title="Event Manager"
                   className={cn(
-                    "relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer",
+                    "relative h-10 px-3.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer select-none shrink-0",
                     activeTab === "membros" && showWhatsAppBlast
-                      ? "bg-[#25D366] text-white shadow-lg shadow-[#25D366]/20"
-                      : isDarkMode ? "bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20" : "bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20"
+                      ? "bg-[#25D366] text-white shadow-lg shadow-[#25D366]/20 scale-[1.02]"
+                      : isDarkMode ? "bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25 border border-[#25D366]/30" : "bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 border border-[#25D366]/20"
                   )}
                 >
-                  <Megaphone className="w-5 h-5" />
+                  <PartyPopper className="w-4 h-4 shrink-0" />
+                  <span className="font-black text-[11px] uppercase tracking-wider whitespace-nowrap">Evt Manager</span>
                 </button>
               )}
 
