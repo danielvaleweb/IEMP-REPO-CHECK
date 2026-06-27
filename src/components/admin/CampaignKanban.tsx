@@ -37,7 +37,8 @@ import {
   ChevronRight,
   Plus,
   Check,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -249,6 +250,11 @@ export function CampaignKanban({
   const [mobileTab, setMobileTab] = useState<LeadStatus>('a_enviar');
   const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [billingPromptLead, setBillingPromptLead] = useState<Lead | null>(null);
+  const [paymentPromptLead, setPaymentPromptLead] = useState<Lead | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<'Dinheiro' | 'Pix' | 'Cartão' | 'Link de pagamento'>('Pix');
+  const [paymentReceiptFile, setPaymentReceiptFile] = useState<File | null>(null);
+  const [paymentReceiptUploading, setPaymentReceiptUploading] = useState(false);
+  const [paymentReceiptError, setPaymentReceiptError] = useState('');
   const [tempBillingDate, setTempBillingDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -310,6 +316,11 @@ export function CampaignKanban({
 
       if (targetStatus === 'pagamento_pendente' && dragged.status !== 'pagamento_pendente') {
         setBillingPromptLead({ ...dragged, status: 'pagamento_pendente' });
+      } else if (targetStatus === 'pago' && dragged.status !== 'pago') {
+        setPaymentPromptLead(dragged);
+        setPaymentMethod('Pix');
+        setPaymentReceiptFile(null);
+        setPaymentReceiptError('');
       } else {
         setLeads(prev => prev.map(l => l.member.id === leadId ? { ...l, status: targetStatus! } : l));
       }
@@ -320,6 +331,11 @@ export function CampaignKanban({
     if (!activeLead) return;
     if (newStatus === 'pagamento_pendente' && activeLead.status !== 'pagamento_pendente') {
       setBillingPromptLead({ ...activeLead, status: 'pagamento_pendente' });
+    } else if (newStatus === 'pago' && activeLead.status !== 'pago') {
+      setPaymentPromptLead(activeLead);
+      setPaymentMethod('Pix');
+      setPaymentReceiptFile(null);
+      setPaymentReceiptError('');
     } else {
       setLeads(prev => prev.map(l => {
         if (l.member.id === activeLead.member.id) {
@@ -504,6 +520,173 @@ export function CampaignKanban({
                 className="flex-1 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-blue-500/25 transition-all"
               >
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Payment Confirmation Prompt Modal ─────────────────────────────── */}
+      {paymentPromptLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setPaymentPromptLead(null)}>
+          <div className="bg-[#150f1d] border border-white/10 p-6 rounded-3xl max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2.5 text-emerald-400">
+                <DollarSign className="w-5 h-5 font-black" />
+                <h3 className="font-black text-white uppercase text-sm tracking-wide">Confirmar Pagamento</h3>
+              </div>
+              <button onClick={() => setPaymentPromptLead(null)} className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-1">
+              <p className="text-xs text-gray-300 leading-relaxed">
+                Registrando pagamento para <span className="text-white font-bold">"{paymentPromptLead.member.name}"</span>. Qual foi a forma de pagamento?
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Forma de Pagamento:</label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['Dinheiro', 'Pix', 'Cartão', 'Link de pagamento'] as const).map(method => (
+                  <button
+                    key={method}
+                    type="button"
+                    onClick={() => {
+                      setPaymentMethod(method);
+                      setPaymentReceiptError('');
+                    }}
+                    className={cn(
+                      "py-2.5 px-3 rounded-xl font-bold text-xs transition-all border text-center",
+                      paymentMethod === method
+                        ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/50 shadow-md ring-1 ring-emerald-400/30"
+                        : "bg-white/5 text-gray-400 border-white/5 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    {method}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {paymentMethod !== 'Dinheiro' ? (
+              <div className="space-y-2 pt-1 border-t border-white/5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center gap-1">
+                    <Paperclip className="w-3 h-3" /> Comprovante (Obrigatório)
+                  </label>
+                  {paymentReceiptFile && <span className="text-[10px] text-emerald-400 font-bold">✓ Arquivo selecionado</span>}
+                </div>
+
+                <label className={cn(
+                  "flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-dashed transition-all cursor-pointer text-center",
+                  paymentReceiptFile
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : paymentReceiptError
+                      ? "bg-red-500/10 border-red-500/40 text-red-300"
+                      : "bg-white/[0.02] border-white/10 hover:bg-white/5 hover:border-white/20 text-gray-400"
+                )}>
+                  <Upload className="w-6 h-6 mb-1.5 opacity-80" />
+                  <span className="text-xs font-bold truncate max-w-[280px]">
+                    {paymentReceiptFile ? paymentReceiptFile.name : "Clique para anexar imagem ou PDF"}
+                  </span>
+                  <span className="text-[10px] text-gray-500 mt-0.5">Obrigatório para Pix, Cartão e Link</span>
+                  <input
+                    type="file"
+                    accept="image/*,application/pdf"
+                    className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) {
+                        setPaymentReceiptFile(f);
+                        setPaymentReceiptError('');
+                      }
+                    }}
+                  />
+                </label>
+                {paymentReceiptError && (
+                  <p className="text-[11px] text-red-400 font-bold animate-pulse text-center">{paymentReceiptError}</p>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 bg-white/5 rounded-2xl border border-white/5 text-[11px] text-gray-400 text-center">
+                💵 Para pagamento em Dinheiro não é necessário anexar comprovante.
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+              <button onClick={() => setPaymentPromptLead(null)} className="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-xs uppercase tracking-wider transition-colors">
+                Cancelar
+              </button>
+              <button
+                disabled={paymentReceiptUploading}
+                onClick={async () => {
+                  if (paymentMethod !== 'Dinheiro' && !paymentReceiptFile) {
+                    setPaymentReceiptError('Anexe o comprovante obrigatório para continuar.');
+                    return;
+                  }
+
+                  setPaymentReceiptUploading(true);
+                  let receiptUrl = '';
+                  try {
+                    if (paymentReceiptFile) {
+                      const formData = new FormData();
+                      formData.append('file', paymentReceiptFile);
+                      formData.append('upload_preset', 'site_uploads');
+
+                      const res = await fetch('https://api.cloudinary.com/v1_1/dvkgodvhm/image/upload', {
+                        method: 'POST',
+                        body: formData
+                      });
+                      const data = await res.json();
+                      if (data.secure_url) {
+                        receiptUrl = data.secure_url;
+                      }
+                    }
+
+                    const nowStr = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    const autoComment: LeadComment = {
+                      id: Date.now().toString(),
+                      text: paymentMethod === 'Dinheiro'
+                        ? `✅ Pagamento confirmado em Dinheiro.`
+                        : `✅ Pagamento confirmado via ${paymentMethod}. Comprovante anexado.`,
+                      createdAt: nowStr,
+                      attachments: receiptUrl ? [receiptUrl] : undefined,
+                    };
+
+                    setLeads(prev => prev.map(l => {
+                      if (l.member.id === paymentPromptLead.member.id) {
+                        const upd: Lead = {
+                          ...l,
+                          status: 'pago',
+                          paymentMethod: paymentMethod,
+                          paymentDate: new Date().toISOString(),
+                          comments: [autoComment, ...(l.comments || [])],
+                        };
+                        if (activeLead && activeLead.member.id === l.member.id) setActiveLead(upd);
+                        return upd;
+                      }
+                      return l;
+                    }));
+
+                    setPaymentPromptLead(null);
+                    setPaymentReceiptFile(null);
+                    setPaymentReceiptError('');
+                  } catch (err) {
+                    console.error('Error recording payment', err);
+                    setPaymentReceiptError('Erro ao enviar comprovante. Tente novamente.');
+                  } finally {
+                    setPaymentReceiptUploading(false);
+                  }
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:pointer-events-none text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/25 transition-all flex items-center justify-center gap-2"
+              >
+                {paymentReceiptUploading ? (
+                  <><span>Enviando...</span></>
+                ) : (
+                  <><span>Confirmar Pagamento</span></>
+                )}
               </button>
             </div>
           </div>
@@ -699,13 +882,25 @@ export function CampaignKanban({
                         </div>
                         {c.text && <p className="text-xs text-gray-200 leading-relaxed">{c.text}</p>}
 
-                        {c.attachments && c.attachments.map((att, idx) => (
-                          <div key={idx} className="mt-2 pt-2 border-t border-white/5">
-                            <a href={att} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[10px] text-[#BF76FF] hover:underline bg-[#BF76FF]/10 p-2 rounded-lg">
-                              <Paperclip className="w-3.5 h-3.5" /> Ver documento anexo
-                            </a>
-                          </div>
-                        ))}
+                        {c.attachments && c.attachments.map((att, idx) => {
+                          const isImg = att.match(/\.(jpg|jpeg|png|gif|webp)/i) || att.includes('image/upload');
+                          return (
+                            <div key={idx} className="mt-2 pt-2 border-t border-white/5">
+                              {isImg ? (
+                                <a href={att} target="_blank" rel="noreferrer" className="block mt-1 group">
+                                  <img src={att} className="w-full max-h-36 object-cover rounded-lg border border-white/10 group-hover:opacity-90 transition-opacity" alt="Comprovante" />
+                                  <span className="flex items-center gap-1.5 text-[10px] text-[#BF76FF] mt-1 font-semibold group-hover:underline">
+                                    <ExternalLink className="w-3 h-3" /> Abrir comprovante original
+                                  </span>
+                                </a>
+                              ) : (
+                                <a href={att} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-[10px] text-[#BF76FF] hover:underline bg-[#BF76FF]/10 p-2 rounded-lg">
+                                  <Paperclip className="w-3.5 h-3.5" /> Ver documento anexo
+                                </a>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     ))
                   ) : (
