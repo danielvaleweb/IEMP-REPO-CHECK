@@ -36,133 +36,15 @@ import { firestoreService } from "@/services/firestoreService";
 
 // Reusable Netflix Style Card Component removed and extracted to its own file.
 
-const DEFAULT_VIDEOS = [
-  {
-    id: "M7lc1UVf-VE",
-    title: "Culto da Família - Ministério Profecia",
-    badge: "Culto",
-    description: "Assista à mensagem inspiradora e abençoada do Ministério Profecia para a sua família.",
-    thumbnail: "https://img.youtube.com/vi/M7lc1UVf-VE/hqdefault.jpg",
-    published: "Recentemente",
-    link: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    tags: ["Pregação", "Família", "Louvor"],
-    category: "pregação"
-  },
-  {
-    id: "aqz-KE-bpKQ",
-    title: "Culto de Celebração e Adoração",
-    badge: "Culto",
-    description: "Venha adorar a Deus conosco em mais um culto repleto da presença do Espírito Santo.",
-    thumbnail: "https://img.youtube.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
-    published: "Recentemente",
-    link: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-    tags: ["Adoração", "Celebração"],
-    category: "pregação"
-  },
-  {
-    id: "jNQXAC9IVRw",
-    title: "Mensagem de Fé e Esperança",
-    badge: "Mensagem",
-    description: "Uma palavra edificante para fortalecer a sua fé e a caminhada cristã diária.",
-    thumbnail: "https://img.youtube.com/vi/jNQXAC9IVRw/hqdefault.jpg",
-    published: "Recentemente",
-    link: "https://www.youtube.com/watch?v=jNQXAC9IVRw",
-    tags: ["Palavra", "Fé"],
-    category: "pregação"
-  },
-  {
-    id: "M7lc1UVf-VE",
-    title: "Culto de Oração e Libertação",
-    badge: "Culto",
-    description: "Um tempo poderoso de clamor, libertação e comunhão com Deus.",
-    thumbnail: "https://img.youtube.com/vi/M7lc1UVf-VE/hqdefault.jpg",
-    published: "Recentemente",
-    link: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
-    tags: ["Oração", "Libertação"],
-    category: "pregação"
-  },
-  {
-    id: "aqz-KE-bpKQ",
-    title: "Escola Bíblica Dominical - Ensinamentos",
-    badge: "EBD",
-    description: "Aprofunde seu conhecimento na Palavra de Deus através de nossos estudos bíblicos.",
-    thumbnail: "https://img.youtube.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
-    published: "Recentemente",
-    link: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
-    tags: ["Estudo", "EBD"],
-    category: "geral"
-  }
-];
-
-const DEFAULT_EVENTS = [
-  {
-    id: "culto-celebracao-default",
-    title: "Culto de Celebração da Família",
-    description: "Um tempo especial de adoração, comunhão e Palavra de Deus.",
-    date: "Domingo às 19:00",
-    time: "19:00",
-    category: "Culto",
-    image: "https://images.unsplash.com/photo-1438032005730-c779502df39b?auto=format&fit=crop&q=80&w=1200",
-    fullDate: new Date(),
-    typeEvent: "culto",
-    gallery: []
-  },
-  {
-    id: "culto-oracao-default",
-    title: "Culto de Oração e Libertação",
-    description: "Venha buscar a presença do Senhor e interceder pela sua família.",
-    date: "Terça-feira às 19:30",
-    time: "19:30",
-    category: "Culto",
-    image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&q=80&w=1200",
-    fullDate: new Date(),
-    typeEvent: "culto",
-    gallery: []
-  },
-  {
-    id: "ebd-default",
-    title: "Escola Bíblica Dominical",
-    description: "Estudo aprofundado das Sagradas Escrituras para todas as idades.",
-    date: "Domingo às 09:00",
-    time: "09:00",
-    category: "Ensino",
-    image: "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?auto=format&fit=crop&q=80&w=1200",
-    fullDate: new Date(),
-    typeEvent: "evento",
-    gallery: []
-  },
-  {
-    id: "conferencia-jovens-default",
-    title: "Encontro de Jovens Profecia",
-    description: "Uma noite de louvor, comunhão e renovo espiritual com a juventude.",
-    date: "Sábado às 19:30",
-    time: "19:30",
-    category: "Jovens",
-    image: "https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&q=80&w=1200",
-    fullDate: new Date(),
-    typeEvent: "evento",
-    gallery: []
-  },
-  {
-    id: "visita-hospitalar-default",
-    title: "Ação de Solidariedade e Visita",
-    description: "Levando amor, oração e assistência às famílias da comunidade.",
-    date: "Sexta-feira às 15:00",
-    time: "15:00",
-    category: "Social",
-    image: "https://images.unsplash.com/photo-1469571486292-0ba58a3f068b?auto=format&fit=crop&q=80&w=1200",
-    fullDate: new Date(),
-    typeEvent: "visita",
-    gallery: []
-  }
-];
+const DEFAULT_VIDEOS: any[] = [];
+const DEFAULT_EVENTS: any[] = [];
 
 export default function Home() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const [isLive, setIsLive] = useState(false);
   const [nextService, setNextService] = useState("Domingo às 19:00");
-  const [videos, setVideos] = useState<any[]>(DEFAULT_VIDEOS);
+  const [videos, setVideos] = useState<any[]>([]);
   const [myList, setMyList] = useState<string[]>([]);
   const { favorites, favoriteIds, toggleFavorite: toggleFavoriteCtx, isFavorite } = useFavorites();
   const [config, setConfig] = useState<any>({ videoCardsEnabled: true, enableHeaderVideos: true });
@@ -274,8 +156,6 @@ export default function Home() {
           category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
         };
       }));
-    } else if (videosData && videosData.length === 0) {
-      setVideos(DEFAULT_VIDEOS);
     }
   }, [videosData]);
 
@@ -336,9 +216,9 @@ export default function Home() {
     setShowSimilarModal(true);
   };
   const [showAllVideos, setShowAllVideos] = useState(false);
-  const [allEvents, setAllEvents] = useState<any[]>(DEFAULT_EVENTS);
-  const [upcomingEvents, setUpcomingEvents] = useState<any[]>(DEFAULT_EVENTS.filter(e => e.typeEvent !== 'culto'));
-  const [pastEvents, setPastEvents] = useState<any[]>(DEFAULT_EVENTS.filter(e => e.typeEvent !== 'culto'));
+  const [allEvents, setAllEvents] = useState<any[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
+  const [pastEvents, setPastEvents] = useState<any[]>([]);
   const [blogPosts, setBlogPosts] = useState<any[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<any | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -471,11 +351,9 @@ export default function Home() {
           })
           .sort((a: any, b: any) => b.fullDate.getTime() - a.fullDate.getTime());
 
-        if (allEventsData.length > 0) {
-          setAllEvents(allEventsData);
-          setUpcomingEvents(upcoming);
-          setPastEvents(past);
-        }
+        setAllEvents(allEventsData);
+        setUpcomingEvents(upcoming);
+        setPastEvents(past);
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, "posts");
       }
