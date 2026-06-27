@@ -20,6 +20,7 @@ import {
   Loader2,
   Trash2,
   Plus,
+  UserPlus,
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
@@ -138,6 +139,9 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [confirmDeleteCamp, setConfirmDeleteCamp] = useState<SavedCampaign | null>(null);
   const [confirmFinishCamp, setConfirmFinishCamp] = useState<SavedCampaign | null>(null);
+  const [addMemberCamp, setAddMemberCamp] = useState<SavedCampaign | null>(null);
+  const [addMemberSearch, setAddMemberSearch] = useState('');
+  const [addMemberSelectedIds, setAddMemberSelectedIds] = useState<Set<string>>(new Set());
 
   // ─── Image Upload ──────────────────────────────────────────────────────────
   const handleImageFile = async (file: File) => {
@@ -375,15 +379,15 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
       {/* Top Header & 3 Main Tabs Switcher */}
       <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 mb-8 bg-[#120c1a] p-6 rounded-3xl border border-white/10 shadow-xl">
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#BF76FF] to-[#7300FF] flex items-center justify-center shadow-lg shadow-[#BF76FF]/20 text-white shrink-0">
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#3ad900] to-[#aaff00] flex items-center justify-center shadow-lg shadow-[#BF76FF]/20 text-white shrink-0">
             <Megaphone className="w-7 h-7" />
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white">
-              Disparo & CRM WhatsApp
+              Event Manager
             </h1>
             <p className="text-xs text-gray-400 font-medium mt-0.5">
-              Gerencie funis abertos, dispare sequências em massa e verifique o histórico
+              Gerenciamento de custos e organização para eventos
             </p>
           </div>
         </div>
@@ -875,6 +879,16 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
+                    {/* Incluir Membro Button */}
+                    <button
+                      onClick={() => setAddMemberCamp(camp)}
+                      className="px-3 py-1.5 rounded-xl bg-[#BF76FF]/10 hover:bg-[#BF76FF]/20 text-[#BF76FF] border border-[#BF76FF]/20 text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all active:scale-95"
+                      title="Incluir novo membro na campanha"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 font-black" />
+                      <span>+ Membro</span>
+                    </button>
+
                     {/* Concluir Campanha Button */}
                     <button
                       onClick={() => setConfirmFinishCamp(camp)}
@@ -882,20 +896,6 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                     >
                       <Check className="w-3.5 h-3.5 font-black" />
                       <span>Concluir</span>
-                    </button>
-
-                    {/* Recolher / Expandir Button */}
-                    <button
-                      onClick={() => {
-                        updateSavedCampaigns(prev => prev.map(c => c.id === camp.id ? { ...c, isCollapsed: !c.isCollapsed } : c));
-                      }}
-                      className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 text-xs font-bold transition-colors flex items-center gap-1.5"
-                    >
-                      {camp.isCollapsed ? (
-                        <><span>Expandir</span><ChevronDown className="w-3.5 h-3.5" /></>
-                      ) : (
-                        <><span>Recolher</span><ChevronUp className="w-3.5 h-3.5" /></>
-                      )}
                     </button>
 
                     {/* Delete Button */}
@@ -1070,6 +1070,112 @@ export function WhatsAppBlastView({ isDark, members, profile }: WhatsAppBlastVie
                 className="flex-1 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition-all"
               >
                 Sim, Concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── Modal: Adicionar Novo Membro à Campanha ────────────────────── */}
+      {addMemberCamp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setAddMemberCamp(null)}>
+          <div className="bg-[#150f1d] border border-white/10 p-6 rounded-3xl max-w-lg w-full shadow-2xl space-y-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div className="flex items-center gap-2.5">
+                <UserPlus className="w-5 h-5 text-[#BF76FF]" />
+                <h3 className="font-black text-white uppercase text-sm tracking-wide">Incluir Membros na Campanha</h3>
+              </div>
+              <button onClick={() => setAddMemberCamp(null)} className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                type="text"
+                value={addMemberSearch}
+                onChange={e => setAddMemberSearch(e.target.value)}
+                placeholder="Buscar membro por nome..."
+                className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white text-xs font-semibold placeholder:text-gray-600 focus:outline-none focus:border-[#BF76FF]/40"
+              />
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-1.5 min-h-[200px] max-h-[350px] pr-1 scrollbar-hide">
+              {members
+                .filter(m => !addMemberCamp.leads.some(l => l.member.id === m.id))
+                .filter(m => m.name?.toLowerCase().includes(addMemberSearch.toLowerCase().trim()))
+                .map(m => {
+                  const isSel = addMemberSelectedIds.has(m.id);
+                  return (
+                    <div
+                      key={m.id}
+                      onClick={() => {
+                        setAddMemberSelectedIds(prev => {
+                          const next = new Set(prev);
+                          if (next.has(m.id)) next.delete(m.id);
+                          else next.add(m.id);
+                          return next;
+                        });
+                      }}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all duration-150",
+                        isSel ? "bg-[#BF76FF]/15 border-[#BF76FF]/40 text-white" : "bg-white/[0.02] border-white/5 hover:bg-white/5 text-gray-300"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn("w-4 h-4 rounded border flex items-center justify-center shrink-0", isSel ? "bg-[#BF76FF] border-[#BF76FF]" : "border-white/20")}>
+                          {isSel && <Check className="w-3 h-3 text-white font-black" />}
+                        </div>
+                        {m.photoURL || m.photoUrl ? (
+                          <img src={m.photoURL || m.photoUrl} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" alt="" />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-gray-400 font-bold text-xs shrink-0">
+                            {m.name?.charAt(0) || 'M'}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-xs font-bold leading-tight">{m.name}</p>
+                          <p className="text-[10px] text-gray-500">{m.phone || 'Sem telefone'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              {members.filter(m => !addMemberCamp.leads.some(l => l.member.id === m.id)).length === 0 && (
+                <div className="py-12 text-center text-gray-500 text-xs font-medium">
+                  Todos os membros já estão nesta campanha.
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-white/5">
+              <button onClick={() => setAddMemberCamp(null)} className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 font-bold text-xs uppercase tracking-wider transition-colors">
+                Cancelar
+              </button>
+              <button
+                disabled={addMemberSelectedIds.size === 0}
+                onClick={() => {
+                  const membersToAdd = members.filter(m => addMemberSelectedIds.has(m.id));
+                  const newLeads: Lead[] = membersToAdd.map(m => ({
+                    member: m,
+                    status: 'a_enviar',
+                  }));
+
+                  updateSavedCampaigns(prev => prev.map(c => {
+                    if (c.id === addMemberCamp.id) {
+                      return { ...c, leads: [...c.leads, ...newLeads] };
+                    }
+                    return c;
+                  }));
+
+                  setAddMemberCamp(null);
+                  setAddMemberSelectedIds(new Set());
+                  setAddMemberSearch('');
+                }}
+                className="px-5 py-2 rounded-xl bg-[#BF76FF] hover:bg-[#a855f7] disabled:opacity-50 disabled:pointer-events-none text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-[#BF76FF]/20 transition-all"
+              >
+                Adicionar ({addMemberSelectedIds.size})
               </button>
             </div>
           </div>

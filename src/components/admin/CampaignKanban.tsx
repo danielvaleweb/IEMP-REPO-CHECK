@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DndContext,
   closestCorners,
@@ -9,6 +10,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
   useDroppable
 } from '@dnd-kit/core';
 import {
@@ -76,9 +79,8 @@ function KanbanCard({ lead, prefix, onClick }: { lead: Lead; prefix: string; onC
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
-    transition: isDragging ? undefined : transition,
-    zIndex: isDragging ? 99999 : undefined,
-    position: isDragging ? 'relative' : undefined,
+    transition,
+    opacity: isDragging ? 0.3 : 1
   };
 
   const name = lead.member.name || 'Membro';
@@ -92,8 +94,8 @@ function KanbanCard({ lead, prefix, onClick }: { lead: Lead; prefix: string; onC
       {...listeners}
       onClick={onClick}
       className={cn(
-        "bg-[#1a1325] hover:bg-[#231a31] border border-white/5 hover:border-white/10 rounded-2xl p-3.5 transition-all shadow-md group space-y-2.5 select-none",
-        isDragging ? "cursor-grabbing border-[#BF76FF] border-2 shadow-2xl rotate-3 scale-105 bg-[#241935] opacity-95" : "cursor-grab relative"
+        "bg-[#1a1325] hover:bg-[#231a31] border border-white/5 hover:border-white/10 rounded-2xl p-3.5 transition-all shadow-md group space-y-2.5 relative select-none",
+        isDragging ? "cursor-grabbing border-[#BF76FF] border-dashed bg-white/5" : "cursor-grab"
       )}
     >
       <div className="flex items-center gap-3">
@@ -244,6 +246,7 @@ export function CampaignKanban({
   const [commentAttachment, setCommentAttachment] = useState('');
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const [mobileTab, setMobileTab] = useState<LeadStatus>('a_enviar');
+  const [activeDragLead, setActiveDragLead] = useState<Lead | null>(null);
   const [billingPromptLead, setBillingPromptLead] = useState<Lead | null>(null);
   const [tempBillingDate, setTempBillingDate] = useState(() => {
     const d = new Date();
@@ -278,7 +281,14 @@ export function CampaignKanban({
     useSensor(KeyboardSensor)
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const rawId = (event.active.id as string).replace(prefix, '');
+    const lead = leads.find(l => l.member.id === rawId);
+    if (lead) setActiveDragLead(lead);
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragLead(null);
     const { active, over } = event;
     if (!over) return;
 
@@ -394,7 +404,7 @@ export function CampaignKanban({
       </div>
 
       {/* Kanban Columns Grid */}
-      <DndContext sensors={sensors} collisionDetection={customCollision} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={customCollision} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         {/* Desktop View: All Columns */}
         <div className="hidden sm:flex gap-4 overflow-x-auto pb-6 pt-2">
           {COLUMNS.map(col => (
@@ -421,6 +431,29 @@ export function CampaignKanban({
             </div>
           ))}
         </div>
+
+        {createPortal(
+          <DragOverlay dropAnimation={{ duration: 250, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1.22)' }}>
+            {activeDragLead && (
+              <div className="bg-[#241935] border-2 border-[#BF76FF] rounded-2xl p-3.5 shadow-2xl rotate-3 scale-105 cursor-grabbing z-[999999] opacity-95 w-72 pointer-events-none select-none space-y-2.5">
+                <div className="flex items-center gap-3">
+                  {activeDragLead.member.photoURL || activeDragLead.member.photoUrl ? (
+                    <img src={activeDragLead.member.photoURL || activeDragLead.member.photoUrl} className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0" alt="" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center shrink-0">
+                      <User className="w-5 h-5 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold text-white truncate">{activeDragLead.member.name || 'Membro'}</p>
+                    <p className="text-[11px] text-gray-400 truncate">{activeDragLead.member.phone || 'Sem telefone'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </DragOverlay>,
+          document.body
+        )}
       </DndContext>
 
       {/* ─── Modal: Solicitar Data de Cobrança ────────────────────────── */}
