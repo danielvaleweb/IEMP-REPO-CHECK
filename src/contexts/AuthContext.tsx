@@ -88,10 +88,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userRef = doc(db, "members", user.uid);
 
           profileUnsubscribe = onSnapshot(userRef, async (snapshot) => {
-            if (snapshot.exists()) {
-              let profileData = { id: snapshot.id, ...snapshot.data() } as any;
+            let profileData: any = null;
 
-              // Handle linked members
+            if (snapshot.exists()) {
+              profileData = { id: snapshot.id, ...snapshot.data() };
               if (profileData.linkedMemberId) {
                 const linkedRef = doc(db, "members", profileData.linkedMemberId);
                 const linkedSnap = await getDoc(linkedRef);
@@ -99,15 +99,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   profileData = { ...linkedSnap.data(), id: linkedSnap.id, uid: user.uid };
                 }
               }
+            }
 
-              console.log("DEBUG: Perfil atualizado em tempo real:", profileData.name);
+            // RECUPERAÇÃO DE CARGOS POR E-MAIL:
+            // Se não encontrou perfil ou se o perfil atual é apenas "Membro"/"Visitante" pendente,
+            // verifica no Firestore se existe outro documento com o mesmo e-mail que possua o cargo real!
+            if (user.email && (!profileData || profileData.role === "Membro" || profileData.role === "Visitante" || profileData.status === "pending")) {
+              try {
+                const normalizedEmail = user.email.toLowerCase().trim();
+                let qExact = query(collection(db, "members"), where("email", "==", user.email));
+                let qSnap = await getDocs(qExact);
+                if (qSnap.empty) {
+                  const qLower = query(collection(db, "members"), where("email", "==", normalizedEmail));
+                  qSnap = await getDocs(qLower);
+                }
+
+                if (!qSnap.empty) {
+                  const docs = qSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+                  const betterProfile = docs.find(d => d.role && d.role !== "Membro" && d.role !== "Visitante") ||
+                                        docs.find(d => d.status === "active") ||
+                                        docs[0];
+
+                  if (betterProfile && betterProfile.id !== snapshot.id && betterProfile.role !== "Membro" && betterProfile.role !== "Visitante") {
+                    console.log("DEBUG: Cargo restaurado automaticamente pelo e-mail:", betterProfile.name, betterProfile.role);
+                    profileData = { ...betterProfile, uid: user.uid };
+
+                    // Relaciona permanentemente o novo UID com o documento original que tem o cargo
+                    await setDoc(userRef, {
+                      email: user.email,
+                      name: user.displayName || betterProfile.name || "Membro",
+                      linkedMemberId: betterProfile.id,
+                      role: betterProfile.role,
+                      status: betterProfile.status || "active",
+                      updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                  } else if (!profileData && betterProfile) {
+                    profileData = { ...betterProfile, uid: user.uid };
+                    await setDoc(userRef, {
+                      email: user.email,
+                      name: user.displayName || betterProfile.name || "Membro",
+                      linkedMemberId: betterProfile.id,
+                      role: betterProfile.role,
+                      status: betterProfile.status || "active",
+                      updatedAt: new Date().toISOString()
+                    }, { merge: true });
+                  }
+                }
+              } catch (err) {
+                console.error("DEBUG: Erro ao buscar cargo por e-mail:", err);
+              }
+            }
+
+            if (profileData) {
+              console.log("DEBUG: Perfil ativo final:", profileData.name, profileData.role);
               setProfile(profileData);
-
-              // Invalidate cache for members whenever the current profile changes
-              // to ensure consistency across the app
               firestoreService.clearCache("members");
-            } else if (user.email === "iempministerioprofecia@gmail.com") {
-              // Create admin profile if missing
+            } else if (user.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com") {
               console.log("DEBUG: Perfil não encontrado, criando admin.");
               const newProfile = {
                 name: user.displayName || "Admin",

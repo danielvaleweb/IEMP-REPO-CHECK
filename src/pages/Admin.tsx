@@ -4428,7 +4428,11 @@ const Admin = () => {
                         }
 
                         if (!querySnapshot.empty) {
-                          memberDoc = querySnapshot.docs[0];
+                          const docs = querySnapshot.docs;
+                          memberDoc = docs.find(d => {
+                            const r = d.data().role;
+                            return r && r !== "Membro" && r !== "Visitante";
+                          }) || docs.find(d => d.data().status === "active") || docs[0];
                           memberData = memberDoc.data();
                         }
                       } catch (e) {
@@ -11824,11 +11828,31 @@ const Admin = () => {
                                           try {
                                             let data: any[] = [];
                                             if (roleKey === "Diaconia") {
-                                              const [dias, diacas] = await Promise.all([
+                                              const [d1, d2, d3, d4, c1, c2, c3] = await Promise.all([
                                                 firestoreService.getCollection<any>("members", [where("role", "==", "Diácono")], 1000 * 60 * 30),
-                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa")], 1000 * 60 * 30)
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diacono")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "diacono")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diácono (Homem)")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "diaconisa")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa (Mulher)")], 1000 * 60 * 30)
                                               ]);
-                                              data = [...dias, ...diacas];
+                                              data = [...d1, ...d2, ...d3, ...d4, ...c1, ...c2, ...c3];
+                                            } else if (rawRole === "Diácono") {
+                                              const [d1, d2, d3, d4] = await Promise.all([
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diácono")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diacono")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "diacono")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diácono (Homem)")], 1000 * 60 * 30)
+                                              ]);
+                                              data = [...d1, ...d2, ...d3, ...d4];
+                                            } else if (rawRole === "Diaconisa") {
+                                              const [c1, c2, c3] = await Promise.all([
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "diaconisa")], 1000 * 60 * 30),
+                                                firestoreService.getCollection<any>("members", [where("role", "==", "Diaconisa (Mulher)")], 1000 * 60 * 30)
+                                              ]);
+                                              data = [...c1, ...c2, ...c3];
                                             } else {
                                               data = await firestoreService.getCollection<any>("members", [where("role", "==", rawRole)], 1000 * 60 * 30);
                                             }
