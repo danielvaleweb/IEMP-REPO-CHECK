@@ -18,10 +18,68 @@ import { cn, getImageUrl } from "@/lib/utils";
 import { useCachedCollection, useCachedDoc } from "@/hooks/useFirestore";
 import { firestoreService } from "@/services/firestoreService";
 
+const DEFAULT_VIDEOS = [
+  {
+    id: "M7lc1UVf-VE",
+    title: "Culto da Família - Ministério Profecia",
+    badge: "Culto",
+    description: "Assista à mensagem inspiradora e abençoada do Ministério Profecia para a sua família.",
+    thumbnail: "https://img.youtube.com/vi/M7lc1UVf-VE/hqdefault.jpg",
+    published: "Recentemente",
+    link: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    tags: ["Pregação", "Família", "Louvor"],
+    category: "PREGAÇÃO"
+  },
+  {
+    id: "aqz-KE-bpKQ",
+    title: "Culto de Celebração e Adoração",
+    badge: "Culto",
+    description: "Venha adorar a Deus conosco em mais um culto repleto da presença do Espírito Santo.",
+    thumbnail: "https://img.youtube.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
+    published: "Recentemente",
+    link: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+    tags: ["Adoração", "Celebração"],
+    category: "PREGAÇÃO"
+  },
+  {
+    id: "jNQXAC9IVRw",
+    title: "Mensagem de Fé e Esperança",
+    badge: "Mensagem",
+    description: "Uma palavra edificante para fortalecer a sua fé e a caminhada cristã diária.",
+    thumbnail: "https://img.youtube.com/vi/jNQXAC9IVRw/hqdefault.jpg",
+    published: "Recentemente",
+    link: "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+    tags: ["Palavra", "Fé"],
+    category: "PREGAÇÃO"
+  },
+  {
+    id: "M7lc1UVf-VE",
+    title: "Culto de Oração e Libertação",
+    badge: "Culto",
+    description: "Um tempo poderoso de clamor, libertação e comunhão com Deus.",
+    thumbnail: "https://img.youtube.com/vi/M7lc1UVf-VE/hqdefault.jpg",
+    published: "Recentemente",
+    link: "https://www.youtube.com/watch?v=M7lc1UVf-VE",
+    tags: ["Oração", "Libertação"],
+    category: "PREGAÇÃO"
+  },
+  {
+    id: "aqz-KE-bpKQ",
+    title: "Escola Bíblica Dominical - Ensinamentos",
+    badge: "EBD",
+    description: "Aprofunde seu conhecimento na Palavra de Deus através de nossos estudos bíblicos.",
+    thumbnail: "https://img.youtube.com/vi/aqz-KE-bpKQ/hqdefault.jpg",
+    published: "Recentemente",
+    link: "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+    tags: ["Estudo", "EBD"],
+    category: "EBD"
+  }
+];
+
 export default function Videos() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [videos, setVideos] = useState<any[]>([]);
+  const [videos, setVideos] = useState<any[]>(DEFAULT_VIDEOS);
   const [myList, setMyList] = useState<any[]>([]);
   const [myListIds, setMyListIds] = useState<string[]>([]);
   const { favorites, favoriteIds, toggleFavorite: toggleFavoriteCtx, isFavorite } = useFavorites();
@@ -46,7 +104,7 @@ export default function Videos() {
   }, [generalSettings]);
 
   useEffect(() => {
-    if (videosData) {
+    if (videosData && videosData.length > 0) {
       setVideos(videosData.map(data => {
         const url = data.url || "";
         const getYoutubeId = (u: string) => {
@@ -86,6 +144,8 @@ export default function Videos() {
           category: data.category || (data.title?.toLowerCase().includes("pregação") ? "pregação" : "geral")
         };
       }));
+    } else if (videosData && videosData.length === 0) {
+      setVideos(DEFAULT_VIDEOS);
     }
   }, [videosData]);
 
