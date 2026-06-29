@@ -101,52 +101,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
 
-            // RECUPERAÇÃO DE CARGOS POR E-MAIL:
-            // Se não encontrou perfil ou se o perfil atual é apenas "Membro"/"Visitante" pendente,
-            // verifica no Firestore se existe outro documento com o mesmo e-mail que possua o cargo real!
-            if (user.email && (!profileData || profileData.role === "Membro" || profileData.role === "Visitante" || profileData.status === "pending")) {
+            // RECUPERAÇÃO E VINCULAÇÃO DE PERFIL POR E-MAIL:
+            // Se o usuário logou via Google ou E-mail e possui um cadastro prévio no banco sob outro ID,
+            // vinculamos automaticamente para que ele nunca perca seu perfil, nome ou histórico!
+            if (user.email && (!profileData || !profileData.linkedMemberId || profileData.role === "Membro" || profileData.role === "Visitante" || profileData.status === "pending" || profileData.name === "Membro")) {
               try {
                 const normalizedEmail = user.email.toLowerCase().trim();
+                let docs: any[] = [];
+
                 let qExact = query(collection(db, "members"), where("email", "==", user.email));
                 let qSnap = await getDocs(qExact);
-                if (qSnap.empty) {
+                if (!qSnap.empty) {
+                  docs = qSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+                } else {
                   const qLower = query(collection(db, "members"), where("email", "==", normalizedEmail));
                   qSnap = await getDocs(qLower);
-                }
-
-                if (!qSnap.empty) {
-                  const docs = qSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-                  const betterProfile = docs.find(d => d.role && d.role !== "Membro" && d.role !== "Visitante") ||
-                                        docs.find(d => d.status === "active") ||
-                                        docs[0];
-
-                  if (betterProfile && betterProfile.id !== snapshot.id && betterProfile.role !== "Membro" && betterProfile.role !== "Visitante") {
-                    console.log("DEBUG: Cargo restaurado automaticamente pelo e-mail:", betterProfile.name, betterProfile.role);
-                    profileData = { ...betterProfile, uid: user.uid };
-
-                    // Relaciona permanentemente o novo UID com o documento original que tem o cargo
-                    await setDoc(userRef, {
-                      email: user.email,
-                      name: user.displayName || betterProfile.name || "Membro",
-                      linkedMemberId: betterProfile.id,
-                      role: betterProfile.role,
-                      status: betterProfile.status || "active",
-                      updatedAt: new Date().toISOString()
-                    }, { merge: true });
-                  } else if (!profileData && betterProfile) {
-                    profileData = { ...betterProfile, uid: user.uid };
-                    await setDoc(userRef, {
-                      email: user.email,
-                      name: user.displayName || betterProfile.name || "Membro",
-                      linkedMemberId: betterProfile.id,
-                      role: betterProfile.role,
-                      status: betterProfile.status || "active",
-                      updatedAt: new Date().toISOString()
-                    }, { merge: true });
+                  if (!qSnap.empty) {
+                    docs = qSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
+                  } else {
+                    // Fallback definitivo: busca todos e filtra ignorando maiúsculas e espaços em branco
+                    const allSnap = await getDocs(collection(db, "members"));
+                    docs = allSnap.docs
+                      .map(d => ({ id: d.id, ...d.data() } as any))
+                      .filter(m => m.email && m.email.toLowerCase().trim() === normalizedEmail);
                   }
                 }
+
+                // Encontra o cadastro original (diferente do próprio documento de autenticação recém-criado)
+                const betterProfile = docs.find(d => d.id !== snapshot.id && d.role && d.role !== "Membro" && d.role !== "Visitante") ||
+                                      docs.find(d => d.id !== snapshot.id && d.status === "active") ||
+                                      docs.find(d => d.id !== snapshot.id && d.name && d.name !== "Membro") ||
+                                      docs.find(d => d.id !== snapshot.id);
+
+                if (betterProfile && betterProfile.id !== snapshot.id) {
+                  console.log("DEBUG: Perfil restaurado e vinculado permanentemente pelo e-mail:", betterProfile.name, betterProfile.role);
+                  profileData = { ...betterProfile, id: betterProfile.id, uid: user.uid };
+
+                  const nomeFinal = (betterProfile.name && betterProfile.name !== "Membro") ? betterProfile.name : (user.displayName || "Membro");
+
+                  // Vincula permanentemente o UID de login com o cadastro original
+                  await setDoc(userRef, {
+                    email: user.email,
+                    name: nomeFinal,
+                    linkedMemberId: betterProfile.id,
+                    role: betterProfile.role || "Membro",
+                    status: betterProfile.status || "active",
+                    updatedAt: new Date().toISOString()
+                  }, { merge: true });
+                }
               } catch (err) {
-                console.error("DEBUG: Erro ao buscar cargo por e-mail:", err);
+                console.error("DEBUG: Erro ao vincular perfil por e-mail:", err);
               }
             }
 
