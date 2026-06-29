@@ -117,7 +117,6 @@ const EventosView = lazy(() => import("@/components/admin/EventosView").then(m =
 const EventFeedbacksAdmin = lazy(() => import("@/components/admin/EventFeedbacksAdmin").then(m => ({ default: m.EventFeedbacksAdmin })));
 const SavedLoginsAdmin = lazy(() => import("@/components/admin/SavedLoginsAdmin").then(m => ({ default: m.SavedLoginsAdmin })));
 const ChatInboxView = lazy(() => import("@/components/admin/ChatInboxView").then(m => ({ default: m.ChatInboxView })));
-const WhatsAppBlastView = lazy(() => import("@/components/admin/WhatsAppBlastView").then(m => ({ default: m.WhatsAppBlastView })));
 
 const slugify = (text: string) => {
   return (text || "")
@@ -142,7 +141,6 @@ const ROLE_COLORS: Record<string, string> = {
   "Direção": "#7f009b",
   "Secretaria": "#3b52d3",
   "Desenvolvedor": "#ffffff",
-  "Event Manager": "#25D366",
   "Mídia": "#383838",
   "Diácono": "#824bb4",
   "Diaconisa": "#824bb4",
@@ -1740,7 +1738,6 @@ const Admin = () => {
 
   const isMasterAdmin = user?.email?.toLowerCase().trim() === "iempministerioprofecia@gmail.com";
   const isAdminOrDev = profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || isMasterAdmin;
-  const canManageBlast = isMasterAdmin || profile?.role === "Administradores" || profile?.role === "Desenvolvedor" || profile?.role === "Event Manager";
 
   const [activeViewRole, setActiveViewRole] = useState<string | null>(null);
 
@@ -2245,7 +2242,6 @@ const Admin = () => {
   const [showVisitors, setShowVisitors] = useState(false);
   const [isMemberSelectorOpen, setIsMemberSelectorOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState("");
-  const [showWhatsAppBlast, setShowWhatsAppBlast] = useState(false);
 
   // Computed
   const pendingMembers = members.filter(m => {
@@ -2416,7 +2412,6 @@ const Admin = () => {
   const allRoles = useMemo(() => [
     "Direção",
     "Secretaria",
-    "Event Manager",
     "Desenvolvedor",
     "Mídia",
     "Coord. Mulheres",
@@ -5095,7 +5090,7 @@ const Admin = () => {
                 {canViewTab("agenda") && <SidebarItem icon={Clock} active={activeTab === "agenda" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Agenda" collapsed={true} isDark={isDarkMode} mobile notificationCount={canCreateEventDirectly ? pendingAgendaCount : 0} />}
                 {canViewTab("agenda-direcao") && <SidebarItem icon={CalendarDays} active={activeTab === "agenda-direcao" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("agenda-direcao"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Ag. Direção" collapsed={true} isDark={isDarkMode} mobile />}
                 {canViewTab("ebd") && <SidebarItem icon={GraduationCap} active={activeTab === "ebd" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("ebd"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="EBD" collapsed={true} isDark={isDarkMode} mobile />}
-                {canViewTab("membros") && <SidebarItem icon={Users} active={(activeTab === "membros" || activeTab === "visitantes") && !showWhatsAppBlast && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); setShowVisitors(false); setShowWhatsAppBlast(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembersCount : 0} />}
+                {canViewTab("membros") && <SidebarItem icon={Users} active={(activeTab === "membros" || activeTab === "visitantes") && rightSidebarView === "hidden"} onClick={() => { setActiveTab("membros"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); setShowPending(false); setShowVisitors(false); }} label="Membros" collapsed={true} isDark={isDarkMode} mobile notificationCount={(isMasterAdmin || profile?.role === "Desenvolvedor") ? pendingMembersCount : 0} />}
                 {canViewTab("tons") && <SidebarItem icon={Music} active={activeTab === "tons" && rightSidebarView === "hidden"} onClick={() => { setActiveTab("tons"); setRightSidebarView("hidden"); setIsEditing(false); setSelectedItem(null); setViewingMember(null); }} label="Tons" collapsed={true} isDark={isDarkMode} mobile />}
                 <SidebarItem
                   icon={MessageSquare}
@@ -5255,25 +5250,6 @@ const Admin = () => {
                     </div>
 
                     <div className="flex flex-col gap-2.5 mb-2 w-full">
-                      {canManageBlast && (
-                        <SheetClose
-                          className={cn(
-                            "flex items-center gap-3 p-3.5 rounded-[20px] transition-all border outline-none w-full shadow-lg shadow-[#25D366]/10",
-                            isDarkMode ? "bg-[#25D366]/15 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/25" : "bg-[#25D366]/10 border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20"
-                          )}
-                          onClick={() => {
-                            setActiveTab("membros");
-                            setShowWhatsAppBlast(true);
-                            setShowPending(false);
-                            setViewingMember(null);
-                            setIsEditing(false);
-                            setSelectedItem(null);
-                          }}
-                        >
-                          <PartyPopper className="w-5 h-5 text-[#25D366]" />
-                          <span className="font-black text-[11px] uppercase tracking-wider">Evt Manager</span>
-                        </SheetClose>
-                      )}
                       <SheetClose
                         className={cn(
                           "flex items-center gap-3 p-3.5 rounded-[20px] transition-all border outline-none w-full",
@@ -8847,15 +8823,7 @@ const Admin = () => {
 
               ) : (activeTab === "membros" || activeTab === "visitantes") && !isEditing ? (
                 <div className="space-y-6">
-                  {showWhatsAppBlast && activeTab === "membros" ? (
-                    <Suspense fallback={<ViewLoader />}>
-                      <WhatsAppBlastView
-                        isDark={isDarkMode}
-                        members={members.filter(m => m.status !== 'pending' && m.status !== 'pending_approval')}
-                        profile={profile}
-                      />
-                    </Suspense>
-                  ) : viewingMember ? (
+                  {viewingMember ? (
                     <MemberProfile
                       member={viewingMember}
                       isDark={isDarkMode}
@@ -11694,29 +11662,6 @@ const Admin = () => {
               </button>
             </div>
             <div className="flex gap-2 items-center">
-
-              {canManageBlast && (
-                <button
-                  onClick={() => {
-                    setActiveTab("membros");
-                    setShowWhatsAppBlast(true);
-                    setShowPending(false);
-                    setViewingMember(null);
-                    setIsEditing(false);
-                    setSelectedItem(null);
-                  }}
-                  title="Event Manager"
-                  className={cn(
-                    "relative h-10 px-3.5 rounded-xl flex items-center gap-2 transition-all cursor-pointer select-none shrink-0",
-                    activeTab === "membros" && showWhatsAppBlast
-                      ? "bg-[#25D366] text-white shadow-lg shadow-[#25D366]/20 scale-[1.02]"
-                      : isDarkMode ? "bg-[#25D366]/15 text-[#25D366] hover:bg-[#25D366]/25 border border-[#25D366]/30" : "bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 border border-[#25D366]/20"
-                  )}
-                >
-                  <PartyPopper className="w-4 h-4 shrink-0" />
-                  <span className="font-black text-[11px] uppercase tracking-wider whitespace-nowrap">Evt Manager</span>
-                </button>
-              )}
 
               {canViewTab("avisos") && (
                 <ActionIcon

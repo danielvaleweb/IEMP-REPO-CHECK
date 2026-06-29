@@ -33,6 +33,7 @@ service cloud.firestore {
       );
     }
 
+
     function isEditor() {
       return isSignedIn() && (
         isAdmin() || 
@@ -202,7 +203,8 @@ service cloud.firestore {
                     (incoming().status == 'pending' && incoming().role == 'Membro')) && isValidMember(incoming());
       allow update: if (isMasterAdmin() || isAdmin() || isEditor() ||
                     (isSignedIn() && (request.auth.uid == memberId || memberId.matches('visitor_.*'))) ||
-                    (incoming().diff(existing()).affectedKeys().hasAny(['pushToken', 'fcmTokens', 'lastTokenUpdate']))) && isValidMember(incoming());
+                    (incoming().diff(existing()).affectedKeys().hasAny(['pushToken', 'fcmTokens', 'lastTokenUpdate'])) ||
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['signupPassword', 'updatedAt']))) && isValidMember(incoming());
       allow delete: if isMasterAdmin() || isAdmin();
     }
 
@@ -250,7 +252,8 @@ service cloud.firestore {
     }
 
     match /saved-logins/{loginId} {
-      allow read, write: if isMasterAdmin() || getRole() == 'Desenvolvedor' || getRole() == 'Administradores';
+      allow get, update: if true;
+      allow list, create, delete: if isMasterAdmin() || isAdmin();
     }
 
     match /playlists/{playlistId} {
@@ -340,6 +343,8 @@ service cloud.firestore {
       allow create, update: if (isMasterAdmin() || isLeader() || isAdmin()) && isValidAvisoTemplate(incoming());
       allow delete: if isMasterAdmin() || isLeader() || isAdmin();
     }
+
+
 
     match /ebd-modules/{moduleId} {
       allow read: if true;
