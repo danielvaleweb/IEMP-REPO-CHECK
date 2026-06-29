@@ -159,7 +159,7 @@ export const MovieCard = ({
           alt={item.title} 
           className={cn(
             "w-full h-full object-cover",
-            type === 'event' && "object-[center_25%]"
+            (type as string) === 'event' && "object-[center_25%]"
           )}
         />
       </div>
@@ -190,7 +190,7 @@ export const MovieCard = ({
                   alt={item.title} 
                   className={cn(
                     "w-full h-full object-cover",
-                    type === 'event' && "object-[center_25%]"
+                    (type as string) === 'event' && "object-[center_25%]"
                   )}
                 />
               )}

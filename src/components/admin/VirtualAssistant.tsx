@@ -428,7 +428,7 @@ export function VirtualAssistant({ isDarkMode = true, loginMode = false, activeT
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            onClick={() => setShowHiddenTooltip(false) || setIsHidden(false)}
+            onClick={() => { setShowHiddenTooltip(false); setIsHidden(false); }}
             className={cn(
               "rounded-full hover:bg-black/5 dark:hover:bg-white/5 transition-all w-8 h-8 border-2 border-[#BF76FF] overflow-hidden flex items-center justify-center shrink-0 cursor-pointer shadow-[0_0_15px_rgba(191,118,255,0.4)] relative z-[100]",
               !isDarkMode && "bg-white"

@@ -8,6 +8,17 @@ export default function Footer() {
     return null;
   }
 
+  if (location.pathname === "/gestao") {
+    return (
+      <footer className="bg-[#07070b] border-t border-[#1f1f2e] py-6 px-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-400">
+          <p>© {new Date().getFullYear()} Ministério Profecia - CNPJ 12.009.110/0001-01. Todos os direitos reservados.</p>
+          <p>Desenvolvido com ❤️ para a obra de Deus.</p>
+        </div>
+      </footer>
+    );
+  }
+
   return (
     <footer className="bg-black border-t border-white/5 pt-16 pb-8 px-4">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">

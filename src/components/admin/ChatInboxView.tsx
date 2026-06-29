@@ -58,6 +58,7 @@ interface Message {
   replyToText?: string;
   replyToSenderName?: string;
   reactions?: Record<string, string>;
+  isSystem?: boolean;
 }
 
 interface Chat {

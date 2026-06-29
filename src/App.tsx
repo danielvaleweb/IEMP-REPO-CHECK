@@ -44,6 +44,7 @@ const RadioPage = lazy(() => import("@/pages/Radio"));
 const Servicos = lazy(() => import("@/pages/Servicos"));
 const ResetarSenha = lazy(() => import("@/pages/ResetarSenha"));
 const ClearCache = lazy(() => import("@/pages/ClearCache"));
+const Gestao = lazy(() => import("@/pages/Gestao"));
 
 const PageLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -123,6 +124,7 @@ function AppContent() {
               <Route path="/servicos" element={<Servicos />} />
               <Route path="/resetar-senha" element={<ResetarSenha />} />
               <Route path="/limpar-cache" element={<ClearCache />} />
+              <Route path="/gestao" element={<Gestao />} />
               <Route path="/:page" element={<StaticPages />} />
             </Routes>
           </Suspense>
