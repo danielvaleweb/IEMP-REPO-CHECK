@@ -27,7 +27,7 @@ import { gestaoService } from "@/services/gestaoService";
 import { useAuth } from "@/contexts/AuthContext";
 import { CardMembroItem } from "./CardMembroItem";
 import { CardDetalhesModal } from "./CardDetalhesModal";
-import { ModalCobranca, ModalPagou, ModalSaida, ModalAlterarMensagem, ModalEditarOrganizadores } from "./ModaisKanban";
+import { ModalCobranca, ModalPagou, ModalSaida, ModalAlterarMensagem, ModalEditarOrganizadores, ModalEditarParticipantes } from "./ModaisKanban";
 import { RelatorioCampanhaModal } from "./RelatorioCampanhaModal";
 import { ArrowLeft, PlusCircle, CheckCircle, DollarSign, Users, Settings, Edit3 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -163,6 +163,7 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
   const [configMenuOpen, setConfigMenuOpen] = useState(false);
   const [modalAlterarMsgOpen, setModalAlterarMsgOpen] = useState(false);
   const [modalEditarOrgsOpen, setModalEditarOrgsOpen] = useState(false);
+  const [modalEditarParticipantesOpen, setModalEditarParticipantesOpen] = useState(false);
 
   const orgsListaInicial = (campanha.organizadores_ids && campanha.organizadores_ids.length > 0)
     ? campanha.organizadores_ids.map(id => todosMembros.find(m => m.id === id)).filter(Boolean) as MembroOrganizador[]
@@ -461,6 +462,13 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
                   <span>Editar Organizadores</span>
                 </button>
                 <button
+                  onClick={() => { setConfigMenuOpen(false); setModalEditarParticipantesOpen(true); }}
+                  className="w-full text-left px-4 py-2.5 text-xs font-bold text-sky-400 hover:bg-[#1f1f30] flex items-center gap-2.5 cursor-pointer"
+                >
+                  <Users className="w-4 h-4 text-sky-400" />
+                  <span>Editar Participantes</span>
+                </button>
+                <button
                   onClick={() => { setConfigMenuOpen(false); setModalSaidaOpen(true); }}
                   className="w-full text-left px-4 py-2.5 text-xs font-bold text-rose-400 hover:bg-[#1f1f30] flex items-center gap-2.5 cursor-pointer"
                 >
@@ -591,6 +599,33 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
             setModalEditarOrgsOpen(false);
           } catch (err) {
             console.error("Erro ao atualizar organizadores:", err);
+          }
+        }}
+      />
+
+      <ModalEditarParticipantes
+        isOpen={modalEditarParticipantesOpen}
+        onClose={() => setModalEditarParticipantesOpen(false)}
+        cards={cards}
+        todosMembros={todosMembros}
+        onAddMembros={async (ids) => {
+          try {
+            await gestaoService.addParticipantes(
+              campanha.id,
+              ids,
+              todosMembros,
+              usuarioId,
+              usuarioNome
+            );
+          } catch (err) {
+            console.error("Erro ao adicionar participantes:", err);
+          }
+        }}
+        onRemoveCard={async (cardId) => {
+          try {
+            await gestaoService.removeParticipante(cardId);
+          } catch (err) {
+            console.error("Erro ao remover participante:", err);
           }
         }}
       />

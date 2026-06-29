@@ -3,6 +3,7 @@ import {
   doc, 
   addDoc, 
   updateDoc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
@@ -318,5 +319,38 @@ export const gestaoService = {
       mensagem_template: novaMensagem,
       campos_pagamento: novosCamposPagamento
     });
+  },
+  // Atualizar participantes da campanha (re-cria os cards existentes com membros novos)
+  async addParticipantes(
+    campanhaId: string,
+    membroIds: string[],
+    todosMembros: MembroOrganizador[],
+    usuarioId: string,
+    usuarioNome: string
+  ) {
+    const agora = new Date().toISOString();
+    for (const id of membroIds) {
+      const m = todosMembros.find(x => x.id === id);
+      if (!m) continue;
+      await addDoc(collection(db, "gestao_cards"), {
+        campanha_id: campanhaId,
+        membro_id: m.id,
+        membro_nome: m.name,
+        membro_foto: m.photoUrl || null,
+        membro_telefone: m.phone || null,
+        pipeline: "a_contatar",
+        valor_pago: 0,
+        data_cobranca: null,
+        criado_em: agora,
+        criado_por_id: usuarioId,
+        criado_por_nome: usuarioNome
+      });
+    }
+  },
+
+  // Remover participante da campanha (remove o card)
+  async removeParticipante(cardId: string) {
+    await deleteDoc(doc(db, "gestao_cards", cardId));
   }
 };
+

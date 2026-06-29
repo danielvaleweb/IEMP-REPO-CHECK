@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { MembroOrganizador } from "@/types/GestaoTypes";
-import { X, Calendar, DollarSign, Upload, Link as LinkIcon, PlusCircle } from "lucide-react";
+import { X, Calendar, DollarSign, Upload, Link as LinkIcon, PlusCircle, Users, UserMinus, UserPlus } from "lucide-react";
 
 interface ModalCobrancaProps {
   isOpen: boolean;
@@ -594,3 +594,215 @@ export const ModalEditarOrganizadores: React.FC<{
     </div>
   );
 };
+
+// ─────────────────────────────────────────────────────────────
+// MODAL: Editar Participantes da Campanha
+// ─────────────────────────────────────────────────────────────
+interface CardResumido { id: string; membro_nome: string; membro_foto?: string | null; membro_id: string; pipeline: string; }
+
+export const ModalEditarParticipantes: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  cards: CardResumido[];
+  todosMembros: MembroOrganizador[];
+  onAddMembros: (ids: string[]) => Promise<void>;
+  onRemoveCard: (cardId: string) => Promise<void>;
+}> = ({ isOpen, onClose, cards, todosMembros, onAddMembros, onRemoveCard }) => {
+  const [aba, setAba] = useState<"participantes" | "adicionar">("participantes");
+  const [filtro, setFiltro] = useState("");
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [removendo, setRemovendo] = useState<Set<string>>(new Set());
+  const [adicionando, setAdicionando] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setSelecionados(new Set());
+      setFiltro("");
+      setAba("participantes");
+      setRemovendo(new Set());
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  // IDs já na campanha para não duplicar
+  const idsJaNaCampanha = new Set(cards.map(c => c.membro_id));
+
+  const membrosDisponiveis = todosMembros.filter(
+    m => !idsJaNaCampanha.has(m.id) && m.name.toLowerCase().includes(filtro.toLowerCase())
+  );
+
+  const participantesFiltrados = cards.filter(c =>
+    c.membro_nome.toLowerCase().includes(filtro.toLowerCase())
+  );
+
+  const toggleSel = (id: string) => {
+    const next = new Set(selecionados);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelecionados(next);
+  };
+
+  const handleAdicionarSelecionados = async () => {
+    if (selecionados.size === 0) return;
+    setAdicionando(true);
+    try {
+      await onAddMembros(Array.from(selecionados));
+      setSelecionados(new Set());
+      setAba("participantes");
+    } finally {
+      setAdicionando(false);
+    }
+  };
+
+  const handleRemover = async (cardId: string) => {
+    if (!confirm("Remover este participante da campanha?")) return;
+    setRemovendo(prev => new Set(prev).add(cardId));
+    try {
+      await onRemoveCard(cardId);
+    } finally {
+      setRemovendo(prev => { const s = new Set(prev); s.delete(cardId); return s; });
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[1001] flex items-center justify-center pt-24 pb-6 px-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-full max-w-xl max-h-[85vh] flex flex-col bg-[#120f17] border border-[#262036] text-white rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-[#262036] bg-[#181424]">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-sky-400" />
+            <h3 className="text-lg font-bold">Editar Participantes</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-white rounded-lg cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Abas */}
+        <div className="flex border-b border-[#262036]">
+          <button
+            onClick={() => { setAba("participantes"); setFiltro(""); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold transition-all cursor-pointer ${aba === "participantes" ? "text-sky-400 border-b-2 border-sky-400 bg-sky-400/5" : "text-gray-400 hover:text-white"}`}
+          >
+            <UserMinus className="w-4 h-4" />
+            Participantes ({cards.length})
+          </button>
+          <button
+            onClick={() => { setAba("adicionar"); setFiltro(""); }}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold transition-all cursor-pointer ${aba === "adicionar" ? "text-emerald-400 border-b-2 border-emerald-400 bg-emerald-400/5" : "text-gray-400 hover:text-white"}`}
+          >
+            <UserPlus className="w-4 h-4" />
+            Adicionar Membro
+          </button>
+        </div>
+
+        {/* Busca */}
+        <div className="px-6 pt-4">
+          <input
+            type="text"
+            placeholder={aba === "participantes" ? "Buscar participante..." : "Buscar membro para adicionar..."}
+            value={filtro}
+            onChange={e => setFiltro(e.target.value)}
+            className="w-full bg-[#0c0a10] border border-[#262036] rounded-xl px-4 py-2.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-primary"
+          />
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 overflow-y-auto p-6 pt-3 space-y-2">
+          {aba === "participantes" ? (
+            participantesFiltrados.length === 0 ? (
+              <div className="py-10 text-center text-gray-500 text-xs">Nenhum participante encontrado.</div>
+            ) : (
+              participantesFiltrados.map(c => (
+                <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#181424] border border-[#262036]">
+                  {c.membro_foto ? (
+                    <img src={c.membro_foto} alt={c.membro_nome} className="w-8 h-8 rounded-full object-cover shrink-0 border border-[#262036]" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-sky-500/20 text-sky-400 font-bold flex items-center justify-center text-xs shrink-0">
+                      {c.membro_nome.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold truncate text-white">{c.membro_nome}</p>
+                    <p className="text-[10px] text-gray-400 capitalize">{c.pipeline.replace(/_/g, " ")}</p>
+                  </div>
+                  <button
+                    onClick={() => handleRemover(c.id)}
+                    disabled={removendo.has(c.id)}
+                    className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all disabled:opacity-50 cursor-pointer"
+                    title="Remover participante"
+                  >
+                    {removendo.has(c.id) ? (
+                      <div className="w-4 h-4 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <UserMinus className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              ))
+            )
+          ) : (
+            <>
+              {selecionados.size > 0 && (
+                <div className="text-[10px] text-emerald-400 font-bold text-center mb-2">
+                  {selecionados.size} selecionado(s)
+                </div>
+              )}
+              {membrosDisponiveis.length === 0 ? (
+                <div className="py-10 text-center text-gray-500 text-xs">Todos os membros já estão na campanha ou não foram encontrados.</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {membrosDisponiveis.map(m => {
+                    const sel = selecionados.has(m.id);
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => toggleSel(m.id)}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer select-none transition-all ${sel ? "bg-emerald-500/15 border-emerald-500 text-white" : "bg-[#181424] border-[#262036] text-gray-300 hover:text-white"}`}
+                      >
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${sel ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-500"}`}>
+                          {sel && <span className="text-[10px] font-bold">✓</span>}
+                        </div>
+                        {m.photoUrl ? (
+                          <img src={m.photoUrl} alt={m.name} className="w-7 h-7 rounded-full object-cover shrink-0 border border-[#262036]" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-400 font-bold flex items-center justify-center text-xs shrink-0">
+                            {m.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="text-xs font-bold truncate">{m.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-[#262036] bg-[#181424] flex items-center justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl border border-[#262036] text-xs text-gray-300 hover:text-white cursor-pointer">
+            Fechar
+          </button>
+          {aba === "adicionar" && selecionados.size > 0 && (
+            <button
+              onClick={handleAdicionarSelecionados}
+              disabled={adicionando}
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer shadow-lg shadow-emerald-500/20 disabled:opacity-60 transition-all"
+            >
+              {adicionando ? (
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <UserPlus className="w-4 h-4" />
+              )}
+              Adicionar {selecionados.size > 0 ? `(${selecionados.size})` : ""}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
