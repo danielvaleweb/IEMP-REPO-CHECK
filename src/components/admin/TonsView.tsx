@@ -195,18 +195,23 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
     playTrack(track, [track]);
   };
 
+
+  const normalizeString = (str: string) => {
+    return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  };
+
   const filteredVocalists = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = normalizeString(searchQuery);
     if (!query) return vocalists;
     return vocalists.filter(v => {
-      const nameMatches = v.name.toLowerCase().includes(query);
+      const nameMatches = normalizeString(v.name).includes(query);
       if (nameMatches) return true;
 
       const vocalistSongs = songs.filter(s => s.memberId === v.id);
       return vocalistSongs.some(s => 
-        s.name.toLowerCase().includes(query) || 
-        s.key.toLowerCase().includes(query) ||
-        (s.singer && s.singer.toLowerCase().includes(query))
+        normalizeString(s.name).includes(query) || 
+        normalizeString(s.key).includes(query) ||
+        (s.singer && normalizeString(s.singer).includes(query))
       );
     });
   }, [vocalists, songs, searchQuery]);
@@ -222,17 +227,26 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="relative w-full md:w-64">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#BF76FF]" />
+          <div className="relative w-full md:w-72">
+            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#BF76FF]" />
             <Input
-              placeholder="Buscar vocalista, música ou tom..."
+              placeholder="Buscar música, cantor ou tom..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
-                "pl-10 h-11 rounded-2xl border-none transition-all focus:ring-1 focus:ring-[#BF76FF]/40",
-                isDark ? "bg-white/5 focus:bg-white/10" : "bg-black/5 focus:bg-black/10 shadow-sm"
+                "pl-10 pr-9 h-11 rounded-2xl border-none transition-all focus:ring-1 focus:ring-[#BF76FF]/40 text-sm font-medium",
+                isDark ? "bg-white/5 focus:bg-white/10 text-white" : "bg-black/5 focus:bg-black/10 text-black shadow-sm"
               )}
             />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#BF76FF] transition-colors"
+                title="Limpar busca"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -240,8 +254,20 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
       <div className="grid grid-cols-1 gap-2">
         {filteredVocalists.length > 0 ? (
           filteredVocalists.map((vocalist) => {
-            const vocalistSongs = songs.filter(s => s.memberId === vocalist.id);
-            const isExpanded = expandedVocalists.has(vocalist.id);
+            const allVocalistSongs = songs.filter(s => s.memberId === vocalist.id);
+            const query = normalizeString(searchQuery);
+            const vocalistNameMatches = query ? normalizeString(vocalist.name).includes(query) : false;
+
+            const vocalistSongs = query && !vocalistNameMatches
+              ? allVocalistSongs.filter(s => 
+                  normalizeString(s.name).includes(query) || 
+                  normalizeString(s.key).includes(query) ||
+                  (s.singer && normalizeString(s.singer).includes(query))
+                )
+              : allVocalistSongs;
+
+            const isExpanded = query ? true : expandedVocalists.has(vocalist.id);
+
             return (
               <Card
                 key={vocalist.id}
@@ -266,8 +292,12 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                   {/* Name + badge */}
                   <div className="flex-1 min-w-0">
                     <h3 className={cn("font-black text-base truncate leading-tight", isDark ? "text-white" : "text-black")}>{vocalist.name}</h3>
-                    <div className={cn("mt-0.5 inline-flex px-2 py-0.5 rounded-lg text-[10px] font-bold", isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500")}>
-                      {vocalistSongs.length} {vocalistSongs.length === 1 ? 'música' : 'músicas'}
+                    <div className={cn("mt-0.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold", query ? "bg-[#BF76FF]/15 text-[#BF76FF]" : isDark ? "bg-white/5 text-gray-400" : "bg-gray-100 text-gray-500")}>
+                      {query && vocalistSongs.length !== allVocalistSongs.length ? (
+                        <span>{vocalistSongs.length} {vocalistSongs.length === 1 ? 'encontrada' : 'encontradas'} (de {allVocalistSongs.length})</span>
+                      ) : (
+                        <span>{allVocalistSongs.length} {allVocalistSongs.length === 1 ? 'música' : 'músicas'}</span>
+                      )}
                     </div>
                   </div>
 
@@ -316,7 +346,7 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                               isDark ? "bg-white/5 border-white/5 hover:bg-white/[0.08]" : "bg-gray-50 border-black/5 hover:bg-gray-100"
                             )}
                           >
-                            <div className="flex items-center gap-3 min-w-0">
+                            <div className="flex items-center gap-3 min-w-0 flex-1 pr-2">
                               <div
                                 className={cn(
                                   "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 cursor-pointer transition-all",
@@ -332,7 +362,9 @@ export function TonsView({ isDark, members, canCreate, canEdit, canDelete }: {
                               </div>
                               <div className="truncate">
                                 <p className={cn("font-bold text-sm truncate", isDark ? "text-white" : "text-black")}>{song.name}</p>
-                                <p className={cn("text-[10px] opacity-50 truncate", isDark ? "text-gray-400" : "text-gray-500")}>Ref: {song.singer || 'N/A'}</p>
+                                <p className={cn("text-xs font-medium truncate mt-0.5", isDark ? "text-gray-300" : "text-gray-600")}>
+                                  Cantor(a): <span className={cn("font-semibold", isDark ? "text-[#BF76FF]" : "text-[#9d4edd]")}>{song.singer || 'Não informado'}</span>
+                                </p>
                               </div>
                             </div>
 
