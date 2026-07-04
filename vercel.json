@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/index.ts": {
-      "includeFiles": "{index.html,dist/**}"
+      "includeFiles": ["index.html", "dist/**"]
     }
   },
   "rewrites": [

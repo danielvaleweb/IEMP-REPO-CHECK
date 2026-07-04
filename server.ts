@@ -590,7 +590,11 @@ function getHtmlTemplate(): string | null {
     path.join(__dirname, "../dist/index.html"),
     path.join(__dirname, "../index.html"),
     path.join(__dirname, "dist/index.html"),
-    path.join(__dirname, "index.html")
+    path.join(__dirname, "index.html"),
+    path.join("/var/task", "dist", "index.html"),
+    path.join("/var/task", "index.html"),
+    path.resolve("dist/index.html"),
+    path.resolve("index.html")
   ];
   for (const p of possiblePaths) {
     try {
@@ -614,9 +618,9 @@ app.get(["/galeria", "/galeria/*"], async (req, res, next) => {
     const albumId = req.query.album as string;
     const photoUrl = req.query.photo as string;
 
-    const html = getHtmlTemplate();
+    let html = getHtmlTemplate();
     if (!html) {
-      return next();
+      html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8" /><title>Galeria | Ministério Profecia</title><meta property="og:title" content="Galeria | Ministério Profecia" /><meta property="og:image" content="https://i.imgur.com/hAcnt1E.png" /></head><body></body></html>`;
     }
 
     let albumTitle = "Galeria de Fotos";
@@ -625,19 +629,35 @@ app.get(["/galeria", "/galeria/*"], async (req, res, next) => {
     if (albumId) {
       try {
         let docData: any = null;
-        if (adminDb) {
-          const docSnap = await adminDb.collection("posts").doc(albumId).get();
-          if (docSnap.exists) docData = docSnap.data();
-        } else if (clientDb) {
-          const docSnap = await getClientDoc(clientDoc(clientDb, "posts", albumId));
+        
+        const fetchWithTimeout = async (promise: Promise<any>, ms = 1500) => {
+          let timer: any;
+          const timeoutPromise = new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error("Timeout ao buscar álbum")), ms);
+          });
+          try {
+            const res = await Promise.race([promise, timeoutPromise]);
+            clearTimeout(timer);
+            return res;
+          } catch (err) {
+            clearTimeout(timer);
+            throw err;
+          }
+        };
+
+        if (clientDb) {
+          const docSnap = await fetchWithTimeout(getClientDoc(clientDoc(clientDb, "posts", albumId)));
           if (docSnap.exists()) docData = docSnap.data();
+        } else if (adminDb) {
+          const docSnap = await fetchWithTimeout(adminDb.collection("posts").doc(albumId).get());
+          if (docSnap.exists) docData = docSnap.data();
         }
         if (docData) {
           if (docData.title) albumTitle = docData.title;
           if (docData.image) albumCover = docData.image;
         }
       } catch (e) {
-        console.error("Erro ao buscar álbum no Firestore para OG:", e);
+        console.error("Erro ou timeout ao buscar álbum no Firestore para OG:", e);
       }
     }
 

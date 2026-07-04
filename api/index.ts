@@ -291,7 +291,11 @@ function getHtmlTemplate(): string | null {
     path.join(__dirname, "../dist/index.html"),
     path.join(__dirname, "../index.html"),
     path.join(__dirname, "dist/index.html"),
-    path.join(__dirname, "index.html")
+    path.join(__dirname, "index.html"),
+    path.join("/var/task", "dist", "index.html"),
+    path.join("/var/task", "index.html"),
+    path.resolve("dist/index.html"),
+    path.resolve("index.html")
   ];
   for (const p of possiblePaths) {
     try {
@@ -309,9 +313,25 @@ app.get(["/galeria", "/galeria/*"], async (req, res) => {
     const albumId = req.query.album as string;
     const photoUrl = req.query.photo as string;
 
-    const html = getHtmlTemplate();
+    let html = getHtmlTemplate();
     if (!html) {
-      return res.status(500).send("Template HTML não encontrado no servidor.");
+      // Fallback HTML garantido se o arquivo estático não for encontrado na Lambda
+      html = `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Galeria de Fotos | Ministério Profecia</title>
+    <meta property="og:title" content="Galeria de Fotos | Ministério Profecia" />
+    <meta property="og:site_name" content="Ministério Profecia" />
+    <meta property="og:description" content="Confira a galeria de fotos e álbuns oficiais do Ministério Profecia." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://i.imgur.com/hAcnt1E.png" />
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`;
     }
 
     let albumTitle = "Galeria de Fotos";
@@ -321,19 +341,36 @@ app.get(["/galeria", "/galeria/*"], async (req, res) => {
       try {
         const { adminDb, clientDb } = getFirebase();
         let docData: any = null;
-        if (adminDb) {
-          const docSnap = await adminDb.collection("posts").doc(albumId).get();
-          if (docSnap.exists) docData = docSnap.data();
-        } else if (clientDb) {
-          const docSnap = await getClientDoc(clientDoc(clientDb, "posts", albumId));
+        
+        // Helper para rodar com timeout de 1500ms (evita que o WhatsApp dê timeout em ~3s)
+        const fetchWithTimeout = async (promise: Promise<any>, ms = 1500) => {
+          let timer: any;
+          const timeoutPromise = new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error("Timeout ao buscar álbum")), ms);
+          });
+          try {
+            const res = await Promise.race([promise, timeoutPromise]);
+            clearTimeout(timer);
+            return res;
+          } catch (err) {
+            clearTimeout(timer);
+            throw err;
+          }
+        };
+
+        if (clientDb) {
+          const docSnap = await fetchWithTimeout(getClientDoc(clientDoc(clientDb, "posts", albumId)));
           if (docSnap.exists()) docData = docSnap.data();
+        } else if (adminDb) {
+          const docSnap = await fetchWithTimeout(adminDb.collection("posts").doc(albumId).get());
+          if (docSnap.exists) docData = docSnap.data();
         }
         if (docData) {
           if (docData.title) albumTitle = docData.title;
           if (docData.image) albumCover = docData.image;
         }
       } catch (e) {
-        console.error("Erro ao buscar álbum no Firestore para OG:", e);
+        console.error("Erro ou timeout ao buscar álbum no Firestore para OG:", e);
       }
     }
 
@@ -376,13 +413,12 @@ app.get(["/galeria", "/galeria/*"], async (req, res) => {
     res.send(modifiedHtml);
   } catch (error: any) {
     console.error("Erro na rota /galeria OG:", error);
-    const html = getHtmlTemplate();
-    if (html) {
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.send(html);
-    } else {
-      res.status(500).send("Erro interno ao carregar a página.");
+    let html = getHtmlTemplate();
+    if (!html) {
+      html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8" /><title>Galeria | Ministério Profecia</title><meta property="og:title" content="Galeria | Ministério Profecia" /><meta property="og:image" content="https://i.imgur.com/hAcnt1E.png" /></head><body></body></html>`;
     }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(html);
   }
 });
 
