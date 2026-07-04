@@ -7,8 +7,28 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index" },
     { "source": "/backend/(.*)", "destination": "/api/index" },
-    { "source": "/galeria", "destination": "/api/index" },
-    { "source": "/galeria/(.*)", "destination": "/api/index" },
+    {
+      "source": "/galeria",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|whatsapp|facebook|twitter|telegram|discord|linkedin|bot|Bot|crawler|spider|preview|externalhit).*"
+        }
+      ],
+      "destination": "/api/index"
+    },
+    {
+      "source": "/galeria/(.*)",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(WhatsApp|whatsapp|facebook|twitter|telegram|discord|linkedin|bot|Bot|crawler|spider|preview|externalhit).*"
+        }
+      ],
+      "destination": "/api/index"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
