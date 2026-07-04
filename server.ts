@@ -553,6 +553,137 @@ const PORT = 3000;
     }
   });
 
+// Helper para formatar URL de imagem para o Open Graph (WhatsApp/Redes Sociais)
+function formatOgImage(url: string | undefined | null): string {
+  if (!url) return "https://i.imgur.com/hAcnt1E.png";
+
+  if (url.includes("drive.google.com") || url.includes("googleusercontent.com")) {
+    let fileId = "";
+    const matchId = url.match(/[?&]id=([^&]+)/);
+    if (matchId && matchId[1]) {
+      fileId = matchId[1];
+    } else {
+      const matchD = url.match(/\/d\/([^/]+)/);
+      if (matchD && matchD[1]) {
+        fileId = matchD[1];
+      }
+    }
+    if (fileId) {
+      return `https://lh3.googleusercontent.com/d/${fileId}=w1000`;
+    }
+  }
+
+  if (url.includes("res.cloudinary.com") && url.includes("/upload/")) {
+    if (!url.includes("q_auto") && !url.includes("f_auto")) {
+      return url.replace("/upload/", "/upload/q_auto/f_auto/");
+    }
+  }
+
+  return url;
+}
+
+// Helper para ler o template HTML (do build dist ou raiz)
+function getHtmlTemplate(): string | null {
+  const possiblePaths = [
+    path.join(process.cwd(), "dist", "index.html"),
+    path.join(process.cwd(), "index.html"),
+    path.join(__dirname, "../dist/index.html"),
+    path.join(__dirname, "../index.html"),
+    path.join(__dirname, "dist/index.html"),
+    path.join(__dirname, "index.html")
+  ];
+  for (const p of possiblePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        return fs.readFileSync(p, "utf-8");
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+// Rota para manipulação dinâmica de Open Graph (WhatsApp / Redes Sociais) para a Galeria
+app.get(["/galeria", "/galeria/*"], async (req, res, next) => {
+  const userAgent = (req.headers["user-agent"] || "").toLowerCase();
+  const isBot = /whatsapp|facebook|twitter|telegram|discord|linkedin|bot|crawler|spider|preview|externalhit/i.test(userAgent);
+  if (process.env.NODE_ENV !== "production" && !isBot) {
+    return next();
+  }
+
+  try {
+    const albumId = req.query.album as string;
+    const photoUrl = req.query.photo as string;
+
+    const html = getHtmlTemplate();
+    if (!html) {
+      return next();
+    }
+
+    let albumTitle = "Galeria de Fotos";
+    let albumCover = "";
+
+    if (albumId) {
+      try {
+        let docData: any = null;
+        if (adminDb) {
+          const docSnap = await adminDb.collection("posts").doc(albumId).get();
+          if (docSnap.exists) docData = docSnap.data();
+        } else if (clientDb) {
+          const docSnap = await getClientDoc(clientDoc(clientDb, "posts", albumId));
+          if (docSnap.exists()) docData = docSnap.data();
+        }
+        if (docData) {
+          if (docData.title) albumTitle = docData.title;
+          if (docData.image) albumCover = docData.image;
+        }
+      } catch (e) {
+        console.error("Erro ao buscar álbum no Firestore para OG:", e);
+      }
+    }
+
+    let finalImage = "https://i.imgur.com/hAcnt1E.png";
+    let finalTitle = "Galeria de Fotos | Ministério Profecia";
+    let finalDesc = "Confira a galeria de fotos e álbuns oficiais do Ministério Profecia.";
+
+    if (photoUrl) {
+      finalImage = formatOgImage(photoUrl);
+      finalTitle = `${albumTitle} | Ministério Profecia`;
+      finalDesc = `Confira esta foto do álbum "${albumTitle}" no site oficial do Ministério Profecia.`;
+    } else if (albumId) {
+      finalImage = formatOgImage(albumCover) || "https://i.imgur.com/hAcnt1E.png";
+      finalTitle = `${albumTitle} | Ministério Profecia`;
+      finalDesc = `Confira as fotos do álbum "${albumTitle}" no site oficial do Ministério Profecia.`;
+    }
+
+    const host = req.get("host") || "ministerioprofecia.com.br";
+    const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
+    const currentUrl = `${protocol}://${host}${req.originalUrl}`;
+
+    let modifiedHtml = html
+      .replace(/<title>[^<]*<\/title>/i, `<title>${finalTitle}</title>`)
+      .replace(/<meta\s+property="og:title"\s+content="[^"]*"\s*\/>/i, `<meta property="og:title" content="${finalTitle}" />`)
+      .replace(/<meta\s+property="og:description"\s+content="[^"]*"\s*\/>/i, `<meta property="og:description" content="${finalDesc}" />`)
+      .replace(/<meta\s+property="og:image"\s+content="[^"]*"\s*\/>/i, `<meta property="og:image" content="${finalImage}" />`);
+
+    const extraMeta = `
+    <meta property="og:image:secure_url" content="${finalImage}" />
+    <meta property="og:url" content="${currentUrl}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${finalTitle}" />
+    <meta name="twitter:description" content="${finalDesc}" />
+    <meta name="twitter:image" content="${finalImage}" />`;
+
+    modifiedHtml = modifiedHtml.replace(/<\/head>/i, `${extraMeta}\n  </head>`);
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=300, s-maxage=600");
+    res.send(modifiedHtml);
+  } catch (error: any) {
+    console.error("Erro na rota /galeria OG:", error);
+    next();
+  }
+});
+
   if (process.env.NODE_ENV !== "production") {
     const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
