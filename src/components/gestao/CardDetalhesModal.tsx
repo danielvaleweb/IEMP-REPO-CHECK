@@ -49,10 +49,13 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
   const [abaAtiva, setAbaAtiva] = useState<'historico' | 'comentarios'>('historico');
   const [mensagemExpandida, setMensagemExpandida] = useState(false);
 
-  // Pagamento Parcial
+  // Pagamento Parcial & Retirada
   const [modoPagamentoParcial, setModoPagamentoParcial] = useState(false);
+  const [modoRetirarValor, setModoRetirarValor] = useState(false);
   const [valorParcialInput, setValorParcialInput] = useState("");
   const [obsParcialInput, setObsParcialInput] = useState("");
+  const [valorRetirarInput, setValorRetirarInput] = useState("");
+  const [obsRetirarInput, setObsRetirarInput] = useState("");
 
   const [buscaMembro, setBuscaMembro] = useState("");
   const [tipoCobrancaSelecionado, setTipoCobrancaSelecionado] = useState<'pix' | 'link' | 'completo' | null>(null);
@@ -268,6 +271,62 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
     }
   };
 
+  const handleSalvarRetirarValor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(valorRetirarInput);
+    if (isNaN(val) || val <= 0) {
+      alert("Digite um valor válido para retirar.");
+      return;
+    }
+
+    try {
+      card.valor_pago = Math.max(0, (card.valor_pago || 0) - val);
+      card.historico_pagamentos = [
+        ...(card.historico_pagamentos || []),
+        { data: new Date().toISOString(), valor: -val, observacao: obsRetirarInput || "Retirada/Correção de valor" }
+      ];
+      setAtualizacaoLocal(prev => prev + 1);
+      await gestaoService.retirarPagamentoParcial(card, val, obsRetirarInput, usuarioId, usuarioNome);
+      setValorRetirarInput("");
+      setObsRetirarInput("");
+      setModoRetirarValor(false);
+    } catch (err) {
+      console.error("Erro ao retirar valor:", err);
+      alert("Erro ao retirar valor.");
+    }
+  };
+
+  const handleZerarValor = async () => {
+    if (!confirm("Tem certeza que deseja zerar completamente o valor pago (R$ 0,00) deste membro e limpar o histórico de pagamentos?")) return;
+    try {
+      card.valor_pago = 0;
+      card.historico_pagamentos = [];
+      setAtualizacaoLocal(prev => prev + 1);
+      await gestaoService.zerarValorPago(card, usuarioId, usuarioNome);
+      setModoRetirarValor(false);
+    } catch (err) {
+      console.error("Erro ao zerar valor:", err);
+      alert("Erro ao zerar valor.");
+    }
+  };
+
+  const handleRemoverItemHistorico = async (idx: number) => {
+    if (!confirm("Tem certeza que deseja remover este registro de pagamento? O valor será ajustado automaticamente no saldo pago.")) return;
+    try {
+      const hist = card.historico_pagamentos || [];
+      const item = hist[idx];
+      if (item) {
+        card.valor_pago = Math.max(0, (card.valor_pago || 0) - (item.valor || 0));
+        card.historico_pagamentos = hist.filter((_, i) => i !== idx);
+        setAtualizacaoLocal(prev => prev + 1);
+        await gestaoService.removerItemHistoricoPagamento(card, idx, usuarioId, usuarioNome);
+      }
+    } catch (err) {
+      console.error("Erro ao remover item do histórico:", err);
+      alert("Erro ao remover registro de pagamento.");
+    }
+  };
+
   const formatarData = (isoStr: string) => {
     try {
       const data = new Date(isoStr);
@@ -433,13 +492,30 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                 <DollarSign className="w-4 h-4 text-emerald-400" />
                 <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">Financeiro</h4>
               </div>
-              <button
-                onClick={() => setModoPagamentoParcial(!modoPagamentoParcial)}
-                className="px-3 py-1 rounded-xl bg-primary/20 hover:bg-primary/30 text-primary border border-primary/30 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Valor</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModoRetirarValor(false);
+                    setModoPagamentoParcial(!modoPagamentoParcial);
+                  }}
+                  className="px-3 py-1 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Adicionar</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModoPagamentoParcial(false);
+                    setModoRetirarValor(!modoRetirarValor);
+                  }}
+                  className="px-3 py-1 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                  title="Retirar, estornar ou zerar valor pago"
+                >
+                  <span>- Retirar / Corrigir</span>
+                </button>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -479,25 +555,87 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                   />
                 </div>
                 <div className="flex items-end gap-2">
-                  <button type="submit" className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md">
+                  <button type="submit" className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md cursor-pointer">
                     Registrar
                   </button>
-                  <button type="button" onClick={() => setModoPagamentoParcial(false)} className="px-3 py-2 rounded-xl bg-[#2a2a40] hover:bg-[#3a3a50] text-gray-300 text-xs font-bold">
+                  <button type="button" onClick={() => setModoPagamentoParcial(false)} className="px-3 py-2 rounded-xl bg-[#2a2a40] hover:bg-[#3a3a50] text-gray-300 text-xs font-bold cursor-pointer">
                     Cancelar
                   </button>
                 </div>
               </form>
             )}
 
+            {modoRetirarValor && (
+              <div className="pt-3 border-t border-[#2a2a40] space-y-3 animate-in fade-in duration-150">
+                <div className="flex items-center justify-between bg-rose-500/10 p-2.5 rounded-xl border border-rose-500/20 gap-2">
+                  <span className="text-xs font-bold text-rose-300">Deseja retirar uma quantia ou zerar completamente o pagamento?</span>
+                  <button
+                    type="button"
+                    onClick={handleZerarValor}
+                    className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md cursor-pointer shrink-0 transition-transform active:scale-95"
+                  >
+                    Zerar Tudo (R$ 0,00)
+                  </button>
+                </div>
+                <form onSubmit={handleSalvarRetirarValor} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Valor a Retirar (R$)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="Ex: 300.00"
+                      value={valorRetirarInput}
+                      onChange={(e) => setValorRetirarInput(e.target.value)}
+                      className="w-full bg-[#0d0d14] border border-[#2a2a40] rounded-xl px-3 py-1.5 text-xs text-rose-400 font-bold focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1">Motivo / Observação</label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Pagamento duplicado"
+                      value={obsRetirarInput}
+                      onChange={(e) => setObsRetirarInput(e.target.value)}
+                      className="w-full bg-[#0d0d14] border border-[#2a2a40] rounded-xl px-3 py-1.5 text-xs text-gray-200 focus:outline-none focus:border-rose-500"
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <button type="submit" className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md cursor-pointer">
+                      Retirar
+                    </button>
+                    <button type="button" onClick={() => setModoRetirarValor(false)} className="px-3 py-2 rounded-xl bg-[#2a2a40] hover:bg-[#3a3a50] text-gray-300 text-xs font-bold cursor-pointer">
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
             {/* Histórico de pagamentos parciais */}
             {card.historico_pagamentos && card.historico_pagamentos.length > 0 && (
               <div className="pt-2 border-t border-[#2a2a40]/60 space-y-1">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">Detalhamento de Pagamentos:</span>
-                <div className="space-y-1 max-h-24 overflow-y-auto">
+                <span className="text-[10px] font-bold text-gray-400 uppercase">Detalhamento de Pagamentos (clique no X para apagar um registro):</span>
+                <div className="space-y-1 max-h-28 overflow-y-auto pr-1">
                   {card.historico_pagamentos.map((hp, idx) => (
-                    <div key={idx} className="flex items-center justify-between text-xs bg-[#0d0d14] p-2 rounded-lg border border-[#2a2a40]/40">
-                      <span className="text-gray-300">{hp.observacao || "Pagamento Parcial"} ({formatarData(hp.data)})</span>
-                      <strong className="text-emerald-400">R$ {hp.valor.toFixed(2)}</strong>
+                    <div key={idx} className="flex items-center justify-between text-xs bg-[#0d0d14] p-2 rounded-lg border border-[#2a2a40]/40 group">
+                      <div className="min-w-0 flex-1 pr-2">
+                        <span className="text-gray-300 block truncate">{hp.observacao || "Pagamento Parcial"}</span>
+                        <span className="text-[10px] text-gray-500 block">{formatarData(hp.data)}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <strong className={cn("text-xs font-bold", hp.valor < 0 ? "text-rose-400" : "text-emerald-400")}>
+                          {hp.valor < 0 ? `- R$ ${Math.abs(hp.valor).toFixed(2)}` : `+ R$ ${hp.valor.toFixed(2)}`}
+                        </strong>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoverItemHistorico(idx)}
+                          className="p-1 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition-colors cursor-pointer"
+                          title="Remover este lançamento e ajustar saldo pago"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

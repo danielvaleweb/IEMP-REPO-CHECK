@@ -297,6 +297,91 @@ export const gestaoService = {
     });
   },
 
+  // Retirar ou corrigir valor pago
+  async retirarPagamentoParcial(
+    card: any,
+    valorRetirar: number,
+    observacao: string,
+    usuarioId: string,
+    usuarioNome: string
+  ) {
+    const agora = new Date().toISOString();
+    const valorAtual = card.valor_pago || 0;
+    const novoValor = Math.max(0, valorAtual - valorRetirar);
+    const historicoAntigo = card.historico_pagamentos || [];
+    const novoHist = [...historicoAntigo, { data: agora, valor: -valorRetirar, observacao: observacao || "Retirada/Correção de valor" }];
+
+    await updateDoc(doc(db, "gestao_cards", card.id), {
+      valor_pago: novoValor,
+      historico_pagamentos: novoHist
+    });
+
+    await addDoc(collection(db, "gestao_historico"), {
+      card_id: card.id,
+      tipo: 'acao',
+      descricao: `Valor de R$ ${valorRetirar.toFixed(2)} retirado/estornado (${observacao || 'Correção de pagamento em duplicidade'})`,
+      usuario_id: usuarioId,
+      usuario_nome: usuarioNome,
+      criado_em: agora
+    });
+  },
+
+  // Remover item específico do histórico de pagamentos e ajustar valor
+  async removerItemHistoricoPagamento(
+    card: any,
+    indexRemover: number,
+    usuarioId: string,
+    usuarioNome: string
+  ) {
+    const agora = new Date().toISOString();
+    const historicoAntigo = card.historico_pagamentos || [];
+    const itemRemovido = historicoAntigo[indexRemover];
+    if (!itemRemovido) return;
+
+    const valorRemovido = itemRemovido.valor || 0;
+    const valorAtual = card.valor_pago || 0;
+    const novoValor = Math.max(0, valorAtual - valorRemovido);
+    const novoHist = historicoAntigo.filter((_: any, i: number) => i !== indexRemover);
+
+    await updateDoc(doc(db, "gestao_cards", card.id), {
+      valor_pago: novoValor,
+      historico_pagamentos: novoHist
+    });
+
+    await addDoc(collection(db, "gestao_historico"), {
+      card_id: card.id,
+      tipo: 'acao',
+      descricao: `Registro de pagamento de R$ ${Math.abs(valorRemovido).toFixed(2)} removido (${itemRemovido.observacao || 'Sem observação'})`,
+      usuario_id: usuarioId,
+      usuario_nome: usuarioNome,
+      criado_em: agora
+    });
+  },
+
+  // Zerar completamente o valor pago
+  async zerarValorPago(
+    card: any,
+    usuarioId: string,
+    usuarioNome: string
+  ) {
+    const agora = new Date().toISOString();
+    const valorAntigo = card.valor_pago || 0;
+
+    await updateDoc(doc(db, "gestao_cards", card.id), {
+      valor_pago: 0,
+      historico_pagamentos: []
+    });
+
+    await addDoc(collection(db, "gestao_historico"), {
+      card_id: card.id,
+      tipo: 'acao',
+      descricao: `Valor pago zerado (antes era R$ ${valorAntigo.toFixed(2)}) e histórico de pagamentos limpo por ${usuarioNome}.`,
+      usuario_id: usuarioId,
+      usuario_nome: usuarioNome,
+      criado_em: agora
+    });
+  },
+
   // Adicionar comentário / observação com imagem opcional
   async addComentario(
     cardId: string,
