@@ -124,9 +124,9 @@ export const CardMembroItem: React.FC<CardMembroItemProps> = ({ card, onClick, v
           <h4 className="font-bold text-sm text-gray-100 truncate group-hover:text-primary transition-colors leading-tight">
             {card.membro_nome}
           </h4>
-          {card.membro_phone ? (
+          {(card.membro_phone || card.membro_telefone) ? (
             <p className="text-xs text-gray-400 truncate mt-0.5 font-sans">
-              {card.membro_phone}
+              {card.membro_phone || card.membro_telefone}
             </p>
           ) : (
             <p className="text-xs text-gray-600 truncate mt-0.5">Sem telefone</p>

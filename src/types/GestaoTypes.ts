@@ -46,6 +46,9 @@ export interface MembroOrganizador {
   name: string;
   email?: string;
   phone?: string;
+  telefone?: string;
+  whatsapp?: string;
+  celular?: string;
   role?: string;
   photoUrl?: string;
   photoURL?: string;
@@ -70,6 +73,7 @@ export interface CardMembro {
   membro_id: string;
   membro_nome: string;
   membro_phone?: string;
+  membro_telefone?: string;
   membro_foto?: string;
   pipeline: PipelineType;
   data_cobranca?: string; // YYYY-MM-DD

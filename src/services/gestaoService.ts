@@ -45,12 +45,15 @@ export const gestaoService = {
     // 2. Criar os cards em lote (usando batches ou promises sequenciais)
     // Como firestore batch tem limite de 500, vamos usar Promise.all em chunks ou sequencial
     for (const membro of membrosAlvo) {
+      const fone = membro.phone || membro.telefone || membro.whatsapp || membro.celular || "";
+      const foto = membro.photoUrl || membro.photoURL || membro.foto || "";
       const cardRef = await addDoc(collection(db, "gestao_cards"), {
         campanha_id: campanhaId,
         membro_id: membro.id,
         membro_nome: membro.name,
-        membro_phone: membro.phone || "",
-        membro_foto: membro.photoUrl || membro.foto || "",
+        membro_phone: fone,
+        membro_telefone: fone,
+        membro_foto: foto,
         pipeline: 'a_contatar' as PipelineType
       });
 
@@ -87,10 +90,16 @@ export const gestaoService = {
   subscribeCards(campanhaId: string, callback: (cards: CardMembro[]) => void, onError?: (error: any) => void) {
     const q = query(collection(db, "gestao_cards"), where("campanha_id", "==", campanhaId));
     return onSnapshot(q, (snapshot) => {
-      const lista: CardMembro[] = snapshot.docs.map(docSnap => ({
-        id: docSnap.id,
-        ...docSnap.data()
-      } as CardMembro));
+      const lista: CardMembro[] = snapshot.docs.map(docSnap => {
+        const data = docSnap.data();
+        const fone = data.membro_phone || data.membro_telefone || "";
+        return {
+          id: docSnap.id,
+          ...data,
+          membro_phone: fone,
+          membro_telefone: fone
+        } as CardMembro;
+      });
       callback(lista);
     }, (error) => {
       console.error("Erro ao observar cards:", error);
@@ -194,11 +203,14 @@ export const gestaoService = {
     usuarioNome: string
   ) {
     const agora = new Date().toISOString();
+    const fone = novoMembro.phone || novoMembro.telefone || novoMembro.whatsapp || novoMembro.celular || "";
+    const foto = novoMembro.photoUrl || novoMembro.photoURL || novoMembro.foto || "";
     await updateDoc(doc(db, "gestao_cards", cardId), {
       membro_id: novoMembro.id,
       membro_nome: novoMembro.name,
-      membro_phone: novoMembro.phone || "",
-      membro_foto: novoMembro.photoUrl || novoMembro.foto || ""
+      membro_phone: fone,
+      membro_telefone: fone,
+      membro_foto: foto
     });
 
     await addDoc(collection(db, "gestao_historico"), {
@@ -332,12 +344,15 @@ export const gestaoService = {
     for (const id of membroIds) {
       const m = todosMembros.find(x => x.id === id);
       if (!m) continue;
+      const fone = m.phone || m.telefone || m.whatsapp || m.celular || "";
+      const foto = m.photoUrl || m.photoURL || m.foto || null;
       await addDoc(collection(db, "gestao_cards"), {
         campanha_id: campanhaId,
         membro_id: m.id,
-        membro_nome: m.name,
-        membro_foto: m.photoUrl || null,
-        membro_telefone: m.phone || null,
+        membro_nome: m.name || "Sem nome",
+        membro_phone: fone,
+        membro_telefone: fone,
+        membro_foto: foto,
         pipeline: "a_contatar",
         valor_pago: 0,
         data_cobranca: null,

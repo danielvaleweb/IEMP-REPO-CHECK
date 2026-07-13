@@ -53,11 +53,15 @@ export default function Gestao() {
           snapMembers.forEach(docSnap => {
             const d = docSnap.data();
             const foto = d.photoURL || d.photoUrl || d.foto || d.photo || d.avatar || d.avatarUrl || "";
+            const fone = d.phone || d.telefone || d.whatsapp || d.celular || d.phoneNumber || d.contato || d.tel || "";
             mapa.set(docSnap.id, {
               id: docSnap.id,
               name: d.name || d.nome || "Sem nome",
               email: d.email || "",
-              phone: d.phone || d.telefone || d.whatsapp || "",
+              phone: fone,
+              telefone: fone,
+              whatsapp: fone,
+              celular: fone,
               role: d.role || d.cargo || "",
               photoUrl: foto,
               photoURL: foto,
@@ -66,29 +70,39 @@ export default function Gestao() {
           });
         } catch (e) { console.error(e); }
 
-        // 2. Buscar de "users" para complementar fotos
+        // 2. Buscar de "users" para complementar fotos e telefones
         try {
           const snapUsers = await getDocs(query(collection(db, "users")));
           snapUsers.forEach(docSnap => {
             const d = docSnap.data();
             const foto = d.photoURL || d.photoUrl || d.foto || d.photo || d.avatar || d.avatarUrl || "";
+            const fone = d.phone || d.telefone || d.whatsapp || d.celular || d.phoneNumber || d.contato || d.tel || "";
             if (!mapa.has(docSnap.id)) {
               mapa.set(docSnap.id, {
                 id: docSnap.id,
                 name: d.name || d.displayName || d.nome || "Sem nome",
                 email: d.email || "",
-                phone: d.phone || d.telefone || "",
+                phone: fone,
+                telefone: fone,
+                whatsapp: fone,
+                celular: fone,
                 role: d.role || "",
                 photoUrl: foto,
                 photoURL: foto,
                 foto: foto
               });
-            } else if (foto) {
+            } else {
               const existente = mapa.get(docSnap.id)!;
-              if (!existente.photoUrl) {
+              if (!existente.photoUrl && foto) {
                 existente.photoUrl = foto;
                 existente.photoURL = foto;
                 existente.foto = foto;
+              }
+              if (!existente.phone && fone) {
+                existente.phone = fone;
+                existente.telefone = fone;
+                existente.whatsapp = fone;
+                existente.celular = fone;
               }
             }
           });

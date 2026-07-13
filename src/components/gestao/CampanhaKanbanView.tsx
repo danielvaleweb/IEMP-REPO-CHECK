@@ -118,10 +118,16 @@ const ColunaKanban: React.FC<{
           {cards.map(card => {
             const m = todosMembros?.find(mem => mem.id === card.membro_id || (mem.name && card.membro_nome && mem.name.toLowerCase().trim() === card.membro_nome.toLowerCase().trim()));
             const foto = card.membro_foto || m?.photoURL || m?.photoUrl || m?.foto || "";
+            const fone = card.membro_phone || card.membro_telefone || m?.phone || m?.telefone || m?.whatsapp || m?.celular || "";
             return (
               <CardMembroItem
                 key={card.id}
-                card={card}
+                card={{
+                  ...card,
+                  membro_phone: fone,
+                  membro_telefone: fone,
+                  membro_foto: foto
+                }}
                 onClick={onClickCard}
                 valorSugerido={valorSugerido}
                 fotoUrl={foto}
@@ -523,7 +529,7 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-sm text-white truncate">{activeCard.membro_nome}</h4>
-                  {activeCard.membro_phone && <p className="text-[11px] text-gray-400 mt-0.5">{activeCard.membro_phone}</p>}
+                  {(activeCard.membro_phone || activeCard.membro_telefone) && <p className="text-[11px] text-gray-400 mt-0.5">{activeCard.membro_phone || activeCard.membro_telefone}</p>}
                   <div className="mt-2.5 flex items-center justify-between">
                     <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
                       R$ {(activeCard.valor_pago || campanha.campos_pagamento?.valor || 0).toFixed(2)}

@@ -102,7 +102,9 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
 
   const usuarioId = profile?.id || user?.uid || "anonimo";
   const usuarioNome = profile?.name || user?.displayName || user?.email || "Usuário";
-  const fotoExibir = card.membro_foto || todosMembros.find(m => m.id === card.membro_id)?.photoUrl || todosMembros.find(m => m.id === card.membro_id)?.foto;
+  const mVinculado = todosMembros.find(m => m.id === card.membro_id || (m.name && card.membro_nome && m.name.toLowerCase().trim() === card.membro_nome.toLowerCase().trim()));
+  const fotoExibir = card.membro_foto || mVinculado?.photoUrl || mVinculado?.foto || mVinculado?.photoURL || "";
+  const foneExibir = card.membro_phone || card.membro_telefone || mVinculado?.phone || mVinculado?.telefone || mVinculado?.whatsapp || mVinculado?.celular || "";
 
   const gerarTextoWhatsApp = () => {
     let msg = campanha.mensagem_template.replace(/\{nome\}/gi, card.membro_nome);
@@ -133,7 +135,7 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
   };
 
   const handleEnviarWhatsApp = () => {
-    let phone = card.membro_phone?.replace(/\D/g, "") || "";
+    let phone = foneExibir.replace(/\D/g, "");
     if (!phone) {
       alert("Este membro não possui um número de telefone cadastrado.");
       return;
@@ -156,7 +158,7 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
   };
 
   const handleEnviarLinkPagamento = () => {
-    let phone = card.membro_phone?.replace(/\D/g, "") || "";
+    let phone = foneExibir.replace(/\D/g, "");
     if (!phone) {
       alert("Este membro não possui um número de telefone cadastrado.");
       return;
@@ -383,10 +385,10 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                 )}
               </div>
 
-              {card.membro_phone ? (
+              {foneExibir ? (
                 <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-1 font-sans">
                   <Phone className="w-3 h-3 text-primary" />
-                  <span>{card.membro_phone}</span>
+                  <span>{foneExibir}</span>
                 </p>
               ) : (
                 <p className="text-xs text-amber-500 mt-1">Sem telefone cadastrado</p>

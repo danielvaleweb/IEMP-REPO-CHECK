@@ -598,7 +598,7 @@ export const ModalEditarOrganizadores: React.FC<{
 // ─────────────────────────────────────────────────────────────
 // MODAL: Editar Participantes da Campanha
 // ─────────────────────────────────────────────────────────────
-interface CardResumido { id: string; membro_nome: string; membro_foto?: string | null; membro_id: string; pipeline: string; }
+interface CardResumido { id: string; membro_nome: string; membro_foto?: string | null; membro_id: string; pipeline: string; membro_phone?: string; membro_telefone?: string; }
 
 export const ModalEditarParticipantes: React.FC<{
   isOpen: boolean;
@@ -629,11 +629,11 @@ export const ModalEditarParticipantes: React.FC<{
   const idsJaNaCampanha = new Set(cards.map(c => c.membro_id));
 
   const membrosDisponiveis = todosMembros.filter(
-    m => !idsJaNaCampanha.has(m.id) && m.name.toLowerCase().includes(filtro.toLowerCase())
+    m => !idsJaNaCampanha.has(m.id) && (m.name.toLowerCase().includes(filtro.toLowerCase()) || (m.phone && m.phone.includes(filtro)) || (m.telefone && m.telefone.includes(filtro)))
   );
 
   const participantesFiltrados = cards.filter(c =>
-    c.membro_nome.toLowerCase().includes(filtro.toLowerCase())
+    c.membro_nome.toLowerCase().includes(filtro.toLowerCase()) || (c.membro_phone && c.membro_phone.includes(filtro)) || (c.membro_telefone && c.membro_telefone.includes(filtro))
   );
 
   const toggleSel = (id: string) => {
@@ -714,33 +714,41 @@ export const ModalEditarParticipantes: React.FC<{
             participantesFiltrados.length === 0 ? (
               <div className="py-10 text-center text-gray-500 text-xs">Nenhum participante encontrado.</div>
             ) : (
-              participantesFiltrados.map(c => (
-                <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#181424] border border-[#262036]">
-                  {c.membro_foto ? (
-                    <img src={c.membro_foto} alt={c.membro_nome} className="w-8 h-8 rounded-full object-cover shrink-0 border border-[#262036]" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-sky-500/20 text-sky-400 font-bold flex items-center justify-center text-xs shrink-0">
-                      {c.membro_nome.charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-bold truncate text-white">{c.membro_nome}</p>
-                    <p className="text-[10px] text-gray-400 capitalize">{c.pipeline.replace(/_/g, " ")}</p>
-                  </div>
-                  <button
-                    onClick={() => handleRemover(c.id)}
-                    disabled={removendo.has(c.id)}
-                    className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all disabled:opacity-50 cursor-pointer"
-                    title="Remover participante"
-                  >
-                    {removendo.has(c.id) ? (
-                      <div className="w-4 h-4 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+              participantesFiltrados.map(c => {
+                const fone = c.membro_phone || c.membro_telefone || todosMembros.find(x => x.id === c.membro_id)?.phone || "";
+                return (
+                  <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#181424] border border-[#262036]">
+                    {c.membro_foto ? (
+                      <img src={c.membro_foto} alt={c.membro_nome} className="w-8 h-8 rounded-full object-cover shrink-0 border border-[#262036]" />
                     ) : (
-                      <UserMinus className="w-4 h-4" />
+                      <div className="w-8 h-8 rounded-full bg-sky-500/20 text-sky-400 font-bold flex items-center justify-center text-xs shrink-0">
+                        {c.membro_nome.charAt(0).toUpperCase()}
+                      </div>
                     )}
-                  </button>
-                </div>
-              ))
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold truncate text-white">{c.membro_nome}</p>
+                      {fone ? (
+                        <p className="text-[11px] text-gray-300 font-sans truncate">{fone}</p>
+                      ) : (
+                        <p className="text-[10px] text-gray-500 italic truncate">Sem telefone</p>
+                      )}
+                      <p className="text-[10px] text-gray-400 capitalize mt-0.5">{c.pipeline.replace(/_/g, " ")}</p>
+                    </div>
+                    <button
+                      onClick={() => handleRemover(c.id)}
+                      disabled={removendo.has(c.id)}
+                      className="p-1.5 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all disabled:opacity-50 cursor-pointer"
+                      title="Remover participante"
+                    >
+                      {removendo.has(c.id) ? (
+                        <div className="w-4 h-4 border-2 border-rose-400 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <UserMinus className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                );
+              })
             )
           ) : (
             <>
@@ -755,6 +763,7 @@ export const ModalEditarParticipantes: React.FC<{
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {membrosDisponiveis.map(m => {
                     const sel = selecionados.has(m.id);
+                    const fone = m.phone || m.telefone || m.whatsapp || m.celular || "";
                     return (
                       <div
                         key={m.id}
@@ -771,7 +780,14 @@ export const ModalEditarParticipantes: React.FC<{
                             {m.name.charAt(0).toUpperCase()}
                           </div>
                         )}
-                        <span className="text-xs font-bold truncate">{m.name}</span>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-xs font-bold truncate block text-white">{m.name}</span>
+                          {fone ? (
+                            <span className="text-[11px] text-gray-300 font-sans truncate block mt-0.5">{fone}</span>
+                          ) : (
+                            <span className="text-[10px] text-gray-500 italic truncate block mt-0.5">Sem telefone</span>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

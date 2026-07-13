@@ -67,11 +67,15 @@ export const NovaCampanhaTab: React.FC<NovaCampanhaTabProps> = ({ onCampanhaCria
           // Excluir automaticamente visitantes
           if (role.toLowerCase().trim() !== "visitante") {
             const foto = data.photoURL || data.photoUrl || data.foto || data.photo || data.avatar || data.avatarUrl || "";
+            const fone = data.phone || data.telefone || data.whatsapp || data.celular || data.phoneNumber || data.contato || data.tel || "";
             lista.push({
               id: docSnap.id,
               name: data.name || data.nome || "Sem nome",
               email: data.email || "",
-              phone: data.phone || data.telefone || data.whatsapp || "",
+              phone: fone,
+              telefone: fone,
+              whatsapp: fone,
+              celular: fone,
               role: role,
               photoUrl: foto,
               photoURL: foto,
