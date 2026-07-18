@@ -514,7 +514,21 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
         <div className="w-full pb-8">
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-3 w-full">
             {PIPELINE_ORDER.map((pipeline) => {
-              const cardsDaColuna = cards.filter(c => c.pipeline === pipeline);
+              let cardsDaColuna = cards.filter(c => c.pipeline === pipeline);
+
+              if (pipeline === 'pagou') {
+                const valorSugerido = campanha.campos_pagamento?.valor || 0;
+                cardsDaColuna.sort((a, b) => {
+                  const devA = Math.max(0, valorSugerido - (a.valor_pago || 0));
+                  const devB = Math.max(0, valorSugerido - (b.valor_pago || 0));
+                  
+                  if (devA > 0 && devB === 0) return -1;
+                  if (devB > 0 && devA === 0) return 1;
+                  
+                  return devB - devA;
+                });
+              }
+
               return (
                 <ColunaKanban
                   key={pipeline}
