@@ -73,7 +73,7 @@ export const CardMembroItem: React.FC<CardMembroItemProps> = ({ card, onClick, v
     }
   };
 
-  const valorExibir = card.valor_pago || valorSugerido || 0;
+  const valorDevedor = Math.max(0, (valorSugerido || 0) - (card.valor_pago || 0));
   const imagemExibir = fotoUrl || card.membro_foto;
 
   return (
@@ -138,9 +138,16 @@ export const CardMembroItem: React.FC<CardMembroItemProps> = ({ card, onClick, v
 
       {/* Footer do Card */}
       <div className="mt-3 pt-2.5 border-t border-[#232336] flex items-center justify-between gap-2">
-        <span className="text-xs font-extrabold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20 tracking-tight">
-          R$ {valorExibir.toFixed(2)}
-        </span>
+        {valorDevedor > 0 ? (
+          <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg border tracking-tight text-rose-400 bg-rose-500/10 border-rose-500/20">
+            R$ {valorDevedor.toFixed(2)}
+          </span>
+        ) : (
+          <span className="flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-lg border tracking-tight text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            Pago
+          </span>
+        )}
 
         <div className="flex items-center gap-2">
           {card.comprovante_url && card.pipeline === "pagou" && (

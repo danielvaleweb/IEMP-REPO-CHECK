@@ -255,12 +255,6 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
     }
 
     try {
-      card.valor_pago = (card.valor_pago || 0) + val;
-      card.historico_pagamentos = [
-        ...(card.historico_pagamentos || []),
-        { data: new Date().toISOString(), valor: val, observacao: obsParcialInput }
-      ];
-      setAtualizacaoLocal(prev => prev + 1);
       await gestaoService.addPagamentoParcial(card, val, obsParcialInput, usuarioId, usuarioNome);
       setValorParcialInput("");
       setObsParcialInput("");
@@ -280,12 +274,6 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
     }
 
     try {
-      card.valor_pago = Math.max(0, (card.valor_pago || 0) - val);
-      card.historico_pagamentos = [
-        ...(card.historico_pagamentos || []),
-        { data: new Date().toISOString(), valor: -val, observacao: obsRetirarInput || "Retirada/Correção de valor" }
-      ];
-      setAtualizacaoLocal(prev => prev + 1);
       await gestaoService.retirarPagamentoParcial(card, val, obsRetirarInput, usuarioId, usuarioNome);
       setValorRetirarInput("");
       setObsRetirarInput("");
@@ -299,9 +287,6 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
   const handleZerarValor = async () => {
     if (!confirm("Tem certeza que deseja zerar completamente o valor pago (R$ 0,00) deste membro e limpar o histórico de pagamentos?")) return;
     try {
-      card.valor_pago = 0;
-      card.historico_pagamentos = [];
-      setAtualizacaoLocal(prev => prev + 1);
       await gestaoService.zerarValorPago(card, usuarioId, usuarioNome);
       setModoRetirarValor(false);
     } catch (err) {
@@ -316,9 +301,6 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
       const hist = card.historico_pagamentos || [];
       const item = hist[idx];
       if (item) {
-        card.valor_pago = Math.max(0, (card.valor_pago || 0) - (item.valor || 0));
-        card.historico_pagamentos = hist.filter((_, i) => i !== idx);
-        setAtualizacaoLocal(prev => prev + 1);
         await gestaoService.removerItemHistoricoPagamento(card, idx, usuarioId, usuarioNome);
       }
     } catch (err) {
@@ -404,12 +386,7 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                             type="button"
                             onClick={async () => {
                               try {
-                                card.membro_id = m.id;
-                                card.membro_nome = m.name;
-                                card.membro_phone = m.phone || "";
-                                card.membro_foto = m.photoUrl || m.foto || "";
                                 setAlterandoMembro(false);
-                                setAtualizacaoLocal(prev => prev + 1);
                                 await gestaoService.alterarMembroCard(card.id, m, card.membro_nome, usuarioId, usuarioNome);
                               } catch (err) {
                                 console.error("Erro ao alterar membro:", err);

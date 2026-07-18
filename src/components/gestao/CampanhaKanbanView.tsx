@@ -213,6 +213,15 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
     };
   }, [campanha.id]);
 
+  useEffect(() => {
+    if (cardSelecionado) {
+      const cardAtualizado = cards.find(c => c.id === cardSelecionado.id);
+      if (cardAtualizado && JSON.stringify(cardAtualizado) !== JSON.stringify(cardSelecionado)) {
+        setCardSelecionado(cardAtualizado);
+      }
+    }
+  }, [cards, cardSelecionado]);
+
   const usuarioId = profile?.id || user?.uid || "anonimo";
   const usuarioNome = profile?.name || user?.displayName || user?.email || "Usuário";
 
@@ -531,9 +540,16 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
                   <h4 className="font-bold text-sm text-white truncate">{activeCard.membro_nome}</h4>
                   {(activeCard.membro_phone || activeCard.membro_telefone) && <p className="text-[11px] text-gray-400 mt-0.5">{activeCard.membro_phone || activeCard.membro_telefone}</p>}
                   <div className="mt-2.5 flex items-center justify-between">
-                    <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                      R$ {(activeCard.valor_pago || campanha.campos_pagamento?.valor || 0).toFixed(2)}
-                    </span>
+                    {Math.max(0, (campanha.campos_pagamento?.valor || 0) - (activeCard.valor_pago || 0)) > 0 ? (
+                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold border bg-rose-500/15 text-rose-400 border-rose-500/25">
+                        R$ {Math.max(0, (campanha.campos_pagamento?.valor || 0) - (activeCard.valor_pago || 0)).toFixed(2)}
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border bg-emerald-500/15 text-emerald-400 border-emerald-500/25">
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        Pago
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
