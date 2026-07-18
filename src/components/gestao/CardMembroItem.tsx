@@ -2,7 +2,7 @@ import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { CardMembro } from "@/types/GestaoTypes";
-import { Clock, AlertCircle, CheckCircle2, MessageSquare } from "lucide-react";
+import { Clock, AlertCircle, CheckCircle2, MessageSquare, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BorderGlow } from "@/components/ui/BorderGlow";
 
@@ -139,21 +139,20 @@ export const CardMembroItem: React.FC<CardMembroItemProps> = ({ card, onClick, v
       {/* Footer do Card */}
       <div className="mt-3 pt-2.5 border-t border-[#232336] flex items-center justify-between gap-2">
         {valorDevedor > 0 ? (
-          <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg border tracking-tight text-rose-400 bg-rose-500/10 border-rose-500/20">
+          <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg border tracking-tight text-rose-400 bg-rose-500/10 border-rose-500/20 shrink-0 whitespace-nowrap">
             R$ {valorDevedor.toFixed(2)}
           </span>
         ) : (
-          <span className="flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-lg border tracking-tight text-emerald-400 bg-emerald-500/10 border-emerald-500/20">
-            <CheckCircle2 className="w-3.5 h-3.5" />
+          <span className="flex items-center gap-1 text-xs font-extrabold px-2.5 py-1 rounded-lg border tracking-tight text-emerald-400 bg-emerald-500/10 border-emerald-500/20 shrink-0 whitespace-nowrap">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
             Pago
           </span>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           {card.comprovante_url && card.pipeline === "pagou" && (
-            <div className="flex items-center gap-1 text-[11px] text-emerald-400/90 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Anexo</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center transition-colors shadow-sm" title="Possui anexo">
+              <Paperclip className="w-3.5 h-3.5" />
             </div>
           )}
           {card.tem_comentarios && (

@@ -46,7 +46,7 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
   const [alterandoMembro, setAlterandoMembro] = useState(false);
 
   // Abas e expansões
-  const [abaAtiva, setAbaAtiva] = useState<'historico' | 'comentarios'>('historico');
+  const [abaAtiva, setAbaAtiva] = useState<'historico' | 'comentarios' | 'anexos'>('historico');
   const [mensagemExpandida, setMensagemExpandida] = useState(false);
 
   // Pagamento Parcial & Retirada
@@ -326,6 +326,26 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
 
   const listaHistorico = historico.filter(h => h.tipo !== "comentario");
   const listaComentarios = historico.filter(h => h.tipo === "comentario");
+
+  const anexos: Array<{id: string, url: string, nome: string, data: string}> = [];
+  if (card.comprovante_url) {
+    anexos.push({
+      id: "comprovante_pagamento",
+      url: card.comprovante_url,
+      nome: "Comprovante de Pagamento",
+      data: card.data_pagamento || new Date().toISOString()
+    });
+  }
+  listaComentarios.forEach(c => {
+    if (c.imagem_url) {
+      anexos.push({
+        id: c.id,
+        url: c.imagem_url,
+        nome: c.descricao || "Anexo de Comentário",
+        data: c.criado_em
+      });
+    }
+  });
 
   return (
     <div className="fixed inset-0 z-[1001] flex items-center justify-center pt-24 pb-6 px-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
@@ -751,7 +771,7 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
             )}
           </div>
 
-          {/* Abas Diferentes: Histórico vs Comentários */}
+          {/* Abas Diferentes: Histórico, Comentários e Anexos */}
           <div className="space-y-4 pt-4 border-t border-[#2a2a40]">
             <div className="flex items-center gap-2 border-b border-[#2a2a40]">
               <button
@@ -773,13 +793,24 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                 )}
               >
                 <MessageSquare className="w-4 h-4" />
-                <span>Comentários & Anexos ({listaComentarios.length})</span>
+                <span>Comentários ({listaComentarios.length})</span>
+              </button>
+
+              <button
+                onClick={() => setAbaAtiva('anexos')}
+                className={cn(
+                  "pb-3 px-4 font-bold text-sm transition-all border-b-2 flex items-center gap-2 cursor-pointer",
+                  abaAtiva === 'anexos' ? "border-primary text-primary" : "border-transparent text-gray-400 hover:text-gray-200"
+                )}
+              >
+                <ImageIcon className="w-4 h-4" />
+                <span>Anexos ({anexos.length})</span>
               </button>
             </div>
 
             {/* Conteúdo da Aba Ativa */}
             <div className="min-h-[160px] max-h-64 overflow-y-auto pr-1">
-              {abaAtiva === 'historico' ? (
+              {abaAtiva === 'historico' && (
                 <div className="relative pl-6 space-y-3 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#2a2a40]">
                   {listaHistorico.length === 0 ? (
                     <p className="text-xs text-gray-500 italic">Nenhuma movimentação registrada no histórico.</p>
@@ -798,7 +829,9 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                     ))
                   )}
                 </div>
-              ) : (
+              )}
+
+              {abaAtiva === 'comentarios' && (
                 <div className="space-y-3">
                   {listaComentarios.length === 0 ? (
                     <p className="text-xs text-gray-500 italic">Nenhum comentário ou observação cadastrada.</p>
@@ -815,11 +848,32 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                         {item.descricao && <p className="text-gray-200 leading-relaxed whitespace-pre-wrap font-sans">{item.descricao}</p>}
                         {item.imagem_url && (
                           <div className="pt-2">
-                            <a href={item.imagem_url} target="_blank" rel="noreferrer">
-                              <img src={item.imagem_url} alt="Anexo do comentário" className="max-h-48 rounded-xl object-cover border border-[#2a2a40] hover:opacity-95 transition-opacity" />
-                            </a>
+                            <button type="button" onClick={() => setAbaAtiva('anexos')} className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline cursor-pointer">
+                              <ImageIcon className="w-4 h-4" />
+                              Arquivo anexado (Ver na aba Anexos)
+                            </button>
                           </div>
                         )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {abaAtiva === 'anexos' && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {anexos.length === 0 ? (
+                    <p className="text-xs text-gray-500 italic col-span-full">Nenhum anexo encontrado neste card.</p>
+                  ) : (
+                    anexos.map((anexo, idx) => (
+                      <div key={anexo.id || idx} className="flex flex-col bg-[#151520] border border-[#2a2a40] rounded-xl overflow-hidden group">
+                        <a href={anexo.url} target="_blank" rel="noreferrer" className="block relative aspect-square overflow-hidden bg-black/50">
+                          <img src={anexo.url} alt={anexo.nome} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        </a>
+                        <div className="p-2.5 flex flex-col gap-1">
+                          <span className="text-[11px] font-bold text-gray-200 truncate" title={anexo.nome}>{anexo.nome}</span>
+                          <span className="text-[9px] text-gray-500">{formatarData(anexo.data)}</span>
+                        </div>
                       </div>
                     ))
                   )}
@@ -830,40 +884,42 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
         </div>
 
         {/* Rodapé: Adicionar Comentário com suporte a Imagem */}
-        <form onSubmit={handleAddComentario} className="p-4 border-t border-[#2a2a40] bg-[#1a1a2e] space-y-2">
-          {imagemAnexo && (
-            <div className="flex items-center gap-2 bg-[#0d0d14] p-2 rounded-xl border border-[#2a2a40] w-fit">
-              <img src={imagemAnexo} alt="Prévia" className="w-10 h-10 rounded-lg object-cover" />
-              <span className="text-xs text-gray-300 font-bold">Imagem anexada</span>
-              <button type="button" onClick={() => setImagemAnexo("")} className="text-rose-400 hover:text-rose-300 p-1">
-                <X className="w-4 h-4" />
+        {abaAtiva === 'comentarios' && (
+          <form onSubmit={handleAddComentario} className="p-4 border-t border-[#2a2a40] bg-[#1a1a2e] space-y-2">
+            {imagemAnexo && (
+              <div className="flex items-center gap-2 bg-[#0d0d14] p-2 rounded-xl border border-[#2a2a40] w-fit">
+                <img src={imagemAnexo} alt="Prévia" className="w-10 h-10 rounded-lg object-cover" />
+                <span className="text-xs text-gray-300 font-bold">Imagem anexada</span>
+                <button type="button" onClick={() => setImagemAnexo("")} className="text-rose-400 hover:text-rose-300 p-1">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <label className="p-2.5 rounded-xl bg-[#151520] hover:bg-[#252538] border border-[#2a2a40] text-gray-300 hover:text-primary transition-colors cursor-pointer shrink-0" title="Anexar Imagem">
+                <ImageIcon className="w-5 h-5" />
+                <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
+              </label>
+
+              <input
+                type="text"
+                value={novoComentario}
+                onChange={(e) => setNovoComentario(e.target.value)}
+                placeholder="Digite um comentário ou observação no card..."
+                className="flex-1 bg-[#0d0d14] border border-[#2a2a40] rounded-xl px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-primary transition-colors"
+              />
+
+              <button
+                type="submit"
+                disabled={enviandoComentario || (!novoComentario.trim() && !imagemAnexo)}
+                className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-all cursor-pointer shrink-0 shadow-lg shadow-primary/20"
+              >
+                <Send className="w-5 h-5" />
               </button>
             </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <label className="p-2.5 rounded-xl bg-[#151520] hover:bg-[#252538] border border-[#2a2a40] text-gray-300 hover:text-primary transition-colors cursor-pointer shrink-0" title="Anexar Imagem">
-              <ImageIcon className="w-5 h-5" />
-              <input type="file" accept="image/*" onChange={handleFileChange} className="hidden" />
-            </label>
-
-            <input
-              type="text"
-              value={novoComentario}
-              onChange={(e) => setNovoComentario(e.target.value)}
-              placeholder="Digite um comentário ou observação no card..."
-              className="flex-1 bg-[#0d0d14] border border-[#2a2a40] rounded-xl px-4 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-primary transition-colors"
-            />
-
-            <button
-              type="submit"
-              disabled={enviandoComentario || (!novoComentario.trim() && !imagemAnexo)}
-              className="p-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-all cursor-pointer shrink-0 shadow-lg shadow-primary/20"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </div>
-        </form>
+          </form>
+        )}
 
         {/* Rodapé do Modal com botão de Salvar / Concluir */}
         <div className="p-4 bg-[#1a1a2e] border-t border-[#2a2a40] flex items-center justify-end gap-3">

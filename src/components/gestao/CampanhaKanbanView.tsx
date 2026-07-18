@@ -541,12 +541,12 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
                   {(activeCard.membro_phone || activeCard.membro_telefone) && <p className="text-[11px] text-gray-400 mt-0.5">{activeCard.membro_phone || activeCard.membro_telefone}</p>}
                   <div className="mt-2.5 flex items-center justify-between">
                     {Math.max(0, (campanha.campos_pagamento?.valor || 0) - (activeCard.valor_pago || 0)) > 0 ? (
-                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold border bg-rose-500/15 text-rose-400 border-rose-500/25">
+                      <span className="px-2.5 py-1 rounded-lg text-xs font-bold border bg-rose-500/15 text-rose-400 border-rose-500/25 shrink-0 whitespace-nowrap">
                         R$ {Math.max(0, (campanha.campos_pagamento?.valor || 0) - (activeCard.valor_pago || 0)).toFixed(2)}
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border bg-emerald-500/15 text-emerald-400 border-emerald-500/25">
-                        <CheckCircle className="w-3.5 h-3.5" />
+                      <span className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border bg-emerald-500/15 text-emerald-400 border-emerald-500/25 shrink-0 whitespace-nowrap">
+                        <CheckCircle className="w-3.5 h-3.5 shrink-0" />
                         Pago
                       </span>
                     )}
