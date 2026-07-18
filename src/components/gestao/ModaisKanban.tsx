@@ -96,6 +96,11 @@ export const ModalPagou: React.FC<ModalPagouProps> = ({ isOpen, valorSugerido = 
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 2 * 1024 * 1024) {
+      alert("A imagem é muito grande. O tamanho máximo permitido é 2MB.");
+      return;
+    }
+
     setArquivoNome(file.name);
     const reader = new FileReader();
     reader.onloadend = () => {

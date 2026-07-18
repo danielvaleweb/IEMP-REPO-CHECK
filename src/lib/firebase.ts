@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore, doc, getDocFromServer } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
 // Build Firebase configuration from environment variables
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || import.meta.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -22,6 +23,7 @@ console.log("Initializing Firebase with config:", firebaseConfig.projectId);
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const storage = getStorage(app);
 
 // Force long polling to avoid issues in some network environments
 export const db = initializeFirestore(app, {

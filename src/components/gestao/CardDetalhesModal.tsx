@@ -196,7 +196,13 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
 
     setEnviandoComentario(true);
     try {
-      await gestaoService.addComentario(card.id, novoComentario.trim(), imagemAnexo || undefined, usuarioId, usuarioNome);
+      let urlFinal = imagemAnexo;
+      if (imagemAnexo.startsWith("data:")) {
+        const path = `campanhas/${campanha.id}/cards/${card.id}/anexos/${Date.now()}`;
+        urlFinal = await gestaoService.uploadImage(imagemAnexo, path);
+      }
+
+      await gestaoService.addComentario(card.id, novoComentario.trim(), urlFinal || undefined, usuarioId, usuarioNome);
       setNovoComentario("");
       setImagemAnexo("");
       setAbaAtiva("comentarios");
@@ -211,6 +217,10 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert("A imagem é muito grande. O tamanho máximo permitido é 2MB.");
+        return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagemAnexo(reader.result as string);

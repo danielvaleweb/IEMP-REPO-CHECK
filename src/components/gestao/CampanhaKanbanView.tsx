@@ -317,13 +317,19 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
   const handleConfirmPagou = async (dados: { valor_pago: number; comprovante_url?: string }) => {
     if (!movimentoPendente) return;
     try {
+      let finalComprovanteUrl = dados.comprovante_url;
+      if (finalComprovanteUrl?.startsWith("data:")) {
+        const path = `campanhas/${campanha.id}/cards/${movimentoPendente.cardId}/comprovantes/${Date.now()}`;
+        finalComprovanteUrl = await gestaoService.uploadImage(finalComprovanteUrl, path);
+      }
+
       await gestaoService.moverCard(
         movimentoPendente.cardId,
         "pagou",
         movimentoPendente.colOrigem,
         usuarioId,
         usuarioNome,
-        dados
+        { ...dados, comprovante_url: finalComprovanteUrl }
       );
     } catch (err) {
       console.error("Erro ao registrar pagamento:", err);

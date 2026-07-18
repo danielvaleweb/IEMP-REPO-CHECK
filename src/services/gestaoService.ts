@@ -11,7 +11,8 @@ import {
   writeBatch,
   getDocs
 } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { ref, uploadBytes, uploadString, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/lib/firebase";
 import { 
   Campanha, 
   CardMembro, 
@@ -23,6 +24,17 @@ import {
 } from "@/types/GestaoTypes";
 
 export const gestaoService = {
+  // Faz o upload de uma imagem (arquivo ou base64) para o Firebase Storage
+  async uploadImage(fileOrDataUrl: File | string, path: string): Promise<string> {
+    const storageRef = ref(storage, path);
+    if (typeof fileOrDataUrl === "string") {
+      await uploadString(storageRef, fileOrDataUrl, 'data_url');
+    } else {
+      await uploadBytes(storageRef, fileOrDataUrl);
+    }
+    return getDownloadURL(storageRef);
+  },
+
   // Criar uma nova campanha junto com seus cards e históricos iniciais
   async createCampanha(
     dadosCampanha: Omit<Campanha, 'id' | 'criada_em' | 'status'>,
