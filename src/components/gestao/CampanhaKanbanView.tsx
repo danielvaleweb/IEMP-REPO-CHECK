@@ -331,8 +331,9 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
         usuarioNome,
         { ...dados, comprovante_url: finalComprovanteUrl }
       );
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao registrar pagamento:", err);
+      alert("Erro ao registrar o pagamento: " + (err.message || "Erro desconhecido. Verifique sua conexão."));
       setCards((prev) =>
         prev.map((c) => (c.id === movimentoPendente.cardId ? { ...c, pipeline: movimentoPendente.colOrigem } : c))
       );

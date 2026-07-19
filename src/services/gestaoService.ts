@@ -26,6 +26,30 @@ import {
 export const gestaoService = {
   // Faz o upload de uma imagem (arquivo ou base64) para o Firebase Storage
   async uploadImage(fileOrDataUrl: File | string, path: string): Promise<string> {
+    try {
+      // Tentativa de usar Cloudinary (mesmo do UploadImages.tsx) que não requer regras complexas de auth
+      const CLOUD_NAME = 'dvkgodvhm';
+      const UPLOAD_PRESET = 'site_uploads';
+      
+      const formData = new FormData();
+      formData.append('file', fileOrDataUrl);
+      formData.append('upload_preset', UPLOAD_PRESET);
+      // Podemos adicionar folder se o preset permitir, mas deixamos default
+      
+      const response = await fetch(`https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data.secure_url;
+      }
+    } catch (err) {
+      console.warn("Erro no Cloudinary, caindo para Firebase", err);
+    }
+
+    // Fallback para Firebase
     const storageRef = ref(storage, path);
     if (typeof fileOrDataUrl === "string") {
       await uploadString(storageRef, fileOrDataUrl, 'data_url');
