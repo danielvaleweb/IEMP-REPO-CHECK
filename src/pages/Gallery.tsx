@@ -20,8 +20,10 @@ import {
   Clock,
   Trash2,
   Check,
-  Slash
+  Slash,
+  PlaySquare
 } from "lucide-react";
+import { GallerySlideshow } from '@/components/ui/GallerySlideshow';
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
 import { db, auth } from "@/lib/firebase";
@@ -146,6 +148,7 @@ export default function Gallery() {
   const [showMobileShare, setShowMobileShare] = useState(false);
   const [downloadingUrl, setDownloadingUrl] = useState<string | null>(null);
   const [showSafariModal, setShowSafariModal] = useState(false);
+  const [isSlideshowOpen, setIsSlideshowOpen] = useState(false);
 
   useEffect(() => {
     setShowMobileShare(false);
@@ -843,11 +846,23 @@ export default function Gallery() {
                 {selectedAlbum.typeEvent === 'culto' && (() => {
                   const daysLeft = getCultoDaysLeft(selectedAlbum.date);
                   return (
-                    <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-4 py-2 mt-4 rounded-xl max-w-sm">
-                      <Clock className="w-4 h-4 text-red-400 shrink-0" />
-                      <p className="text-left text-[11px] font-bold text-red-500">
-                        Esta biblioteca será removida em <span className="font-black text-red-400">{daysLeft} dias</span>
-                      </p>
+                    <div className="flex items-center justify-end gap-3 mt-4">
+                      <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/20 px-4 py-2 rounded-xl">
+                        <Clock className="w-4 h-4 text-red-400 shrink-0" />
+                        <p className="text-left text-[11px] font-bold text-red-500">
+                          Esta biblioteca será removida em <span className="font-black text-red-400">{daysLeft} dias</span>
+                        </p>
+                      </div>
+                      
+                      {visiblePhotos.length > 0 && (
+                        <Button 
+                          onClick={() => setIsSlideshowOpen(true)}
+                          className="flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white border-0 rounded-xl px-4 py-2 h-auto"
+                        >
+                          <PlaySquare className="w-4 h-4" />
+                          <span className="text-[11px] font-bold uppercase tracking-wider">Slideshow</span>
+                        </Button>
+                      )}
                     </div>
                   );
                 })()}
@@ -1461,6 +1476,16 @@ export default function Gallery() {
               </div>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isSlideshowOpen && selectedAlbum && visiblePhotos.length > 0 && (
+          <GallerySlideshow 
+            photos={visiblePhotos}
+            albumTitle={selectedAlbum.title}
+            onClose={() => setIsSlideshowOpen(false)}
+          />
         )}
       </AnimatePresence>
     </div>
