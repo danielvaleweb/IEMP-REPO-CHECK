@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { CardMembro, Campanha, HistoricoCard, MembroOrganizador, PIPELINE_LABELS, PipelineType } from "@/types/GestaoTypes";
 import { gestaoService } from "@/services/gestaoService";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   X,
@@ -19,7 +21,8 @@ import {
   DollarSign,
   Image as ImageIcon,
   Plus,
-  Upload
+  Upload,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -229,6 +232,46 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
     }
   };
 
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          if (file.size > 5 * 1024 * 1024) {
+            alert("A imagem colada é muito grande. O tamanho máximo permitido é 5MB.");
+            return;
+          }
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setImagemAnexo(reader.result as string);
+            setAbaAtiva("comentarios");
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    }
+  };
+
+  const handleDeleteAnexo = async (anexoId: string) => {
+    if (!confirm("Tem certeza que deseja apagar este anexo permanentemente?")) return;
+    try {
+      if (anexoId === "comprovante_pagamento") {
+        await updateDoc(doc(db, "campanhas", campanha.id, "cards", card.id), {
+           comprovante_url: null
+        });
+      } else {
+        await updateDoc(doc(db, "campanhas", campanha.id, "cards", card.id, "historico", anexoId), {
+           imagem_url: null
+        });
+      }
+    } catch (err) {
+      console.error("Erro ao apagar anexo:", err);
+      alert("Erro ao apagar anexo.");
+    }
+  };
+
   const handleAlterarMembro = async () => {
     if (membroSelecionadoId === card.membro_id) {
       setAlterandoMembro(false);
@@ -358,7 +401,7 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-[1001] flex items-center justify-center pt-24 pb-6 px-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[1001] flex items-center justify-center pt-24 pb-6 px-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200" onPaste={handlePaste}>
       <div
         className="relative w-full max-w-3xl max-h-[85vh] flex flex-col bg-[#13131f] border border-[#2a2a40] text-gray-100 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={(e) => e.stopPropagation()}
@@ -882,7 +925,17 @@ export const CardDetalhesModal: React.FC<CardDetalhesModalProps> = ({
                         </a>
                         <div className="p-2.5 flex flex-col gap-1">
                           <span className="text-[11px] font-bold text-gray-200 truncate" title={anexo.nome}>{anexo.nome}</span>
-                          <span className="text-[9px] text-gray-500">{formatarData(anexo.data)}</span>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[9px] text-gray-500">{formatarData(anexo.data)}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteAnexo(anexo.id)}
+                              className="text-rose-500 hover:text-rose-400 p-1 bg-rose-500/10 hover:bg-rose-500/20 rounded cursor-pointer transition-colors"
+                              title="Apagar Anexo"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))

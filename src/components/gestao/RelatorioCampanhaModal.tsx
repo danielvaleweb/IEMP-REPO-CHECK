@@ -237,6 +237,7 @@ export const RelatorioCampanhaModal: React.FC<RelatorioCampanhaModalProps> = ({
 };
 
 import { createPortal } from 'react-dom';
+import QRCode from 'react-qr-code';
 
 export const ExtratoPDFModal: React.FC<{ isOpen: boolean; onClose: () => void; campanha: Campanha; pagaram: CardMembro[]; saidas: SaidaDespesa[] }> = ({ isOpen, onClose, campanha, pagaram, saidas }) => {
   if (!isOpen) return null;
@@ -289,8 +290,19 @@ export const ExtratoPDFModal: React.FC<{ isOpen: boolean; onClose: () => void; c
                     </div>
                     {p.comprovante_url && (
                       <div className="flex flex-row items-center gap-2 shrink-0">
-                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">QR Code Comprovante</p>
-                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(p.comprovante_url)}`} alt="QR Code" className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white" />
+                         {p.comprovante_url.startsWith('data:image/') ? (
+                           <>
+                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">Miniatura Comprovante</p>
+                             <img src={p.comprovante_url} alt="Miniatura" className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white object-cover" />
+                           </>
+                         ) : (
+                           <>
+                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">QR Code Comprovante</p>
+                             <div className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white flex items-center justify-center">
+                               <QRCode value={p.comprovante_url} size={46} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
+                             </div>
+                           </>
+                         )}
                       </div>
                     )}
                   </div>
@@ -312,8 +324,19 @@ export const ExtratoPDFModal: React.FC<{ isOpen: boolean; onClose: () => void; c
                     </div>
                     {s.anexo_url && (
                       <div className="flex flex-row items-center gap-2 shrink-0">
-                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">QR Code Anexo</p>
-                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(s.anexo_url)}`} alt="QR Code Anexo" className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white" />
+                         {s.anexo_url.startsWith('data:image/') ? (
+                           <>
+                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">Miniatura Anexo</p>
+                             <img src={s.anexo_url} alt="Miniatura Anexo" className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white object-cover" />
+                           </>
+                         ) : (
+                           <>
+                             <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">QR Code Anexo</p>
+                             <div className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white flex items-center justify-center">
+                               <QRCode value={s.anexo_url} size={46} style={{ height: "auto", maxWidth: "100%", width: "100%" }} />
+                             </div>
+                           </>
+                         )}
                       </div>
                     )}
                   </div>

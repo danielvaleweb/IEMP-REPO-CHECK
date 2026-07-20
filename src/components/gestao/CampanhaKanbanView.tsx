@@ -29,7 +29,7 @@ import { CardMembroItem } from "./CardMembroItem";
 import { CardDetalhesModal } from "./CardDetalhesModal";
 import { ModalCobranca, ModalPagou, ModalSaida, ModalAlterarMensagem, ModalEditarOrganizadores, ModalEditarParticipantes, ListaSaidasModal, ListaEntradasModal } from "./ModaisKanban";
 import { RelatorioCampanhaModal, ExtratoPDFModal } from "./RelatorioCampanhaModal";
-import { ArrowLeft, PlusCircle, CheckCircle, DollarSign, Users, Settings, Edit3, TrendingDown, FileText } from "lucide-react";
+import { ArrowLeft, PlusCircle, CheckCircle, DollarSign, Users, Settings, Edit3, TrendingDown, FileText, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CampanhaKanbanViewProps {
@@ -168,6 +168,7 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
   const [listaSaidasOpen, setListaSaidasOpen] = useState(false);
   const [listaEntradasOpen, setListaEntradasOpen] = useState(false);
   const [extratoPDFOpen, setExtratoPDFOpen] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [configMenuOpen, setConfigMenuOpen] = useState(false);
   const [modalAlterarMsgOpen, setModalAlterarMsgOpen] = useState(false);
@@ -478,11 +479,18 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
           </button>
 
           <button
-            onClick={() => setExtratoPDFOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 font-extrabold text-sm shadow-sm transition-all cursor-pointer"
+            onClick={() => {
+              setIsGeneratingPDF(true);
+              setTimeout(() => {
+                setIsGeneratingPDF(false);
+                setExtratoPDFOpen(true);
+              }, 1200);
+            }}
+            disabled={isGeneratingPDF}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 font-extrabold text-sm shadow-sm transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FileText className="w-4 h-4" />
-            <span>Extrato PDF</span>
+            {isGeneratingPDF ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            <span>{isGeneratingPDF ? "Gerando PDF..." : "Extrato PDF"}</span>
           </button>
 
           {/* Botão de Configuração no cantinho */}

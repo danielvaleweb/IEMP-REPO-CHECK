@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { MembroOrganizador, SaidaDespesa, CardMembro } from "@/types/GestaoTypes";
 import { X, Calendar, DollarSign, Upload, Link as LinkIcon, PlusCircle, Users, UserMinus, UserPlus } from "lucide-react";
 
@@ -89,6 +89,35 @@ export const ModalPagou: React.FC<ModalPagouProps> = ({ isOpen, valorSugerido = 
   const [comprovanteUrl, setComprovanteUrl] = useState("");
   const [tipoAnexo, setTipoAnexo] = useState<"arquivo" | "link">("link");
   const [arquivoNome, setArquivoNome] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+              alert("A imagem colada é muito grande. O tamanho máximo permitido é 5MB.");
+              return;
+            }
+            setTipoAnexo("arquivo");
+            setArquivoNome("Imagem colada (CTRL+V)");
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setComprovanteUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+          }
+        }
+      }
+    };
+    
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -194,9 +223,22 @@ export const ModalPagou: React.FC<ModalPagouProps> = ({ isOpen, valorSugerido = 
                 />
                 <Upload className="w-6 h-6 text-muted-foreground mx-auto mb-1" />
                 <span className="text-xs text-foreground font-medium block">
-                  {arquivoNome || "Clique ou arraste a imagem ou PDF"}
+                  {arquivoNome || "Clique, arraste ou cole (CTRL+V) a imagem ou PDF"}
                 </span>
                 <span className="text-[10px] text-muted-foreground">Tamanho máximo recomendado: 5MB</span>
+                {arquivoNome && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setArquivoNome("");
+                      setComprovanteUrl("");
+                    }}
+                    className="mt-2 text-[10px] bg-rose-500/10 text-rose-500 font-bold px-2 py-1 rounded cursor-pointer relative z-10"
+                  >
+                    Remover Anexo
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -242,6 +284,35 @@ export const ModalSaida: React.FC<ModalSaidaProps> = ({ isOpen, membros, onClose
   const [anexoUrl, setAnexoUrl] = useState("");
   const [tipoAnexo, setTipoAnexo] = useState<"arquivo" | "link">("link");
   const [arquivoNome, setArquivoNome] = useState("");
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf("image") !== -1) {
+          const file = items[i].getAsFile();
+          if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+              alert("A imagem colada é muito grande. O tamanho máximo permitido é 5MB.");
+              return;
+            }
+            setTipoAnexo("arquivo");
+            setArquivoNome("Imagem colada (CTRL+V)");
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              setAnexoUrl(reader.result as string);
+            };
+            reader.readAsDataURL(file);
+          }
+        }
+      }
+    };
+    
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
