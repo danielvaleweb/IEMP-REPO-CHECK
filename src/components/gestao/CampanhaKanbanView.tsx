@@ -27,9 +27,9 @@ import { gestaoService } from "@/services/gestaoService";
 import { useAuth } from "@/contexts/AuthContext";
 import { CardMembroItem } from "./CardMembroItem";
 import { CardDetalhesModal } from "./CardDetalhesModal";
-import { ModalCobranca, ModalPagou, ModalSaida, ModalAlterarMensagem, ModalEditarOrganizadores, ModalEditarParticipantes } from "./ModaisKanban";
-import { RelatorioCampanhaModal } from "./RelatorioCampanhaModal";
-import { ArrowLeft, PlusCircle, CheckCircle, DollarSign, Users, Settings, Edit3 } from "lucide-react";
+import { ModalCobranca, ModalPagou, ModalSaida, ModalAlterarMensagem, ModalEditarOrganizadores, ModalEditarParticipantes, ListaSaidasModal, ListaEntradasModal } from "./ModaisKanban";
+import { RelatorioCampanhaModal, ExtratoPDFModal } from "./RelatorioCampanhaModal";
+import { ArrowLeft, PlusCircle, CheckCircle, DollarSign, Users, Settings, Edit3, TrendingDown, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CampanhaKanbanViewProps {
@@ -165,6 +165,9 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
   const [modalCobrancaOpen, setModalCobrancaOpen] = useState(false);
   const [modalPagouOpen, setModalPagouOpen] = useState(false);
   const [modalSaidaOpen, setModalSaidaOpen] = useState(false);
+  const [listaSaidasOpen, setListaSaidasOpen] = useState(false);
+  const [listaEntradasOpen, setListaEntradasOpen] = useState(false);
+  const [extratoPDFOpen, setExtratoPDFOpen] = useState(false);
   const [relatorioOpen, setRelatorioOpen] = useState(false);
   const [configMenuOpen, setConfigMenuOpen] = useState(false);
   const [modalAlterarMsgOpen, setModalAlterarMsgOpen] = useState(false);
@@ -343,10 +346,17 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
     }
   };
 
-  const handleAddSaida = async (dados: { titulo: string; valor: number; operador_id: string; operador_nome: string; data_hora: string }) => {
+  const handleAddSaida = async (dados: { titulo: string; valor: number; operador_id: string; operador_nome: string; data_hora: string; anexo_url?: string }) => {
     try {
+      let finalAnexoUrl = dados.anexo_url;
+      if (finalAnexoUrl?.startsWith("data:")) {
+        const path = `campanhas/${campanha.id}/saidas/anexo_${Date.now()}`;
+        finalAnexoUrl = await gestaoService.uploadImage(finalAnexoUrl, path);
+      }
+
       await gestaoService.addSaida({
         ...dados,
+        anexo_url: finalAnexoUrl,
         campanha_id: campanha.id
       });
       setModalSaidaOpen(false);
@@ -451,10 +461,29 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
 
         {/* Indicadores globais e ações rápidas */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-extrabold text-sm shadow-sm">
+          <button
+            onClick={() => setListaEntradasOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 font-extrabold text-sm shadow-sm transition-all cursor-pointer"
+          >
             <DollarSign className="w-4 h-4" />
             <span>Arrecadado: R$ {totalGeralArrecadado.toFixed(2)}</span>
-          </div>
+          </button>
+
+          <button
+            onClick={() => setListaSaidasOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 text-rose-400 font-extrabold text-sm shadow-sm transition-all cursor-pointer"
+          >
+            <TrendingDown className="w-4 h-4" />
+            <span>Saídas: R$ {saidas.reduce((a, s) => a + s.valor, 0).toFixed(2)}</span>
+          </button>
+
+          <button
+            onClick={() => setExtratoPDFOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/20 text-blue-400 font-extrabold text-sm shadow-sm transition-all cursor-pointer"
+          >
+            <FileText className="w-4 h-4" />
+            <span>Extrato PDF</span>
+          </button>
 
           {/* Botão de Configuração no cantinho */}
           <div className="relative">
@@ -615,6 +644,26 @@ export const CampanhaKanbanView: React.FC<CampanhaKanbanViewProps> = ({
         todosMembros={todosMembros}
         onClose={() => setRelatorioOpen(false)}
         onConcluir={handleConcluirCampanha}
+      />
+
+      <ListaSaidasModal
+        isOpen={listaSaidasOpen}
+        onClose={() => setListaSaidasOpen(false)}
+        saidas={saidas}
+      />
+
+      <ListaEntradasModal
+        isOpen={listaEntradasOpen}
+        onClose={() => setListaEntradasOpen(false)}
+        entradas={cards.filter(c => c.pipeline === "pagou")}
+      />
+      
+      <ExtratoPDFModal
+        isOpen={extratoPDFOpen}
+        onClose={() => setExtratoPDFOpen(false)}
+        campanha={campanha}
+        pagaram={cards.filter(c => c.pipeline === "pagou")}
+        saidas={saidas}
       />
 
       <ModalAlterarMensagem

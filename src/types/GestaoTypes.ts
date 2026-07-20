@@ -103,4 +103,5 @@ export interface SaidaDespesa {
   operador_id: string;
   operador_nome?: string;
   data_hora: string; // dd/mm/aaaa - hh:mm ou ISO
+  anexo_url?: string;
 }

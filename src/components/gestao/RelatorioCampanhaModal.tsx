@@ -198,6 +198,11 @@ export const RelatorioCampanhaModal: React.FC<RelatorioCampanhaModalProps> = ({
                       <span className="text-xs text-gray-400">
                         Operador: {s.operador_nome || "Organizador"} | Data: {s.data_hora}
                       </span>
+                      {s.anexo_url && (
+                        <a href={s.anexo_url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline mt-1 flex items-center gap-1 print:hidden">
+                          Ver Anexo
+                        </a>
+                      )}
                     </div>
                     <span className="text-sm font-bold text-rose-400 shrink-0">
                       - R$ {s.valor.toFixed(2)}
@@ -229,4 +234,110 @@ export const RelatorioCampanhaModal: React.FC<RelatorioCampanhaModalProps> = ({
       </div>
     </div>
   );
+};
+
+import { createPortal } from 'react-dom';
+
+export const ExtratoPDFModal: React.FC<{ isOpen: boolean; onClose: () => void; campanha: Campanha; pagaram: CardMembro[]; saidas: SaidaDespesa[] }> = ({ isOpen, onClose, campanha, pagaram, saidas }) => {
+  if (!isOpen) return null;
+
+  const content = (
+    <>
+      <style>{`
+        @media print {
+          #root {
+            display: none !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+            background: white;
+            font-size: 12px;
+          }
+          .extrato-container {
+            position: relative;
+            width: 100%;
+            left: 0;
+            top: 0;
+          }
+        }
+      `}</style>
+      <div className="fixed inset-0 z-[10000] flex bg-white text-black overflow-y-auto print:absolute print:inset-0 print:overflow-visible print:block print:p-0 p-4 sm:p-8 justify-center animate-in fade-in zoom-in duration-200 extrato-container">
+        <div className="w-full max-w-4xl bg-white p-4 sm:p-8 relative print:p-0 print:shadow-none shadow-2xl print:bg-transparent">
+          <div className="flex justify-between items-center print:hidden mb-6 border-b pb-4">
+             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Printer className="w-5 h-5"/> Extrato PDF</h2>
+             <div className="flex gap-2">
+               <button onClick={() => window.print()} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded font-bold shadow transition-colors cursor-pointer text-sm">Imprimir</button>
+               <button onClick={onClose} className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-bold transition-colors cursor-pointer text-sm">Fechar</button>
+             </div>
+          </div>
+          
+          <div className="text-center mb-6 border-b-2 border-gray-800 pb-4">
+            <h1 className="text-2xl font-black uppercase mb-1 tracking-tight text-gray-900">Prestação de Contas</h1>
+            <h2 className="text-lg font-bold text-gray-600 uppercase tracking-wide">{campanha.nome}</h2>
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-bold border-b border-gray-300 pb-1 mb-2 bg-gray-100 p-1 px-2 text-gray-800">Entradas (Arrecadado)</h3>
+            {pagaram.length === 0 ? <p className="italic text-gray-500 text-xs px-2">Nenhuma entrada registrada.</p> : (
+              <div className="space-y-2">
+                {pagaram.map(p => (
+                  <div key={p.id} className="border-b border-gray-200 p-2 flex flex-row items-center justify-between shadow-sm break-inside-avoid">
+                    <div className="flex-1 min-w-0 pr-4">
+                       <p className="font-extrabold text-sm text-gray-800 uppercase truncate">{p.membro_nome}</p>
+                       <p className="text-emerald-600 font-black text-sm">+ R$ {(p.valor_pago || 0).toFixed(2)}</p>
+                    </div>
+                    {p.comprovante_url && (
+                      <div className="flex flex-row items-center gap-2 shrink-0">
+                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">QR Code Comprovante</p>
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(p.comprovante_url)}`} alt="QR Code" className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <h3 className="text-sm font-bold border-b border-gray-300 pb-1 mb-2 bg-gray-100 p-1 px-2 text-gray-800">Saídas (Despesas)</h3>
+            {saidas.length === 0 ? <p className="italic text-gray-500 text-xs px-2">Nenhuma saída registrada.</p> : (
+              <div className="space-y-2">
+                {saidas.map(s => (
+                  <div key={s.id} className="border-b border-gray-200 p-2 flex flex-row items-center justify-between shadow-sm break-inside-avoid">
+                    <div className="flex-1 min-w-0 pr-4">
+                       <p className="font-extrabold text-sm text-gray-800 truncate">{s.titulo}</p>
+                       <p className="text-gray-500 text-[10px] font-medium truncate">Operador: {s.operador_nome || "Geral"}</p>
+                       <p className="text-rose-600 font-black text-sm">- R$ {s.valor.toFixed(2)}</p>
+                    </div>
+                    {s.anexo_url && (
+                      <div className="flex flex-row items-center gap-2 shrink-0">
+                         <p className="text-[9px] font-bold text-gray-500 uppercase tracking-wider text-right w-16 leading-tight">QR Code Anexo</p>
+                         <img src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(s.anexo_url)}`} alt="QR Code Anexo" className="w-14 h-14 border border-gray-200 rounded p-1 shadow-sm bg-white" />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t-2 border-gray-800 pt-3 flex flex-row justify-between items-center bg-gray-100 p-3 rounded mt-6 shadow-sm break-inside-avoid">
+            <div>
+              <p className="text-xs font-bold text-gray-700">Total Arrecadado: <span className="text-emerald-600 font-black">R$ {pagaram.reduce((a,c)=>a+(c.valor_pago||0),0).toFixed(2)}</span></p>
+              <p className="text-xs font-bold text-gray-700 mt-1">Total Saídas: <span className="text-rose-600 font-black">R$ {saidas.reduce((a,s)=>a+s.valor,0).toFixed(2)}</span></p>
+            </div>
+            <div className="text-right">
+               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-0.5">Saldo Final</p>
+               <p className={`text-xl font-black leading-none ${pagaram.reduce((a,c)=>a+(c.valor_pago||0),0) - saidas.reduce((a,s)=>a+s.valor,0) >= 0 ? "text-blue-600" : "text-amber-600"}`}>
+                 R$ {(pagaram.reduce((a,c)=>a+(c.valor_pago||0),0) - saidas.reduce((a,s)=>a+s.valor,0)).toFixed(2)}
+               </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
+  return createPortal(content, document.body);
 };
