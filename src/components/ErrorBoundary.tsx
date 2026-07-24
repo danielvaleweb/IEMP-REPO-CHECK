@@ -18,13 +18,23 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   public static getDerivedStateFromError(error: Error): State {
-    // Verifica se o erro é relacionado à quota do Firebase
     const errorString = error.toString().toLowerCase();
 
     const isQuotaError =
       errorString.includes("quota limit") ||
       errorString.includes("quota exceeded") ||
       errorString.includes("cannot exceed free quota limits");
+
+    const isChunkError =
+      errorString.includes("failed to fetch dynamically imported module") ||
+      errorString.includes("expected a javascript-or-wasm module script") ||
+      errorString.includes("mime type of \"text/html\"") ||
+      errorString.includes("loading chunk");
+
+    if (isChunkError && typeof window !== "undefined" && !sessionStorage.getItem("chunk_refreshed")) {
+      sessionStorage.setItem("chunk_refreshed", "true");
+      window.location.reload();
+    }
 
     return {
       hasError: true,

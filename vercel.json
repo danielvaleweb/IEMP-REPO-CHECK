@@ -24,7 +24,7 @@
       ],
       "destination": "/api/index"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|api/|backend/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

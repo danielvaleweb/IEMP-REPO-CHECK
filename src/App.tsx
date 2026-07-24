@@ -20,31 +20,50 @@ import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { firestoreService } from "@/services/firestoreService";
 
+// Helper for lazy loading pages with automatic retry on chunk load error after deployments
+function lazyWithRetry(componentImport: () => Promise<any>) {
+  return lazy(async () => {
+    const pageHasBeenRefreshed = sessionStorage.getItem("chunk_refreshed");
+    try {
+      const component = await componentImport();
+      sessionStorage.removeItem("chunk_refreshed");
+      return component;
+    } catch (error: any) {
+      if (!pageHasBeenRefreshed) {
+        sessionStorage.setItem("chunk_refreshed", "true");
+        window.location.reload();
+        return { default: () => null };
+      }
+      throw error;
+    }
+  });
+}
+
 // Lazy loading pages
-const Home = lazy(() => import("@/pages/Home"));
-const Live = lazy(() => import("@/pages/Live"));
-const Gallery = lazy(() => import("@/pages/Gallery"));
-const Admin = lazy(() => import("@/pages/Admin"));
-const Google = lazy(() => import("@/pages/Google"));
-const About = lazy(() => import("@/pages/About"));
-const Bible = lazy(() => import("@/pages/Bible"));
-const Departments = lazy(() => import("@/pages/Departments"));
-const Discipleship = lazy(() => import("@/pages/Discipleship"));
-const EBD = lazy(() => import("@/pages/EBD"));
-const Favorites = lazy(() => import("@/pages/Favorites"));
-const Formulario = lazy(() => import("@/pages/Formulario"));
-const StaticPages = lazy(() => import("@/pages/StaticPages"));
+const Home = lazyWithRetry(() => import("@/pages/Home"));
+const Live = lazyWithRetry(() => import("@/pages/Live"));
+const Gallery = lazyWithRetry(() => import("@/pages/Gallery"));
+const Admin = lazyWithRetry(() => import("@/pages/Admin"));
+const Google = lazyWithRetry(() => import("@/pages/Google"));
+const About = lazyWithRetry(() => import("@/pages/About"));
+const Bible = lazyWithRetry(() => import("@/pages/Bible"));
+const Departments = lazyWithRetry(() => import("@/pages/Departments"));
+const Discipleship = lazyWithRetry(() => import("@/pages/Discipleship"));
+const EBD = lazyWithRetry(() => import("@/pages/EBD"));
+const Favorites = lazyWithRetry(() => import("@/pages/Favorites"));
+const Formulario = lazyWithRetry(() => import("@/pages/Formulario"));
+const StaticPages = lazyWithRetry(() => import("@/pages/StaticPages"));
 import Maintenance from "@/pages/Maintenance";
-const EventDetails = lazy(() => import("@/pages/EventDetails"));
-const NoticiaDetalhe = lazy(() => import("@/pages/NoticiaDetalhe"));
-const Noticias = lazy(() => import("@/pages/Noticias"));
-const Solicitacao = lazy(() => import("@/pages/Solicitacao"));
-const Videos = lazy(() => import("@/pages/Videos"));
-const RadioPage = lazy(() => import("@/pages/Radio"));
-const Servicos = lazy(() => import("@/pages/Servicos"));
-const ResetarSenha = lazy(() => import("@/pages/ResetarSenha"));
-const ClearCache = lazy(() => import("@/pages/ClearCache"));
-const Gestao = lazy(() => import("@/pages/Gestao"));
+const EventDetails = lazyWithRetry(() => import("@/pages/EventDetails"));
+const NoticiaDetalhe = lazyWithRetry(() => import("@/pages/NoticiaDetalhe"));
+const Noticias = lazyWithRetry(() => import("@/pages/Noticias"));
+const Solicitacao = lazyWithRetry(() => import("@/pages/Solicitacao"));
+const Videos = lazyWithRetry(() => import("@/pages/Videos"));
+const RadioPage = lazyWithRetry(() => import("@/pages/Radio"));
+const Servicos = lazyWithRetry(() => import("@/pages/Servicos"));
+const ResetarSenha = lazyWithRetry(() => import("@/pages/ResetarSenha"));
+const ClearCache = lazyWithRetry(() => import("@/pages/ClearCache"));
+const Gestao = lazyWithRetry(() => import("@/pages/Gestao"));
 
 const PageLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
