@@ -78,10 +78,11 @@ import {
   UserSearch,
   UserCheck,
   Radio,
+  MessageCircle,
+  Copy,
   Music,
   HardDrive,
   Key,
-  MessageCircle,
   GraduationCap,
   Wrench,
   Bug,
@@ -3019,10 +3020,10 @@ const Admin = () => {
     const loadTabData = async () => {
       try {
         if (activeTab === "eventos") {
-          const data = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(eventsLimit)], 1000 * 60 * 15);
+          const data = await firestoreService.getCollection<any>("posts", [orderBy("createdAt", "desc"), limit(300)], 1000 * 60 * 5);
           setPosts(data);
         } else if (activeTab === "noticias") {
-          const data = await firestoreService.getCollection<any>("blog", [orderBy("createdAt", "desc"), limit(newsLimit)], 1000 * 60 * 15);
+          const data = await firestoreService.getCollection<any>("blog", [orderBy("createdAt", "desc"), limit(300)], 1000 * 60 * 5);
           setBlog(data);
         } else if (activeTab === "membros" || activeTab === "visitantes") {
           const data = await firestoreService.getCollection<any>("members", [], 1000 * 60 * 1); // 1 min TTL when opening tab
@@ -3141,55 +3142,94 @@ const Admin = () => {
     return merged;
   }, [activeChats, supportChats, profile?.id]);
 
-  // Search Logic
-  const filteredItems = useMemo(() => {
+  // Search & Pagination Logic
+  const { filteredItems, hasMoreItems } = useMemo(() => {
     const query = searchQuery.toLowerCase();
 
-    // Helper: parse event date field (supports "DD/MM/YYYY", "YYYY-MM-DD", or Timestamp)
+    // Helper: parse event date field (supports ISO, "DD/MM/YYYY", "DD/MM/YYYY - HH:MM", "YYYY-MM-DD", or Timestamp)
     const parseEventDate = (p: any): number => {
-      // Try the event-specific date string first
       if (p.date) {
-        const d = p.date as string;
-        // Format: DD/MM/YYYY
+        const d = String(p.date);
+        if (d.includes('T')) {
+          const parsed = new Date(d).getTime();
+          if (!isNaN(parsed)) return parsed;
+        }
+        if (d.includes(' - ')) {
+          const parts = d.split(' - ');
+          const datePart = parts[0].trim();
+          const timePart = parts[1]?.trim() || "00:00";
+          const brMatch = datePart.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+          if (brMatch) {
+            return new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}T${timePart.length === 5 ? timePart : timePart + ":00"}`).getTime();
+          }
+        }
         const brMatch = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (brMatch) return new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`).getTime();
-        // Format: YYYY-MM-DD or ISO
+        if (brMatch) {
+          return new Date(`${brMatch[3]}-${brMatch[2]}-${brMatch[1]}T00:00:00`).getTime();
+        }
         const parsed = new Date(d).getTime();
         if (!isNaN(parsed)) return parsed;
       }
-      // Fallback: createdAt (Firestore Timestamp or string)
       if (p.createdAt?.toDate) return p.createdAt.toDate().getTime();
+      if (p.createdAt?.seconds) return p.createdAt.seconds * 1000;
       if (p.createdAt) return new Date(p.createdAt).getTime();
       return 0;
     };
 
     if (activeTab === "eventos") {
-      return posts
+      const allMatching = posts
         .filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query))
         .sort((a, b) => parseEventDate(b) - parseEventDate(a));
+
+      const sliced = allMatching.slice(0, eventsLimit);
+      return {
+        filteredItems: sliced,
+        hasMoreItems: allMatching.length > eventsLimit
+      };
     }
+
     if (activeTab === "noticias") {
-      return blog
+      const allMatching = blog
         .filter(p => p.title?.toLowerCase().includes(query) || p.content?.toLowerCase().includes(query))
         .sort((a, b) => parseEventDate(b) - parseEventDate(a));
+
+      const sliced = allMatching.slice(0, newsLimit);
+      return {
+        filteredItems: sliced,
+        hasMoreItems: allMatching.length > newsLimit
+      };
     }
+
     if (activeTab === "radio") {
-      if (radioSubTab === "vignettes") return vignettes.filter(v => v.title?.toLowerCase().includes(query));
-      if (radioSubTab === "artists") return radioArtists.filter(a => a.name?.toLowerCase().includes(query));
-      return radioTracks.filter(t => t.title?.toLowerCase().includes(query));
+      let items: any[] = [];
+      if (radioSubTab === "vignettes") items = vignettes.filter(v => v.title?.toLowerCase().includes(query));
+      else if (radioSubTab === "artists") items = radioArtists.filter(a => a.name?.toLowerCase().includes(query));
+      else items = radioTracks.filter(t => t.title?.toLowerCase().includes(query));
+      return { filteredItems: items, hasMoreItems: false };
     }
+
     if (activeTab === "membros" || activeTab === "visitantes") {
       const source = activeTab === "visitantes" ? visitors : members;
-      return source.filter(m =>
+      const items = source.filter(m =>
         m.name?.toLowerCase().includes(query) ||
         m.email?.toLowerCase().includes(query) ||
         m.phone?.includes(query)
       );
+      return { filteredItems: items, hasMoreItems: false };
     }
-    if (activeTab === "agenda") return agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
-    if (activeTab === "agenda-direcao") return agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
-    return [];
-  }, [activeTab, searchQuery, posts, blog, members, visitors, agenda, agendaDirecao, vignettes, radioTracks, radioArtists, radioSubTab]);
+
+    if (activeTab === "agenda") {
+      const items = agenda.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
+      return { filteredItems: items, hasMoreItems: false };
+    }
+
+    if (activeTab === "agenda-direcao") {
+      const items = agendaDirecao.filter(a => a.title?.toLowerCase().includes(query) || a.description?.toLowerCase().includes(query));
+      return { filteredItems: items, hasMoreItems: false };
+    }
+
+    return { filteredItems: [], hasMoreItems: false };
+  }, [activeTab, searchQuery, posts, blog, members, visitors, agenda, agendaDirecao, vignettes, radioTracks, radioArtists, radioSubTab, eventsLimit, newsLimit]);
 
   const [checkingFolders, setCheckingFolders] = useState<Record<number, boolean>>({});
   const [folderVerified, setFolderVerified] = useState<Record<number, boolean>>({});
@@ -7005,7 +7045,8 @@ const Admin = () => {
                                               type="button"
                                               onClick={() => {
                                                 const current = Array.isArray(formData.guests) ? formData.guests : [];
-                                                setFormData({ ...formData, guests: [...current, { name: "", image: "", congregation: "" }] });
+                                                const newId = "g_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+                                                setFormData({ ...formData, guests: [...current, { id: newId, name: "", image: "", congregation: "", confirmed: false }] });
                                               }}
                                               className="h-8 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white px-4 font-black uppercase text-[10px]"
                                             >
@@ -7014,66 +7055,137 @@ const Admin = () => {
                                           )}
                                         </div>
                                         <div className="space-y-4">
-                                          {(formData.guests || []).map((guest: any, i: number) => (
-                                            <div key={`guest-${i}`} className={cn("p-5 rounded-[24px] border relative group grid grid-cols-1 md:grid-cols-3 gap-4", isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-black/5 bg-black/[0.01]")}>
-                                              <div className="space-y-1">
-                                                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome</label>
-                                                <Input placeholder="Nome Completo" value={guest.name || ""} onChange={(e) => {
-                                                  const g = [...formData.guests]; g[i].name = e.target.value; setFormData({ ...formData, guests: g });
-                                                }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
-                                              </div>
-                                              <div className="space-y-1">
-                                                <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Congregação</label>
-                                                <Input placeholder="Ex: Assembleia de Deus" value={guest.congregation || ""} onChange={(e) => {
-                                                  const g = [...formData.guests]; g[i].congregation = e.target.value; setFormData({ ...formData, guests: g });
-                                                }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
-                                              </div>
-                                              <div className="space-y-2 col-span-1 md:col-span-3 border-t border-white/5 pt-4 mt-2">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Foto do Convidado</label>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-                                                  <div className="space-y-1">
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção A: Upload da Foto</label>
-                                                    <UploadImages
-                                                      maxFiles={1}
-                                                      multiple={false}
-                                                      value={guest.image || ""}
-                                                      onUploadComplete={(images) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: images[0]?.secure_url || "" } : g) })}
-                                                    />
+                                          {(formData.guests || []).map((guest: any, i: number) => {
+                                            const gId = guest.id || `g_${i}_${(guest.name || "").replace(/\s+/g, '_')}`;
+                                            const isGuestConfirmed = guest.confirmed === true || guest.status === 'confirmed';
+                                            const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/confirmar-convite?eventId=${formData.id || selectedItem?.id || ''}&guestId=${gId}` : '';
+
+                                            return (
+                                              <div key={`guest-${i}`} className={cn("p-5 rounded-[24px] border relative group grid grid-cols-1 md:grid-cols-3 gap-4", isDarkMode ? "border-white/5 bg-white/[0.01]" : "border-black/5 bg-black/[0.01]")}>
+                                                
+                                                {/* Status Indicator & Action Bar */}
+                                                <div className="col-span-1 md:col-span-3 flex items-center justify-between border-b border-white/5 pb-3">
+                                                  <div className="flex items-center gap-2">
+                                                    <span className={cn("px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5", isGuestConfirmed ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30")}>
+                                                      {isGuestConfirmed ? "✓ Confirmado" : "⏳ Pendente de Confirmação"}
+                                                    </span>
                                                   </div>
-                                                  <div className="space-y-1.5 self-start">
-                                                    <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção B: Ou cole o Link/URL da foto</label>
-                                                    <Input
-                                                      placeholder="Ex: https://exemplo.com/foto.jpg"
-                                                      value={guest.image || ""}
-                                                      onChange={(e) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: e.target.value } : g) })}
-                                                      className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                                    />
-                                                    {guest.image && (
-                                                      <p className="text-[9px] text-[#10B981] font-bold ml-1">✓ Imagem vinculada com sucesso.</p>
+
+                                                  {/* Action buttons for WhatsApp & Link */}
+                                                  <div className="flex items-center gap-2">
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                        const text = `Olá ${guest.name || ''}! Você foi convidado(a) de honra para o evento *${formData.title || 'Evento'}*. Confirme sua presença aqui: ${inviteLink}`;
+                                                        window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+                                                      }}
+                                                      className="h-8 px-3 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                                                      title="Enviar convite pelo WhatsApp"
+                                                    >
+                                                      <MessageCircle className="w-3.5 h-3.5" /> Enviar WhatsApp
+                                                    </button>
+
+                                                    <button
+                                                      type="button"
+                                                      onClick={() => {
+                                                        navigator.clipboard.writeText(inviteLink);
+                                                        appAlert("Link de convite copiado!", "success");
+                                                      }}
+                                                      className="h-8 px-3 rounded-lg bg-white/5 text-gray-300 hover:bg-white/10 hover:text-white transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer"
+                                                      title="Copiar Link de Confirmação"
+                                                    >
+                                                      <Copy className="w-3.5 h-3.5" /> Copiar Link
+                                                    </button>
+
+                                                    {!isReadOnly && (
+                                                      <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                          const updated = (formData.guests || []).map((g: any, idx: number) => 
+                                                            idx === i ? { ...g, id: gId, confirmed: !isGuestConfirmed, status: !isGuestConfirmed ? 'confirmed' : 'pending' } : g
+                                                          );
+                                                          setFormData({ ...formData, guests: updated });
+                                                        }}
+                                                        className="h-8 px-3 rounded-lg bg-[#BF76FF]/10 text-[#BF76FF] hover:bg-[#BF76FF] hover:text-white transition-all text-[10px] font-black uppercase tracking-wider cursor-pointer ml-1"
+                                                      >
+                                                        {isGuestConfirmed ? "Marcar Pendente" : "Confirmar Manualmente"}
+                                                      </button>
                                                     )}
                                                   </div>
                                                 </div>
+
+                                                <div className="space-y-1">
+                                                  <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Nome</label>
+                                                  <Input placeholder="Nome Completo" value={guest.name || ""} onChange={(e) => {
+                                                    const g = [...formData.guests]; g[i].name = e.target.value; if (!g[i].id) g[i].id = gId; setFormData({ ...formData, guests: g });
+                                                  }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                                </div>
+                                                <div className="space-y-1">
+                                                  <label className="text-[9px] font-black uppercase tracking-widest text-gray-400">Congregação</label>
+                                                  <Input placeholder="Ex: Assembleia de Deus" value={guest.congregation || ""} onChange={(e) => {
+                                                    const g = [...formData.guests]; g[i].congregation = e.target.value; setFormData({ ...formData, guests: g });
+                                                  }} className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")} />
+                                                </div>
+                                                <div className="space-y-2 col-span-1 md:col-span-3 border-t border-white/5 pt-4 mt-2">
+                                                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Foto do Convidado</label>
+                                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                                                    <div className="space-y-1">
+                                                      <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção A: Upload da Foto</label>
+                                                      <UploadImages
+                                                        maxFiles={1}
+                                                        multiple={false}
+                                                        value={guest.image || ""}
+                                                        onUploadComplete={(images) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: images[0]?.secure_url || "" } : g) })}
+                                                      />
+                                                    </div>
+                                                    <div className="space-y-1.5 self-start">
+                                                      <label className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Opção B: Ou cole o Link/URL da foto</label>
+                                                      <Input
+                                                        placeholder="Ex: https://exemplo.com/foto.jpg"
+                                                        value={guest.image || ""}
+                                                        onChange={(e) => setFormData({ ...formData, guests: (formData.guests || []).map((g: any, idx: number) => idx === i ? { ...g, image: e.target.value } : g) })}
+                                                        className={cn("h-11 text-[11px] rounded-xl border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                                      />
+                                                      {guest.image && (
+                                                        <p className="text-[9px] text-[#10B981] font-bold ml-1">✓ Imagem vinculada com sucesso.</p>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                                {!isReadOnly && (
+                                                  <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500/10 text-red-500 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                                    <X className="w-3.5 h-3.5" />
+                                                  </Button>
+                                                )}
                                               </div>
-                                              {!isReadOnly && (
-                                                <Button type="button" variant="ghost" onClick={() => setFormData({ ...formData, guests: formData.guests.filter((_: any, idx: number) => idx !== i) })} className="absolute top-2 right-2 w-7 h-7 rounded-full bg-red-500/10 text-red-500 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                                  <X className="w-3.5 h-3.5" />
-                                                </Button>
-                                              )}
-                                            </div>
-                                          ))}
+                                            );
+                                          })}
                                         </div>
                                       </div>
 
-                                      {/* YouTube Video Link */}
-                                      <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do Vídeo no YouTube</label>
-                                        <div className="relative">
-                                          <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                                      {/* YouTube Video Link + Title */}
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Link do Vídeo no YouTube</label>
+                                          <div className="relative">
+                                            <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-red-500" />
+                                            <Input
+                                              className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                              placeholder="https://www.youtube.com/live/... ou /watch?v=..."
+                                              value={formData.videoUrl || formData.youtubeLink || ""}
+                                              onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value, youtubeLink: e.target.value })}
+                                              readOnly={isReadOnly}
+                                            />
+                                          </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                          <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-2">Título do Vídeo no YouTube (Editável)</label>
                                           <Input
-                                            className={cn("h-14 rounded-2xl pl-12 pr-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
-                                            placeholder="https://www.youtube.com/watch?v=..."
-                                            value={formData.videoUrl || ""}
-                                            onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                                            className={cn("h-14 rounded-2xl px-6 border transition-all apple-input", isDarkMode ? "apple-input-dark" : "apple-input-light")}
+                                            placeholder="Ex: Transmissão ao vivo / Vídeo do Evento"
+                                            value={formData.videoTitle || formData.youtubeTitle || ""}
+                                            onChange={(e) => setFormData({ ...formData, videoTitle: e.target.value, youtubeTitle: e.target.value })}
                                             readOnly={isReadOnly}
                                           />
                                         </div>

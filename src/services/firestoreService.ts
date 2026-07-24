@@ -33,7 +33,16 @@ export const firestoreService = {
     constraints: QueryConstraint[] = [],
     ttl: number = DEFAULT_TTL
   ): Promise<T[]> {
-    const constraintsHash = constraints.map(c => JSON.stringify(c)).join('_');
+    const constraintsHash = constraints.map(c => {
+      if (!c) return '';
+      const obj = c as any;
+      if (obj._type || obj.type) return `${obj._type || obj.type}_${obj._limit || obj.limit || obj._field || ''}`;
+      try {
+        return JSON.stringify(c);
+      } catch {
+        return String(c);
+      }
+    }).join('_');
     const cacheKey = `${CACHE_PREFIX}${collectionName}_${constraintsHash}`;
 
     // 1. Check in-memory in-flight requests (Deduplication)

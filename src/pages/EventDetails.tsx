@@ -5,7 +5,7 @@ import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFavorites } from "@/contexts/FavoritesContext";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset, Star, User, Info, AlertCircle, Share2, Copy, Trash2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, MapPin, Tag, Download, Lock, CheckCircle2, MessageCircle, Mail, ThumbsUp, Eye, Share, X, ChevronLeft, ChevronRight, Heart, Headset, Star, User, Info, AlertCircle, Share2, Copy, Trash2, ShieldCheck, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getImageUrl } from "@/lib/utils";
 import { handleFirestoreError, OperationType } from "@/lib/firebase";
@@ -553,14 +553,18 @@ export default function EventDetails() {
 
   const getYoutubeVideoId = (url: string) => {
     if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : null;
+    const trimmed = String(url).trim();
+    const liveMatch = trimmed.match(/youtube\.com\/live\/([a-zA-Z0-9_-]{11})/);
+    if (liveMatch) return liveMatch[1];
+    const regExp = /^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|live\/|shorts\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = trimmed.match(regExp);
+    return (match && match[2] && match[2].length === 11) ? match[2] : null;
   };
 
-  const youtubeId = getYoutubeVideoId(event.youtubeLink);
+  const youtubeId = getYoutubeVideoId(event.youtubeLink || event.videoUrl);
 
   const guests = event.guests || [];
+  const confirmedGuests = guests.filter((g: any) => g.name && (g.confirmed === true || g.status === 'confirmed'));
   const invitedMembers = event.invitedMembers || [];
   // Organizer card only shows when both name (organizer field specifically) AND image are filled
   const hasOrganizer = Boolean(event.organizer && event.organizerImage);
@@ -625,7 +629,7 @@ export default function EventDetails() {
           
           {/* Guests Grid - Left Side */}
           <div className="flex-1 w-full grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
-             {guests.map((guest: any, idx: number) => {
+             {confirmedGuests.map((guest: any, idx: number) => {
                const colors = [
                  { bg: "bg-pink-500", shadow: "shadow-[0_0_20px_rgba(236,72,153,0.3)] group-hover:shadow-[0_0_40px_rgba(236,72,153,0.6)]" },
                  { bg: "bg-purple-600", shadow: "shadow-[0_0_20px_rgba(147,51,234,0.3)] group-hover:shadow-[0_0_40px_rgba(147,51,234,0.6)]" },
@@ -635,6 +639,8 @@ export default function EventDetails() {
                  { bg: "bg-yellow-500", shadow: "shadow-[0_0_20px_rgba(234,179,8,0.3)] group-hover:shadow-[0_0_40px_rgba(234,179,8,0.6)]" }
                ];
                const theme = colors[idx % colors.length];
+               const guestCongregation = guest.congregation || guest.role || "Convidado Especial";
+
                return (
                  <motion.div 
                    key={`guest-detail-${guest.name}-${idx}`}
@@ -643,6 +649,12 @@ export default function EventDetails() {
                    transition={{ delay: idx * 0.1 }}
                    className="flex flex-col items-center group relative cursor-pointer"
                  >
+                   {/* Tooltip on Hover */}
+                   <div className="absolute -top-12 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none z-30 bg-[#160027] text-white text-[11px] font-bold px-3.5 py-2 rounded-2xl border border-white/20 shadow-[0_10px_30px_rgba(0,0,0,0.8)] backdrop-blur-2xl whitespace-nowrap flex items-center gap-2">
+                     <Building2 className="w-3.5 h-3.5 text-[#BF76FF]" />
+                     <span>{guestCongregation}</span>
+                   </div>
+
                    <div className="relative w-full aspect-square mb-3">
                      {/* Adaptive Glow */}
                      {guest.image && (
@@ -670,7 +682,7 @@ export default function EventDetails() {
                      </div>
                    </div>
                    <h4 className="text-white font-light uppercase text-sm md:text-base text-center leading-tight tracking-tight mt-2">{guest.name}</h4>
-                   <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1 text-center">{guest.role}</p>
+                   <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1 text-center">{guest.congregation || guest.role}</p>
                  </motion.div>
                );
              })}
@@ -908,7 +920,9 @@ export default function EventDetails() {
              <div className="flex flex-col md:flex-row items-center md:items-end justify-between mb-8 gap-4">
                <div className="flex items-center gap-4 w-full">
                  <div className="w-8 h-[2px] bg-[#BF76FF]" />
-                 <h3 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white/90">Vídeo do Evento</h3>
+                 <h3 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-white/90">
+                   {event.videoTitle || event.youtubeTitle || "Vídeo do Evento"}
+                 </h3>
                </div>
              </div>
              <div className="aspect-video w-full rounded-[30px] md:rounded-[40px] overflow-hidden border border-white/10 relative shadow-2xl">
