@@ -852,7 +852,7 @@ export default function EventDetails() {
              </span>
            </Button>
 
-           {event?.moldura && (
+           {(event?.frameUrl || event?.moldura || event?.molduraUrl) && (
              <Button 
                onClick={() => setIsPhotoModalOpen(true)}
                disabled={isPastEvent}
@@ -1456,7 +1456,7 @@ export default function EventDetails() {
         isOpen={isPhotoModalOpen} 
         onClose={() => setIsPhotoModalOpen(false)} 
         eventTitle={event.title} 
-        frameUrl={event.frameUrl}
+        frameUrl={event.frameUrl || event.moldura || event.molduraUrl}
       />
 
       <AnimatePresence>
