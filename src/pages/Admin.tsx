@@ -80,6 +80,7 @@ import {
   Radio,
   MessageCircle,
   Copy,
+  Palette,
   Music,
   HardDrive,
   Key,
@@ -1315,6 +1316,15 @@ const Admin = () => {
     });
   }, [user, isAdmin, loading, profile]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
+
+  useEffect(() => {
+    const handleQuotaExceeded = () => {
+      setIsQuotaExceeded(true);
+    };
+    window.addEventListener('firestore-quota-exceeded', handleQuotaExceeded);
+    return () => window.removeEventListener('firestore-quota-exceeded', handleQuotaExceeded);
+  }, []);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(window.innerWidth < 1280);
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -5921,6 +5931,23 @@ const Admin = () => {
               ? "p-0 pb-0 overflow-hidden h-full flex flex-col"
               : "p-0 md:p-8 pb-32 md:pb-8 overflow-y-auto overflow-x-hidden"
           )}>
+            {isQuotaExceeded && (
+              <div className="w-full bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6 flex items-center justify-between text-amber-200 text-xs font-medium backdrop-blur-xl animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+                  <div>
+                    <p className="font-bold text-amber-300">Cota Diária Gratuita do Firebase Atingida (Quota Exceeded)</p>
+                    <p className="text-[11px] text-amber-200/80">O limite gratuito de consultas diárias do Firebase Spark foi atingido. O painel continua funcionando com dados locais salvos em cache.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsQuotaExceeded(false)}
+                  className="text-xs text-amber-400 hover:text-amber-200 px-3 py-1 bg-amber-500/20 rounded-lg transition-all cursor-pointer shrink-0 ml-4"
+                >
+                  Entendi
+                </button>
+              </div>
+            )}
             <div className={cn(
               "w-full min-w-0",
               (activeTab === "chat" || activeTab === "conversas")
@@ -7220,6 +7247,119 @@ const Admin = () => {
                                           onChange={(e) => setFormData({ ...formData, observations: e.target.value })}
                                           readOnly={isReadOnly}
                                         />
+                                      </div>
+
+                                      {/* Event Color Customization (Color Picker) */}
+                                      <div className="space-y-4 p-6 rounded-[28px] bg-white/[0.02] border border-white/10 my-6">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-2">
+                                            <Palette className="w-5 h-5 text-[#BF76FF]" />
+                                            <label className="text-[11px] font-black uppercase tracking-widest text-white">Cores da Página do Evento (Color Picker)</label>
+                                          </div>
+                                          <span className="text-[9px] text-gray-400 font-medium">Personalize a identidade visual e fundo</span>
+                                        </div>
+
+                                        {/* Preset Palettes */}
+                                        <div className="space-y-2">
+                                          <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Paletas Prontas (1-Clique)</label>
+                                          <div className="flex flex-wrap gap-2">
+                                            {[
+                                              { name: "Profecia Neon", primary: "#BF76FF", secondary: "#EC4899", bg: "#10001D" },
+                                              { name: "Fogo & Glória", primary: "#FF2525", secondary: "#FFE53B", bg: "#1F0303" },
+                                              { name: "Céu Azul", primary: "#00FFFF", secondary: "#2D23FF", bg: "#020B1F" },
+                                              { name: "Vida Esmeralda", primary: "#10B981", secondary: "#00FFFF", bg: "#011A12" },
+                                              { name: "Ouro Real", primary: "#F59E0B", secondary: "#EF4444", bg: "#1C1000" },
+                                              { name: "Minimalista Escuro", primary: "#FFFFFF", secondary: "#A1A1AA", bg: "#09090B" }
+                                            ].map((p, idx) => (
+                                              <button
+                                                key={`palette-${idx}`}
+                                                type="button"
+                                                disabled={isReadOnly}
+                                                onClick={() => setFormData({ ...formData, primaryColor: p.primary, secondaryColor: p.secondary, bgColor: p.bg })}
+                                                className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer"
+                                              >
+                                                <div className="flex gap-1">
+                                                  <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: p.primary }} />
+                                                  <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: p.secondary }} />
+                                                  <span className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ backgroundColor: p.bg }} />
+                                                </div>
+                                                <span className="text-[10px] font-bold text-white uppercase tracking-wider">{p.name}</span>
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+
+                                        {/* Custom Color Pickers */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                                          <div className="space-y-1.5">
+                                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                                              Cor Primária (Destaques)
+                                              <span className="font-mono text-gray-400">{formData.primaryColor || "#BF76FF"}</span>
+                                            </label>
+                                            <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-2 rounded-xl">
+                                              <input
+                                                type="color"
+                                                disabled={isReadOnly}
+                                                value={formData.primaryColor || "#BF76FF"}
+                                                onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
+                                                className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                                              />
+                                              <Input
+                                                placeholder="#BF76FF"
+                                                value={formData.primaryColor || ""}
+                                                onChange={(e) => setFormData({ ...formData, primaryColor: e.target.value })}
+                                                className="h-10 text-[11px] font-mono rounded-lg uppercase"
+                                                readOnly={isReadOnly}
+                                              />
+                                            </div>
+                                          </div>
+
+                                          <div className="space-y-1.5">
+                                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                                              Cor Secundária (Degradê)
+                                              <span className="font-mono text-gray-400">{formData.secondaryColor || "#EC4899"}</span>
+                                            </label>
+                                            <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-2 rounded-xl">
+                                              <input
+                                                type="color"
+                                                disabled={isReadOnly}
+                                                value={formData.secondaryColor || "#EC4899"}
+                                                onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
+                                                className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                                              />
+                                              <Input
+                                                placeholder="#EC4899"
+                                                value={formData.secondaryColor || ""}
+                                                onChange={(e) => setFormData({ ...formData, secondaryColor: e.target.value })}
+                                                className="h-10 text-[11px] font-mono rounded-lg uppercase"
+                                                readOnly={isReadOnly}
+                                              />
+                                            </div>
+                                          </div>
+
+                                          <div className="space-y-1.5">
+                                            <label className="text-[9px] font-bold text-gray-400 uppercase tracking-widest flex items-center justify-between">
+                                              Fundo da Página
+                                              <span className="font-mono text-gray-400">{formData.bgColor || "#10001D"}</span>
+                                            </label>
+                                            <div className="flex items-center gap-3 bg-white/5 border border-white/10 p-2 rounded-xl">
+                                              <input
+                                                type="color"
+                                                disabled={isReadOnly}
+                                                value={formData.bgColor || "#10001D"}
+                                                onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
+                                                className="w-10 h-10 rounded-lg cursor-pointer bg-transparent border-0 p-0"
+                                              />
+                                              <Input
+                                                placeholder="#10001D"
+                                                value={formData.bgColor || ""}
+                                                onChange={(e) => setFormData({ ...formData, bgColor: e.target.value })}
+                                                className="h-10 text-[11px] font-mono rounded-lg uppercase"
+                                                readOnly={isReadOnly}
+                                              />
+                                            </div>
+                                          </div>
+                                        </div>
                                       </div>
                                     </div>
                                   )}

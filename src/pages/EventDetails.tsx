@@ -571,8 +571,17 @@ export default function EventDetails() {
   const organizerDisplay = event.organizer || "";
   const organizerImage = event.organizerImage || "";
 
+  const primaryColor = event.primaryColor || event.accentColor || "#BF76FF";
+  const secondaryColor = event.secondaryColor || "#EC4899";
+  const bgColor = event.bgColor || "#10001D";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#2C0037] to-[#10001D] text-white font-sans selection:bg-[#BF76FF]/40 selection:text-white relative overflow-hidden flex flex-col pb-32">
+    <div 
+      className="min-h-screen text-white font-sans selection:bg-purple-500/40 selection:text-white relative overflow-hidden flex flex-col pb-32"
+      style={{
+        background: `linear-gradient(135deg, ${bgColor} 0%, #0A0014 100%)`
+      }}
+    >
       <Navbar />
       {/* Background Grid */}
       <div 
@@ -598,7 +607,8 @@ export default function EventDetails() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: "easeOut" }}
-            className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-[#BF76FF] mb-4 text-left"
+            className="text-[10px] md:text-xs font-black uppercase tracking-[0.3em] mb-4 text-left"
+            style={{ color: primaryColor }}
           >
             Apresenta
           </motion.p>
@@ -615,7 +625,8 @@ export default function EventDetails() {
                initial={{ opacity: 0 }}
                animate={{ opacity: 1 }}
                transition={{ delay: 0.4, duration: 0.8 }}
-               className="mt-8 text-gray-300 md:text-xl max-w-3xl leading-relaxed border-l-2 border-[#BF76FF] pl-4 text-left"
+               className="mt-8 text-gray-300 md:text-xl max-w-3xl leading-relaxed pl-4 text-left"
+               style={{ borderLeft: `2px solid ${primaryColor}` }}
              >
                {event.content}
              </motion.p>
@@ -682,7 +693,6 @@ export default function EventDetails() {
                      </div>
                    </div>
                    <h4 className="text-white font-light uppercase text-sm md:text-base text-center leading-tight tracking-tight mt-2">{guest.name}</h4>
-                   <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold mt-1 text-center">{guest.congregation || guest.role}</p>
                  </motion.div>
                );
              })}

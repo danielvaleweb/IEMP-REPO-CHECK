@@ -86,25 +86,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log("DEBUG: Iniciando listener de tempo real para perfil:", user.uid);
 
           const userRef = doc(db, "members", user.uid);
+          const attemptedLinking = new Set<string>();
 
           profileUnsubscribe = onSnapshot(userRef, async (snapshot) => {
             let profileData: any = null;
+            const rawData = snapshot.exists() ? snapshot.data() : null;
+            const existingLinkedId = rawData?.linkedMemberId;
 
             if (snapshot.exists()) {
-              profileData = { id: snapshot.id, ...snapshot.data() };
-              if (profileData.linkedMemberId) {
-                const linkedRef = doc(db, "members", profileData.linkedMemberId);
-                const linkedSnap = await getDoc(linkedRef);
-                if (linkedSnap.exists()) {
-                  profileData = { ...linkedSnap.data(), id: linkedSnap.id, uid: user.uid };
+              profileData = { id: snapshot.id, ...rawData };
+              if (existingLinkedId) {
+                try {
+                  const linkedRef = doc(db, "members", existingLinkedId);
+                  const linkedSnap = await getDoc(linkedRef);
+                  if (linkedSnap.exists()) {
+                    profileData = { ...linkedSnap.data(), id: linkedSnap.id, uid: user.uid, linkedMemberId: existingLinkedId };
+                  }
+                } catch (e) {
+                  console.warn("DEBUG: Erro ao buscar perfil vinculado:", e);
                 }
               }
             }
 
             // RECUPERAÇÃO E VINCULAÇÃO DE PERFIL POR E-MAIL:
-            // Se o usuário logou via Google ou E-mail e possui um cadastro prévio no banco sob outro ID,
-            // vinculamos automaticamente para que ele nunca perca seu perfil, nome ou histórico!
-            if (user.email && (!profileData || !profileData.linkedMemberId || profileData.role === "Membro" || profileData.role === "Visitante" || profileData.status === "pending" || profileData.name === "Membro")) {
+            // Executa no máximo UMA vez por sessão para impedir loops infinitos de leitura/escrita
+            if (user.email && !existingLinkedId && !attemptedLinking.has(user.uid) && (!profileData || profileData.role === "Membro" || profileData.role === "Visitante" || profileData.status === "pending" || profileData.name === "Membro")) {
+              attemptedLinking.add(user.uid);
               try {
                 const normalizedEmail = user.email.toLowerCase().trim();
                 let docs: any[] = [];
@@ -118,12 +125,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   qSnap = await getDocs(qLower);
                   if (!qSnap.empty) {
                     docs = qSnap.docs.map(d => ({ id: d.id, ...d.data() })) as any[];
-                  } else {
-                    // Fallback definitivo: busca todos e filtra ignorando maiúsculas e espaços em branco
-                    const allSnap = await getDocs(collection(db, "members"));
-                    docs = allSnap.docs
-                      .map(d => ({ id: d.id, ...d.data() } as any))
-                      .filter(m => m.email && m.email.toLowerCase().trim() === normalizedEmail);
                   }
                 }
 
@@ -133,9 +134,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                                       docs.find(d => d.id !== snapshot.id && d.name && d.name !== "Membro") ||
                                       docs.find(d => d.id !== snapshot.id);
 
-                if (betterProfile && betterProfile.id !== snapshot.id) {
+                if (betterProfile && betterProfile.id !== snapshot.id && betterProfile.id !== existingLinkedId) {
                   console.log("DEBUG: Perfil restaurado e vinculado permanentemente pelo e-mail:", betterProfile.name, betterProfile.role);
-                  profileData = { ...betterProfile, id: betterProfile.id, uid: user.uid };
+                  profileData = { ...betterProfile, id: betterProfile.id, uid: user.uid, linkedMemberId: betterProfile.id };
 
                   const nomeFinal = (betterProfile.name && betterProfile.name !== "Membro") ? betterProfile.name : (user.displayName || "Membro");
 

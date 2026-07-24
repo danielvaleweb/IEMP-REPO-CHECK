@@ -70,8 +70,12 @@ export const saveMessagingToken = async () => {
     } else {
       console.log('No registration token available. Request permission to generate one.');
     }
-  } catch (error) {
-    console.error('An error occurred while retrieving token:', error);
+  } catch (error: any) {
+    if (error?.name === 'AbortError' || error?.message?.includes('push service')) {
+      console.warn('Push notification service unavailable or denied:', error?.message || error);
+    } else {
+      console.error('An error occurred while retrieving token:', error);
+    }
   }
 };
 
