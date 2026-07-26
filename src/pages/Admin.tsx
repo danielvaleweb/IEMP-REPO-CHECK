@@ -8765,7 +8765,7 @@ const Admin = () => {
                               </Button>
                             )}
 
-                            {activeTab === "agenda-direcao" && (canDelete || selectedItem?.authorId === user?.uid) && (
+                            {activeTab === "agenda-direcao" && canDelete && (
                               <Button
                                 variant="ghost"
                                 className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-8 font-bold cursor-pointer transition-all"
@@ -8989,7 +8989,7 @@ const Admin = () => {
                             Voltar
                           </Button>
                         )}
-                        {selectedItem && !isReadOnly && (canDelete || selectedItem.authorId === user?.uid) && (
+                        {selectedItem && !isReadOnly && canDelete && (
                           <Button
                             variant="ghost"
                             className="w-full sm:w-auto text-red-500 hover:bg-red-500/10 rounded-2xl h-12 px-6 cursor-pointer order-3 sm:order-1"
