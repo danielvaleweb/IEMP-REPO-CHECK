@@ -65,6 +65,7 @@ const ResetarSenha = lazyWithRetry(() => import("@/pages/ResetarSenha"));
 const ClearCache = lazyWithRetry(() => import("@/pages/ClearCache"));
 const Gestao = lazyWithRetry(() => import("@/pages/Gestao"));
 const ConfirmarConvite = lazyWithRetry(() => import("@/pages/ConfirmarConvite"));
+const Agenda = lazyWithRetry(() => import("@/pages/Agenda"));
 
 const PageLoader = () => (
   <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -147,6 +148,7 @@ function AppContent() {
               <Route path="/gestao" element={<Gestao />} />
               <Route path="/confirmar-convite" element={<ConfirmarConvite />} />
               <Route path="/confirmar-presenca" element={<ConfirmarConvite />} />
+              <Route path="/agenda" element={<Agenda />} />
               <Route path="/:page" element={<StaticPages />} />
             </Routes>
           </Suspense>
