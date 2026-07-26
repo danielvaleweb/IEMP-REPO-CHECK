@@ -31,9 +31,28 @@ function lazyWithRetry(componentImport: () => Promise<any>) {
     } catch (error: any) {
       if (!pageHasBeenRefreshed) {
         sessionStorage.setItem("chunk_refreshed", "true");
-        window.location.reload();
+        
+        // Em caso de falha de chunk, desregistra service workers problemáticos 
+        // e força um recarregamento ignorando o cache do navegador/CDN.
+        if ('serviceWorker' in navigator) {
+          try {
+            navigator.serviceWorker.getRegistrations().then(regs => {
+              for (const reg of regs) {
+                reg.unregister();
+              }
+            });
+          } catch (e) {
+            console.error('Erro ao limpar service worker:', e);
+          }
+        }
+        
+        // Recarrega com timestamp para ignorar qualquer cache
+        window.location.href = window.location.pathname + '?nocache=' + Date.now();
         return { default: () => null };
       }
+      
+      // Limpa para não ficar travado para sempre se o erro persistir
+      sessionStorage.removeItem("chunk_refreshed");
       throw error;
     }
   });
