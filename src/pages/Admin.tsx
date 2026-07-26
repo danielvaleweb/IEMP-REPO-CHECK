@@ -3852,7 +3852,6 @@ const Admin = () => {
 
       if (collectionName === "posts") setPosts(prev => selectedItem?.id ? prev.map(p => p.id === itemDocId ? { ...p, ...savedItem } : p) : [savedItem, ...prev]);
       if (collectionName === "blog") setBlog(prev => selectedItem?.id ? prev.map(b => b.id === itemDocId ? { ...b, ...savedItem } : b) : [savedItem, ...prev]);
-      if (collectionName === "agenda") setAgenda(prev => selectedItem?.id ? prev.map(a => a.id === itemDocId ? { ...a, ...savedItem } : a) : [...prev, savedItem]);
       if (collectionName === "agenda-direcao") setAgendaDirecao(prev => selectedItem?.id ? prev.map(a => a.id === itemDocId ? { ...a, ...savedItem } : a) : [...prev, savedItem]);
       if (collectionName === "members") setMembers(prev => selectedItem?.id ? prev.map(m => m.id === itemDocId ? { ...m, ...savedItem } : m) : [savedItem, ...prev]);
       if (collectionName === "videos") setVideos(prev => selectedItem?.id ? prev.map(v => v.id === itemDocId ? { ...v, ...savedItem } : v) : [savedItem, ...prev]);
@@ -4085,6 +4084,7 @@ const Admin = () => {
         // Se não for pendente (ex: aprovado), todos veem
         return true;
       })
+      .filter(a => !a.eventId)
       .map(a => ({ ...a, type: 'agenda' }));
 
     return [...fromAgenda, ...fromPosts, ...fromBlog].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
